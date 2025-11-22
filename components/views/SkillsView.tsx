@@ -136,12 +136,21 @@ const SkillCard: React.FC<{ skill: Skill; onClick: () => void; onAddSession: (m:
   const textColor = themeColor.split(' ')[0];
   const barColor = themeColor.split(' ')[1];
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
+  const [isAdding, setIsAdding] = useState(false);
+  const [sessionMinutes, setSessionMinutes] = useState('30');
+
+  const handleConfirmSession = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
-    const mins = prompt("Quantos minutos você estudou?", "30");
-    if (mins && !isNaN(Number(mins))) {
-      onAddSession(Number(mins));
+    const mins = parseInt(sessionMinutes);
+    if (!isNaN(mins) && mins > 0) {
+      onAddSession(mins);
+      setIsAdding(false);
     }
+  };
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsAdding(false);
   };
 
   return (
@@ -170,12 +179,44 @@ const SkillCard: React.FC<{ skill: Skill; onClick: () => void; onAddSession: (m:
           <span className="text-xs"> / {(skill.goalMinutes / 60).toFixed(0)}h</span>
         </div>
 
-        <button
-          onClick={handleQuickAdd}
-          className="p-2 bg-slate-700 hover:bg-emerald-600 text-white rounded-lg transition-colors shadow-lg active:scale-95 flex items-center gap-1 text-xs font-medium"
-        >
-          <Play size={14} fill="currentColor" /> +Sessão
-        </button>
+        {isAdding ? (
+          <div
+            onClick={e => e.stopPropagation()}
+            className="flex items-center gap-1 bg-slate-900 border border-emerald-500/50 rounded-lg p-1 pr-2 animate-in slide-in-from-right-5 fade-in duration-300 shadow-lg shadow-emerald-900/20"
+          >
+            <input
+              type="number"
+              value={sessionMinutes}
+              onChange={e => setSessionMinutes(e.target.value)}
+              className="w-12 bg-transparent text-white text-sm font-bold text-center outline-none"
+              autoFocus
+              onKeyDown={e => e.key === 'Enter' && handleConfirmSession(e)}
+              onClick={e => e.stopPropagation()}
+            />
+            <span className="text-[10px] text-slate-500 font-medium mr-1">min</span>
+
+            <button
+              onClick={handleConfirmSession}
+              className="p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md transition-colors"
+            >
+              <CheckCircle2 size={12} />
+            </button>
+            <button
+              onClick={handleCancel}
+              className="p-1 hover:bg-slate-800 text-slate-500 hover:text-red-400 rounded-md transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsAdding(true); }}
+            className="group/btn p-2 bg-slate-700 hover:bg-emerald-600 text-white rounded-lg transition-all shadow-lg active:scale-95 flex items-center gap-2 text-xs font-medium hover:pr-3"
+          >
+            <Play size={14} fill="currentColor" />
+            <span>+Sessão</span>
+          </button>
+        )}
       </div>
     </div>
   );
