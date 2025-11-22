@@ -4,7 +4,8 @@ import {
     Smile, Meh, Frown, CloudRain, Zap,
     Sparkles, Quote
 } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { getGeminiModel } from '../../services/gemini';
 import { useStorage } from '../../hooks/useStorage';
 
 // --- TYPES ---
@@ -104,8 +105,8 @@ const JournalView: React.FC = () => {
 
         setIsAiLoading(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const response = await ai.models.generateContent({
+            const models = getGeminiModel();
+            const response = await models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: `Analyze this journal entry based on Stoic philosophy and psychology.
             

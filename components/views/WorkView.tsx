@@ -424,32 +424,15 @@ const WorkView: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-10">
 
-      {/* Auto-save Indicator */}
-      <div className="flex justify-end">
-        <div className={`text-xs flex items-center gap-2 px-3 py-1.5 rounded-full transition-all ${saveError
-          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-          : isSaving
-            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-            : 'bg-green-500/10 text-green-400 border border-green-500/20'
-          }`}>
-          {saveError ? (
-            <>
-              <AlertTriangle size={12} />
-              Erro ao salvar
-            </>
-          ) : isSaving ? (
-            <>
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></div>
-              Salvando...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 size={12} />
-              Dados salvos automaticamente
-            </>
-          )}
+      {/* Auto-save Indicator - Error Only */}
+      {saveError && (
+        <div className="flex justify-end">
+          <div className="text-xs flex items-center gap-2 px-3 py-1.5 rounded-full transition-all bg-red-500/10 text-red-400 border border-red-500/20">
+            <AlertTriangle size={12} />
+            Erro ao salvar
+          </div>
         </div>
-      </div>
+      )}
 
       <ConfigurationHeader
         goal={goal} setGoal={setGoal}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
@@ -31,6 +31,7 @@ export function useStorage<T>(
     const [storedValue, setStoredValue] = useState<T>(getLocalStorageValue);
     const [userId, setUserId] = useState<string | null>(null);
     const [useFirebase, setUseFirebase] = useState(false);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Salvar no localStorage
     const saveToLocalStorage = useCallback((value: T) => {
@@ -113,18 +114,24 @@ export function useStorage<T>(
                 // Sempre salvar no localStorage (funciona offline)
                 saveToLocalStorage(valueToStore);
 
-                // Se usuário está autenticado, também salvar no Firestore
+                // Se usuário está autenticado, também salvar no Firestore (com debounce)
                 if (userId && useFirebase) {
-                    try {
-                        const docRef = doc(db, 'users', userId, 'data', key);
-                        await setDoc(docRef, {
-                            value: valueToStore,
-                            updatedAt: new Date().toISOString()
-                        });
-                    } catch (err) {
-                        console.error(`Erro ao salvar no Firestore (key: "${key}"):`, err);
-                        // Não falha se Firebase não funcionar, continua com localStorage
+                    if (timeoutRef.current) {
+                        clearTimeout(timeoutRef.current);
                     }
+
+                    timeoutRef.current = setTimeout(async () => {
+                        try {
+                            const docRef = doc(db, 'users', userId, 'data', key);
+                            await setDoc(docRef, {
+                                value: valueToStore,
+                                updatedAt: new Date().toISOString()
+                            });
+                        } catch (err) {
+                            console.error(`Erro ao salvar no Firestore (key: "${key}"):`, err);
+                            // Não falha se Firebase não funcionar, continua com localStorage
+                        }
+                    }, 2000); // 2 segundos de debounce para evitar writes excessivos
                 }
             } catch (err) {
                 console.error(`Erro ao salvar (key: "${key}"):`, err);

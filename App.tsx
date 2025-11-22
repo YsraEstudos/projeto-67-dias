@@ -48,6 +48,9 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>(ViewState.DASHBOARD);
   const [notificationCount, setNotificationCount] = useState(0);
 
+  // Read Work Data for Dashboard
+  const [workData] = useStorage<any>('workview_data', {});
+
   // --- PROJECT CONFIG (For Day Counter) ---
   const [projectConfig, setProjectConfig] = useStorage<ProjectConfig>('p67_project_config', {
     startDate: new Date().toISOString(),
@@ -120,7 +123,7 @@ const App: React.FC = () => {
       {
         id: ViewState.WORK,
         title: 'Trabalho',
-        subtitle: '0/250 itens',
+        subtitle: `${workData.currentCount || 0}/${workData.goal || 250} itens`,
         icon: Briefcase,
         color: 'text-orange-500',
       },
@@ -191,7 +194,7 @@ const App: React.FC = () => {
         color: 'text-slate-400',
       },
     ];
-  }, [notificationCount]);
+  }, [notificationCount, workData]);
 
   const renderContent = () => {
     let content: React.ReactNode;

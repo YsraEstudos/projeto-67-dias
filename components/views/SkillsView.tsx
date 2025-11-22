@@ -4,7 +4,8 @@ import {
   Link as LinkIcon, Trash2, Bot, Sparkles, X, CheckCircle2, Circle,
   Youtube, FileText, Play, ArrowLeft, Layers, Download
 } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { getGeminiModel } from '../../services/gemini';
 import { Skill, SkillResource, SkillRoadmapItem } from '../types';
 import { useStorage } from '../../hooks/useStorage';
 
@@ -559,10 +560,10 @@ const CreateSkillModal: React.FC<{ onClose: () => void; onCreate: (s: Skill) => 
                   style={{ backgroundColor: `var(--color-${c}-500)` }}
                 >
                   <div className={`w-full h-full rounded-full ${c === 'emerald' ? 'bg-emerald-500' :
-                      c === 'blue' ? 'bg-blue-500' :
-                        c === 'purple' ? 'bg-purple-500' :
-                          c === 'amber' ? 'bg-amber-500' :
-                            'bg-rose-500'
+                    c === 'blue' ? 'bg-blue-500' :
+                      c === 'purple' ? 'bg-purple-500' :
+                        c === 'amber' ? 'bg-amber-500' :
+                          'bg-rose-500'
                     }`}></div>
                 </button>
               ))}
@@ -598,8 +599,8 @@ const AIRoadmapModal: React.FC<{
     const prompt = input || `Create a study roadmap for learning ${skillName} at ${level} level.`;
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
+      const models = getGeminiModel();
+      const response = await models.generateContent({
         model: "gemini-2.5-flash",
         contents: `User goal: ${prompt}.
                 

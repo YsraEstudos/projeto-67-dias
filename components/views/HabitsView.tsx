@@ -5,7 +5,8 @@ import {
     LayoutList, CheckCircle2, Clock, Sparkles, Bot, Calendar, ChevronLeft, ChevronRight,
     Target, ListChecks, Minus
 } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { getGeminiModel } from '../../services/gemini';
 import { OrganizeTask, Habit, SubHabit } from '../types';
 import { useStorage } from '../../hooks/useStorage';
 
@@ -678,8 +679,8 @@ const AITaskAssistantModal: React.FC<{
         setInput('');
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const response = await ai.models.generateContent({
+            const models = getGeminiModel();
+            const response = await models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: `User request: "${userMsg}".
                 
