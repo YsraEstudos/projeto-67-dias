@@ -1,227 +1,225 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  CalendarDays, CheckCircle2, Circle, GripVertical, 
-  Sparkles, Trash2, BrainCircuit, ChevronLeft, ChevronRight,
-  Calendar, Bot, X, Plus
+import {
+    CalendarDays, CheckCircle2, Circle, GripVertical,
+    Sparkles, Trash2, BrainCircuit, ChevronLeft, ChevronRight,
+    Calendar, Bot, X, Plus
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { RestActivity } from '../types';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useStorage } from '../../hooks/useStorage';
 
 // --- MOCK INITIAL DATA ---
 const INITIAL_ACTIVITIES: RestActivity[] = [
-  { id: '1', title: 'Alongamento de pescoço (30s)', isCompleted: false, type: 'DAILY', order: 0 },
-  { id: '2', title: 'Beber 1 copo de água', isCompleted: false, type: 'DAILY', order: 1 },
-  { id: '3', title: 'Flexão (Série 1)', isCompleted: false, type: 'WEEKLY', daysOfWeek: [1, 3, 5], order: 2 }, // Mon, Wed, Fri
+    { id: '1', title: 'Alongamento de pescoço (30s)', isCompleted: false, type: 'DAILY', order: 0 },
+    { id: '2', title: 'Beber 1 copo de água', isCompleted: false, type: 'DAILY', order: 1 },
+    { id: '3', title: 'Flexão (Série 1)', isCompleted: false, type: 'WEEKLY', daysOfWeek: [1, 3, 5], order: 2 }, // Mon, Wed, Fri
 ];
 
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 const RestView: React.FC = () => {
-  // State
-  const [activities, setActivities] = useLocalStorage<RestActivity[]>('p67_rest_activities', INITIAL_ACTIVITIES);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+    // State
+    const [activities, setActivities] = useStorage<RestActivity[]>('p67_rest_activities', INITIAL_ACTIVITIES);
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
-  // --- FILTERING LOGIC ---
-  const filteredActivities = useMemo(() => {
-    const dayOfWeek = selectedDate.getDay();
-    const dateString = selectedDate.toISOString().split('T')[0];
+    // --- FILTERING LOGIC ---
+    const filteredActivities = useMemo(() => {
+        const dayOfWeek = selectedDate.getDay();
+        const dateString = selectedDate.toISOString().split('T')[0];
 
-    return activities
-      .filter(act => {
-        if (act.type === 'DAILY') return true;
-        if (act.type === 'WEEKLY') return act.daysOfWeek?.includes(dayOfWeek);
-        if (act.type === 'ONCE') return act.specificDate === dateString;
-        return false;
-      })
-      .sort((a, b) => a.order - b.order);
-  }, [activities, selectedDate]);
+        return activities
+            .filter(act => {
+                if (act.type === 'DAILY') return true;
+                if (act.type === 'WEEKLY') return act.daysOfWeek?.includes(dayOfWeek);
+                if (act.type === 'ONCE') return act.specificDate === dateString;
+                return false;
+            })
+            .sort((a, b) => a.order - b.order);
+    }, [activities, selectedDate]);
 
-  // --- HANDLERS ---
+    // --- HANDLERS ---
 
-  const handleAddGeneratedItems = (items: { title: string, type: 'DAILY' | 'ONCE' | 'WEEKLY' }[]) => {
-      const baseOrder = activities.length;
-      const newItems: RestActivity[] = items.map((item, idx) => ({
-          id: Date.now().toString() + idx,
-          title: item.title,
-          isCompleted: false,
-          type: item.type,
-          order: baseOrder + idx,
-          daysOfWeek: item.type === 'WEEKLY' ? [selectedDate.getDay()] : undefined,
-          specificDate: item.type === 'ONCE' ? selectedDate.toISOString().split('T')[0] : undefined,
-      }));
-      setActivities([...activities, ...newItems]);
-      setIsAIModalOpen(false);
-  };
+    const handleAddGeneratedItems = (items: { title: string, type: 'DAILY' | 'ONCE' | 'WEEKLY' }[]) => {
+        const baseOrder = activities.length;
+        const newItems: RestActivity[] = items.map((item, idx) => ({
+            id: Date.now().toString() + idx,
+            title: item.title,
+            isCompleted: false,
+            type: item.type,
+            order: baseOrder + idx,
+            daysOfWeek: item.type === 'WEEKLY' ? [selectedDate.getDay()] : undefined,
+            specificDate: item.type === 'ONCE' ? selectedDate.toISOString().split('T')[0] : undefined,
+        }));
+        setActivities([...activities, ...newItems]);
+        setIsAIModalOpen(false);
+    };
 
-  const toggleComplete = (id: string) => {
-    setActivities(prev => prev.map(a => a.id === id ? { ...a, isCompleted: !a.isCompleted } : a));
-  };
+    const toggleComplete = (id: string) => {
+        setActivities(prev => prev.map(a => a.id === id ? { ...a, isCompleted: !a.isCompleted } : a));
+    };
 
-  const deleteActivity = (id: string) => {
-    setActivities(prev => prev.filter(a => a.id !== id));
-  };
+    const deleteActivity = (id: string) => {
+        setActivities(prev => prev.filter(a => a.id !== id));
+    };
 
-  // --- DRAG AND DROP ---
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    e.dataTransfer.setData('index', index.toString());
-    e.dataTransfer.effectAllowed = "move";
-  };
+    // --- DRAG AND DROP ---
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        e.dataTransfer.setData('index', index.toString());
+        e.dataTransfer.effectAllowed = "move";
+    };
 
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    const sourceIndex = Number(e.dataTransfer.getData('index'));
-    if (isNaN(sourceIndex) || sourceIndex === targetIndex) return;
+    const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+        e.preventDefault();
+        const sourceIndex = Number(e.dataTransfer.getData('index'));
+        if (isNaN(sourceIndex) || sourceIndex === targetIndex) return;
 
-    // Work with the filtered list to show immediate feedback
-    const newFiltered = [...filteredActivities];
-    const [movedItem] = newFiltered.splice(sourceIndex, 1);
-    newFiltered.splice(targetIndex, 0, movedItem);
+        // Work with the filtered list to show immediate feedback
+        const newFiltered = [...filteredActivities];
+        const [movedItem] = newFiltered.splice(sourceIndex, 1);
+        newFiltered.splice(targetIndex, 0, movedItem);
 
-    // Re-calculate orders for the whole visible group
-    const updatedOrders = newFiltered.map((item, idx) => ({
-        id: item.id,
-        newOrder: idx
-    }));
+        // Re-calculate orders for the whole visible group
+        const updatedOrders = newFiltered.map((item, idx) => ({
+            id: item.id,
+            newOrder: idx
+        }));
 
-    // Update global state
-    setActivities(prev => prev.map(item => {
-        const update = updatedOrders.find(u => u.id === item.id);
-        return update ? { ...item, order: update.newOrder } : item;
-    }));
-  };
+        // Update global state
+        setActivities(prev => prev.map(item => {
+            const update = updatedOrders.find(u => u.id === item.id);
+            return update ? { ...item, order: update.newOrder } : item;
+        }));
+    };
 
-  // --- DATE NAVIGATION ---
-  const changeDay = (days: number) => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + days);
-    setSelectedDate(newDate);
-  };
+    // --- DATE NAVIGATION ---
+    const changeDay = (days: number) => {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(newDate.getDate() + days);
+        setSelectedDate(newDate);
+    };
 
-  return (
-    <div className="h-full flex flex-col max-w-4xl mx-auto animate-in fade-in duration-500 pb-24 relative">
-      
-      {/* HEADER: Date Selector */}
-      <div className="flex items-center justify-between mb-8 bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
-         <button onClick={() => changeDay(-1)} className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
-            <ChevronLeft size={24} />
-         </button>
-         
-         <div className="flex flex-col items-center">
-            <span className="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-1">Planejador de Descansos</span>
-            <div className="flex items-center gap-2 text-xl md:text-2xl font-bold text-slate-200">
-                <CalendarDays size={24} className="text-cyan-500" />
-                <span className="capitalize">
-                    {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' })}
-                </span>
-                <span className="text-slate-600 font-light">|</span>
-                <span className="text-slate-400 text-lg">
-                    {selectedDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
-                </span>
+    return (
+        <div className="h-full flex flex-col max-w-4xl mx-auto animate-in fade-in duration-500 pb-24 relative">
+
+            {/* HEADER: Date Selector */}
+            <div className="flex items-center justify-between mb-8 bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
+                <button onClick={() => changeDay(-1)} className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
+                    <ChevronLeft size={24} />
+                </button>
+
+                <div className="flex flex-col items-center">
+                    <span className="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-1">Planejador de Descansos</span>
+                    <div className="flex items-center gap-2 text-xl md:text-2xl font-bold text-slate-200">
+                        <CalendarDays size={24} className="text-cyan-500" />
+                        <span className="capitalize">
+                            {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long' })}
+                        </span>
+                        <span className="text-slate-600 font-light">|</span>
+                        <span className="text-slate-400 text-lg">
+                            {selectedDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
+                        </span>
+                    </div>
+                </div>
+
+                <button onClick={() => changeDay(1)} className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
+                    <ChevronRight size={24} />
+                </button>
             </div>
-         </div>
 
-         <button onClick={() => changeDay(1)} className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
-            <ChevronRight size={24} />
-         </button>
-      </div>
-
-      {/* LIST AREA */}
-      <div className="space-y-3">
-         {filteredActivities.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
-                 <Calendar size={48} className="text-slate-700 mb-4" />
-                 <div className="text-slate-500 font-medium">Nenhum descanso planejado para hoje.</div>
-                 <div className="text-sm text-slate-600 mt-1">Use o assistente IA no canto para adicionar treinos ou pausas.</div>
-             </div>
-         ) : (
-             filteredActivities.map((activity, index) => (
-                 <div 
-                    key={activity.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, index)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, index)}
-                    className={`group relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${
-                        activity.isCompleted 
-                        ? 'bg-slate-900/30 border-slate-800 opacity-60' 
-                        : 'bg-slate-800 border-slate-700 hover:border-cyan-500/30 hover:bg-slate-750 shadow-md'
-                    }`}
-                 >
-                    {/* Drag Handle */}
-                    <div className="cursor-grab active:cursor-grabbing text-slate-700 hover:text-cyan-500 p-1 transition-colors">
-                        <GripVertical size={20} />
+            {/* LIST AREA */}
+            <div className="space-y-3">
+                {filteredActivities.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
+                        <Calendar size={48} className="text-slate-700 mb-4" />
+                        <div className="text-slate-500 font-medium">Nenhum descanso planejado para hoje.</div>
+                        <div className="text-sm text-slate-600 mt-1">Use o assistente IA no canto para adicionar treinos ou pausas.</div>
                     </div>
+                ) : (
+                    filteredActivities.map((activity, index) => (
+                        <div
+                            key={activity.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => handleDrop(e, index)}
+                            className={`group relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${activity.isCompleted
+                                ? 'bg-slate-900/30 border-slate-800 opacity-60'
+                                : 'bg-slate-800 border-slate-700 hover:border-cyan-500/30 hover:bg-slate-750 shadow-md'
+                                }`}
+                        >
+                            {/* Drag Handle */}
+                            <div className="cursor-grab active:cursor-grabbing text-slate-700 hover:text-cyan-500 p-1 transition-colors">
+                                <GripVertical size={20} />
+                            </div>
 
-                    {/* Checkbox */}
-                    <button 
-                        onClick={() => toggleComplete(activity.id)}
-                        className={`flex-shrink-0 transition-all duration-300 ${
-                            activity.isCompleted 
-                            ? 'text-cyan-500 scale-110' 
-                            : 'text-slate-600 hover:text-cyan-400'
-                        }`}
-                    >
-                        {activity.isCompleted ? <CheckCircle2 size={28} className="drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]" /> : <Circle size={28} />}
-                    </button>
+                            {/* Checkbox */}
+                            <button
+                                onClick={() => toggleComplete(activity.id)}
+                                className={`flex-shrink-0 transition-all duration-300 ${activity.isCompleted
+                                    ? 'text-cyan-500 scale-110'
+                                    : 'text-slate-600 hover:text-cyan-400'
+                                    }`}
+                            >
+                                {activity.isCompleted ? <CheckCircle2 size={28} className="drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]" /> : <Circle size={28} />}
+                            </button>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                        <div className={`font-medium text-lg truncate transition-colors ${activity.isCompleted ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
-                            {activity.title}
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                                <div className={`font-medium text-lg truncate transition-colors ${activity.isCompleted ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                                    {activity.title}
+                                </div>
+                                <div className="flex gap-2 mt-1.5">
+                                    {activity.type === 'DAILY' && (
+                                        <span className="text-[10px] font-bold bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 tracking-wider">
+                                            DIÁRIO
+                                        </span>
+                                    )}
+                                    {activity.type === 'WEEKLY' && (
+                                        <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 tracking-wider">
+                                            SEMANAL
+                                        </span>
+                                    )}
+                                    {activity.type === 'ONCE' && (
+                                        <span className="text-[10px] font-bold bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded border border-slate-600/50 tracking-wider">
+                                            HOJE
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <button
+                                onClick={() => deleteActivity(activity.id)}
+                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded-lg transition-all duration-200"
+                                title="Remover"
+                            >
+                                <Trash2 size={18} />
+                            </button>
                         </div>
-                        <div className="flex gap-2 mt-1.5">
-                            {activity.type === 'DAILY' && (
-                                <span className="text-[10px] font-bold bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 tracking-wider">
-                                    DIÁRIO
-                                </span>
-                            )}
-                            {activity.type === 'WEEKLY' && (
-                                <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 tracking-wider">
-                                    SEMANAL
-                                </span>
-                            )}
-                            {activity.type === 'ONCE' && (
-                                <span className="text-[10px] font-bold bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded border border-slate-600/50 tracking-wider">
-                                    HOJE
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                    ))
+                )}
+            </div>
 
-                    {/* Actions */}
-                    <button 
-                        onClick={() => deleteActivity(activity.id)}
-                        className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded-lg transition-all duration-200"
-                        title="Remover"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                 </div>
-             ))
-         )}
-      </div>
+            {/* FLOATING AI BUTTON */}
+            <button
+                onClick={() => setIsAIModalOpen(true)}
+                className="fixed bottom-8 right-8 z-40 group flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-white rounded-full shadow-lg shadow-cyan-500/30 hover:scale-110 transition-all duration-300 hover:shadow-cyan-500/50 border border-white/10"
+                title="IA Fitness & Descanso"
+            >
+                <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
+                <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-hover:opacity-100 duration-1000"></div>
+            </button>
 
-      {/* FLOATING AI BUTTON */}
-      <button
-          onClick={() => setIsAIModalOpen(true)}
-          className="fixed bottom-8 right-8 z-40 group flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-white rounded-full shadow-lg shadow-cyan-500/30 hover:scale-110 transition-all duration-300 hover:shadow-cyan-500/50 border border-white/10"
-          title="IA Fitness & Descanso"
-      >
-          <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
-          <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-hover:opacity-100 duration-1000"></div>
-      </button>
-
-      {/* AI MODAL */}
-      {isAIModalOpen && (
-          <AIRestAssistantModal 
-              onClose={() => setIsAIModalOpen(false)}
-              onApply={handleAddGeneratedItems}
-          />
-      )}
-    </div>
-  );
+            {/* AI MODAL */}
+            {isAIModalOpen && (
+                <AIRestAssistantModal
+                    onClose={() => setIsAIModalOpen(false)}
+                    onApply={handleAddGeneratedItems}
+                />
+            )}
+        </div>
+    );
 };
 
 // --- AI COMPONENT ---
@@ -233,15 +231,15 @@ const AIRestAssistantModal: React.FC<{
     const [frequency, setFrequency] = useState<'ONCE' | 'DAILY'>('ONCE');
     const [isLoading, setIsLoading] = useState(false);
     const [generatedItems, setGeneratedItems] = useState<any[] | null>(null);
-    const [conversation, setConversation] = useState<{role: 'user' | 'ai', text: string}[]>([]);
+    const [conversation, setConversation] = useState<{ role: 'user' | 'ai', text: string }[]>([]);
 
     const handleGenerate = async () => {
         if (!input.trim()) return;
-        
+
         setIsLoading(true);
         const userMsg = input;
         setConversation(prev => [...prev, { role: 'user', text: userMsg }]);
-        setGeneratedItems(null); 
+        setGeneratedItems(null);
         setInput('');
 
         try {
@@ -278,9 +276,9 @@ const AIRestAssistantModal: React.FC<{
                     type: frequency
                 }));
                 setGeneratedItems(itemsWithType);
-                setConversation(prev => [...prev, { 
-                    role: 'ai', 
-                    text: `Entendido! Quebrei sua solicitação em ${itemsWithType.length} itens.` 
+                setConversation(prev => [...prev, {
+                    role: 'ai',
+                    text: `Entendido! Quebrei sua solicitação em ${itemsWithType.length} itens.`
                 }]);
             }
         } catch (error) {
@@ -305,7 +303,7 @@ const AIRestAssistantModal: React.FC<{
                             <p className="text-xs text-cyan-400">Gemini 2.5</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
                 </div>
 
                 {/* Chat Body */}
@@ -317,14 +315,13 @@ const AIRestAssistantModal: React.FC<{
                             <p className="text-xs">Ex: "3 séries de 15 flexões", "Alongamento completo".</p>
                         </div>
                     )}
-                    
+
                     {conversation.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${
-                                msg.role === 'user' 
-                                ? 'bg-cyan-600 text-white rounded-br-none' 
+                            <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${msg.role === 'user'
+                                ? 'bg-cyan-600 text-white rounded-br-none'
                                 : 'bg-slate-800 text-slate-200 rounded-bl-none border border-slate-700'
-                            }`}>
+                                }`}>
                                 {msg.text}
                             </div>
                         </div>
@@ -351,7 +348,7 @@ const AIRestAssistantModal: React.FC<{
                                     </div>
                                 ))}
                             </div>
-                            <button 
+                            <button
                                 onClick={() => onApply(generatedItems)}
                                 className="w-full mt-3 bg-cyan-600 hover:bg-cyan-500 text-white py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/20"
                             >
@@ -364,11 +361,11 @@ const AIRestAssistantModal: React.FC<{
                 {/* Input Area */}
                 <div className="p-4 bg-slate-900 border-t border-slate-800">
                     <div className="flex gap-2 mb-3">
-                         <button onClick={() => setFrequency('ONCE')} className={`flex-1 py-1 text-xs rounded border ${frequency === 'ONCE' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Só Hoje</button>
-                         <button onClick={() => setFrequency('DAILY')} className={`flex-1 py-1 text-xs rounded border ${frequency === 'DAILY' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Diário</button>
+                        <button onClick={() => setFrequency('ONCE')} className={`flex-1 py-1 text-xs rounded border ${frequency === 'ONCE' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Só Hoje</button>
+                        <button onClick={() => setFrequency('DAILY')} className={`flex-1 py-1 text-xs rounded border ${frequency === 'DAILY' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Diário</button>
                     </div>
                     <div className="flex gap-2">
-                        <input 
+                        <input
                             className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-cyan-500 outline-none placeholder:text-slate-600"
                             placeholder="Digite sua rotina (ex: 4x12 Supino)..."
                             value={input}
@@ -376,7 +373,7 @@ const AIRestAssistantModal: React.FC<{
                             onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleGenerate()}
                             autoFocus
                         />
-                        <button 
+                        <button
                             onClick={handleGenerate}
                             disabled={!input.trim() || isLoading}
                             className="bg-cyan-600 disabled:bg-slate-800 disabled:text-slate-600 text-white p-3 rounded-xl hover:bg-cyan-500 transition-colors"

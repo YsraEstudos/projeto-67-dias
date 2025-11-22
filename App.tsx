@@ -21,7 +21,7 @@ import { ViewState, DashboardCardProps, OrganizeTask, User, GlobalTimerState, Pr
 import { Card } from './components/Card';
 import { Loading } from './components/shared/Loading';
 import { AuthView } from './components/views/AuthView';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { useStorage } from './hooks/useStorage';
 
 // --- Lazy Load Views ---
 const WorkView = React.lazy(() => import('./components/views/WorkView'));
@@ -38,97 +38,18 @@ const SundayView = React.lazy(() => import('./components/views/SundayView')); //
 const PlaceholderView = React.lazy(() => import('./components/shared/PlaceholderView'));
 
 // --- Floating Timer Widget ---
-const TimerWidget: React.FC<{ onClick: () => void }> = ({ onClick }) => {
-  const [timerState, setTimerState] = useLocalStorage<GlobalTimerState>('p67_tool_timer', {
-    mode: 'TIMER',
-    status: 'IDLE',
-    startTime: null,
-    endTime: null,
-    accumulated: 0,
-    totalDuration: 0
-  });
-  const [display, setDisplay] = useState('');
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const update = () => {
-        if (timerState.status === 'IDLE' || timerState.status === 'FINISHED') return;
-        
-        const now = Date.now();
-        let ms = 0;
-        
-        if (timerState.status === 'PAUSED') {
-            ms = timerState.accumulated;
-        } else if (timerState.status === 'RUNNING') {
-            if (timerState.mode === 'TIMER' && timerState.endTime) {
-                ms = Math.max(0, timerState.endTime - now);
-            } else if (timerState.mode === 'STOPWATCH' && timerState.startTime) {
-                ms = now - timerState.startTime + timerState.accumulated;
-            }
-        }
-
-        const totalSec = Math.floor(ms / 1000);
-        const m = Math.floor(totalSec / 60);
-        const s = totalSec % 60;
-        setDisplay(`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`);
-    };
-    
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [timerState]);
-
-  if (timerState.status === 'IDLE' || timerState.status === 'FINISHED') return null;
-
-  return (
-    <div 
-      className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2"
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-    >
-        {expanded && (
-            <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-2xl animate-in slide-in-from-bottom-2 mb-2 w-48">
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase">{timerState.label || (timerState.mode === 'TIMER' ? 'Temporizador' : 'Cronômetro')}</span>
-                    {timerState.status === 'RUNNING' && <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>}
-                </div>
-                <div className="text-3xl font-mono font-bold text-white text-center my-2">
-                    {display}
-                </div>
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onClick(); }} 
-                    className="w-full text-xs bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg transition-colors"
-                >
-                    Abrir Ferramentas
-                </button>
-            </div>
-        )}
-        
-        <button className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg border transition-all hover:scale-110 ${
-            timerState.status === 'RUNNING' 
-            ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/30' 
-            : 'bg-slate-800 border-slate-600 text-slate-400'
-        }`}>
-            <Timer size={24} className={timerState.status === 'RUNNING' ? 'animate-pulse' : ''} />
-            {!expanded && (
-                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-950"></span>
-            )}
-        </button>
-    </div>
-  );
-};
+import { TimerWidget } from './components/TimerWidget';
 
 const App: React.FC = () => {
   // --- AUTH STATE ---
-  const [user, setUser] = useLocalStorage<User | null>('p67_session', null);
-  
+  const [user, setUser] = useStorage<User | null>('p67_session', null);
+
   // --- APP STATE ---
   const [activeView, setActiveView] = useState<ViewState>(ViewState.DASHBOARD);
   const [notificationCount, setNotificationCount] = useState(0);
-  
+
   // --- PROJECT CONFIG (For Day Counter) ---
-  const [projectConfig, setProjectConfig] = useLocalStorage<ProjectConfig>('p67_project_config', {
+  const [projectConfig, setProjectConfig] = useStorage<ProjectConfig>('p67_project_config', {
     startDate: new Date().toISOString(),
     userName: user?.name || '',
     isGuest: user?.isGuest || false
@@ -139,8 +60,8 @@ const App: React.FC = () => {
     const start = new Date(projectConfig.startDate);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    return diffDays; 
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   }, [projectConfig.startDate]);
 
   // Optimization: Read tasks only when needed for notifications
@@ -153,12 +74,12 @@ const App: React.FC = () => {
       }
       const tasks: OrganizeTask[] = JSON.parse(saved);
       const today = new Date().toISOString().split('T')[0];
-      
+
       const count = tasks.filter(t => {
-          if (t.isCompleted || t.isArchived) return false;
-          if (t.reminderDate && t.reminderDate <= today) return true;
-          if (t.dueDate && t.dueDate < today) return true; // Overdue
-          return false;
+        if (t.isCompleted || t.isArchived) return false;
+        if (t.reminderDate && t.reminderDate <= today) return true;
+        if (t.dueDate && t.dueDate < today) return true; // Overdue
+        return false;
       }).length;
       setNotificationCount(count);
     } catch {
@@ -169,7 +90,7 @@ const App: React.FC = () => {
   // Update notifications when returning to dashboard
   useEffect(() => {
     if (activeView === ViewState.DASHBOARD) {
-        updateNotifications();
+      updateNotifications();
     }
   }, [activeView, updateNotifications]);
 
@@ -177,11 +98,11 @@ const App: React.FC = () => {
     setUser(loggedInUser);
     // If new user, set start date
     if (!localStorage.getItem('p67_project_config')) {
-        setProjectConfig({
-            startDate: new Date().toISOString(),
-            userName: loggedInUser.name,
-            isGuest: loggedInUser.isGuest
-        });
+      setProjectConfig({
+        startDate: new Date().toISOString(),
+        userName: loggedInUser.name,
+        isGuest: loggedInUser.isGuest
+      });
     }
   };
 
@@ -288,12 +209,12 @@ const App: React.FC = () => {
             ))}
             {/* Settings Card */}
             <div className="col-span-1 md:col-span-2">
-              <Card 
-                id={ViewState.SETTINGS} 
-                title="Configurações" 
-                icon={Settings} 
-                color="text-slate-400" 
-                onClick={setActiveView} 
+              <Card
+                id={ViewState.SETTINGS}
+                title="Configurações"
+                icon={Settings}
+                color="text-slate-400"
+                onClick={setActiveView}
               />
             </div>
           </div>
@@ -327,21 +248,21 @@ const App: React.FC = () => {
   }, [activeView, dashboardCards]);
 
   // --- RENDER AUTH ---
-  
+
   if (!user) {
     return <AuthView onLogin={handleLogin} />;
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
-      
+
       {/* Top Navigation / Header */}
       <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          
+
           <div className="flex items-center gap-4 w-20">
             {activeView !== ViewState.DASHBOARD && (
-              <button 
+              <button
                 onClick={() => setActiveView(ViewState.DASHBOARD)}
                 className="p-2 -ml-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white group"
                 aria-label="Voltar"
@@ -349,11 +270,11 @@ const App: React.FC = () => {
                 <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
               </button>
             )}
-            
+
             {activeView === ViewState.DASHBOARD && (
-                <div className="p-2 bg-slate-800 rounded-full cursor-pointer hover:bg-slate-700 transition-colors">
-                    <Menu size={20} className="text-slate-400" />
-                </div>
+              <div className="p-2 bg-slate-800 rounded-full cursor-pointer hover:bg-slate-700 transition-colors">
+                <Menu size={20} className="text-slate-400" />
+              </div>
             )}
           </div>
 
@@ -363,29 +284,29 @@ const App: React.FC = () => {
             </h1>
             {activeView === ViewState.DASHBOARD && (
               <p className="text-xs md:text-sm text-slate-400 mt-1 font-medium tracking-wide">
-                  Dia {Math.min(67, Math.max(1, currentDay))} de 67
+                Dia {Math.min(67, Math.max(1, currentDay))} de 67
               </p>
             )}
           </div>
 
           <div className="w-20 flex justify-end items-center gap-3">
-             {/* User Profile / Logout */}
-             {activeView === ViewState.DASHBOARD && (
-                <div className="flex items-center gap-3">
-                   <span className="hidden md:block text-sm text-slate-400 text-right">
-                      <div className="font-bold text-slate-200">{user.name}</div>
-                      <div className="text-[10px] uppercase">{user.isGuest ? 'Visitante' : 'Membro'}</div>
-                   </span>
-                   <button 
-                      onClick={handleLogout}
-                      className="p-2 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-slate-400 transition-colors"
-                      title="Sair"
-                   >
-                      <LogOut size={18} />
-                   </button>
-                </div>
-             )}
-          </div> 
+            {/* User Profile / Logout */}
+            {activeView === ViewState.DASHBOARD && (
+              <div className="flex items-center gap-3">
+                <span className="hidden md:block text-sm text-slate-400 text-right">
+                  <div className="font-bold text-slate-200">{user.name}</div>
+                  <div className="text-[10px] uppercase">{user.isGuest ? 'Visitante' : 'Membro'}</div>
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-slate-400 transition-colors"
+                  title="Sair"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -396,7 +317,7 @@ const App: React.FC = () => {
 
       {/* Floating Timer Bubble (Only on Dashboard) */}
       {activeView === ViewState.DASHBOARD && (
-          <TimerWidget onClick={() => setActiveView(ViewState.TOOLS)} />
+        <TimerWidget onClick={() => setActiveView(ViewState.TOOLS)} />
       )}
 
     </div>
