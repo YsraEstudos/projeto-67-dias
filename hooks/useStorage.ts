@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
 
@@ -16,6 +16,16 @@ export function useStorage<T>(
     key: string,
     initialValue: T
 ): [T, (value: T | ((val: T) => T)) => void] {
+    // Detect whether Firebase services are actually usable (tests/SSR may not provide them)
+    const firebaseSupported = Boolean(
+        auth &&
+        db &&
+        typeof onAuthStateChanged === 'function' &&
+        typeof doc === 'function' &&
+        typeof setDoc === 'function' &&
+        typeof onSnapshot === 'function'
+    );
+
     // Carregar valor inicial do localStorage
     const getLocalStorageValue = (): T => {
         if (typeof window === 'undefined') return initialValue;
@@ -30,7 +40,7 @@ export function useStorage<T>(
 
     const [storedValue, setStoredValue] = useState<T>(getLocalStorageValue);
     const [userId, setUserId] = useState<string | null>(null);
-    const [useFirebase, setUseFirebase] = useState(false);
+    const [useFirebase, setUseFirebase] = useState(firebaseSupported);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Salvar no localStorage
@@ -46,7 +56,11 @@ export function useStorage<T>(
 
     // Gerenciar autenticação
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (!firebaseSupported) {
+            return () => { };
+        }
+
+        const unsubscribe = onAuthStateChanged(auth as Parameters<typeof onAuthStateChanged>[0], (user) => {
             if (user) {
                 setUserId(user.uid);
                 setUseFirebase(true);
@@ -57,11 +71,11 @@ export function useStorage<T>(
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [firebaseSupported]);
 
     // Sincronizar com Firebase quando usuário está autenticado
     useEffect(() => {
-        if (!userId || !useFirebase) return;
+        if (!userId || !useFirebase || !firebaseSupported) return;
 
         const docRef = doc(db, 'users', userId, 'data', key);
 
@@ -99,7 +113,7 @@ export function useStorage<T>(
         );
 
         return () => unsubscribe();
-    }, [userId, key, useFirebase, saveToLocalStorage]);
+    }, [userId, key, useFirebase, saveToLocalStorage, firebaseSupported]);
 
     // Função para atualizar valor
     const setValue = useCallback(
@@ -115,7 +129,7 @@ export function useStorage<T>(
                 saveToLocalStorage(valueToStore);
 
                 // Se usuário está autenticado, também salvar no Firestore (com debounce)
-                if (userId && useFirebase) {
+                if (userId && useFirebase && firebaseSupported) {
                     if (timeoutRef.current) {
                         clearTimeout(timeoutRef.current);
                     }

@@ -1,28 +1,34 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TimerWidget } from '../../components/TimerWidget';
+import { useStorage } from '../../hooks/useStorage';
+import { GlobalTimerState } from '../../types';
 
-// Mock useLocalStorage
-const mockSetState = vi.fn();
-const mockState = {
+vi.mock('../../hooks/useStorage', () => ({
+    useStorage: vi.fn(),
+}));
+
+const mockedUseStorage = vi.mocked(useStorage);
+
+const createTimerState = (): GlobalTimerState => ({
     mode: 'TIMER',
     status: 'IDLE',
     startTime: null,
     endTime: null,
     accumulated: 0,
-    totalDuration: 0
-};
+    totalDuration: 0,
+    label: undefined,
+});
 
-vi.mock('../../hooks/useLocalStorage', () => ({
-    useLocalStorage: (key: string, initialValue: any) => {
-        return [mockState, mockSetState];
-    }
-}));
+const mockSetState = vi.fn();
+let mockState = createTimerState();
 
 describe('TimerWidget Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.useFakeTimers();
+        mockState = createTimerState();
+        mockedUseStorage.mockReturnValue([mockState, mockSetState]);
     });
 
     afterEach(() => {

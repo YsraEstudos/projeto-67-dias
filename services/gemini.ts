@@ -26,3 +26,8 @@ const getClient = (): GoogleGenAI => {
 };
 
 export const getGeminiModel = () => getClient().models;
+
+// Test-only helpers to reset cached client between unit tests
+export const __geminiTestUtils = {
+    resetClient: () => { client = null; }
+};

@@ -4,10 +4,12 @@ import {
   TrendingUp, CheckCircle2, X,
   MoreVertical, Trash2, Book, PauseCircle,
   Folder, FolderPlus, Play, LayoutGrid, List, Edit2, Move,
-  CornerUpLeft, Save, ArrowLeft, StickyNote, Calendar
+  CornerUpLeft, Save, ArrowLeft, StickyNote, Calendar, Bot, Sparkles
 } from 'lucide-react';
+import { Type } from "@google/genai";
 import { Book as IBook, Folder as IFolder } from '../types';
 import { useStorage } from '../../hooks/useStorage';
+import { getGeminiModel } from '../../services/gemini';
 
 // --- MOCK DATA ---
 
@@ -947,12 +949,15 @@ const AddBookModal: React.FC<{
   onAdd: (b: IBook) => void;
   currentFolderId: string | null;
 }> = ({ onClose, onAdd, currentFolderId }) => {
-  const [mode, setMode] = useState<'MANUAL' | 'GOOGLE' | 'JIKAN'>('MANUAL');
+  const [mode, setMode] = useState<'MANUAL' | 'GOOGLE' | 'JIKAN' | 'AI'>('MANUAL');
   const [step, setStep] = useState<'SEARCH' | 'EDIT'>('SEARCH');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [tempData, setTempData] = useState<Partial<IBook>>({});
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Reset step when mode changes
   useEffect(() => {
@@ -960,6 +965,9 @@ const AddBookModal: React.FC<{
     setResults([]);
     setQuery('');
     setTempData({});
+    setAiPrompt('');
+    setAiError(null);
+    setAiLoading(false);
   }, [mode]);
 
   const searchApi = async () => {
@@ -1006,6 +1014,74 @@ const AddBookModal: React.FC<{
     });
   };
 
+  const handleGenerateAI = async () => {
+    const userPrompt = aiPrompt.trim();
+    if (!userPrompt) {
+      setAiError('Descreva o tipo de livro ou plano de leitura que deseja criar.');
+      return;
+    }
+
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const models = getGeminiModel();
+      const response = await models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `Atue como um editor literário. Com base no briefing abaixo, crie uma sugestão de livro ou plano de leitura completo.
+
+Briefing do usuário: ${userPrompt}
+
+Regras:
+- Responda em português.
+- Retorne apenas JSON seguindo o schema fornecido.
+- "unit" deve ser "PAGES" ou "CHAPTERS".
+- "notes" deve explicar por que o livro foi sugerido ou qual é o plano.
+`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              author: { type: Type.STRING },
+              genre: { type: Type.STRING },
+              unit: { type: Type.STRING },
+              total: { type: Type.NUMBER },
+              coverUrl: { type: Type.STRING },
+              notes: { type: Type.STRING },
+              summary: { type: Type.STRING }
+            },
+            required: ["title"]
+          }
+        }
+      });
+
+      if (!response.text) {
+        throw new Error('Resposta vazia do Gemini');
+      }
+
+      const data = JSON.parse(response.text);
+      const mapped: Partial<IBook> = {
+        title: data.title || '',
+        author: data.author || 'Autor Desconhecido',
+        genre: data.genre || 'Geral',
+        total: Number(data.total) || 0,
+        current: 0,
+        unit: data.unit?.toUpperCase() === 'CHAPTERS' ? 'CHAPTERS' : 'PAGES',
+        coverUrl: data.coverUrl || '',
+        notes: data.notes || data.summary || ''
+      };
+
+      setTempData(mapped);
+      setStep('EDIT');
+    } catch (error) {
+      console.error(error);
+      setAiError('Não conseguimos gerar o livro agora. Tente novamente em instantes.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
       <div className="bg-slate-800 w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl flex flex-col max-h-[85vh]">
@@ -1024,13 +1100,13 @@ const AddBookModal: React.FC<{
         {/* Mode Switcher - Only visible in search step */}
         {step === 'SEARCH' && (
           <div className="flex p-2 gap-2 bg-slate-900/50">
-            {['MANUAL', 'GOOGLE', 'JIKAN'].map(m => (
+            {['MANUAL', 'GOOGLE', 'JIKAN', 'AI'].map(m => (
               <button
                 key={m}
                 onClick={() => setMode(m as any)}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${mode === m ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}
               >
-                {m === 'JIKAN' ? 'MANGA (Jikan)' : m === 'GOOGLE' ? 'LIVRO (Google)' : 'MANUAL'}
+                {m === 'JIKAN' ? 'MANGA (Jikan)' : m === 'GOOGLE' ? 'LIVRO (Google)' : m === 'AI' ? 'IA (Gemini)' : 'MANUAL'}
               </button>
             ))}
           </div>
@@ -1038,32 +1114,89 @@ const AddBookModal: React.FC<{
 
         <div className="flex-1 overflow-hidden flex flex-col">
           {step === 'SEARCH' ? (
-            <div className="p-6 space-y-4 overflow-y-auto">
-              <div className="flex gap-2">
-                <input className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500" placeholder="Buscar..." value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchApi()} />
-                <button onClick={searchApi} className="bg-indigo-600 text-white px-4 rounded-lg hover:bg-indigo-500"><Search /></button>
-              </div>
-              {loading && <div className="text-center text-slate-500 py-4">Buscando...</div>}
-              <div className="space-y-2">
-                {results.map((item, i) => {
-                  const img = mode === 'GOOGLE' ? item.volumeInfo?.imageLinks?.smallThumbnail : item.images?.jpg?.image_url;
-                  const title = mode === 'GOOGLE' ? item.volumeInfo.title : item.title;
-                  const total = mode === 'GOOGLE' ? (item.volumeInfo.pageCount) : (item.chapters);
-                  return (
-                    <div key={i} onClick={() => handleSelect(item)} className="flex gap-3 p-2 bg-slate-800 border border-slate-700 rounded-lg hover:border-indigo-500 cursor-pointer hover:bg-slate-750 transition-colors">
-                      <div className="w-12 h-16 bg-slate-900 rounded overflow-hidden flex-shrink-0">
-                        {img ? <img src={img} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full flex items-center justify-center"><Book size={16} className="text-slate-600" /></div>}
-                      </div>
-                      <div>
-                        <div className="font-bold text-sm text-white line-clamp-1">{title}</div>
-                        <div className="text-xs text-slate-500">{mode === 'GOOGLE' ? item.volumeInfo?.authors?.[0] : item.authors?.[0]?.name}</div>
-                        <div className="text-xs text-indigo-400 mt-1">{total ? `${total} ${mode === 'JIKAN' ? 'capítulos' : 'páginas'}` : 'Total desconhecido'}</div>
-                      </div>
+            mode === 'AI' ? (
+              <div className="p-6 space-y-5 overflow-y-auto">
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-indigo-600/20 text-indigo-300"><Bot size={18} /></div>
+                    <div>
+                      <p className="text-sm text-slate-200 font-semibold">Gerar livro com Gemini</p>
+                      <p className="text-xs text-slate-500">Modelo gemini-2.5-flash</p>
                     </div>
-                  );
-                })}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-3">
+                    Descreva o tema, público, tamanho desejado ou referências. A IA vai sugerir título, autor ideal e plano de leitura.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Briefing para IA</label>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    placeholder="Ex: Quero um guia prático de finanças pessoais para iniciantes com cerca de 200 páginas."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm h-28 resize-none focus:border-indigo-500 outline-none"
+                    disabled={aiLoading}
+                  />
+                </div>
+
+                {aiError && (
+                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl p-2">
+                    {aiError}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {['Romance histórico curto ambientado no Brasil Imperial', 'Plano de leitura para aprender programação em 90 dias', 'Biografia motivacional para jovens empreendedores'].map(example => (
+                    <button
+                      key={example}
+                      type="button"
+                      onClick={() => setAiPrompt(example)}
+                      className="text-xs px-3 py-1.5 rounded-full border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-white transition-colors"
+                      disabled={aiLoading}
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleGenerateAI}
+                  disabled={aiLoading}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-colors ${aiLoading ? 'bg-slate-700 text-slate-400' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                >
+                  <Sparkles size={16} className="text-current" />
+                  {aiLoading ? 'Gerando com IA...' : 'Gerar com IA'}
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="flex gap-2">
+                  <input className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500" placeholder="Buscar..." value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchApi()} />
+                  <button onClick={searchApi} className="bg-indigo-600 text-white px-4 rounded-lg hover:bg-indigo-500"><Search /></button>
+                </div>
+                {loading && <div className="text-center text-slate-500 py-4">Buscando...</div>}
+                <div className="space-y-2">
+                  {results.map((item, i) => {
+                    const img = mode === 'GOOGLE' ? item.volumeInfo?.imageLinks?.smallThumbnail : item.images?.jpg?.image_url;
+                    const title = mode === 'GOOGLE' ? item.volumeInfo.title : item.title;
+                    const total = mode === 'GOOGLE' ? (item.volumeInfo.pageCount) : (item.chapters);
+                    return (
+                      <div key={i} onClick={() => handleSelect(item)} className="flex gap-3 p-2 bg-slate-800 border border-slate-700 rounded-lg hover:border-indigo-500 cursor-pointer hover:bg-slate-750 transition-colors">
+                        <div className="w-12 h-16 bg-slate-900 rounded overflow-hidden flex-shrink-0">
+                          {img ? <img src={img} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full flex items-center justify-center"><Book size={16} className="text-slate-600" /></div>}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-white line-clamp-1">{title}</div>
+                          <div className="text-xs text-slate-500">{mode === 'GOOGLE' ? item.volumeInfo?.authors?.[0] : item.authors?.[0]?.name}</div>
+                          <div className="text-xs text-indigo-400 mt-1">{total ? `${total} ${mode === 'JIKAN' ? 'capítulos' : 'páginas'}` : 'Total desconhecido'}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )
           ) : (
             <BookForm
               initialData={tempData}
