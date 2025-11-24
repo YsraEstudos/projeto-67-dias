@@ -60,15 +60,15 @@ export interface Book {
   author: string;
   coverUrl?: string;
   genre: string;
-  
+
   unit: 'PAGES' | 'CHAPTERS';
   total: number;
   current: number;
-  
+
   status: 'READING' | 'TO_READ' | 'COMPLETED' | 'PAUSED' | 'ABANDONED';
   rating: number;
   folderId: string | null;
-  
+
   notes: string;
   addedAt: Date;
 }
@@ -77,7 +77,7 @@ export interface RestActivity {
   id: string;
   title: string;
   isCompleted: boolean;
-  type: 'DAILY' | 'WEEKLY' | 'ONCE'; 
+  type: 'DAILY' | 'WEEKLY' | 'ONCE';
   daysOfWeek?: number[];
   specificDate?: string;
   order: number;
@@ -190,4 +190,33 @@ export interface GlobalTimerState {
   accumulated: number;
   totalDuration: number;
   label?: string;
+}
+
+// --- NOTES MODULE INTERFACES ---
+
+export type NoteColor = 'amber' | 'rose' | 'emerald' | 'blue' | 'purple' | 'cyan' | 'pink' | 'orange';
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  color: NoteColor;
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+  aiProcessed?: boolean; // If improved by AI
+  aiSummary?: string;    // AI-generated summary
+}
+
+export interface NoteFilter {
+  tags: string[];
+  colors: NoteColor[];
+  searchTerm: string;
+  sortBy: 'recent' | 'oldest' | 'alphabetical' | 'color';
+}
+
+export interface AIAssistantAction {
+  type: 'summarize' | 'expand' | 'improve' | 'suggest-tags';
+  loading: boolean;
+  result?: string;
 }

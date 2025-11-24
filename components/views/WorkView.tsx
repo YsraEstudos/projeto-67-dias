@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Target, Clock, Coffee, Zap,
   TrendingUp, AlertTriangle, CheckCircle2,
-  ArrowUp, ArrowDown, Timer
+  ArrowUp, ArrowDown, Timer, Trophy, History, Play, Pause, RotateCcw, Save, X, Circle
 } from 'lucide-react';
 import { db, auth } from '../../services/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useStorage } from '../../hooks/useStorage';
 
 // --- TYPES ---
 type WorkStatus = 'PRE_BREAK' | 'BREAK' | 'POST_BREAK' | 'FINISHED';
@@ -22,6 +23,14 @@ interface WorkMetricsInput {
   paceMode: PaceMode;
 }
 
+interface MetTargetSession {
+  id: string;
+  date: string;
+  ankiCount: number;
+  ncmCount: number;
+  durationSeconds: number;
+}
+
 // --- HELPER FUNCTIONS ---
 
 const getMinutesFromMidnight = (timeStr: string): number => {
@@ -33,6 +42,28 @@ const formatTimeDiff = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}h ${m}m`;
+};
+
+const formatDuration = (seconds: number): string => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+// Get start of week (Monday) for a given date
+const getWeekStart = (date: Date): Date => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  return new Date(d.setDate(diff));
+};
+
+// Check if two dates are in the same week
+const isSameWeek = (date1: Date, date2: Date): boolean => {
+  const week1Start = getWeekStart(date1);
+  const week2Start = getWeekStart(date2);
+  return week1Start.getTime() === week2Start.getTime();
 };
 
 // --- CUSTOM HOOKS ---
@@ -171,7 +202,7 @@ const useWorkDataPersistence = () => {
     }
 
     return data;
-  }, [STORAGE_KEY]); // userId dependency removed from callback to avoid recreation, using auth.currentUser directly or ensuring userId is stable enough
+  }, [STORAGE_KEY]);
 
   // Save data to localStorage and Firebase
   const saveData = useCallback(async (data: WorkData) => {
@@ -198,9 +229,6 @@ const useWorkDataPersistence = () => {
         await setDoc(docRef, dataWithTimestamp);
       } catch (e) {
         console.error('Error saving to Firebase:', e);
-        // We don't setSaveError(true) here if localStorage worked, 
-        // as the user can still continue working offline.
-        // Optionally, we could have a separate "sync error" state.
       }
     }
   }, [STORAGE_KEY]);
@@ -271,7 +299,8 @@ const MainTracker: React.FC<{
   onUpdate: (newCount: number) => void;
   status: WorkStatus;
   minutesRemaining: number;
-}> = ({ currentCount, goal, progressPercent, onUpdate, status, minutesRemaining }) => (
+  onMetTargetClick: () => void;
+}> = ({ currentCount, goal, progressPercent, onUpdate, status, minutesRemaining, onMetTargetClick }) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {/* Main Tracker */}
     <div className="lg:col-span-2 bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-xl relative overflow-hidden group">
@@ -284,9 +313,17 @@ const MainTracker: React.FC<{
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="flex-1 w-full">
-          <h2 className="text-slate-400 text-sm font-medium mb-2 flex items-center gap-2">
-            <CheckCircle2 size={16} /> Progresso Real
-          </h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-slate-400 text-sm font-medium flex items-center gap-2">
+              <CheckCircle2 size={16} /> Progresso Real
+            </h2>
+            <button
+              onClick={onMetTargetClick}
+              className="text-xs bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-white px-3 py-1 rounded-full font-bold shadow-lg shadow-amber-900/20 flex items-center gap-1 transition-all hover:scale-105"
+            >
+              <Trophy size={12} /> Bati a Meta
+            </button>
+          </div>
           <div className="flex items-baseline gap-1 mb-4">
             <span className="text-6xl font-bold text-white tracking-tight">{currentCount}</span>
             <span className="text-xl text-slate-500">/ {goal}</span>
@@ -350,11 +387,302 @@ const MainTracker: React.FC<{
   </div>
 );
 
+// --- MET TARGET MODAL ---
+
+const MetTargetModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  history: MetTargetSession[];
+  onSaveSession: (session: MetTargetSession) => void;
+}> = ({ isOpen, onClose, history, onSaveSession }) => {
+  const [ankiCount, setAnkiCount] = useState(0);
+  const [ncmCount, setNcmCount] = useState(0);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState<'SESSION' | 'HISTORY'>('SESSION');
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate weekly points
+  const weeklyPoints = useMemo(() => {
+    const now = new Date();
+    return history
+      .filter(session => isSameWeek(new Date(session.date), now))
+      .reduce((sum, session) => sum + session.ankiCount + session.ncmCount, 0);
+  }, [history]);
+
+  const WEEKLY_GOAL = 125;
+  const ULTRA_WEEKLY_GOAL = 250;
+  const hasMetWeeklyGoal = weeklyPoints >= WEEKLY_GOAL;
+  const hasMetUltraGoal = weeklyPoints >= ULTRA_WEEKLY_GOAL;
+  const isInputLocked = hasMetUltraGoal;
+
+  useEffect(() => {
+    if (isRunning) {
+      timerRef.current = setInterval(() => {
+        setTimerSeconds(prev => prev + 1);
+      }, 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRunning]);
+
+  const handleSave = () => {
+    const newSession: MetTargetSession = {
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      ankiCount,
+      ncmCount,
+      durationSeconds: timerSeconds
+    };
+    onSaveSession(newSession);
+    // Reset
+    setAnkiCount(0);
+    setNcmCount(0);
+    setTimerSeconds(0);
+    setIsRunning(false);
+    setActiveTab('HISTORY');
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-slate-900 w-full max-w-2xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+        {/* Header */}
+        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+          <h3 className="font-bold text-white text-lg flex items-center gap-2">
+            <Trophy className="text-yellow-500" /> Bati a Meta
+          </h3>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-slate-800">
+          <button
+            onClick={() => setActiveTab('SESSION')}
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'SESSION' ? 'bg-slate-800 text-yellow-500 border-b-2 border-yellow-500' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Sessão Atual
+          </button>
+          <button
+            onClick={() => setActiveTab('HISTORY')}
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'HISTORY' ? 'bg-slate-800 text-yellow-500 border-b-2 border-yellow-500' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            Histórico
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+          {activeTab === 'SESSION' ? (
+            <div className="space-y-8">
+              {/* Timer */}
+              <div className="flex flex-col items-center justify-center py-6 bg-slate-950 rounded-2xl border border-slate-800">
+                <div className="text-6xl font-mono font-bold text-slate-200 mb-4 tracking-wider">
+                  {formatDuration(timerSeconds)}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsRunning(!isRunning)}
+                    className={`px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-all ${isRunning ? 'bg-slate-800 text-red-400 hover:bg-slate-700' : 'bg-yellow-600 text-white hover:bg-yellow-500'}`}
+                  >
+                    {isRunning ? <><Pause size={18} /> Pausar</> : <><Play size={18} /> Iniciar</>}
+                  </button>
+                  <button
+                    onClick={() => { setIsRunning(false); setTimerSeconds(0); }}
+                    className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Counters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Anki */}
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
+                  <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">Anki (Meta: 15)</h4>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setAnkiCount(Math.max(0, ankiCount - 1))}
+                      disabled={isInputLocked}
+                      className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <ArrowDown size={20} />
+                    </button>
+                    <span className={`text-4xl font-bold ${ankiCount >= 15 ? 'text-green-400' : 'text-white'}`}>{ankiCount}</span>
+                    <button
+                      onClick={() => setAnkiCount(ankiCount + 1)}
+                      disabled={isInputLocked}
+                      className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <ArrowUp size={20} />
+                    </button>
+                  </div>
+                  {isInputLocked && (
+                    <p className="text-xs text-amber-400 mt-2 text-center">Ultra meta atingida!</p>
+                  )}
+                </div>
+
+                {/* NCM */}
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
+                  <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">NCM (Meta: 20)</h4>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setNcmCount(Math.max(0, ncmCount - 1))}
+                      disabled={isInputLocked}
+                      className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <ArrowDown size={20} />
+                    </button>
+                    <span className={`text-4xl font-bold ${ncmCount >= 20 ? 'text-green-400' : 'text-white'}`}>{ncmCount}</span>
+                    <button
+                      onClick={() => setNcmCount(ncmCount + 1)}
+                      disabled={isInputLocked}
+                      className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <ArrowUp size={20} />
+                    </button>
+                  </div>
+                  {isInputLocked && (
+                    <p className="text-xs text-amber-400 mt-2 text-center">Ultra meta atingida!</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSave}
+                disabled={isInputLocked}
+                className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${isInputLocked
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-white shadow-amber-900/20 hover:scale-[1.02]'
+                  }`}
+              >
+                <Save size={20} />
+                {isInputLocked ? 'Ultra Meta Completa 🏆' : 'Salvar Sessão Extra'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Weekly Progress Bar */}
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-slate-200 font-bold flex items-center gap-2">
+                    <TrendingUp size={18} className="text-cyan-500" />
+                    Progresso Semanal
+                  </h4>
+                  <span className="text-xs text-slate-500">
+                    {new Date(getWeekStart(new Date())).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - Agora
+                  </span>
+                </div>
+
+                {/* Progress Bar Container */}
+                <div className="relative h-8 bg-slate-950 rounded-full overflow-hidden border border-slate-700 mb-3">
+                  {/* Goal Markers */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-green-500/50 z-10"
+                    style={{ left: `${(WEEKLY_GOAL / ULTRA_WEEKLY_GOAL) * 100}%` }}
+                    title="Meta Normal (125 pts)"
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-amber-500/50 z-10"
+                    style={{ left: '100%' }}
+                    title="Ultra Meta (250 pts)"
+                  />
+
+                  {/* Progress Fill */}
+                  <div
+                    className={`h-full transition-all duration-500 ${hasMetUltraGoal
+                      ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600'
+                      : hasMetWeeklyGoal
+                        ? 'bg-gradient-to-r from-green-500 to-green-600'
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                      }`}
+                    style={{ width: `${Math.min(100, (weeklyPoints / ULTRA_WEEKLY_GOAL) * 100)}%` }}
+                  />
+
+                  {/* Points Label */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-white font-bold text-sm drop-shadow-lg">
+                      {weeklyPoints} / {ULTRA_WEEKLY_GOAL} pts
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Indicators */}
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full border ${hasMetWeeklyGoal
+                    ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                    : 'bg-slate-800 text-slate-500 border-slate-700'
+                    }`}>
+                    {hasMetWeeklyGoal ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                    Meta (125 pts)
+                  </div>
+                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full border ${hasMetUltraGoal
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    : 'bg-slate-800 text-slate-500 border-slate-700'
+                    }`}>
+                    {hasMetUltraGoal ? <Trophy size={12} /> : <Target size={12} />}
+                    Ultra Meta (250 pts)
+                  </div>
+                  {!hasMetWeeklyGoal && (
+                    <span className="text-slate-500 ml-auto">
+                      Faltam {WEEKLY_GOAL - weeklyPoints} pts para meta
+                    </span>
+                  )}
+                  {hasMetWeeklyGoal && !hasMetUltraGoal && (
+                    <span className="text-amber-400 ml-auto">
+                      Faltam {ULTRA_WEEKLY_GOAL - weeklyPoints} pts para ultra meta!
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* History List */}
+              <div className="space-y-3">
+                {history.length === 0 ? (
+                  <div className="text-center text-slate-500 py-10">Nenhuma sessão extra registrada.</div>
+                ) : (
+                  history.slice().reverse().map((session) => {
+                    const margin = (session.ankiCount + session.ncmCount) - (15 + 20);
+                    return (
+                      <div key={session.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center justify-between">
+                        <div>
+                          <div className="text-slate-300 font-medium text-sm">
+                            {new Date(session.date).toLocaleDateString('pt-BR')} <span className="text-slate-500 text-xs">• {formatDuration(session.durationSeconds)}</span>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Anki: {session.ankiCount} | NCM: {session.ncmCount}
+                          </div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-lg font-bold text-sm ${margin >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {margin > 0 ? '+' : ''}{margin}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN VIEW COMPONENT ---
 
 const WorkView: React.FC = () => {
   // Persistence Hook
   const { loadData, saveData, saveError } = useWorkDataPersistence();
+  const [metTargetHistory, setMetTargetHistory] = useStorage<MetTargetSession[]>('p67_work_met_target_history', []);
 
   // Configuration State
   const [goal, setGoal] = useState(300);
@@ -370,6 +698,7 @@ const WorkView: React.FC = () => {
   const [paceMode, setPaceMode] = useState<PaceMode>('10m');
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMetTargetModalOpen, setIsMetTargetModalOpen] = useState(false);
 
   // Load saved data on mount
   useEffect(() => {
@@ -449,6 +778,7 @@ const WorkView: React.FC = () => {
         onUpdate={setCurrentCount}
         status={stats.status}
         minutesRemaining={stats.minutesRemaining}
+        onMetTargetClick={() => setIsMetTargetModalOpen(true)}
       />
 
       {/* ANALYSIS GRID */}
@@ -542,6 +872,14 @@ const WorkView: React.FC = () => {
         </div>
 
       </div>
+
+      {/* MODALS */}
+      <MetTargetModal
+        isOpen={isMetTargetModalOpen}
+        onClose={() => setIsMetTargetModalOpen(false)}
+        history={metTargetHistory}
+        onSaveSession={(session) => setMetTargetHistory([...metTargetHistory, session])}
+      />
     </div>
   );
 };
