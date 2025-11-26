@@ -17,11 +17,12 @@ import {
   Timer,
   CalendarCheck // Changed Icon
 } from 'lucide-react';
-import { ViewState, DashboardCardProps, OrganizeTask, User, GlobalTimerState, ProjectConfig } from './types';
+import { ViewState, DashboardCardProps, OrganizeTask, ProjectConfig } from './types';
 import { Card } from './components/Card';
 import { Loading } from './components/shared/Loading';
 import { AuthView } from './components/views/AuthView';
 import { useStorage } from './hooks/useStorage';
+import { useAuth } from './hooks/useAuth';
 
 // --- Lazy Load Views ---
 const WorkView = React.lazy(() => import('./components/views/WorkView'));
@@ -41,8 +42,19 @@ const PlaceholderView = React.lazy(() => import('./components/shared/Placeholder
 import { TimerWidget } from './components/TimerWidget';
 
 const App: React.FC = () => {
-  // --- AUTH STATE ---
-  const [user, setUser] = useStorage<User | null>('p67_session', null);
+  // --- AUTH STATE (Firebase) ---
+  const {
+    user,
+    loading: authLoading,
+    error: authError,
+    login,
+    register,
+    loginGoogle,
+    loginGuest,
+    logout,
+    sendResetEmail,
+    clearError
+  } = useAuth();
 
   // --- APP STATE ---
   const [activeView, setActiveView] = useState<ViewState>(ViewState.DASHBOARD);
@@ -57,6 +69,17 @@ const App: React.FC = () => {
     userName: user?.name || '',
     isGuest: user?.isGuest || false
   });
+
+  // Update project config when user changes
+  useEffect(() => {
+    if (user && !projectConfig.userName) {
+      setProjectConfig(prev => ({
+        ...prev,
+        userName: user.name,
+        isGuest: user.isGuest
+      }));
+    }
+  }, [user, projectConfig.userName, setProjectConfig]);
 
   // Calculate current day
   const currentDay = useMemo(() => {
@@ -97,21 +120,9 @@ const App: React.FC = () => {
     }
   }, [activeView, updateNotifications]);
 
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    // If new user, set start date
-    if (!localStorage.getItem('p67_project_config')) {
-      setProjectConfig({
-        startDate: new Date().toISOString(),
-        userName: loggedInUser.name,
-        isGuest: loggedInUser.isGuest
-      });
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("Tem certeza que deseja sair?")) {
-      setUser(null);
+      await logout();
       setActiveView(ViewState.DASHBOARD);
     }
   };
@@ -252,8 +263,29 @@ const App: React.FC = () => {
 
   // --- RENDER AUTH ---
 
+  // Show loading while checking auth state
+  if (authLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loading />
+      </div>
+    );
+  }
+
   if (!user) {
-    return <AuthView onLogin={handleLogin} />;
+    return (
+      <AuthView
+        onLogin={() => {}}
+        onEmailLogin={login}
+        onRegister={register}
+        onGoogleLogin={loginGoogle}
+        onGuestLogin={loginGuest}
+        onResetPassword={sendResetEmail}
+        isLoading={authLoading}
+        error={authError}
+        clearError={clearError}
+      />
+    );
   }
 
   return (

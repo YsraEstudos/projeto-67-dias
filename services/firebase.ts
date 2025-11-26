@@ -1,7 +1,19 @@
 // src/services/firebase.ts
 import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics";
-import { getAuth } from "firebase/auth";
+import { 
+    getAuth, 
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    sendPasswordResetEmail,
+    updateProfile,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signInAnonymously,
+    onAuthStateChanged,
+    User as FirebaseUser
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
@@ -23,3 +35,43 @@ const app = initializeApp(firebaseConfig);
 // Export services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Google Provider
+const googleProvider = new GoogleAuthProvider();
+
+// --- AUTH FUNCTIONS ---
+
+export const loginWithEmail = async (email: string, password: string) => {
+    return signInWithEmailAndPassword(auth, email, password);
+};
+
+export const registerWithEmail = async (email: string, password: string, name: string) => {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    // Update display name
+    if (result.user) {
+        await updateProfile(result.user, { displayName: name });
+    }
+    return result;
+};
+
+export const loginWithGoogle = async () => {
+    return signInWithPopup(auth, googleProvider);
+};
+
+export const loginAsGuest = async () => {
+    return signInAnonymously(auth);
+};
+
+export const logout = async () => {
+    return signOut(auth);
+};
+
+export const resetPassword = async (email: string) => {
+    return sendPasswordResetEmail(auth, email);
+};
+
+export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => void) => {
+    return onAuthStateChanged(auth, callback);
+};
+
+export type { FirebaseUser };

@@ -1,34 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Mail, Lock, User, ArrowRight, Chrome,
   Ghost, ChevronLeft, CheckCircle2, AlertCircle, Loader2
 } from 'lucide-react';
-import { User as UserType } from '../../types';
-import { useStorage } from '../../hooks/useStorage';
 
 interface AuthViewProps {
-  onLogin: (user: UserType) => void;
+  onLogin: () => void;
+  onRegister: (name: string, email: string, password: string) => Promise<void>;
+  onEmailLogin: (email: string, password: string) => Promise<void>;
+  onGoogleLogin: () => Promise<void>;
+  onGuestLogin: () => Promise<void>;
+  onResetPassword: (email: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+  clearError: () => void;
 }
 
 type AuthMode = 'LOGIN' | 'REGISTER' | 'FORGOT';
 
-export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
+export const AuthView: React.FC<AuthViewProps> = ({
+  onRegister,
+  onEmailLogin,
+  onGoogleLogin,
+  onGuestLogin,
+  onResetPassword,
+  isLoading,
+  error,
+  clearError
+}) => {
   const [mode, setMode] = useState<AuthMode>('LOGIN');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  const [users, setUsers] = useStorage<any[]>('p67_users', []);
 
   // Form States
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const clearForm = () => {
-    setError(null);
+    clearError();
     setSuccessMsg(null);
+    setLocalError(null);
     setPassword('');
     setConfirmPassword('');
   };
@@ -38,101 +51,74 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     clearForm();
   };
 
+  // Clear errors when changing mode
+  useEffect(() => {
+    clearError();
+    setLocalError(null);
+  }, [mode, clearError]);
+
   // --- ACTIONS ---
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-
-    // Simulate Network Delay
-    setTimeout(() => {
-      const foundUser = users.find((u: any) => u.email === email && u.password === password);
-
-      if (foundUser) {
-        onLogin({
-          id: foundUser.id,
-          name: foundUser.name,
-          email: foundUser.email,
-          isGuest: false
-        });
-      } else {
-        setError('E-mail ou senha incorretos.');
-        setIsLoading(false);
-      }
-    }, 1000);
+    setLocalError(null);
+    
+    try {
+      await onEmailLogin(email, password);
+    } catch {
+      // Error is handled by the hook
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setLocalError(null);
 
     if (password !== confirmPassword) {
-      setError('As senhas não coincidem.');
+      setLocalError('As senhas não coincidem.');
       return;
     }
     if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.');
+      setLocalError('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
-    setIsLoading(true);
-    setTimeout(() => {
-      if (users.some((u: any) => u.email === email)) {
-        setError('Este e-mail já está cadastrado.');
-        setIsLoading(false);
-        return;
-      }
-
-      const newUser = {
-        id: Date.now().toString(),
-        name,
-        email,
-        password // Nota: Em produção, nunca salve senhas puras. Use hash.
-      };
-
-      setUsers([...users, newUser]);
-
-      setSuccessMsg('Conta criada com sucesso! Faça login.');
-      setIsLoading(false);
-      setTimeout(() => switchMode('LOGIN'), 1500);
-    }, 1000);
+    try {
+      await onRegister(name, email, password);
+    } catch {
+      // Error is handled by the hook
+    }
   };
 
-  const handleForgot = (e: React.FormEvent) => {
+  const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
+    setLocalError(null);
+    
+    try {
+      await onResetPassword(email);
       setSuccessMsg(`Um link de recuperação foi enviado para ${email}.`);
-      setIsLoading(false);
-    }, 1500);
+    } catch {
+      // Error is handled by the hook
+    }
   };
 
-  const handleGuestLogin = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      onLogin({
-        id: 'guest',
-        name: 'Visitante',
-        email: '',
-        isGuest: true
-      });
-    }, 800);
+  const handleGuestLogin = async () => {
+    try {
+      await onGuestLogin();
+    } catch {
+      // Error is handled by the hook
+    }
   };
 
-  const handleGoogleLogin = () => {
-    // Simulate Google Login
-    setIsLoading(true);
-    setTimeout(() => {
-      onLogin({
-        id: 'google-user',
-        name: 'Usuário Google',
-        email: 'usuario@gmail.com',
-        avatarUrl: 'https://lh3.googleusercontent.com/ogw/AF2bZyjbd-Wz-8i-C4oJ_Z7_0q4_0_0',
-        isGuest: false
-      });
-    }, 1200);
+  const handleGoogleLogin = async () => {
+    try {
+      await onGoogleLogin();
+    } catch {
+      // Error is handled by the hook
+    }
   };
+
+  const displayError = localError || error;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
@@ -188,9 +174,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           </div>
 
           {/* Feedback Messages */}
-          {error && (
+          {displayError && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-400 text-sm animate-in slide-in-from-top-2">
-              <AlertCircle size={16} /> {error}
+              <AlertCircle size={16} /> {displayError}
             </div>
           )}
           {successMsg && (
