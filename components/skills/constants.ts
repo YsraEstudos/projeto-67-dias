@@ -90,5 +90,60 @@ export const THEME_VARIANTS = {
     }
 } as const;
 
+// Visual Roadmap Node Styles (matching roadmap.sh aesthetic)
+export const VISUAL_NODE_STYLES = {
+    main: {
+        bg: 'bg-amber-700/90',
+        bgHover: 'hover:bg-amber-600',
+        border: 'border-amber-500',
+        text: 'text-amber-100',
+        checkColor: 'text-green-400',
+        label: 'Recomendação',
+        labelIcon: '●',
+        labelColor: 'text-green-400'
+    },
+    alternative: {
+        bg: 'bg-purple-700/90',
+        bgHover: 'hover:bg-purple-600',
+        border: 'border-purple-500',
+        text: 'text-purple-100',
+        checkColor: 'text-purple-400',
+        label: 'Alternativo',
+        labelIcon: '●',
+        labelColor: 'text-purple-400'
+    },
+    optional: {
+        bg: 'bg-cyan-700/90',
+        bgHover: 'hover:bg-cyan-600',
+        border: 'border-cyan-500',
+        text: 'text-cyan-100',
+        checkColor: 'text-cyan-400',
+        label: 'Ordem Flexível',
+        labelIcon: '●',
+        labelColor: 'text-cyan-400'
+    },
+    info: {
+        bg: 'bg-slate-700/90',
+        bgHover: 'hover:bg-slate-600',
+        border: 'border-slate-500',
+        text: 'text-slate-100',
+        checkColor: 'text-slate-400',
+        label: 'Informação',
+        labelIcon: null,
+        labelColor: 'text-slate-400'
+    },
+    section: {
+        bg: 'bg-slate-800/90',
+        bgHover: 'hover:bg-slate-700',
+        border: 'border-slate-600',
+        text: 'text-slate-300 font-bold tracking-widest uppercase',
+        checkColor: 'text-slate-500',
+        label: 'Divisor',
+        labelIcon: '━',
+        labelColor: 'text-slate-400'
+    }
+} as const;
+
 export type ThemeKey = keyof typeof THEMES;
 export type ThemeVariant = typeof THEME_VARIANTS[ThemeKey];
+export type VisualNodeStyleKey = keyof typeof VISUAL_NODE_STYLES;

@@ -4,6 +4,7 @@ import { SkillHeader } from './SkillHeader';
 import { ProgressStats } from './ProgressStats';
 import { ResourcesVault } from './ResourcesVault';
 import { RoadmapSection } from './RoadmapSection';
+import { syncRoadmapState } from './roadmapSync';
 
 interface SkillDetailViewProps {
     skill: Skill;
@@ -73,10 +74,20 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                 {/* RIGHT COLUMN: Roadmap */}
                 <RoadmapSection
                     roadmap={skill.roadmap}
+                    visualRoadmap={skill.visualRoadmap}
                     skillName={skill.name}
                     skillLevel={skill.level}
                     skillColorTheme={skill.colorTheme}
-                    onUpdate={(roadmap) => onUpdate({ roadmap })}
+                    viewMode={skill.roadmapViewMode || 'tasks'}
+                    onUpdate={(newRoadmap) => {
+                        const { roadmap, visualRoadmap } = syncRoadmapState(newRoadmap, skill.visualRoadmap, 'tasks');
+                        onUpdate({ roadmap, visualRoadmap });
+                    }}
+                    onUpdateVisual={(newVisualRoadmap) => {
+                        const { roadmap, visualRoadmap } = syncRoadmapState(skill.roadmap, newVisualRoadmap, 'visual');
+                        onUpdate({ roadmap, visualRoadmap });
+                    }}
+                    onViewModeChange={(roadmapViewMode) => onUpdate({ roadmapViewMode })}
                 />
             </div>
         </div>

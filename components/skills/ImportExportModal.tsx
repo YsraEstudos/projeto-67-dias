@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, Layers, CheckCircle2 } from 'lucide-react';
+import { X, Download, Layers, CheckCircle2, FileText } from 'lucide-react';
 import { Skill, SkillRoadmapItem } from '../../types';
 
 interface ImportExportModalProps {
@@ -19,6 +19,36 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
         const a = document.createElement('a');
         a.href = url;
         a.download = `${skill.name.replace(/\s+/g, '_')}_roadmap.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExportMarkdown = () => {
+        let md = `# Roadmap: ${skill.name}\n\n`;
+
+        skill.roadmap.forEach(item => {
+            if (item.type === 'SECTION') {
+                md += `\n## ${item.title}\n\n`;
+            } else {
+                const status = item.isCompleted ? '[x]' : '[ ]';
+                md += `- ${status} ${item.title}\n`;
+                if (item.subTasks) {
+                    item.subTasks.forEach(sub => {
+                        const subTitle = typeof sub === 'string' ? sub : sub.title;
+                        const subStatus = typeof sub !== 'string' && sub.isCompleted ? '[x]' : '[ ]';
+                        md += `  - ${subStatus} ${subTitle}\n`;
+                    });
+                }
+            }
+        });
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${skill.name.replace(/\s+/g, '_')}_roadmap.md`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -69,6 +99,67 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
                             className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl transition-colors border border-slate-600"
                         >
                             <Download size={18} /> Baixar JSON
+                        </button>
+                        <button
+                            onClick={handleExportMarkdown}
+                            className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl transition-colors border border-slate-600"
+                        >
+                            <FileText size={18} /> Baixar Markdown
+                        </button>
+                    </div>
+
+                    {/* Download Example Section */}
+                    <div>
+                        <button
+                            onClick={() => {
+                                const sampleRoadmap: SkillRoadmapItem[] = [
+                                    {
+                                        id: '1',
+                                        title: 'Fundamentos',
+                                        isCompleted: true,
+                                        type: 'SECTION'
+                                    },
+                                    {
+                                        id: '2',
+                                        title: 'Aprender HTML Semântico',
+                                        isCompleted: true,
+                                        type: 'TASK'
+                                    },
+                                    {
+                                        id: '3',
+                                        title: 'Aprender CSS Flexbox',
+                                        isCompleted: false,
+                                        type: 'TASK',
+                                        subTasks: [
+                                            {
+                                                id: '3-1',
+                                                title: 'Entender justify-content',
+                                                isCompleted: true,
+                                                type: 'TASK'
+                                            },
+                                            {
+                                                id: '3-2',
+                                                title: 'Entender align-items',
+                                                isCompleted: false,
+                                                type: 'TASK'
+                                            }
+                                        ]
+                                    }
+                                ];
+                                const data = JSON.stringify(sampleRoadmap, null, 2);
+                                const blob = new Blob([data], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'roadmap_exemplo.json';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }}
+                            className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs py-2 rounded-lg transition-colors border border-slate-700"
+                        >
+                            <Download size={14} /> Baixar Exemplo (Template)
                         </button>
                     </div>
 

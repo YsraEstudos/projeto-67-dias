@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@types/dagre": "^0.7.53",
+    "dagre": "^0.8.5",
     "firebase": "^12.6.0",
     "lucide-react": "^0.554.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-zoom-pan-pinch": "^3.7.0",
     "recharts": "^3.4.1"
   },
   "devDependencies": {

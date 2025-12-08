@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
-import { Bot, X, Sparkles, CheckCircle, Loader2, Brain, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
-import { Type } from "@google/genai";
+import { Bot, X, Sparkles, CheckCircle, Loader2, Brain, ChevronDown, ChevronRight, AlertCircle, FileText, Layers } from 'lucide-react';
+import { Type, SchemaType } from "@google/genai";
 import { generateWithThinking } from '../../services/gemini';
 
 interface AIRoadmapModalProps {
     skillName: string;
     level: string;
     onClose: () => void;
-    onGenerate: (items: string[]) => void;
+    onGenerate: (items: any[]) => void;
 }
 
 type GenerationPhase = 'idle' | 'analyzing' | 'generating' | 'validating' | 'done' | 'error';
+type GenerationMode = 'generate' | 'organize';
 
 interface CategoryProgress {
     name: string;
-    tasks: string[];
+    tasks: { title: string; subTasks: string[] }[];
     status: 'pending' | 'loading' | 'done';
 }
 
-// Schemas for Gemini responses
+// Schemas
 const CATEGORIES_SCHEMA = {
     type: Type.OBJECT,
     properties: {
@@ -27,17 +28,27 @@ const CATEGORIES_SCHEMA = {
             items: { type: Type.STRING }
         }
     }
-};
+} as const;
 
 const TASKS_SCHEMA = {
     type: Type.OBJECT,
     properties: {
         tasks: {
             type: Type.ARRAY,
-            items: { type: Type.STRING }
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    subTasks: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    }
+                },
+                required: ["title", "subTasks"]
+            }
         }
     }
-};
+} as const;
 
 const VALIDATION_SCHEMA = {
     type: Type.OBJECT,
@@ -49,9 +60,10 @@ const VALIDATION_SCHEMA = {
         },
         reasoning: { type: Type.STRING }
     }
-};
+} as const;
 
 export const AIRoadmapModal: React.FC<AIRoadmapModalProps> = ({ skillName, level, onClose, onGenerate }) => {
+    const [mode, setMode] = useState<GenerationMode>('generate');
     const [input, setInput] = useState('');
     const [phase, setPhase] = useState<GenerationPhase>('idle');
     const [categories, setCategories] = useState<CategoryProgress[]>([]);
@@ -69,9 +81,23 @@ export const AIRoadmapModal: React.FC<AIRoadmapModalProps> = ({ skillName, level
         });
     };
 
-    // PHASE 1: Identify categories
+    // PHASE 1: Identify categories (or Structure for Organize mode)
     const identifyCategories = async (userPrompt: string): Promise<string[]> => {
-        const prompt = `Você é um especialista em ${skillName} nível ${level}.
+        let prompt = '';
+
+        if (mode === 'organize') {
+            prompt = `Você é um organizador de conteúdo especialista.
+O usuário fornecerá um texto/conteúdo sobre ${skillName}.
+Sua tarefa é identificar os TÓPICOS PRINCIPAIS (Categorias) abordados no texto.
+NÃO CRIE nada que não esteja no texto. Apenas organize o que foi fornecido.
+
+Texto do usuário:
+"${userPrompt}"
+
+Retorne um JSON com "categories" (array de strings).
+Idioma: Português brasileiro.`;
+        } else {
+            prompt = `Você é um especialista em ${skillName} nível ${level}.
 ${userPrompt ? `Contexto adicional do usuário: "${userPrompt}"` : ''}
 
 Identifique as 4-6 principais áreas de estudo essenciais para dominar esta habilidade.
@@ -81,6 +107,7 @@ Retorne um JSON com a propriedade "categories" contendo um array de strings.
 Exemplo: {"categories": ["Fundamentos", "Prática Básica", "Técnicas Avançadas"]}
 
 Idioma: Português brasileiro.`;
+        }
 
         const response = await generateWithThinking(prompt, CATEGORIES_SCHEMA, 1024);
         if (response.text) {
@@ -91,18 +118,33 @@ Idioma: Português brasileiro.`;
     };
 
     // PHASE 2: Generate tasks per category
-    const generateTasksForCategory = async (category: string): Promise<string[]> => {
-        const prompt = `Para a área "${category}" de ${skillName} (nível ${level}), crie 3-6 tarefas práticas e acionáveis.
+    const generateTasksForCategory = async (category: string): Promise<{ title: string; subTasks: string[] }[]> => {
+        let prompt = '';
+
+        if (mode === 'organize') {
+            prompt = `Para o tópico "${category}" do texto fornecido sobre ${skillName}:
+            
+Texto original:
+"${input}"
+
+Extraia as tarefas ou conceitos desse tópico e organize-os.
+Se houver detalhes específicos, coloque como sub-tarefas.
+NÃO INVENTE tarefas. Use apenas o que está no texto.
+
+Retorne JSON com "tasks": [{ "title": "...", "subTasks": ["...", "..."] }]`;
+        } else {
+            prompt = `Para a área "${category}" de ${skillName} (nível ${level}), crie 3-6 tarefas práticas.
+Permita criar sub-tarefas para detalhar passos complexos.
 
 Regras:
-- Cada tarefa deve ser específica e mensurável
-- Ordene por dificuldade (do mais fácil ao mais difícil)
-- Use verbos de ação (Estudar, Praticar, Completar, etc.)
+- Específico e mensurável
+- Ordene por dificuldade
+- Use subTasks para quebrar tarefas grandes
 
-Retorne um JSON com a propriedade "tasks" contendo um array de strings.
-Idioma: Português brasileiro.`;
+Retorne JSON com "tasks": [{ "title": "...", "subTasks": ["...", "..."] }]`;
+        }
 
-        const response = await generateWithThinking(prompt, TASKS_SCHEMA, 512);
+        const response = await generateWithThinking(prompt, TASKS_SCHEMA, 1024);
         if (response.text) {
             const data = JSON.parse(response.text);
             return data.tasks || [];
@@ -110,29 +152,25 @@ Idioma: Português brasileiro.`;
         return [];
     };
 
-    // PHASE 3: Mega Analysis
-    const validateAndComplement = async (allTasks: string[]): Promise<{
+    // PHASE 3: Mega Analysis (Only for Generate Mode)
+    const validateAndComplement = async (allTasks: any[]): Promise<{
         reasoning: string;
         missingItems: string[];
     }> => {
-        const prompt = `Analise este roadmap completo para ${skillName} (nível ${level}):
+        if (mode === 'organize') {
+            return { reasoning: 'Conteúdo organizado com sucesso.', missingItems: [] };
+        }
 
-${allTasks.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+        const taskList = allTasks.map((t, i) => `${i + 1}. ${t.title} (${t.subTasks?.length || 0} subs)`).join('\n');
 
-Sua missão:
-1. Verifique se há gaps de conhecimento importantes
-2. A progressão faz sentido didático?
-3. Faltam conceitos fundamentais que todo estudante deveria aprender?
+        const prompt = `Analise este roadmap para ${skillName} (${level}):
 
-Se encontrar problemas, adicione até 5 tarefas complementares.
-Se o roadmap estiver completo, retorne uma lista vazia.
+${taskList}
 
-Explique seu raciocínio de forma clara e amigável em português.
+Missão: verificar gaps e progressão.
+Se encontrar problemas, sugira até 3 tarefas macro complementares (sem subtasks por enquanto).
 
-Retorne um JSON com:
-- "isComplete": boolean
-- "missingItems": array de strings (tarefas a adicionar)
-- "reasoning": string explicando sua análise`;
+Retorne JSON: { "isComplete": boolean, "missingItems": string[], "reasoning": string }`;
 
         const response = await generateWithThinking(prompt, VALIDATION_SCHEMA, 2048);
         if (response.text) {
@@ -147,15 +185,20 @@ Retorne um JSON com:
 
     // Main generation flow
     const handleGenerate = async () => {
+        if (mode === 'organize' && !input.trim()) {
+            setError('Para organizar, você precisa fornecer o texto/conteúdo.');
+            return;
+        }
+
         setError(null);
 
         try {
-            // PHASE 1: Analyze and identify categories
+            // PHASE 1
             setPhase('analyzing');
             const identifiedCategories = await identifyCategories(input);
 
             if (identifiedCategories.length === 0) {
-                throw new Error('Não foi possível identificar áreas de estudo.');
+                throw new Error('Não foi possível identificar tópicos/áreas.');
             }
 
             const initialProgress: CategoryProgress[] = identifiedCategories.map(name => ({
@@ -166,7 +209,7 @@ Retorne um JSON com:
             setCategories(initialProgress);
             setExpandedCategories(new Set(identifiedCategories));
 
-            // PHASE 2: Generate tasks for each category
+            // PHASE 2
             setPhase('generating');
             const updatedCategories = [...initialProgress];
 
@@ -179,7 +222,7 @@ Retorne um JSON com:
                 setCategories([...updatedCategories]);
             }
 
-            // PHASE 3: Mega Analysis
+            // PHASE 3
             setPhase('validating');
             const allTasks = updatedCategories.flatMap(c => c.tasks);
             const validation = await validateAndComplement(allTasks);
@@ -190,15 +233,17 @@ Retorne um JSON com:
             setPhase('done');
         } catch (err) {
             console.error(err);
-            setError(err instanceof Error ? err.message : 'Erro ao gerar roadmap.');
+            setError(err instanceof Error ? err.message : 'Erro ao processar.');
             setPhase('error');
         }
     };
 
     // Collect all items for final output
-    const getAllItems = (): string[] => {
+    const getAllItems = () => {
         const categoryTasks = categories.flatMap(c => c.tasks);
-        return [...categoryTasks, ...additionalItems];
+        // Additional items come as strings, convert to objects
+        const additionalObjs = additionalItems.map(title => ({ title, subTasks: [] }));
+        return [...categoryTasks, ...additionalObjs];
     };
 
     const handleApply = () => {
@@ -213,11 +258,13 @@ Retorne um JSON com:
         setError(null);
     };
 
-    // Phase indicator component
     const PhaseIndicator = () => (
         <div className="flex items-center justify-between px-4 py-3 bg-slate-950/50 border-b border-slate-800">
             {['analyzing', 'generating', 'validating'].map((p, idx) => {
-                const labels = ['Analisando', 'Gerando', 'Validando'];
+                const labels = mode === 'organize'
+                    ? ['Lendo', 'Estruturando', 'Finalizando']
+                    : ['Analisando', 'Gerando', 'Validando'];
+
                 const isActive = phase === p;
                 const isDone = ['analyzing', 'generating', 'validating'].indexOf(phase) > idx || phase === 'done';
 
@@ -247,7 +294,7 @@ Retorne um JSON com:
                             <Bot size={24} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-white">Gerador de Roadmap Inteligente</h3>
+                            <h3 className="font-bold text-white">Assistente de Roadmap</h3>
                             <p className="text-xs text-emerald-400">Gemini 2.5 Flash • Modo Pensamento</p>
                         </div>
                     </div>
@@ -256,30 +303,60 @@ Retorne um JSON com:
                     </button>
                 </div>
 
-                {/* Phase Indicator (only when generating) */}
+                {/* Phase Indicator */}
                 {phase !== 'idle' && phase !== 'error' && <PhaseIndicator />}
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
-                    {/* Idle State - Input */}
+                    {/* Idle State - Input & Mode Selection */}
                     {phase === 'idle' && (
                         <>
-                            <div className="text-center text-slate-500 py-4">
-                                <Brain size={48} className="mx-auto mb-4 text-emerald-500/50" />
-                                <p className="text-sm mb-2">O gerador vai analisar <strong className="text-white">{skillName}</strong> em 3 etapas:</p>
-                                <div className="flex justify-center gap-2 text-xs mt-3">
-                                    <span className="bg-slate-700 px-2 py-1 rounded">1. Identificar áreas</span>
-                                    <span className="bg-slate-700 px-2 py-1 rounded">2. Criar tarefas</span>
-                                    <span className="bg-slate-700 px-2 py-1 rounded">3. Validar completude</span>
-                                </div>
+                            {/* Mode Selection */}
+                            <div className="bg-slate-900/50 p-1 rounded-xl flex border border-slate-800 mb-4">
+                                <button
+                                    onClick={() => setMode('generate')}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2
+                                    ${mode === 'generate' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    <Sparkles size={16} />
+                                    Criar do Zero
+                                </button>
+                                <button
+                                    onClick={() => setMode('organize')}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2
+                                    ${mode === 'organize' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    <Layers size={16} />
+                                    Organizar Conteúdo
+                                </button>
                             </div>
+
+                            <div className="text-center text-slate-500 py-2">
+                                {mode === 'generate' ? (
+                                    <>
+                                        <Brain size={42} className="mx-auto mb-3 text-emerald-500/50" />
+                                        <p className="text-sm">A IA vai criar um plano de estudos completo para <strong>{skillName}</strong>.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <FileText size={42} className="mx-auto mb-3 text-blue-500/50" />
+                                        <p className="text-sm">Cole seu texto, anotações ou ementa de curso. A IA vai <strong>estruturar tudo em tarefas</strong> para você.</p>
+                                    </>
+                                )}
+                            </div>
+
                             <div>
-                                <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Instruções extras (Opcional)</label>
+                                <label className="block text-xs text-slate-500 uppercase font-bold mb-2">
+                                    {mode === 'generate' ? 'Instruções extras (Opcional)' : 'Cole seu conteúdo aqui (Obrigatório)'}
+                                </label>
                                 <textarea
                                     value={input}
                                     onChange={e => setInput(e.target.value)}
-                                    placeholder="Ex: Focar em conversação, ou focar em gramática..."
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white text-sm focus:border-emerald-500 outline-none h-24 resize-none"
+                                    placeholder={mode === 'generate'
+                                        ? "Ex: Focar em conversação, ou focar em gramática..."
+                                        : "Cole aqui o texto, resumo ou lista bagunçada..."}
+                                    className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white text-sm focus:border-emerald-500 outline-none resize-none transition-all
+                                        ${mode === 'organize' ? 'h-40' : 'h-24'}`}
                                 />
                             </div>
                         </>
@@ -289,12 +366,13 @@ Retorne um JSON com:
                     {phase === 'analyzing' && (
                         <div className="flex flex-col items-center justify-center py-10 gap-3">
                             <Loader2 size={32} className="text-emerald-400 animate-spin" />
-                            <p className="text-sm text-slate-400">Identificando áreas de estudo...</p>
-                            <p className="text-xs text-slate-600">A IA está pensando profundamente</p>
+                            <p className="text-sm text-slate-400">
+                                {mode === 'generate' ? 'Planejando estrutura...' : 'Lendo seu conteúdo...'}
+                            </p>
                         </div>
                     )}
 
-                    {/* Generating State - Show categories progress */}
+                    {/* Generating State */}
                     {(phase === 'generating' || phase === 'validating' || phase === 'done') && categories.length > 0 && (
                         <div className="space-y-2">
                             {categories.map(cat => (
@@ -321,11 +399,22 @@ Retorne um JSON com:
                                         )}
                                     </button>
                                     {expandedCategories.has(cat.name) && cat.tasks.length > 0 && (
-                                        <div className="px-3 pb-3 space-y-1">
+                                        <div className="px-3 pb-3 space-y-2">
                                             {cat.tasks.map((task, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-800/50 text-xs text-slate-300">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                    {task}
+                                                <div key={idx} className="bg-slate-900 p-2 rounded border border-slate-800/50">
+                                                    <div className="flex items-center gap-2 text-xs text-slate-300 font-medium">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        {task.title}
+                                                    </div>
+                                                    {task.subTasks && task.subTasks.length > 0 && (
+                                                        <div className="ml-4 mt-1 space-y-1 border-l border-slate-800 pl-2">
+                                                            {task.subTasks.map((sub, sIdx) => (
+                                                                <div key={sIdx} className="text-xs text-slate-500">
+                                                                    - {sub}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -335,48 +424,15 @@ Retorne um JSON com:
                         </div>
                     )}
 
-                    {/* Validating State */}
-                    {phase === 'validating' && (
-                        <div className="flex flex-col items-center justify-center py-6 gap-3 border-t border-slate-800 mt-4">
-                            <Brain size={24} className="text-purple-400 animate-pulse" />
-                            <p className="text-sm text-slate-400">Mega análise em andamento...</p>
-                            <p className="text-xs text-slate-600">Verificando completude e gaps</p>
-                        </div>
-                    )}
-
-                    {/* Done State - Show validation reasoning */}
-                    {phase === 'done' && (
-                        <>
-                            {validationReasoning && (
-                                <div className="bg-gradient-to-r from-purple-900/30 to-slate-900 rounded-xl border border-purple-800/50 p-4 mt-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Brain size={16} className="text-purple-400" />
-                                        <span className="text-xs font-bold text-purple-300 uppercase">Análise da IA</span>
-                                    </div>
-                                    <p className="text-sm text-slate-300 leading-relaxed">{validationReasoning}</p>
-                                </div>
-                            )}
-
-                            {additionalItems.length > 0 && (
-                                <div className="bg-slate-950/50 rounded-xl border border-emerald-800/50 p-3 mt-3">
-                                    <div className="text-xs font-bold text-emerald-400 uppercase mb-2">
-                                        + {additionalItems.length} itens adicionados pela análise
-                                    </div>
-                                    <div className="space-y-1">
-                                        {additionalItems.map((item, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-emerald-800/30 text-xs text-emerald-300">
-                                                <Sparkles size={12} className="text-emerald-400" />
-                                                {item}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="text-center text-sm text-slate-500 pt-2">
-                                Total: <strong className="text-white">{getAllItems().length} tarefas</strong> geradas
+                    {/* Validating/Done Info */}
+                    {(phase === 'done' || phase === 'validating') && validationReasoning && (
+                        <div className="bg-gradient-to-r from-purple-900/30 to-slate-900 rounded-xl border border-purple-800/50 p-4 mt-4 animate-in slide-in-from-bottom-2">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Brain size={16} className="text-purple-400" />
+                                <span className="text-xs font-bold text-purple-300 uppercase">Análise da IA</span>
                             </div>
-                        </>
+                            <p className="text-sm text-slate-300 leading-relaxed">{validationReasoning}</p>
+                        </div>
                     )}
 
                     {/* Error State */}
@@ -384,7 +440,7 @@ Retorne um JSON com:
                         <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
                             <AlertCircle size={48} className="text-red-400" />
                             <p className="text-sm text-red-400">{error}</p>
-                            <p className="text-xs text-slate-500">Tente novamente ou ajuste as instruções.</p>
+                            <button onClick={handleRetry} className="text-xs text-slate-400 underline">Tentar novamente</button>
                         </div>
                     )}
                 </div>
@@ -394,36 +450,29 @@ Retorne um JSON com:
                     {phase === 'idle' && (
                         <button
                             onClick={handleGenerate}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg"
+                            disabled={mode === 'organize' && !input.trim()}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg"
                         >
-                            <Brain size={18} /> Gerar Roadmap Inteligente
+                            {mode === 'generate' ? <Brain size={18} /> : <Layers size={18} />}
+                            {mode === 'generate' ? 'Gerar Roadmap' : 'Organizar Tarefas'}
                         </button>
                     )}
 
                     {(phase === 'analyzing' || phase === 'generating' || phase === 'validating') && (
                         <div className="w-full text-center py-3 text-slate-500 text-sm">
-                            Gerando roadmap...
+                            Processando...
                         </div>
                     )}
 
                     {phase === 'done' && (
                         <>
                             <button onClick={handleRetry} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors">
-                                Tentar de novo
+                                Refazer
                             </button>
                             <button onClick={handleApply} className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors shadow-lg">
-                                Aplicar ({getAllItems().length} itens)
+                                Aplicar ({categories.reduce((acc, c) => acc + c.tasks.length, 0) + additionalItems.length} itens)
                             </button>
                         </>
-                    )}
-
-                    {phase === 'error' && (
-                        <button
-                            onClick={handleRetry}
-                            className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors"
-                        >
-                            Tentar Novamente
-                        </button>
                     )}
                 </div>
             </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SkillDetailView } from '../../../components/skills/SkillDetailView';
-import { Skill } from '../../../types';
+import { Skill, Prompt, PromptCategory } from '../../../types';
 
 // Mock modals to avoid complexity
 vi.mock('../../../components/skills/ImportExportModal', () => ({
@@ -18,6 +18,14 @@ vi.mock('../../../components/skills/AIRoadmapModal', () => ({
         <div data-testid="ai-roadmap-modal">
             <button onClick={onClose}>Close AI Modal</button>
             <button onClick={() => onGenerate(['Tarefa 1', 'Tarefa 2'])}>Generate</button>
+        </div>
+    )
+}));
+
+vi.mock('../../../components/skills/FullRoadmapEditor', () => ({
+    FullRoadmapEditor: ({ onClose }: { onClose: () => void }) => (
+        <div data-testid="full-roadmap-editor">
+            <button onClick={onClose}>Close Editor</button>
         </div>
     )
 }));
@@ -46,6 +54,21 @@ const createMockSkill = (overrides: Partial<Skill> = {}): Skill => ({
     ...overrides
 });
 
+// Mock prompts and categories data
+const mockPrompts: Prompt[] = [
+    { id: 'p1', title: 'Prompt Test', content: 'Test content', category: 'c1', images: [], copyCount: 0, isFavorite: false, createdAt: Date.now(), updatedAt: Date.now() }
+];
+
+const mockPromptCategories: PromptCategory[] = [
+    { id: 'c1', name: 'Test Category', color: 'blue', icon: 'test', order: 0 }
+];
+
+// Default props for all renders
+const defaultProps = {
+    prompts: mockPrompts,
+    promptCategories: mockPromptCategories,
+};
+
 describe('SkillDetailView Component', () => {
     const mockOnBack = vi.fn();
     const mockOnUpdate = vi.fn();
@@ -65,6 +88,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -86,6 +110,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -111,6 +136,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -140,6 +166,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -164,6 +191,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -194,6 +222,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -226,6 +255,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -255,6 +285,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -270,6 +301,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -287,6 +319,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -310,6 +343,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -330,6 +364,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -344,6 +379,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -360,6 +396,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -380,6 +417,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -400,6 +438,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -416,6 +455,7 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
@@ -431,10 +471,27 @@ describe('SkillDetailView Component', () => {
                 onBack={mockOnBack}
                 onUpdate={mockOnUpdate}
                 onDelete={mockOnDelete}
+                {...defaultProps}
             />
         );
 
         fireEvent.click(screen.getByText('Importar / Exportar'));
         expect(screen.getByTestId('import-export-modal')).toBeInTheDocument();
+    });
+
+    it('opens FullRoadmapEditor modal', () => {
+        const skill = createMockSkill();
+        render(
+            <SkillDetailView
+                skill={skill}
+                onBack={mockOnBack}
+                onUpdate={mockOnUpdate}
+                onDelete={mockOnDelete}
+                {...defaultProps}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Editor'));
+        expect(screen.getByTestId('full-roadmap-editor')).toBeInTheDocument();
     });
 });

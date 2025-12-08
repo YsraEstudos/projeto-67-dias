@@ -147,6 +147,7 @@ export interface SkillRoadmapItem {
   title: string;
   isCompleted: boolean;
   type?: 'TASK' | 'SECTION';
+  subTasks?: SkillRoadmapItem[];
 }
 
 export interface SkillLog {
@@ -155,6 +156,39 @@ export interface SkillLog {
   minutes: number;
   notes?: string;
 }
+
+// Tipo de nó no roadmap visual
+export type VisualNodeType = 'main' | 'alternative' | 'optional' | 'info' | 'section';
+
+// Nó individual do roadmap visual
+export interface VisualRoadmapNode {
+  id: string;
+  title: string;
+  type: VisualNodeType;
+  x: number;  // Posição X no canvas
+  y: number;  // Posição Y no canvas
+  isCompleted: boolean;
+  description?: string;
+  children?: VisualRoadmapNode[]; // Para nós expandíveis
+}
+
+// Conexão entre nós
+export interface VisualRoadmapConnection {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  style: 'solid' | 'dashed';
+}
+
+// Estrutura completa do roadmap visual
+export interface VisualRoadmap {
+  nodes: VisualRoadmapNode[];
+  connections: VisualRoadmapConnection[];
+  rootId?: string; // Nó raiz para iniciar a visualização
+}
+
+// Modo de exibição do roadmap
+export type RoadmapViewMode = 'tasks' | 'visual';
 
 export interface Skill {
   id: string;
@@ -165,6 +199,8 @@ export interface Skill {
   goalMinutes: number;
   resources: SkillResource[];
   roadmap: SkillRoadmapItem[];
+  visualRoadmap?: VisualRoadmap;
+  roadmapViewMode?: RoadmapViewMode;
   logs: SkillLog[];
   colorTheme: string;
   createdAt: number;
