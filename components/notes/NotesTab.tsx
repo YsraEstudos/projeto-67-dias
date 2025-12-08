@@ -38,26 +38,47 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     const [sortBy, setSortBy] = useState<SortOption>('recent');
 
     // Derive all unique tags from notes (legacy + new IDs) + global tags
+    // Resolve tag IDs to their labels to prevent duplicates
     const allTags = useMemo(() => {
         const tagSet = new Set<string>();
-        // Add existing tags from notes
-        notes.forEach(note => note.tags.forEach(tag => tagSet.add(tag)));
-        // Add global tags labels
+
+        // Add existing tags from notes, resolving IDs to labels
+        notes.forEach(note => note.tags.forEach(tagStr => {
+            // Check if this is a smart tag ID
+            const smartTag = tags.find(t => t.id === tagStr);
+            if (smartTag) {
+                tagSet.add(smartTag.label); // Use the label, not the ID
+            } else {
+                // Legacy tag or simple string tag
+                tagSet.add(tagStr);
+            }
+        }));
+
+        // Add global tags labels (in case there are tags not yet used in any note)
         tags.forEach(tag => tagSet.add(tag.label));
 
         return Array.from(tagSet).sort();
     }, [notes, tags]);
 
-    // Tag counts
+    // Tag counts - resolve IDs to labels for consistent counting
     const tagCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         notes.forEach(note => {
-            note.tags.forEach(tag => {
-                counts[tag] = (counts[tag] || 0) + 1;
+            note.tags.forEach(tagStr => {
+                // Resolve ID to label if it's a smart tag
+                const smartTag = tags.find(t => t.id === tagStr);
+                const resolvedTag = smartTag ? smartTag.label : tagStr;
+                counts[resolvedTag] = (counts[resolvedTag] || 0) + 1;
             });
         });
         return counts;
-    }, [notes]);
+    }, [notes, tags]);
+
+    // Helper to resolve a tag string (ID or label) to its label
+    const resolveTagToLabel = (tagStr: string): string => {
+        const smartTag = tags.find(t => t.id === tagStr);
+        return smartTag ? smartTag.label : tagStr;
+    };
 
     // Filtered and sorted notes
     const filteredNotes = useMemo(() => {
@@ -70,13 +91,15 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                 (note) =>
                     note.title.toLowerCase().includes(term) ||
                     note.content.toLowerCase().includes(term) ||
-                    note.tags.some((tag) => tag.toLowerCase().includes(term))
+                    note.tags.some((tag) => resolveTagToLabel(tag).toLowerCase().includes(term))
             );
         }
 
-        // Filter by selected tags (OR logic)
+        // Filter by selected tags (OR logic) - resolve IDs to labels for comparison
         if (selectedTags.length > 0) {
-            filtered = filtered.filter((note) => note.tags.some((tag) => selectedTags.includes(tag)));
+            filtered = filtered.filter((note) =>
+                note.tags.some((tag) => selectedTags.includes(resolveTagToLabel(tag)))
+            );
         }
 
         // Sort
@@ -97,7 +120,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         }
 
         return sorted;
-    }, [notes, searchTerm, selectedTags, sortBy]);
+    }, [notes, searchTerm, selectedTags, sortBy, tags]);
 
     /**
      * Salva uma nota (nova ou existente).
