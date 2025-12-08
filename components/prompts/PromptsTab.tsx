@@ -3,7 +3,12 @@ import {
   Search, Plus, Trash2, X, Copy, Check, ChevronDown,
   Sparkles, Star, StarOff, FolderPlus, Image as ImageIcon,
   Edit2, Zap, Code, Palette, MessageSquare,
-  FileText, Lightbulb, Bot, Wand2
+  FileText, Lightbulb, Bot, Wand2,
+  // New icons for more category options
+  Briefcase, GraduationCap, Heart, Music, Gamepad2,
+  Globe, Camera, ShoppingCart, Megaphone, Calculator,
+  Bookmark, Coffee, Rocket, Target, Users, Shield,
+  Wrench, PenTool, Layers, Terminal, Database, Cpu
 } from 'lucide-react';
 import { useStorage } from '../../hooks/useStorage';
 import { Prompt, PromptCategory, PromptImage } from '../../types';
@@ -18,6 +23,29 @@ const categoryIcons: Record<string, React.ReactNode> = {
   'ai': <Bot size={14} />,
   'magic': <Wand2 size={14} />,
   'default': <Zap size={14} />,
+  // New icons
+  'business': <Briefcase size={14} />,
+  'education': <GraduationCap size={14} />,
+  'health': <Heart size={14} />,
+  'music': <Music size={14} />,
+  'gaming': <Gamepad2 size={14} />,
+  'web': <Globe size={14} />,
+  'photo': <Camera size={14} />,
+  'shopping': <ShoppingCart size={14} />,
+  'marketing': <Megaphone size={14} />,
+  'math': <Calculator size={14} />,
+  'bookmark': <Bookmark size={14} />,
+  'productivity': <Coffee size={14} />,
+  'startup': <Rocket size={14} />,
+  'goals': <Target size={14} />,
+  'social': <Users size={14} />,
+  'security': <Shield size={14} />,
+  'tools': <Wrench size={14} />,
+  'design': <PenTool size={14} />,
+  'layers': <Layers size={14} />,
+  'terminal': <Terminal size={14} />,
+  'database': <Database size={14} />,
+  'hardware': <Cpu size={14} />,
 };
 
 // --- DEFAULT CATEGORIES ---
@@ -198,13 +226,13 @@ const PromptsTab: React.FC = () => {
     return prompts.filter(p => {
       const matchesSearch = searchQuery
         ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.content.toLowerCase().includes(searchQuery.toLowerCase())
+        p.content.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
 
       const matchesCategory =
         selectedCategory === 'all' ? true :
-        selectedCategory === 'favorites' ? p.isFavorite :
-        p.category === selectedCategory;
+          selectedCategory === 'favorites' ? p.isFavorite :
+            p.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
     });
@@ -266,21 +294,19 @@ const PromptsTab: React.FC = () => {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setSelectedCategory('all')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-            selectedCategory === 'all'
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20'
-              : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
-          }`}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedCategory === 'all'
+            ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20'
+            : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+            }`}
         >
           Todos
         </button>
         <button
           onClick={() => setSelectedCategory('favorites')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
-            selectedCategory === 'favorites'
-              ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20'
-              : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
-          }`}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${selectedCategory === 'favorites'
+            ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20'
+            : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+            }`}
         >
           <Star size={14} /> Favoritos
         </button>
@@ -290,11 +316,10 @@ const PromptsTab: React.FC = () => {
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
-                selectedCategory === cat.id
-                  ? `${colors.bg} ${colors.text} border ${colors.border}`
-                  : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${selectedCategory === cat.id
+                ? `${colors.bg} ${colors.text} border ${colors.border}`
+                : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                }`}
             >
               {categoryIcons[cat.icon] || categoryIcons.default}
               {cat.name}
@@ -327,9 +352,8 @@ const PromptsTab: React.FC = () => {
           return (
             <div
               key={prompt.id}
-              className={`bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden transition-all duration-300 ${
-                isExpanded ? 'shadow-xl shadow-purple-900/10' : 'hover:border-slate-600'
-              }`}
+              className={`bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'shadow-xl shadow-purple-900/10' : 'hover:border-slate-600'
+                }`}
             >
               {/* Header */}
               <div
@@ -362,22 +386,20 @@ const PromptsTab: React.FC = () => {
                   <button
                     onClick={() => toggleFavorite(prompt.id)}
                     aria-label={prompt.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                    className={`p-2 rounded-lg transition-colors ${
-                      prompt.isFavorite
-                        ? 'text-amber-400 bg-amber-500/10'
-                        : 'text-slate-500 hover:text-amber-400 hover:bg-slate-700'
-                    }`}
+                    className={`p-2 rounded-lg transition-colors ${prompt.isFavorite
+                      ? 'text-amber-400 bg-amber-500/10'
+                      : 'text-slate-500 hover:text-amber-400 hover:bg-slate-700'
+                      }`}
                   >
                     {prompt.isFavorite ? <Star size={16} fill="currentColor" /> : <StarOff size={16} />}
                   </button>
                   <button
                     onClick={() => copyToClipboard(prompt)}
                     aria-label={isCopied ? 'Prompt copiado' : 'Copiar prompt'}
-                    className={`p-2 rounded-lg transition-all ${
-                      isCopied
-                        ? 'text-emerald-400 bg-emerald-500/10'
-                        : 'text-slate-500 hover:text-white hover:bg-slate-700'
-                    }`}
+                    className={`p-2 rounded-lg transition-all ${isCopied
+                      ? 'text-emerald-400 bg-emerald-500/10'
+                      : 'text-slate-500 hover:text-white hover:bg-slate-700'
+                      }`}
                     title="Copiar prompt"
                   >
                     {isCopied ? <Check size={16} /> : <Copy size={16} />}
@@ -392,9 +414,8 @@ const PromptsTab: React.FC = () => {
 
               {/* Expandable Content */}
               <div
-                className={`grid transition-all duration-500 ease-in-out ${
-                  isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                }`}
+                className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                  }`}
               >
                 <div className="overflow-hidden">
                   <div className="px-4 pb-4 border-t border-slate-700/50">
@@ -482,20 +503,20 @@ const PromptsTab: React.FC = () => {
 
       {/* IMAGE PREVIEW MODAL */}
       {previewImage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in cursor-pointer"
           onClick={() => setPreviewImage(null)}
         >
-          <button 
+          <button
             className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"
             aria-label="Fechar visualização de imagem"
             onClick={() => setPreviewImage(null)}
           >
             <X size={24} />
           </button>
-          <img 
-            src={previewImage} 
-            alt="Preview" 
+          <img
+            src={previewImage}
+            alt="Preview"
             className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95"
             onClick={e => e.stopPropagation()}
           />
@@ -581,11 +602,10 @@ const PromptModal: React.FC<{
                     key={cat.id}
                     type="button"
                     onClick={() => setFormData({ ...formData, category: cat.id })}
-                    className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                      formData.category === cat.id
-                        ? `${colors.bg} ${colors.text} border-2 ${colors.border}`
-                        : 'bg-slate-900 text-slate-400 border border-slate-700 hover:border-slate-600'
-                    }`}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${formData.category === cat.id
+                      ? `${colors.bg} ${colors.text} border-2 ${colors.border}`
+                      : 'bg-slate-900 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
                   >
                     {categoryIcons[cat.icon] || categoryIcons.default}
                     {cat.name}
@@ -698,7 +718,12 @@ const CategoryModal: React.FC<{
   const [icon, setIcon] = useState('default');
 
   const colors = ['slate', 'emerald', 'blue', 'purple', 'amber', 'rose', 'cyan', 'pink'];
-  const icons = ['default', 'code', 'creative', 'chat', 'writing', 'ideas', 'ai', 'magic'];
+  const icons = [
+    'default', 'code', 'creative', 'chat', 'writing', 'ideas', 'ai', 'magic',
+    'business', 'education', 'health', 'music', 'gaming', 'web', 'photo', 'shopping',
+    'marketing', 'math', 'bookmark', 'productivity', 'startup', 'goals', 'social', 'security',
+    'tools', 'design', 'layers', 'terminal', 'database', 'hardware'
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
@@ -733,9 +758,8 @@ const CategoryModal: React.FC<{
                   key={c}
                   onClick={() => setColor(c)}
                   aria-label={`Selecionar cor ${c}`}
-                  className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                    color === c ? 'scale-110 border-white' : 'border-transparent'
-                  } ${colorClasses[c].bg}`}
+                  className={`w-8 h-8 rounded-lg border-2 transition-all ${color === c ? 'scale-110 border-white' : 'border-transparent'
+                    } ${colorClasses[c].bg}`}
                 />
               ))}
             </div>
@@ -749,11 +773,10 @@ const CategoryModal: React.FC<{
                   key={i}
                   onClick={() => setIcon(i)}
                   aria-label={`Selecionar ícone ${i}`}
-                  className={`p-2.5 rounded-lg border transition-all ${
-                    icon === i
-                      ? 'bg-purple-600 border-purple-500 text-white'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
-                  }`}
+                  className={`p-2.5 rounded-lg border transition-all ${icon === i
+                    ? 'bg-purple-600 border-purple-500 text-white'
+                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                    }`}
                 >
                   {categoryIcons[i]}
                 </button>

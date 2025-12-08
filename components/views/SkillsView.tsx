@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { GraduationCap, Plus } from 'lucide-react';
-import { Skill } from '../../types';
+import { Skill, Prompt, PromptCategory } from '../../types';
 import { useStorage } from '../../hooks/useStorage';
 import { SkillCard } from '../skills/SkillCard';
 import { SkillDetailView } from '../skills/SkillDetailView';
@@ -10,6 +10,8 @@ import { INITIAL_SKILLS } from '../skills/mockData';
 const SkillsView: React.FC = () => {
   // Main State with Hook
   const [skills, setSkills] = useStorage<Skill[]>('p67_skills', INITIAL_SKILLS);
+  const [prompts] = useStorage<Prompt[]>('p67_prompts', []);
+  const [promptCategories] = useStorage<PromptCategory[]>('p67_prompt_categories', []);
 
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -40,6 +42,8 @@ const SkillsView: React.FC = () => {
     return (
       <SkillDetailView
         skill={activeSkill}
+        prompts={prompts}
+        promptCategories={promptCategories}
         onBack={() => setActiveSkillId(null)}
         onUpdate={(updates) => updateSkill(activeSkill.id, updates)}
         onDelete={() => deleteSkill(activeSkill.id)}

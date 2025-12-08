@@ -138,7 +138,8 @@ export interface SkillResource {
   id: string;
   title: string;
   url: string;
-  type: 'VIDEO' | 'ARTICLE' | 'DOC' | 'OTHER';
+  type: 'VIDEO' | 'ARTICLE' | 'DOC' | 'OTHER' | 'PROMPT';
+  promptId?: string; // ID do prompt vinculado (quando type === 'PROMPT')
 }
 
 export interface SkillRoadmapItem {

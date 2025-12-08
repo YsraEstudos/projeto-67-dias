@@ -27,6 +27,36 @@ const getClient = (): GoogleGenAI => {
 
 export const getGeminiModel = () => getClient().models;
 
+/**
+ * Generate content using Gemini 2.5 Flash with thinking mode enabled.
+ * This allows the model to "think" before responding for better quality.
+ */
+export const generateWithThinking = async (
+    prompt: string,
+    schema: object,
+    thinkingBudget: number = 1024
+): Promise<{ text: string | undefined; thoughts?: string }> => {
+    const models = getGeminiModel();
+    const response = await models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+            thinkingConfig: {
+                thinkingBudget
+            }
+        }
+    });
+
+    return {
+        text: response.text,
+        thoughts: response.candidates?.[0]?.content?.parts?.find(
+            (p: { thought?: boolean }) => p.thought
+        )?.text
+    };
+};
+
 // Test-only helpers to reset cached client between unit tests
 export const __geminiTestUtils = {
     resetClient: () => { client = null; }

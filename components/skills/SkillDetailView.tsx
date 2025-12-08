@@ -1,5 +1,5 @@
 import React from 'react';
-import { Skill, SkillResource } from '../../types';
+import { Skill, SkillResource, Prompt, PromptCategory } from '../../types';
 import { SkillHeader } from './SkillHeader';
 import { ProgressStats } from './ProgressStats';
 import { ResourcesVault } from './ResourcesVault';
@@ -7,6 +7,8 @@ import { RoadmapSection } from './RoadmapSection';
 
 interface SkillDetailViewProps {
     skill: Skill;
+    prompts: Prompt[];
+    promptCategories: PromptCategory[];
     onBack: () => void;
     onUpdate: (u: Partial<Skill>) => void;
     onDelete: () => void;
@@ -16,7 +18,14 @@ interface SkillDetailViewProps {
  * Detail view for a single skill, showing progress stats, resources, and roadmap.
  * This component orchestrates the sub-components and manages data flow.
  */
-export const SkillDetailView: React.FC<SkillDetailViewProps> = ({ skill, onBack, onUpdate, onDelete }) => {
+export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
+    skill,
+    prompts,
+    promptCategories,
+    onBack,
+    onUpdate,
+    onDelete
+}) => {
     // Session handler that creates a log entry
     const handleAddSession = (minutes: number) => {
         onUpdate({
@@ -54,6 +63,8 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({ skill, onBack,
 
                     <ResourcesVault
                         resources={skill.resources}
+                        prompts={prompts}
+                        promptCategories={promptCategories}
                         onAdd={handleAddResource}
                         onRemove={handleRemoveResource}
                     />
