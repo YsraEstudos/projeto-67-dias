@@ -21,7 +21,7 @@ import { ViewState, DashboardCardProps, OrganizeTask, ProjectConfig } from './ty
 import { Card } from './components/Card';
 import { Loading } from './components/shared/Loading';
 import { AuthView } from './components/views/AuthView';
-import { useStorage } from './hooks/useStorage';
+import { useStorage, readNamespacedStorage } from './hooks/useStorage';
 import { useAuth } from './hooks/useAuth';
 
 // --- Lazy Load Views ---
@@ -93,7 +93,7 @@ const App: React.FC = () => {
   // Optimization: Read tasks only when needed for notifications
   const updateNotifications = useCallback(() => {
     try {
-      const saved = localStorage.getItem('p67_tasks');
+      const saved = readNamespacedStorage('p67_tasks', user?.id ?? null);
       if (!saved) {
         setNotificationCount(0);
         return;
@@ -111,7 +111,7 @@ const App: React.FC = () => {
     } catch {
       setNotificationCount(0);
     }
-  }, []);
+  }, [user?.id]);
 
   // Update notifications when returning to dashboard
   useEffect(() => {
@@ -263,6 +263,9 @@ const App: React.FC = () => {
 
   // --- RENDER AUTH ---
 
+  // Debug logging
+  console.log('[App] Auth state:', { user: user?.id, authLoading, authError });
+
   // Show loading while checking auth state
   if (authLoading && !user) {
     return (
@@ -275,7 +278,6 @@ const App: React.FC = () => {
   if (!user) {
     return (
       <AuthView
-        onLogin={() => {}}
         onEmailLogin={login}
         onRegister={register}
         onGoogleLogin={loginGoogle}

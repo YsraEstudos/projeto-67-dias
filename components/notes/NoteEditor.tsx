@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Loader2 } from 'lucide-react';
-import { Note, NoteColor } from '../../types';
+import { Note, NoteColor, Tag } from '../../types';
 import { getGeminiModel } from '../../services/gemini';
 import { Type } from '@google/genai';
 
@@ -8,6 +8,7 @@ interface NoteEditorProps {
     note: Note | null;
     onSave: (note: Note) => void;
     onClose: () => void;
+    availableTags: Tag[];
 }
 
 const COLOR_OPTIONS: { color: NoteColor; label: string; class: string }[] = [
@@ -21,7 +22,7 @@ const COLOR_OPTIONS: { color: NoteColor; label: string; class: string }[] = [
     { color: 'orange', label: 'Laranja', class: 'bg-orange-500' },
 ];
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, availableTags }) => {
     const [title, setTitle] = useState(note?.title || '');
     const [content, setContent] = useState(note?.content || '');
     const [color, setColor] = useState<NoteColor>(note?.color || 'blue');
@@ -59,6 +60,32 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose })
 
     const handleRemoveTag = (tagToRemove: string) => {
         setTags(tags.filter(t => t !== tagToRemove));
+    };
+
+    const handleToggleSmartTag = (tag: Tag) => {
+        // If we decide to use IDs for smart tags vs Strings for legacy. 
+        // For now, let's store the ID if it matches a smart tag. 
+        // Or store the Label? The plan was ambiguous but ID is better.
+        // However, existing simple tags are strings.
+        // Let's store ID. The NoteCard will need to resolve it.
+
+        if (tags.includes(tag.id)) {
+            setTags(tags.filter(t => t !== tag.id));
+        } else {
+            setTags([...tags, tag.id]);
+        }
+    };
+
+    // Helper to check if a tag string is actually a smart tag ID
+    const getTagDisplay = (tagStr: string) => {
+        const smartTag = availableTags.find(t => t.id === tagStr);
+        if (smartTag) return { label: smartTag.label, color: smartTag.color, isSmart: true };
+
+        // Maybe the user stored the LABEL of a smart tag as a string (legacy)?
+        const smartTagByLabel = availableTags.find(t => t.label.toLowerCase() === tagStr.toLowerCase());
+        if (smartTagByLabel) return { label: smartTagByLabel.label, color: smartTagByLabel.color, isSmart: true };
+
+        return { label: tagStr, color: 'bg-slate-700', isSmart: false };
     };
 
     const handleAIAction = async (action: 'summarize' | 'expand' | 'improve' | 'suggest-tags') => {
@@ -251,26 +278,55 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose })
                     {/* Tags */}
                     <div>
                         <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Tags</label>
-                        <input
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            onKeyDown={handleAddTag}
-                            placeholder="Digite uma tag e pressione Enter..."
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm focus:border-purple-500 outline-none"
-                        />
+
+                        {/* Smart Tag Selector */}
+                        {availableTags.length > 0 && (
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                {availableTags.map(tag => {
+                                    const isSelected = tags.includes(tag.id) || tags.includes(tag.label); // Handle both ID and Label match
+                                    return (
+                                        <button
+                                            key={tag.id}
+                                            onClick={() => handleToggleSmartTag(tag)}
+                                            className={`text-xs px-3 py-1.5 rounded-full border transition-all ${isSelected
+                                                    ? `${tag.color} text-white border-white/50 shadow-md`
+                                                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+                                                }`}
+                                        >
+                                            {tag.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2">
+                            <input
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={handleAddTag}
+                                placeholder="Nova tag manual (Enter)..."
+                                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm focus:border-purple-500 outline-none"
+                            />
+                        </div>
+
+                        {/* Selected Tags Display */}
                         {tags.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-3">
-                                {tags.map((tag, idx) => (
-                                    <span
-                                        key={idx}
-                                        className="text-xs px-3 py-1.5 bg-slate-700 text-slate-200 rounded-full flex items-center gap-2 border border-slate-600 animate-in zoom-in-95"
-                                    >
-                                        {tag}
-                                        <button onClick={() => handleRemoveTag(tag)} className="hover:text-red-400 transition-colors">
-                                            <X size={12} />
-                                        </button>
-                                    </span>
-                                ))}
+                                {tags.map((tagStr, idx) => {
+                                    const { label, color, isSmart } = getTagDisplay(tagStr);
+                                    return (
+                                        <span
+                                            key={idx}
+                                            className={`text-xs px-3 py-1.5 ${isSmart ? color : 'bg-slate-700'} text-slate-100 rounded-full flex items-center gap-2 border border-white/10 animate-in zoom-in-95`}
+                                        >
+                                            {label}
+                                            <button onClick={() => handleRemoveTag(tagStr)} className="hover:text-red-300 transition-colors">
+                                                <X size={12} />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

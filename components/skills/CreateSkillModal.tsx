@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { Skill } from '../../types';
-import { THEMES } from './constants';
+import { ThemeKey } from './constants';
+import { ThemePicker } from './ThemePicker';
 
 interface CreateSkillModalProps {
     onClose: () => void;
@@ -12,7 +13,7 @@ export const CreateSkillModal: React.FC<CreateSkillModalProps> = ({ onClose, onC
     const [name, setName] = useState('');
     const [level, setLevel] = useState<Skill['level']>('Iniciante');
     const [goalHours, setGoalHours] = useState(20);
-    const [theme, setTheme] = useState('emerald');
+    const [theme, setTheme] = useState<ThemeKey>('emerald');
 
     const handleSubmit = () => {
         if (!name) return;
@@ -53,7 +54,7 @@ export const CreateSkillModal: React.FC<CreateSkillModalProps> = ({ onClose, onC
                             <label className="block text-xs text-slate-500 uppercase font-bold mb-1">Nível Atual</label>
                             <select
                                 value={level}
-                                onChange={e => setLevel(e.target.value as any)}
+                                onChange={e => setLevel(e.target.value as Skill['level'])}
                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-emerald-500 outline-none"
                             >
                                 <option>Iniciante</option>
@@ -73,23 +74,7 @@ export const CreateSkillModal: React.FC<CreateSkillModalProps> = ({ onClose, onC
 
                     <div>
                         <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Cor do Tema</label>
-                        <div className="flex gap-3">
-                            {['emerald', 'blue', 'purple', 'amber', 'rose'].map(c => (
-                                <button
-                                    key={c}
-                                    onClick={() => setTheme(c)}
-                                    className={`w-8 h-8 rounded-full border-2 ${theme === c ? 'border-white scale-110' : 'border-transparent opacity-50 hover:opacity-100'}`}
-                                    style={{ backgroundColor: `var(--color-${c}-500)` }}
-                                >
-                                    <div className={`w-full h-full rounded-full ${c === 'emerald' ? 'bg-emerald-500' :
-                                        c === 'blue' ? 'bg-blue-500' :
-                                            c === 'purple' ? 'bg-purple-500' :
-                                                c === 'amber' ? 'bg-amber-500' :
-                                                    'bg-rose-500'
-                                        }`}></div>
-                                </button>
-                            ))}
-                        </div>
+                        <ThemePicker selectedTheme={theme} onSelect={setTheme} />
                     </div>
                 </div>
 

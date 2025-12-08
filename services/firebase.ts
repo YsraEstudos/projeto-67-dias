@@ -28,6 +28,29 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+const REQUIRED_ENV_MAP: Array<{ configKey: keyof typeof firebaseConfig; envKey: string }> = [
+    { configKey: 'apiKey', envKey: 'VITE_FIREBASE_API_KEY' },
+    { configKey: 'authDomain', envKey: 'VITE_FIREBASE_AUTH_DOMAIN' },
+    { configKey: 'projectId', envKey: 'VITE_FIREBASE_PROJECT_ID' },
+    { configKey: 'storageBucket', envKey: 'VITE_FIREBASE_STORAGE_BUCKET' },
+    { configKey: 'messagingSenderId', envKey: 'VITE_FIREBASE_MESSAGING_SENDER_ID' },
+    { configKey: 'appId', envKey: 'VITE_FIREBASE_APP_ID' }
+];
+
+const missingConfigKeys = REQUIRED_ENV_MAP
+    .filter(({ configKey }) => !firebaseConfig[configKey])
+    .map(({ envKey }) => envKey);
+
+if (missingConfigKeys.length) {
+    const message = [
+        '[Firebase] Configuração incompleta.',
+        `Defina as variáveis: ${missingConfigKeys.join(', ')}`,
+        'no seu arquivo .env.local (com prefixo VITE_) ou nas variáveis de ambiente do build.'
+    ].join(' ');
+    console.error(message);
+    throw new Error(message);
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 // const analytics = getAnalytics(app);

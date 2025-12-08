@@ -1,12 +1,13 @@
 import React from 'react';
 import { Sparkles, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { Note } from '../../types';
+import { Note, Tag } from '../../types';
 
 interface NoteCardProps {
     note: Note;
     onClick: () => void;
     onDelete: (id: string) => void;
     onDuplicate: (id: string) => void;
+    availableTags?: Tag[];
 }
 
 const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; hover: string }> = {
@@ -20,7 +21,7 @@ const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; 
     orange: { bg: 'bg-orange-500/5', border: 'border-orange-500/20', text: 'text-orange-400', hover: 'hover:border-orange-500/40' },
 };
 
-export const NoteCard: React.FC<NoteCardProps> = ({ note, onClick, onDelete, onDuplicate }) => {
+export const NoteCard: React.FC<NoteCardProps> = ({ note, onClick, onDelete, onDuplicate, availableTags = [] }) => {
     const [showMenu, setShowMenu] = React.useState(false);
     const colorScheme = COLOR_CLASSES[note.color] || COLOR_CLASSES.blue;
 
@@ -115,14 +116,27 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, onClick, onDelete, onD
                 {/* Tags */}
                 {note.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                        {note.tags.slice(0, 3).map((tag, idx) => (
-                            <span
-                                key={idx}
-                                className={`text-xs px-2 py-0.5 rounded-full border ${colorScheme.border} ${colorScheme.text} font-medium`}
-                            >
-                                {tag}
-                            </span>
-                        ))}
+                        {note.tags.slice(0, 3).map((tagStr, idx) => {
+                            // Resolve tag
+                            const smartTag = availableTags.find(t => t.id === tagStr);
+                            const smartTagByName = availableTags.find(t => t.label.toLowerCase() === tagStr.toLowerCase());
+
+                            const displayLabel = smartTag?.label || smartTagByName?.label || tagStr;
+                            const isSmart = !!(smartTag || smartTagByName);
+                            const smartColor = smartTag?.color || smartTagByName?.color;
+
+                            return (
+                                <span
+                                    key={idx}
+                                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${isSmart
+                                            ? `${smartColor} text-white border-white/20`
+                                            : `${colorScheme.border} ${colorScheme.text}`
+                                        }`}
+                                >
+                                    {displayLabel}
+                                </span>
+                            );
+                        })}
                         {note.tags.length > 3 && (
                             <span className="text-xs px-2 py-0.5 text-slate-500">+{note.tags.length - 3}</span>
                         )}

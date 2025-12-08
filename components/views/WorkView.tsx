@@ -7,7 +7,7 @@ import {
 import { db, auth } from '../../services/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useStorage } from '../../hooks/useStorage';
+import { useStorage, readNamespacedStorage, writeNamespacedStorage } from '../../hooks/useStorage';
 
 // --- TYPES ---
 type WorkStatus = 'PRE_BREAK' | 'BREAK' | 'POST_BREAK' | 'FINISHED';
@@ -170,7 +170,7 @@ const useWorkDataPersistence = () => {
   // Load data from localStorage and Firebase
   const loadData = useCallback(async (): Promise<Partial<WorkData>> => {
     // First, try localStorage (instant)
-    const localData = localStorage.getItem(STORAGE_KEY);
+    const localData = readNamespacedStorage(STORAGE_KEY, userId);
     let data: Partial<WorkData> = {};
 
     if (localData) {
@@ -202,7 +202,7 @@ const useWorkDataPersistence = () => {
     }
 
     return data;
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, userId]);
 
   // Save data to localStorage and Firebase
   const saveData = useCallback(async (data: WorkData) => {
@@ -215,7 +215,7 @@ const useWorkDataPersistence = () => {
 
     // Always save to localStorage (instant, works offline)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataWithTimestamp));
+      writeNamespacedStorage(STORAGE_KEY, JSON.stringify(dataWithTimestamp), userId);
     } catch (e) {
       console.error('Error saving to localStorage:', e);
       setSaveError(true);
@@ -231,7 +231,7 @@ const useWorkDataPersistence = () => {
         console.error('Error saving to Firebase:', e);
       }
     }
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, userId]);
 
   return { loadData, saveData, userId, saveError };
 };

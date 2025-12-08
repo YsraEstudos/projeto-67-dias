@@ -6,6 +6,9 @@ import { GlobalTimerState } from '../../types';
 
 vi.mock('../../hooks/useStorage', () => ({
     useStorage: vi.fn(),
+    readNamespacedStorage: vi.fn(),
+    writeNamespacedStorage: vi.fn(),
+    removeNamespacedStorage: vi.fn(),
 }));
 
 const mockedUseStorage = vi.mocked(useStorage);

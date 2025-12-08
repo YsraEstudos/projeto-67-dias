@@ -8,7 +8,10 @@ vi.mock('../../../hooks/useStorage', () => ({
     useStorage: (key: string, initialValue: any) => {
         const [val, setVal] = React.useState(initialValue);
         return [val, setVal];
-    }
+    },
+    readNamespacedStorage: vi.fn(() => null),
+    writeNamespacedStorage: vi.fn(),
+    removeNamespacedStorage: vi.fn(),
 }));
 
 // Mock Gemini

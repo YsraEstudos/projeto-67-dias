@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Mail, Lock, User, ArrowRight, Chrome,
   Ghost, ChevronLeft, CheckCircle2, AlertCircle, Loader2
 } from 'lucide-react';
 
 interface AuthViewProps {
-  onLogin: () => void;
   onRegister: (name: string, email: string, password: string) => Promise<void>;
   onEmailLogin: (email: string, password: string) => Promise<void>;
   onGoogleLogin: () => Promise<void>;
@@ -120,6 +119,21 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const displayError = localError || error;
 
+  const errorHint = useMemo(() => {
+    if (!displayError) return null;
+    const normalized = displayError.toLowerCase();
+    if (normalized.includes('api')) {
+      return 'Confirme se as variáveis VITE_FIREBASE_* estão preenchidas no .env ou nas variáveis do deploy.';
+    }
+    if (normalized.includes('domínio')) {
+      return 'No console do Firebase, adicione o domínio atual na lista de domínios autorizados.';
+    }
+    if (normalized.includes('não permitida')) {
+      return 'Ative o provedor (E-mail/Senha ou Anônimo) em Authentication > Sign-in method.';
+    }
+    return null;
+  }, [displayError]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
       {/* Background Effects */}
@@ -175,8 +189,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
           {/* Feedback Messages */}
           {displayError && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-400 text-sm animate-in slide-in-from-top-2">
-              <AlertCircle size={16} /> {displayError}
+            <div className="mb-4 space-y-2">
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-400 text-sm animate-in slide-in-from-top-2">
+                <AlertCircle size={16} /> {displayError}
+              </div>
+              {errorHint && (
+                <p className="text-xs text-red-300/80 leading-relaxed border border-dashed border-red-500/30 rounded-lg p-2">
+                  {errorHint}
+                </p>
+              )}
             </div>
           )}
           {successMsg && (
@@ -370,14 +391,16 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  className="flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 py-2.5 rounded-xl transition-colors"
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 py-2.5 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Chrome size={18} /> Google
                 </button>
                 <button
                   type="button"
                   onClick={handleGuestLogin}
-                  className="flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 py-2.5 rounded-xl transition-colors"
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 py-2.5 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Ghost size={18} /> Convidado
                 </button>

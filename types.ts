@@ -169,6 +169,34 @@ export interface Skill {
   createdAt: number;
 }
 
+// --- PROMPTS MODULE INTERFACES ---
+
+export interface PromptImage {
+  id: string;
+  url: string;
+  caption?: string;
+}
+
+export interface Prompt {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  images: PromptImage[];
+  copyCount: number;
+  isFavorite: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PromptCategory {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  order: number;
+}
+
 // --- LINK HUB INTERFACES ---
 
 export interface LinkItem {
@@ -193,6 +221,14 @@ export interface GlobalTimerState {
 }
 
 // --- NOTES MODULE INTERFACES ---
+
+
+export interface Tag {
+  id: string;      // UUID
+  label: string;   // Display name
+  color: string;   // Tailwind class (e.g. 'bg-red-500') or hex
+  createdAt: number;
+}
 
 export type NoteColor = 'amber' | 'rose' | 'emerald' | 'blue' | 'purple' | 'cyan' | 'pink' | 'orange';
 

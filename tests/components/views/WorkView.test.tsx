@@ -8,7 +8,10 @@ vi.mock('../../../hooks/useStorage', () => ({
     useStorage: (key: string, initialValue: any) => {
         const [val, setVal] = React.useState(initialValue);
         return [val, setVal];
-    }
+    },
+    readNamespacedStorage: vi.fn(() => null),
+    writeNamespacedStorage: vi.fn(),
+    removeNamespacedStorage: vi.fn(),
 }));
 
 // Mock Firebase
@@ -20,7 +23,13 @@ vi.mock('../../../services/firebase', () => ({
 vi.mock('firebase/firestore', () => ({
     doc: vi.fn(),
     setDoc: vi.fn(),
-    getDoc: vi.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) }))
+    getDoc: vi.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),
+    onSnapshot: vi.fn((_ref, onNext) => {
+        if (typeof onNext === 'function') {
+            onNext({ exists: () => false, data: () => ({}) });
+        }
+        return vi.fn();
+    })
 }));
 
 vi.mock('firebase/auth', () => ({

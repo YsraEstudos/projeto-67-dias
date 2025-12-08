@@ -1,11 +1,17 @@
 
-import React, { useState } from 'react';
-import { Database, Download, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon, StickyNote } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { doc, writeBatch } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { Database, Download, Upload, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon } from 'lucide-react';
 import { ProjectConfig } from '../../types';
-import { useStorage } from '../../hooks/useStorage';
-import { NotesTab } from '../notes/NotesTab';
+import { useStorage, readNamespacedStorage, writeNamespacedStorage, removeNamespacedStorage } from '../../hooks/useStorage';
+import { useAuth } from '../../hooks/useAuth';
+import { DataManagementModal } from '../modals/DataManagementModal';
+
 
 const SettingsView: React.FC = () => {
+  const { user } = useAuth();
+  const storageScope = user?.id ?? null;
   const [config, setConfig] = useStorage<ProjectConfig>('p67_project_config', {
     startDate: new Date().toISOString(),
     userName: 'User',
@@ -13,37 +19,11 @@ const SettingsView: React.FC = () => {
   });
 
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sistema' | 'notas'>('sistema');
-
-  const handleExportData = () => {
-    const data = {
-      p67_session: localStorage.getItem('p67_session'),
-      p67_tasks: localStorage.getItem('p67_tasks'),
-      p67_journal: localStorage.getItem('p67_journal'),
-      p67_skills: localStorage.getItem('p67_skills'),
-      p67_links: localStorage.getItem('p67_links'),
-      p67_books: localStorage.getItem('p67_books'),
-      p67_habits: localStorage.getItem('p67_habits'),
-      p67_notes: localStorage.getItem('p67_notes'), // Include notes
-      exportedAt: new Date().toISOString()
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `projeto-67-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
 
   const handleClearData = () => {
     if (confirm("ATENÇÃO: Isso apagará TODOS os seus dados (tarefas, diário, skills, etc) deste navegador. Essa ação é irreversível. Deseja continuar?")) {
-      const session = localStorage.getItem('p67_session'); // Preserve session if possible, or clear everything
       localStorage.clear();
-      if (session) localStorage.setItem('p67_session', session);
       window.location.reload();
     }
   };
@@ -52,159 +32,152 @@ const SettingsView: React.FC = () => {
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-white mb-2">Configurações</h2>
-        <p className="text-slate-400">Gerencie seus dados, preferências e notas do sistema.</p>
+        <p className="text-slate-400">Gerencie seus dados e preferências do sistema.</p>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 mb-8 border-b border-slate-700">
-        <button
-          onClick={() => setActiveTab('sistema')}
-          className={`px-6 py-3 font-semibold transition-all flex items-center gap-2 relative ${activeTab === 'sistema'
-              ? 'text-white border-b-2 border-cyan-500'
-              : 'text-slate-400 hover:text-slate-200'
-            }`}
-        >
-          <SettingsIcon size={18} />
-          Sistema
-        </button>
-        <button
-          onClick={() => setActiveTab('notas')}
-          className={`px-6 py-3 font-semibold transition-all flex items-center gap-2 relative ${activeTab === 'notas'
-              ? 'text-white border-b-2 border-purple-500'
-              : 'text-slate-400 hover:text-slate-200'
-            }`}
-        >
-          <StickyNote size={18} />
-          Notas
-        </button>
-      </div>
-
-      {/* Tab Content */}
+      {/* Content */}
       <div className="animate-in fade-in duration-300">
-        {activeTab === 'sistema' ? (
-          <div className="space-y-6">
-            {/* System Info Card */}
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
-              <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
-                <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
-                  <Info size={24} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Informações do Sistema</h3>
-                  <p className="text-sm text-slate-400">Status das integrações e versão.</p>
-                </div>
+        <div className="space-y-6">
+          {/* System Info Card */}
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
+            <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
+              <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+                <Info size={24} />
               </div>
-              <div className="p-6 space-y-4">
-                <div className="flex justify-between items-center p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck className="text-emerald-400" size={20} />
-                    <span className="text-slate-300 font-medium">Google Gemini AI</span>
-                  </div>
-                  <span className="text-xs font-bold bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">
-                    ATIVO (ENV VAR)
-                  </span>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Informações do Sistema</h3>
+                <p className="text-sm text-slate-400">Status das integrações e versão.</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between items-center p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="text-emerald-400" size={20} />
+                  <span className="text-slate-300 font-medium">Google Gemini AI</span>
                 </div>
-                <p className="text-xs text-slate-500 px-1">
-                  A inteligência artificial está configurada via variáveis de ambiente seguras. Nenhuma ação é necessária.
-                </p>
+                <span className="text-xs font-bold bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">
+                  ATIVO (ENV VAR)
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 px-1">
+                A inteligência artificial está configurada via variáveis de ambiente seguras. Nenhuma ação é necessária.
+              </p>
+            </div>
+          </div>
+
+          {/* Data Management Card */}
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
+            <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
+              <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                <Database size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Gerenciamento de Dados</h3>
+                <p className="text-sm text-slate-400">Seus dados são armazenados localmente no navegador.</p>
               </div>
             </div>
 
-            {/* Data Management Card */}
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
-              <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
-                <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-                  <Database size={24} />
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between md:col-span-2">
+                <div className="mb-4">
+                  <h4 className="text-white font-medium flex items-center gap-2 mb-2">
+                    <Database size={18} className="text-blue-400" /> Central de Backup
+                  </h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Exporte seus dados para segurança ou importe backups anteriores.
+                    Agora você pode escolher exatamente o que deseja salvar ou restaurar.
+                  </p>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Gerenciamento de Dados</h3>
-                  <p className="text-sm text-slate-400">Seus dados são armazenados localmente no navegador.</p>
-                </div>
+                <button
+                  onClick={() => setIsDataModalOpen(true)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
+                >
+                  <SettingsIcon size={16} /> Gerenciar Dados (Importar / Exportar)
+                </button>
               </div>
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-                  <div className="mb-4">
-                    <h4 className="text-white font-medium flex items-center gap-2 mb-2">
-                      <Download size={18} className="text-blue-400" /> Exportar Backup
-                    </h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Baixe uma cópia de todos os seus registros (JSON) para segurança ou para importar em outro navegador.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleExportData}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-blue-900/20"
-                  >
-                    Baixar Dados
-                  </button>
+              {/* Reset Project Option */}
+              <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between">
+                <div className="mb-4">
+                  <h4 className="text-white font-medium flex items-center gap-2 mb-2">
+                    <RotateCcw size={18} className="text-orange-400" /> Reiniciar Projeto
+                  </h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Volte ao Dia 1. Você pode escolher manter seus livros e habilidades, mas reiniciará a contagem e tarefas.
+                  </p>
                 </div>
+                <button
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="w-full py-2.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 hover:border-orange-500/50 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <SettingsIcon size={16} />
+                  Opções de Reset
+                </button>
+              </div>
 
-                {/* Reset Project Option */}
-                <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-                  <div className="mb-4">
-                    <h4 className="text-white font-medium flex items-center gap-2 mb-2">
-                      <RotateCcw size={18} className="text-orange-400" /> Reiniciar Projeto
-                    </h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Volte ao Dia 1. Você pode escolher manter seus livros e habilidades, mas reiniciará a contagem e tarefas.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsResetModalOpen(true)}
-                    className="w-full py-2.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 hover:border-orange-500/50 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                  >
-                    Opções de Reset
-                  </button>
+              <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between md:col-span-2">
+                <div className="mb-4">
+                  <h4 className="text-white font-medium flex items-center gap-2 mb-2">
+                    <Trash2 size={18} className="text-red-400" /> Zona de Perigo
+                  </h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Limpar todo o armazenamento local. Isso resetará o aplicativo para o estado inicial.
+                  </p>
                 </div>
-
-                <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between md:col-span-2">
-                  <div className="mb-4">
-                    <h4 className="text-white font-medium flex items-center gap-2 mb-2">
-                      <Trash2 size={18} className="text-red-400" /> Zona de Perigo
-                    </h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Limpar todo o armazenamento local. Isso resetará o aplicativo para o estado inicial.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleClearData}
-                    className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/50 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                  >
-                    <AlertTriangle size={14} /> Limpar Tudo (Fábrica)
-                  </button>
-                </div>
+                <button
+                  onClick={handleClearData}
+                  className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/50 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle size={14} /> Limpar Tudo (Fábrica)
+                </button>
               </div>
             </div>
           </div>
-        ) : (
-          <NotesTab />
-        )}
+        </div>
       </div>
 
       {isResetModalOpen && (
         <ResetProjectModal
           onClose={() => setIsResetModalOpen(false)}
-          onConfirm={(options) => {
-            // Reset Start Date
-            setConfig(prev => ({ ...prev, startDate: new Date().toISOString() }));
+          onConfirm={async (options) => {
+            // Reset Start Date - criar novo config com startDate de AGORA
+            const newStartDate = new Date().toISOString();
+            const newConfig: ProjectConfig = {
+              ...config,
+              startDate: newStartDate
+            };
+
+            // 1. Escrever diretamente no localStorage para garantir persistência imediata
+            writeNamespacedStorage('p67_project_config', JSON.stringify(newConfig), storageScope);
+
+            // 2. Atualizar o state (isso também dispara o write no Firestore de forma imediata)
+            await setConfig(newConfig);
 
             // Clear selected data
-            if (!options.keepBooks) localStorage.removeItem('p67_books');
-            if (!options.keepSkills) localStorage.removeItem('p67_skills');
-            if (!options.keepLinks) localStorage.removeItem('p67_links');
+            if (!options.keepBooks) removeNamespacedStorage('p67_books', storageScope);
+            if (!options.keepSkills) removeNamespacedStorage('p67_skills', storageScope);
+            if (!options.keepLinks) removeNamespacedStorage('p67_links', storageScope);
 
             // Always clear daily tracking stuff on a reset
-            localStorage.removeItem('p67_habits'); // History needs to go, maybe keep definitions?
-            localStorage.removeItem('p67_tasks');
-            localStorage.removeItem('p67_journal');
-            localStorage.removeItem('p67_sunday_tasks');
+            removeNamespacedStorage('p67_habits', storageScope);
+            removeNamespacedStorage('p67_tasks', storageScope);
+            removeNamespacedStorage('p67_journal', storageScope);
+            removeNamespacedStorage('p67_sunday_tasks', storageScope);
+
+            // Pequeno delay para garantir que o Firestore terminou de escrever
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             // Reload to apply
             window.location.reload();
           }}
         />
       )}
+
+      <DataManagementModal
+        isOpen={isDataModalOpen}
+        onClose={() => setIsDataModalOpen(false)}
+        userId={storageScope}
+      />
     </div>
   );
 };
@@ -230,7 +203,9 @@ const ResetProjectModal: React.FC<{
           <h3 className="font-bold text-white flex items-center gap-2">
             <RotateCcw className="text-orange-500" /> Reiniciar Projeto
           </h3>
-          <button onClick={onClose}><X className="text-slate-400 hover:text-white" /></button>
+          <button onClick={onClose} aria-label="Fechar modal">
+            <X className="text-slate-400 hover:text-white" />
+          </button>
         </div>
 
         <div className="p-6">
@@ -288,4 +263,3 @@ const ResetProjectModal: React.FC<{
 }
 
 export default SettingsView;
-

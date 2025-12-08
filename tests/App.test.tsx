@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from '../App';
-import { ViewState } from '../types';
+import type { User } from '../types';
 
 // Mock lazy loaded components
 vi.mock('../components/views/WorkView', () => ({ default: () => <div data-testid="work-view">Work View</div> }));
@@ -16,31 +16,70 @@ vi.mock('../components/views/SettingsView', () => ({ default: () => <div data-te
 vi.mock('../components/views/LinksView', () => ({ default: () => <div data-testid="links-view">Links View</div> }));
 vi.mock('../components/views/SundayView', () => ({ default: () => <div data-testid="sunday-view">Sunday View</div> }));
 vi.mock('../components/views/AuthView', () => ({
-    AuthView: ({ onLogin }: { onLogin: (user: any) => void }) => (
-        <div data-testid="auth-view">
-            <button onClick={() => onLogin({ uid: '123', name: 'Test User', isGuest: false })}>Login</button>
-        </div>
-    )
+    AuthView: () => <div data-testid="auth-view">Auth View</div>
 }));
+
+const mockUseAuth = vi.fn();
+
+vi.mock('../hooks/useAuth', () => ({
+    useAuth: () => mockUseAuth()
+}));
+
+type MockFn = ReturnType<typeof vi.fn>;
+
+interface MockAuthState {
+    user: User | null;
+    loading: boolean;
+    error: string | null;
+    login: MockFn;
+    register: MockFn;
+    loginGoogle: MockFn;
+    loginGuest: MockFn;
+    logout: MockFn;
+    sendResetEmail: MockFn;
+    clearError: MockFn;
+}
+
+const createAuthState = (overrides: Partial<MockAuthState> = {}): MockAuthState => ({
+    user: null,
+    loading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    loginGoogle: vi.fn(),
+    loginGuest: vi.fn(),
+    logout: vi.fn().mockResolvedValue(undefined),
+    sendResetEmail: vi.fn(),
+    clearError: vi.fn(),
+    ...overrides
+});
+
+const mockUser: User = {
+    id: '123',
+    name: 'Test User',
+    email: 'test@example.com',
+    isGuest: false
+};
 
 describe('App Component', () => {
     beforeEach(() => {
         localStorage.clear();
         vi.clearAllMocks();
+        mockUseAuth.mockReset();
     });
 
     it('renders AuthView when user is not logged in', () => {
+        mockUseAuth.mockReturnValue(createAuthState());
+
         render(<App />);
         expect(screen.getByTestId('auth-view')).toBeInTheDocument();
     });
 
     it('logs in and renders Dashboard', async () => {
+        mockUseAuth.mockReturnValue(createAuthState({ user: mockUser }));
+
         render(<App />);
 
-        // Click login
-        fireEvent.click(screen.getByText('Login'));
-
-        // Check if Dashboard is rendered
         await waitFor(() => {
             expect(screen.getByText('Projeto 67 Dias')).toBeInTheDocument();
             expect(screen.getByText('Test User')).toBeInTheDocument();
@@ -48,12 +87,9 @@ describe('App Component', () => {
     });
 
     it('navigates to Work View', async () => {
-        render(<App />);
-        fireEvent.click(screen.getByText('Login'));
+        mockUseAuth.mockReturnValue(createAuthState({ user: mockUser }));
 
-        await waitFor(() => {
-            expect(screen.getByText('Trabalho')).toBeInTheDocument();
-        });
+        render(<App />);
 
         fireEvent.click(screen.getByText('Trabalho'));
 
@@ -63,12 +99,9 @@ describe('App Component', () => {
     });
 
     it('navigates back to Dashboard from Work View', async () => {
-        render(<App />);
-        fireEvent.click(screen.getByText('Login'));
+        mockUseAuth.mockReturnValue(createAuthState({ user: mockUser }));
 
-        await waitFor(() => {
-            expect(screen.getByText('Trabalho')).toBeInTheDocument();
-        });
+        render(<App />);
 
         fireEvent.click(screen.getByText('Trabalho'));
 
@@ -85,23 +118,29 @@ describe('App Component', () => {
     });
 
     it('logs out correctly', async () => {
-        // Mock confirm dialog
-        window.confirm = vi.fn(() => true);
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const logoutMock = vi.fn().mockResolvedValue(undefined);
 
-        render(<App />);
-        fireEvent.click(screen.getByText('Login'));
+        let currentState = createAuthState({ user: mockUser, logout: logoutMock });
+        mockUseAuth.mockImplementation(() => currentState);
 
-        await waitFor(() => {
-            expect(screen.getByText('Projeto 67 Dias')).toBeInTheDocument();
-        });
+        const { rerender } = render(<App />);
 
         const logoutButton = screen.getByTitle('Sair');
         fireEvent.click(logoutButton);
 
-        expect(window.confirm).toHaveBeenCalled();
+        expect(confirmSpy).toHaveBeenCalled();
+        await waitFor(() => {
+            expect(logoutMock).toHaveBeenCalled();
+        });
+
+        currentState = createAuthState();
+        rerender(<App />);
 
         await waitFor(() => {
             expect(screen.getByTestId('auth-view')).toBeInTheDocument();
         });
+
+        confirmSpy.mockRestore();
     });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '../types';
 import {
     loginWithEmail,
@@ -43,19 +43,26 @@ const getErrorMessage = (errorCode: string): string => {
     const errorMessages: Record<string, string> = {
         'auth/invalid-email': 'E-mail inválido.',
         'auth/user-disabled': 'Esta conta foi desativada.',
-        'auth/user-not-found': 'E-mail ou senha incorretos.',
-        'auth/wrong-password': 'E-mail ou senha incorretos.',
-        'auth/invalid-credential': 'E-mail ou senha incorretos.',
-        'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
+        'auth/user-not-found': 'E-mail ou senha incorretos. Caso não tenha uma conta, clique em "Cadastre-se".',
+        'auth/wrong-password': 'E-mail ou senha incorretos. Caso não tenha uma conta, clique em "Cadastre-se".',
+        'auth/invalid-credential': 'E-mail ou senha incorretos. Caso não tenha uma conta, clique em "Cadastre-se".',
+        'auth/email-already-in-use': 'Este e-mail já está cadastrado. Tente fazer login ou recuperar sua senha.',
         'auth/weak-password': 'A senha deve ter pelo menos 6 caracteres.',
-        'auth/operation-not-allowed': 'Operação não permitida.',
+        'auth/operation-not-allowed': 'Operação não permitida. Ative este método no console do Firebase.',
+        'auth/admin-restricted-operation': 'Este método de login não está habilitado. Ative-o em Firebase Console > Authentication > Sign-in method.',
         'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.',
         'auth/network-request-failed': 'Erro de conexão. Verifique sua internet.',
         'auth/popup-closed-by-user': 'Login cancelado.',
         'auth/cancelled-popup-request': 'Login cancelado.',
         'auth/popup-blocked': 'Pop-up bloqueado. Permita pop-ups para fazer login com Google.',
+        'auth/invalid-api-key': 'Chave da API inválida. Verifique VITE_FIREBASE_API_KEY.',
+        'auth/app-not-authorized': 'Domínio não autorizado no Firebase. Inclua-o em Authentication > Configurações.',
+        'auth/project-not-found': 'Projeto Firebase não encontrado. Confira VITE_FIREBASE_PROJECT_ID.',
+        'auth/invalid-app-id': 'App ID inválido. Revise VITE_FIREBASE_APP_ID.',
+        'auth/invalid-config': 'Configuração Firebase inválida.',
+        'auth/argument-error': 'Solicitação inválida. Revise os campos e tente novamente.'
     };
-    
+
     return errorMessages[errorCode] || 'Ocorreu um erro. Tente novamente.';
 };
 
@@ -66,21 +73,33 @@ export function useAuth(): AuthState & AuthActions {
         error: null
     });
 
+    // Track if a login operation is in progress to prevent premature state resets
+    const loginInProgress = useRef(false);
+
     // Subscribe to Firebase auth state changes
     useEffect(() => {
+        console.log('[useAuth] Setting up auth listener');
         const unsubscribe = subscribeToAuthChanges((firebaseUser) => {
+            console.log('[useAuth] Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'null', 'loginInProgress:', loginInProgress.current);
             if (firebaseUser) {
+                loginInProgress.current = false;
                 setState({
                     user: firebaseUserToAppUser(firebaseUser),
                     loading: false,
                     error: null
                 });
             } else {
-                setState({
-                    user: null,
-                    loading: false,
-                    error: null
-                });
+                // Only set loading to false if we are NOT in the middle of a login
+                // This prevents the "flash" of the login screen while waiting for the user object
+                if (!loginInProgress.current) {
+                    setState({
+                        user: null,
+                        loading: false,
+                        error: null
+                    });
+                } else {
+                    console.log('[useAuth] Ignoring null user because login is in progress');
+                }
             }
         });
 
@@ -88,11 +107,16 @@ export function useAuth(): AuthState & AuthActions {
     }, []);
 
     const login = useCallback(async (email: string, password: string) => {
+        console.log('[useAuth] Starting email login');
+        loginInProgress.current = true;
         setState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            await loginWithEmail(email, password);
+            const result = await loginWithEmail(email, password);
+            console.log('[useAuth] Email login successful:', result.user?.uid);
             // Auth state listener will update the user
         } catch (error: any) {
+            console.error('[useAuth] Email login failed:', error.code, error.message);
+            loginInProgress.current = false;
             setState(prev => ({
                 ...prev,
                 loading: false,
@@ -103,11 +127,13 @@ export function useAuth(): AuthState & AuthActions {
     }, []);
 
     const register = useCallback(async (name: string, email: string, password: string) => {
+        loginInProgress.current = true;
         setState(prev => ({ ...prev, loading: true, error: null }));
         try {
             await registerWithEmail(email, password, name);
             // Auth state listener will update the user
         } catch (error: any) {
+            loginInProgress.current = false;
             setState(prev => ({
                 ...prev,
                 loading: false,
@@ -118,11 +144,13 @@ export function useAuth(): AuthState & AuthActions {
     }, []);
 
     const loginGoogle = useCallback(async () => {
+        loginInProgress.current = true;
         setState(prev => ({ ...prev, loading: true, error: null }));
         try {
             await loginWithGoogle();
             // Auth state listener will update the user
         } catch (error: any) {
+            loginInProgress.current = false;
             setState(prev => ({
                 ...prev,
                 loading: false,
@@ -133,11 +161,16 @@ export function useAuth(): AuthState & AuthActions {
     }, []);
 
     const loginGuest = useCallback(async () => {
+        console.log('[useAuth] Starting guest login');
+        loginInProgress.current = true;
         setState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            await loginAsGuest();
+            const result = await loginAsGuest();
+            console.log('[useAuth] Guest login successful:', result.user?.uid);
             // Auth state listener will update the user
         } catch (error: any) {
+            console.error('[useAuth] Guest login failed:', error.code, error.message);
+            loginInProgress.current = false;
             setState(prev => ({
                 ...prev,
                 loading: false,
