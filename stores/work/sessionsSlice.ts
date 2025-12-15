@@ -1,0 +1,40 @@
+/**
+ * Work Sessions Slice - History and session management
+ */
+import { StateCreator } from 'zustand';
+
+export interface MetTargetSession {
+    id: string;
+    date: string;
+    durationSeconds: number;
+    ankiCount: number;
+    ncmCount: number;
+    points: number; // Calculated: Math.floor(durationSeconds / 60) + (ankiCount * 2) + (ncmCount * 2)
+    comment?: string;
+}
+
+export interface SessionsSlice {
+    history: MetTargetSession[];
+    addSession: (session: MetTargetSession) => void;
+    deleteSession: (id: string) => void;
+    clearHistory: () => void;
+}
+
+export const createSessionsSlice: StateCreator<
+    SessionsSlice,
+    [],
+    [],
+    SessionsSlice
+> = (set) => ({
+    history: [],
+
+    addSession: (session) => set((state) => ({
+        history: [...state.history, session]
+    })),
+
+    deleteSession: (id) => set((state) => ({
+        history: state.history.filter(s => s.id !== id)
+    })),
+
+    clearHistory: () => set({ history: [] }),
+});
