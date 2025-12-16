@@ -123,21 +123,30 @@ import { useGamesStore } from './gamesStore';
 import { useReviewStore } from './reviewStore';
 import { useWaterStore } from './waterStore';
 import { useStreakStore } from './streakStore';
-import { readNamespacedStorage } from '../utils/storageUtils';
+import { readNamespacedStorage, writeNamespacedStorage, writeLocalMeta } from '../utils/storageUtils';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 /**
  * Rehydrate all persisted stores with the correct user-scoped data.
  * 
- * IMPORTANT: The default Zustand persist.rehydrate() does NOT re-call storage.getItem().
- * It only re-applies data that was already read during initialization.
+ * CLOUD-FIRST STRATEGY:
+ * 1. Fetch data from Firebase Firestore (Source of Truth)
+ * 2. Update local cache with cloud data
+ * 3. Fall back to localStorage only if cloud fetch fails
  * 
- * This function manually reads from localStorage using the correct userId
- * and applies the data via setState(), ensuring user data is loaded correctly
- * after authentication completes.
+ * This ensures cross-device sync works correctly by prioritizing cloud data
+ * over potentially stale local cache.
  * 
  * @param userId - The authenticated user's ID to scope the storage keys
+ * @returns Promise that resolves when all stores are synced
  */
 export const rehydrateAllStores = async (userId: string | null): Promise<void> => {
+    if (!userId) {
+        console.warn('[rehydrateAllStores] No userId provided, skipping cloud sync');
+        return;
+    }
+
     // Map of stores to their storage keys
     const storeConfigs: Array<{ store: { setState: (state: any) => void; getState: () => any }; key: string }> = [
         { store: useConfigStore, key: 'p67_project_config' },
@@ -157,20 +166,66 @@ export const rehydrateAllStores = async (userId: string | null): Promise<void> =
         { store: useStreakStore, key: 'p67_streak_store' },
     ];
 
-    for (const { store, key } of storeConfigs) {
+    // Fetch all stores in parallel from Firebase
+    const fetchPromises = storeConfigs.map(async ({ store, key }) => {
         try {
+            // CLOUD-FIRST: Try to fetch from Firebase
+            if (db) {
+                const docRef = doc(db, 'users', userId, 'data', key);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const remoteValue = data.value;
+                    const remoteTimestamp = data.updatedAt || 0;
+
+                    if (remoteValue) {
+                        // Apply cloud data to store
+                        const currentState = store.getState();
+                        store.setState({ ...currentState, ...remoteValue });
+
+                        // Update local cache with cloud data
+                        const cacheValue = JSON.stringify({ state: remoteValue, version: 0 });
+                        writeNamespacedStorage(key, cacheValue, userId);
+                        writeLocalMeta(key, remoteTimestamp, userId);
+
+                        console.log(`[rehydrateAllStores] ✅ ${key} synced from cloud`);
+                        return;
+                    }
+                }
+            }
+
+            // FALLBACK: Cloud data not available, try local cache
             const rawData = readNamespacedStorage(key, userId);
             if (rawData) {
                 const parsed = JSON.parse(rawData);
                 if (parsed.state) {
-                    // Merge with current state to preserve actions and non-persisted fields
                     const currentState = store.getState();
                     store.setState({ ...currentState, ...parsed.state });
+                    console.log(`[rehydrateAllStores] ⚠️ ${key} loaded from local cache (no cloud data)`);
                 }
             }
         } catch (e) {
-            console.warn(`[rehydrateAllStores] Failed to rehydrate ${key}:`, e);
+            console.warn(`[rehydrateAllStores] Failed to sync ${key}:`, e);
+
+            // Final fallback: Try local storage on error
+            try {
+                const rawData = readNamespacedStorage(key, userId);
+                if (rawData) {
+                    const parsed = JSON.parse(rawData);
+                    if (parsed.state) {
+                        const currentState = store.getState();
+                        store.setState({ ...currentState, ...parsed.state });
+                        console.log(`[rehydrateAllStores] ⚠️ ${key} loaded from local cache (cloud error)`);
+                    }
+                }
+            } catch (localError) {
+                console.warn(`[rehydrateAllStores] Local fallback also failed for ${key}:`, localError);
+            }
         }
-    }
+    });
+
+    await Promise.all(fetchPromises);
+    console.log('[rehydrateAllStores] ✅ All stores synced');
 };
 

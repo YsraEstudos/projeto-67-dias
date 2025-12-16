@@ -82,7 +82,8 @@ const App: React.FC = () => {
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const setMenuOpen = useUIStore((state) => state.setMenuOpen);
 
-
+  // Track if data has finished syncing from cloud
+  const [isDataReady, setIsDataReady] = useState(false);
 
   // Read Work Data for Dashboard (Zustand)
   const workCurrentCount = useWorkStore((state) => state.currentCount);
@@ -94,18 +95,30 @@ const App: React.FC = () => {
 
   // Update project config when user changes
   useEffect(() => {
-    if (user && !config.userName) {
+    if (user && !config.userName && isDataReady) {
       setConfig({
         userName: user.name,
         isGuest: user.isGuest
       });
     }
-  }, [user, config.userName, setConfig]);
+  }, [user, config.userName, setConfig, isDataReady]);
 
   // Ensure ALL stores rehydrate with the authenticated user scope (avoids guest fallback when auth is late)
+  // CLOUD-FIRST: Wait for Firebase sync to complete before showing UI
   useEffect(() => {
     if (user?.id) {
-      rehydrateAllStores(user.id);
+      setIsDataReady(false);
+      rehydrateAllStores(user.id)
+        .then(() => {
+          setIsDataReady(true);
+          console.log('[App] Data sync complete, UI ready');
+        })
+        .catch((error) => {
+          console.error('[App] Data sync failed:', error);
+          setIsDataReady(true); // Still show UI on error, with local data
+        });
+    } else {
+      setIsDataReady(true); // No user, no sync needed
     }
   }, [user?.id]);
 
@@ -116,9 +129,12 @@ const App: React.FC = () => {
   }, []);
 
   // Check streak status on load
+  // Check streak status ONLY after data is fully synced
   useEffect(() => {
-    useStreakStore.getState().checkStreak();
-  }, []);
+    if (isDataReady) {
+      useStreakStore.getState().checkStreak();
+    }
+  }, [isDataReady]);
 
   // Real-time sync with Firebase for multi-device support
   useEffect(() => {
@@ -338,11 +354,21 @@ const App: React.FC = () => {
 
   // --- RENDER AUTH ---
 
-  // Show loading while checking auth state
+  // Show loading while checking auth state or syncing data
   if (authLoading && !user) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <Loading />
+      </div>
+    );
+  }
+
+  // Show loading while syncing data from cloud (prevents stale data flash)
+  if (user && !isDataReady) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col gap-3">
+        <Loading />
+        <p className="text-slate-400 text-sm animate-pulse">Sincronizando dados...</p>
       </div>
     );
   }
@@ -479,6 +505,11 @@ const App: React.FC = () => {
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
+
+      {/* Footer Version */}
+      <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
+        versão 2.1
+      </footer>
 
     </div>
   );

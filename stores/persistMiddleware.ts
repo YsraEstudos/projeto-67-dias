@@ -262,12 +262,16 @@ export const subscribeToFirestore = <T>(
 
     return onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
+            // Ignore if this is just our own local write echoing back
+            // We already have this data locally
+            if (docSnap.metadata.hasPendingWrites) return;
+
             const data = docSnap.data();
             const localTimestamp = readLocalMeta(storageKey, userId);
             const remoteTimestamp = data.updatedAt || 0;
 
-            // Only update if remote is newer
-            if (remoteTimestamp > localTimestamp) {
+            // Cloud is source of truth: Update if remote is newer OR equal (to fix consistency)
+            if (remoteTimestamp >= localTimestamp) {
                 onUpdate(data.value as T);
                 writeLocalMeta(storageKey, remoteTimestamp, userId);
             }

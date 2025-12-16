@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Game, GameLog, GameMission, GameStatus, GameFolder, CENTRAL_FOLDER_ID, CENTRAL_FOLDER_NAME } from '../types';
 import { generateId } from '../utils/generateId';
+import { createFirebaseStorage } from './persistMiddleware';
 
 // Pasta central pré-definida (67 Days)
 const CENTRAL_FOLDER: GameFolder = {
@@ -186,6 +187,7 @@ export const useGamesStore = create<GamesState>()(
         }),
         {
             name: 'games-storage',
+            storage: createFirebaseStorage('games-storage'),
             // Garantir que a pasta 67 Days sempre exista
             onRehydrateStorage: () => (state) => {
                 if (state && !state.folders.some(f => f.id === CENTRAL_FOLDER_ID)) {
