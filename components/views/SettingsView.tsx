@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { Database, Download, Upload, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
+import { Database, Download, Upload, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon, RefreshCw, User, Mail, Shield } from 'lucide-react';
 import { ProjectConfig } from '../../types';
 import { readNamespacedStorage, writeNamespacedStorage, removeNamespacedStorage } from '../../hooks/useStorage';
 import { useConfigStore, useStreakStore } from '../../stores';
@@ -40,6 +40,46 @@ const SettingsView: React.FC = () => {
       {/* Content */}
       <div className="animate-in fade-in duration-300">
         <div className="space-y-6">
+          {/* Account Info Card - Mostra nome do usuário (especialmente importante para mobile) */}
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="p-2.5 sm:p-3 bg-indigo-500/20 rounded-full">
+                  <User size={24} className="text-indigo-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-white truncate">{user?.name || 'Usuário'}</h3>
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    {user?.email ? (
+                      <>
+                        <Mail size={14} className="flex-shrink-0" />
+                        <span className="truncate">{user.email}</span>
+                      </>
+                    ) : (
+                      <span>{user?.isGuest ? 'Conta de Visitante' : 'Conta Autenticada'}</span>
+                    )}
+                  </div>
+                </div>
+                <span className={`flex-shrink-0 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-full ${user?.isGuest
+                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  }`}>
+                  {user?.isGuest ? 'Visitante' : 'Membro'}
+                </span>
+              </div>
+              {user?.isGuest && (
+                <div className="mt-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Shield size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-yellow-300/80">
+                      Seus dados estão salvos apenas neste dispositivo. Crie uma conta para sincronizar entre dispositivos.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* System Info Card */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
             <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">

@@ -24,7 +24,7 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, rehydrateAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, subscribeToFirestore, rehydrateAllStores } from './stores';
 import { StreakBadge } from './components/shared/StreakBadge';
 
 // Data Migration
@@ -119,6 +119,46 @@ const App: React.FC = () => {
   useEffect(() => {
     useStreakStore.getState().checkStreak();
   }, []);
+
+  // Real-time sync with Firebase for multi-device support
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubscribers: (() => void)[] = [];
+
+    // Subscribe to main stores for real-time sync across devices
+    // When data changes in Firebase, update the local store
+    const storeConfigs: Array<{ store: { getState: () => any; setState: (state: any) => void }; key: string }> = [
+      { store: useConfigStore, key: 'p67_project_config' },
+      { store: useHabitsStore, key: 'p67_habits_store' },
+      { store: useWorkStore, key: 'p67_work_store' },
+      { store: useSkillsStore, key: 'p67_skills_store' },
+      { store: useReadingStore, key: 'p67_reading_store' },
+      { store: useStreakStore, key: 'p67_streak_store' },
+      { store: useJournalStore, key: 'p67_journal_store' },
+      { store: useNotesStore, key: 'p67_notes_store' },
+      { store: useSundayStore, key: 'p67_sunday_store' },
+      { store: useGamesStore, key: 'games-storage' },
+    ];
+
+    storeConfigs.forEach(({ store, key }) => {
+      const unsub = subscribeToFirestore(key, (data: any) => {
+        if (data) {
+          const currentState = store.getState();
+          // Merge remote data with current state (preserve actions/methods)
+          store.setState({ ...currentState, ...data });
+        }
+      });
+      unsubscribers.push(unsub);
+    });
+
+    console.log('[App] Firebase real-time sync enabled for', storeConfigs.length, 'stores');
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+      console.log('[App] Firebase real-time sync disabled');
+    };
+  }, [user?.id]);
 
 
   // Calculate current day
