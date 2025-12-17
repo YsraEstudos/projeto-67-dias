@@ -123,8 +123,8 @@ import { useGamesStore } from './gamesStore';
 import { useReviewStore } from './reviewStore';
 import { useWaterStore } from './waterStore';
 import { useStreakStore } from './streakStore';
-import { readNamespacedStorage, writeNamespacedStorage, writeLocalMeta } from '../utils/storageUtils';
-import { doc, getDoc } from 'firebase/firestore';
+import { readNamespacedStorage, writeNamespacedStorage, writeLocalMeta, readLocalMeta } from '../utils/storageUtils';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 /**
@@ -169,6 +169,8 @@ export const rehydrateAllStores = async (userId: string | null): Promise<void> =
     // Fetch all stores in parallel from Firebase
     const fetchPromises = storeConfigs.map(async ({ store, key }) => {
         try {
+            const localTimestamp = readLocalMeta(key, userId);
+
             // CLOUD-FIRST: Try to fetch from Firebase
             if (db) {
                 const docRef = doc(db, 'users', userId, 'data', key);
@@ -179,18 +181,41 @@ export const rehydrateAllStores = async (userId: string | null): Promise<void> =
                     const remoteValue = data.value;
                     const remoteTimestamp = data.updatedAt || 0;
 
-                    if (remoteValue) {
-                        // Apply cloud data to store
+                    // Last-write-wins: only apply cloud if it is newer/equal than local.
+                    // This prevents losing recently-created data if the Firestore write was still debounced
+                    // when the page was reloaded.
+                    if (remoteValue && remoteTimestamp >= localTimestamp) {
                         const currentState = store.getState();
                         store.setState({ ...currentState, ...remoteValue });
 
-                        // Update local cache with cloud data
                         const cacheValue = JSON.stringify({ state: remoteValue, version: 0 });
                         writeNamespacedStorage(key, cacheValue, userId);
                         writeLocalMeta(key, remoteTimestamp, userId);
 
                         console.log(`[rehydrateAllStores] ✅ ${key} synced from cloud`);
                         return;
+                    }
+
+                    // If local is newer, prefer local and (best-effort) push it to Firestore to heal cross-device sync.
+                    if (localTimestamp > remoteTimestamp) {
+                        const rawLocal = readNamespacedStorage(key, userId);
+                        if (rawLocal) {
+                            const parsed = JSON.parse(rawLocal);
+                            if (parsed?.state) {
+                                const currentState = store.getState();
+                                store.setState({ ...currentState, ...parsed.state });
+
+                                try {
+                                    await setDoc(docRef, { value: parsed.state, updatedAt: localTimestamp });
+                                    console.log(`[rehydrateAllStores] 🔁 ${key} local newer; pushed to cloud`);
+                                } catch (pushError) {
+                                    console.warn(`[rehydrateAllStores] Local newer but failed to push ${key} to cloud:`, pushError);
+                                }
+
+                                console.log(`[rehydrateAllStores] ✅ ${key} kept from local (newer than cloud)`);
+                                return;
+                            }
+                        }
                     }
                 }
             }
