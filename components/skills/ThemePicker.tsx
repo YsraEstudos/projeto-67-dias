@@ -31,10 +31,11 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ selectedTheme, onSelec
             {THEME_OPTIONS.map(themeKey => (
                 <button
                     key={themeKey}
+                    type="button"
                     onClick={() => onSelect(themeKey)}
                     className={`w-8 h-8 rounded-full border-2 transition-all ${selectedTheme === themeKey
-                            ? 'border-white scale-110'
-                            : 'border-transparent opacity-50 hover:opacity-100'
+                        ? 'border-white scale-110'
+                        : 'border-transparent opacity-50 hover:opacity-100'
                         }`}
                     title={themeKey.charAt(0).toUpperCase() + themeKey.slice(1)}
                 >

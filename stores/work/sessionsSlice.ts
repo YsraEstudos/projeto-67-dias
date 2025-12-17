@@ -9,7 +9,8 @@ export interface MetTargetSession {
     durationSeconds: number;
     ankiCount: number;
     ncmCount: number;
-    points: number; // Calculated: Math.floor(durationSeconds / 60) + (ankiCount * 2) + (ncmCount * 2)
+    refactoringsCount?: number;
+    points: number; // Calculated: Math.floor(durationSeconds / 60) + (ankiCount * 2) + (ncmCount * 2) + (refactoringsCount * 5)
     comment?: string;
 }
 

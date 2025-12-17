@@ -2,6 +2,25 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SkillsView from '../../../components/views/SkillsView';
+import { useSkillsStore } from '../../../stores/skillsStore';
+
+const MOCK_SKILL = {
+    id: '1',
+    name: 'Test Skill',
+    level: 'Intermediário' as const,
+    currentMinutes: 3600, // 60 hours
+    goalMinutes: 6000,    // 100 hours
+    sessions: [],
+    resources: [],
+    roadmap: [],
+    logs: [],
+    weekDays: [],
+    dailyGoal: 30,
+    notifications: false,
+    nextDayContents: [],
+    colorTheme: 'emerald' as const,
+    createdAt: Date.now()
+};
 
 // Mock useStorage
 vi.mock('../../../hooks/useStorage', () => ({
@@ -42,6 +61,9 @@ vi.mock('firebase/auth', () => ({
 describe('SkillsView Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Reset and seed store
+        const store = useSkillsStore.getState();
+        store.setSkills([MOCK_SKILL]);
     });
 
     // --- HAPPY PATH TESTS ---
@@ -56,7 +78,7 @@ describe('SkillsView Component', () => {
     it('renders initial skill from mock data', () => {
         render(<SkillsView />);
 
-        expect(screen.getByText('Inglês Avançado')).toBeInTheDocument();
+        expect(screen.getByText('Test Skill')).toBeInTheDocument();
         expect(screen.getByText('Intermediário')).toBeInTheDocument();
     });
 
@@ -94,7 +116,7 @@ describe('SkillsView Component', () => {
         render(<SkillsView />);
 
         // Click on skill card
-        const skillCard = screen.getByText('Inglês Avançado').closest('div[class*="cursor-pointer"]');
+        const skillCard = screen.getByText('Test Skill').closest('div[class*="cursor-pointer"]');
         if (skillCard) fireEvent.click(skillCard);
 
         // Should show detail view elements
@@ -108,7 +130,7 @@ describe('SkillsView Component', () => {
         render(<SkillsView />);
 
         // Navigate to detail
-        const skillCard = screen.getByText('Inglês Avançado').closest('div[class*="cursor-pointer"]');
+        const skillCard = screen.getByText('Test Skill').closest('div[class*="cursor-pointer"]');
         if (skillCard) fireEvent.click(skillCard);
 
         await waitFor(() => {
@@ -167,7 +189,7 @@ describe('SkillsView Component', () => {
         render(<SkillsView />);
 
         // Navigate to detail
-        const skillCard = screen.getByText('Inglês Avançado').closest('div[class*="cursor-pointer"]');
+        const skillCard = screen.getByText('Test Skill').closest('div[class*="cursor-pointer"]');
         if (skillCard) fireEvent.click(skillCard);
 
         await waitFor(() => {
@@ -193,7 +215,7 @@ describe('SkillsView Component', () => {
         render(<SkillsView />);
 
         // Navigate to detail
-        const skillCard = screen.getByText('Inglês Avançado').closest('div[class*="cursor-pointer"]');
+        const skillCard = screen.getByText('Test Skill').closest('div[class*="cursor-pointer"]');
         if (skillCard) fireEvent.click(skillCard);
 
         await waitFor(() => {

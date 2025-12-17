@@ -46,7 +46,7 @@ vi.mock('../../../components/skills/FullRoadmapEditor', () => ({
 }));
 
 vi.mock('../../../components/skills/VisualRoadmapEditor', () => ({
-    VisualRoadmapEditor: ({ onClose, onSave }: any) => (
+    default: ({ onClose, onSave }: any) => (
         <div data-testid="visual-roadmap-editor">
             <button onClick={onClose}>Close Visual Editor</button>
             <button onClick={() => onSave({ nodes: [], connections: [] })}>Save Visual Roadmap</button>
@@ -217,7 +217,7 @@ describe('RoadmapSection Component', () => {
 
     // --- MODAL INTEGRATION TESTS ---
 
-    it('opens AI Roadmap modal', () => {
+    it('opens AI Roadmap modal', async () => {
         render(
             <RoadmapSection
                 roadmap={createMockRoadmap()}
@@ -230,7 +230,9 @@ describe('RoadmapSection Component', () => {
 
         fireEvent.click(screen.getByText('Gerar com IA'));
 
-        expect(screen.getByTestId('ai-roadmap-modal')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('ai-roadmap-modal')).toBeInTheDocument();
+        });
     });
 
     it('applies AI generated items to roadmap', async () => {
@@ -245,7 +247,9 @@ describe('RoadmapSection Component', () => {
         );
 
         fireEvent.click(screen.getByText('Gerar com IA'));
-        fireEvent.click(screen.getByText('Generate AI'));
+        await waitFor(() => {
+            fireEvent.click(screen.getByText('Generate AI'));
+        });
 
         expect(mockOnUpdate).toHaveBeenCalledWith(expect.arrayContaining([
             expect.objectContaining({ title: 'AI Task 1', type: 'TASK' }),
@@ -253,7 +257,7 @@ describe('RoadmapSection Component', () => {
         ]));
     });
 
-    it('opens FullRoadmapEditor modal', () => {
+    it('opens FullRoadmapEditor modal', async () => {
         render(
             <RoadmapSection
                 roadmap={createMockRoadmap()}
@@ -266,10 +270,12 @@ describe('RoadmapSection Component', () => {
 
         fireEvent.click(screen.getByText('Editor'));
 
-        expect(screen.getByTestId('full-roadmap-editor')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('full-roadmap-editor')).toBeInTheDocument();
+        });
     });
 
-    it('saves changes from FullRoadmapEditor', () => {
+    it('saves changes from FullRoadmapEditor', async () => {
         render(
             <RoadmapSection
                 roadmap={createMockRoadmap()}
@@ -281,14 +287,16 @@ describe('RoadmapSection Component', () => {
         );
 
         fireEvent.click(screen.getByText('Editor'));
-        fireEvent.click(screen.getByText('Save Changes'));
+        await waitFor(() => {
+            fireEvent.click(screen.getByText('Save Changes'));
+        });
 
         expect(mockOnUpdate).toHaveBeenCalledWith(expect.arrayContaining([
             expect.objectContaining({ id: 'edited-1', title: 'Edited Task' })
         ]));
     });
 
-    it('opens Import/Export modal', () => {
+    it('opens Import/Export modal', async () => {
         render(
             <RoadmapSection
                 roadmap={createMockRoadmap()}
@@ -301,10 +309,12 @@ describe('RoadmapSection Component', () => {
 
         fireEvent.click(screen.getByText('Importar / Exportar'));
 
-        expect(screen.getByTestId('import-export-modal')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('import-export-modal')).toBeInTheDocument();
+        });
     });
 
-    it('imports roadmap from ImportExportModal', () => {
+    it('imports roadmap from ImportExportModal', async () => {
         render(
             <RoadmapSection
                 roadmap={[]}
@@ -316,7 +326,9 @@ describe('RoadmapSection Component', () => {
         );
 
         fireEvent.click(screen.getByText('Importar / Exportar'));
-        fireEvent.click(screen.getByText('Import Data'));
+        await waitFor(() => {
+            fireEvent.click(screen.getByText('Import Data'));
+        });
 
         expect(mockOnUpdate).toHaveBeenCalledWith([
             expect.objectContaining({ id: 'imported-1', title: 'Imported Task' })
@@ -483,7 +495,7 @@ describe('RoadmapSection Component', () => {
         expect(screen.queryByText('Aprender conceitos básicos')).not.toBeInTheDocument();
     });
 
-    it('opens visual editor from toggle button', () => {
+    it('opens visual editor from toggle button', async () => {
         render(
             <RoadmapSection
                 roadmap={createMockRoadmap()}
@@ -495,9 +507,9 @@ describe('RoadmapSection Component', () => {
             />
         );
 
-        // Click the header button "Abrir Editor Visual"
         fireEvent.click(screen.getByText('Abrir Editor Visual'));
-
-        expect(screen.getByTestId('visual-roadmap-editor')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('visual-roadmap-editor')).toBeInTheDocument();
+        });
     });
 });

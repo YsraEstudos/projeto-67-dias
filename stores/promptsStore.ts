@@ -3,8 +3,9 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Prompt, PromptCategory, PromptImage, PromptVariable } from '../types';
+import { Prompt, PromptCategory } from '../types';
 import { createFirebaseStorage } from './persistMiddleware';
+import { DEFAULT_PROMPTS, DEFAULT_PROMPT_CATEGORIES } from '../constants/defaultData';
 
 interface PromptsState {
     prompts: Prompt[];
@@ -18,6 +19,7 @@ interface PromptsState {
     deletePrompt: (id: string) => void;
     incrementCopyCount: (id: string) => void;
     toggleFavorite: (id: string) => void;
+    initializeDefaults: () => void;
 
     // Category Actions
     setCategories: (categories: PromptCategory[]) => void;
@@ -64,6 +66,17 @@ export const usePromptsStore = create<PromptsState>()(
                     p.id === id ? { ...p, isFavorite: !p.isFavorite } : p
                 )
             })),
+
+            initializeDefaults: () => set((state) => {
+                const hasData = state.prompts.length > 0 || state.categories.length > 0;
+                if (hasData) return state; // Don't overwrite if data exists
+
+                return {
+                    prompts: DEFAULT_PROMPTS,
+                    categories: DEFAULT_PROMPT_CATEGORIES,
+                    isLoading: false
+                };
+            }),
 
             // Category Actions
             setCategories: (categories) => set({ categories }),
@@ -113,6 +126,12 @@ export const usePromptsStore = create<PromptsState>()(
                         state.setCategories(uniqueCategories);
                     }
                 }
+
+                // Auto-initialize defaults if empty
+                if ((!state?.prompts || state.prompts.length === 0) && (!state?.categories || state.categories.length === 0)) {
+                    state?.initializeDefaults();
+                }
+
                 state?.setLoading(false);
             },
         }

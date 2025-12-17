@@ -10,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { forceFlush } from '../../stores/persistMiddleware';
 import { LoadingSimple } from '../shared/Loading';
 import { StreakCard } from '../settings/StreakCard';
+import { DataManagementSection } from '../settings/DataManagementSection';
 
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
 const ResetProjectModal = React.lazy(() => import('../modals/ResetProjectModal'));
@@ -61,8 +62,8 @@ const SettingsView: React.FC = () => {
                   </div>
                 </div>
                 <span className={`flex-shrink-0 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-full ${user?.isGuest
-                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   }`}>
                   {user?.isGuest ? 'Visitante' : 'Membro'}
                 </span>
@@ -124,7 +125,10 @@ const SettingsView: React.FC = () => {
           {/* Streak System Card */}
           <StreakCard />
 
-          {/* Data Management Card */}
+          {/* Sync & Defaults Section */}
+          <DataManagementSection />
+
+          {/* Advanced Data (Backup & Reset) */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
             <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
               <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
@@ -240,23 +244,35 @@ const SettingsView: React.FC = () => {
 
               // Clear selected data
               storageScopes.forEach(scope => {
+                // Core Data Options
                 if (!options.keepBooks) removeNamespacedStorage('p67_books', scope);
                 if (!options.keepSkills) removeNamespacedStorage('p67_skills', scope);
                 if (!options.keepLinks) removeNamespacedStorage('p67_links', scope);
 
-                // Always clear daily tracking stuff on a reset
-                removeNamespacedStorage('p67_habits', scope);
-                removeNamespacedStorage('p67_habits_store', scope);
-                removeNamespacedStorage('p67_tasks', scope);
-                removeNamespacedStorage('p67_journal', scope);
-                removeNamespacedStorage('p67_journal_store', scope);
-                removeNamespacedStorage('p67_sunday_tasks', scope);
-                removeNamespacedStorage('p67_sunday_store', scope);
+                // Habits & Tasks
+                if (!options.keepHabits) {
+                  removeNamespacedStorage('p67_habits', scope); // Old legacy just in case
+                  removeNamespacedStorage('p67_habits_store', scope); // Current store
+                  removeNamespacedStorage('p67_tasks', scope); // Legacy task store
+                }
 
-                // Clear weekly review snapshots (they become invalid after reset)
-                removeNamespacedStorage('p67_review_store', scope);
+                // Journal & Reviews
+                if (!options.keepJournal) {
+                  removeNamespacedStorage('p67_journal', scope); // Old legacy
+                  removeNamespacedStorage('p67_journal_store', scope); // Current store
+                  removeNamespacedStorage('p67_review_store', scope); // Weekly reviews
+                }
 
-                // Clear streak data on reset
+                // Planning (Sunday & Tasks)
+                if (!options.keepPlanning) {
+                  removeNamespacedStorage('p67_sunday_store', scope);
+                  removeNamespacedStorage('p67_sunday_tasks', scope);
+                }
+
+                // NOTE: We NEVER delete 'p67_notes_store' (Notes & Tags) - deemed critical user data
+                // NOTE: 'p67_games_store', 'p67_water_store', 'p67_rest_store' are also deemed permanent unless wiped manually
+
+                // Clear streak data on reset (ALWAYS RESET STREAK on Restart)
                 removeNamespacedStorage('p67_streak_store', scope);
               });
 

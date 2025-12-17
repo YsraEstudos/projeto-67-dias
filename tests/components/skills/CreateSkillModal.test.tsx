@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CreateSkillModal } from '../../../components/skills/CreateSkillModal';
 import { Skill } from '../../../types';
@@ -24,7 +24,7 @@ describe('CreateSkillModal Component', () => {
         expect(screen.getByText('Cor do Tema')).toBeInTheDocument();
     });
 
-    it('creates skill with filled fields', () => {
+    it('creates skill with filled fields', async () => {
         render(<CreateSkillModal onClose={mockOnClose} onCreate={mockOnCreate} />);
 
         // Fill name
@@ -34,7 +34,10 @@ describe('CreateSkillModal Component', () => {
         // Click create
         fireEvent.click(screen.getByText('Criar'));
 
-        expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        await waitFor(() => {
+            expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        });
+
         const createdSkill: Skill = mockOnCreate.mock.calls[0][0];
         expect(createdSkill.name).toBe('JavaScript Avançado');
         expect(createdSkill.level).toBe('Iniciante'); // default
@@ -77,7 +80,7 @@ describe('CreateSkillModal Component', () => {
         expect(mockOnCreate).not.toHaveBeenCalled();
     });
 
-    it('allows changing level', () => {
+    it('allows changing level', async () => {
         render(<CreateSkillModal onClose={mockOnClose} onCreate={mockOnCreate} />);
 
         // Fill name
@@ -92,11 +95,15 @@ describe('CreateSkillModal Component', () => {
 
         fireEvent.click(screen.getByText('Criar'));
 
+        await waitFor(() => {
+            expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        });
+
         const createdSkill: Skill = mockOnCreate.mock.calls[0][0];
         expect(createdSkill.level).toBe('Avançado');
     });
 
-    it('allows changing goal hours', () => {
+    it('allows changing goal hours', async () => {
         render(<CreateSkillModal onClose={mockOnClose} onCreate={mockOnCreate} />);
 
         // Fill name
@@ -111,11 +118,15 @@ describe('CreateSkillModal Component', () => {
 
         fireEvent.click(screen.getByText('Criar'));
 
+        await waitFor(() => {
+            expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        });
+
         const createdSkill: Skill = mockOnCreate.mock.calls[0][0];
         expect(createdSkill.goalMinutes).toBe(3000); // 50h * 60
     });
 
-    it('allows selecting different color themes', () => {
+    it('allows selecting different color themes', async () => {
         render(<CreateSkillModal onClose={mockOnClose} onCreate={mockOnCreate} />);
 
         // Fill name
@@ -132,11 +143,15 @@ describe('CreateSkillModal Component', () => {
 
         fireEvent.click(screen.getByText('Criar'));
 
+        await waitFor(() => {
+            expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        });
+
         const createdSkill: Skill = mockOnCreate.mock.calls[0][0];
         expect(createdSkill.colorTheme).toBe('blue');
     });
 
-    it('generates unique id for each skill', () => {
+    it('generates unique id for each skill', async () => {
         render(<CreateSkillModal onClose={mockOnClose} onCreate={mockOnCreate} />);
 
         fireEvent.change(
@@ -145,13 +160,17 @@ describe('CreateSkillModal Component', () => {
         );
         fireEvent.click(screen.getByText('Criar'));
 
+        await waitFor(() => {
+            expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        });
+
         const createdSkill: Skill = mockOnCreate.mock.calls[0][0];
         expect(createdSkill.id).toBeDefined();
         expect(typeof createdSkill.id).toBe('string');
         expect(createdSkill.id.length).toBeGreaterThan(0);
     });
 
-    it('sets createdAt timestamp', () => {
+    it('sets createdAt timestamp', async () => {
         const before = Date.now();
 
         render(<CreateSkillModal onClose={mockOnClose} onCreate={mockOnCreate} />);
@@ -161,6 +180,10 @@ describe('CreateSkillModal Component', () => {
             { target: { value: 'New Skill' } }
         );
         fireEvent.click(screen.getByText('Criar'));
+
+        await waitFor(() => {
+            expect(mockOnCreate).toHaveBeenCalledTimes(1);
+        });
 
         const after = Date.now();
         const createdSkill: Skill = mockOnCreate.mock.calls[0][0];

@@ -453,7 +453,7 @@ describe('SkillDetailView Component', () => {
         expect(screen.getByText('50% Completo')).toBeInTheDocument();
     });
 
-    it('opens AI Roadmap modal', () => {
+    it('opens AI Roadmap modal', async () => {
         const skill = createMockSkill();
         render(
             <SkillDetailView
@@ -466,10 +466,12 @@ describe('SkillDetailView Component', () => {
         );
 
         fireEvent.click(screen.getByText('Gerar com IA'));
-        expect(screen.getByTestId('ai-roadmap-modal')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('ai-roadmap-modal')).toBeInTheDocument();
+        });
     });
 
-    it('opens Import/Export modal', () => {
+    it('opens Import/Export modal', async () => {
         const skill = createMockSkill();
         render(
             <SkillDetailView
@@ -482,10 +484,12 @@ describe('SkillDetailView Component', () => {
         );
 
         fireEvent.click(screen.getByText('Importar / Exportar'));
-        expect(screen.getByTestId('import-export-modal')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('import-export-modal')).toBeInTheDocument();
+        });
     });
 
-    it('opens FullRoadmapEditor modal', () => {
+    it('opens FullRoadmapEditor modal', async () => {
         const skill = createMockSkill();
         render(
             <SkillDetailView
@@ -498,6 +502,8 @@ describe('SkillDetailView Component', () => {
         );
 
         fireEvent.click(screen.getByText('Editor'));
-        expect(screen.getByTestId('full-roadmap-editor')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('full-roadmap-editor')).toBeInTheDocument();
+        });
     });
 });

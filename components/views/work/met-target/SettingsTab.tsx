@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookOpen, Trash2, Plus } from 'lucide-react';
-import { StudySubject } from '../../../stores';
+import { StudySubject } from '../../../../stores';
 import { SUBJECT_COLORS } from '../hooks/useStudyScheduler';
 
 interface WorkGoals {
@@ -8,6 +8,7 @@ interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
+    refactorings: number;
 }
 
 interface SettingsTabProps {
@@ -58,7 +59,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = React.memo(({
                         />
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <label className="text-slate-400 text-xs font-bold uppercase">Meta Diária Anki</label>
                         <input
@@ -74,6 +75,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = React.memo(({
                             type="number"
                             value={localGoals.ncm}
                             onChange={e => setLocalGoals({ ...localGoals, ncm: Number(e.target.value) })}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-yellow-500 focus:outline-none"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-slate-400 text-xs font-bold uppercase">Meta Refatorações (Padrão)</label>
+                        <input
+                            type="number"
+                            value={localGoals.refactorings || 0}
+                            onChange={e => setLocalGoals({ ...localGoals, refactorings: Number(e.target.value) })}
                             className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:border-yellow-500 focus:outline-none"
                         />
                     </div>

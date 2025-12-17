@@ -70,9 +70,13 @@ export const useSkillsStore = create<SkillsState>()(
                 skills: state.skills.map(s => s.id === id ? { ...s, ...updates } : s)
             })),
 
-            deleteSkill: (id) => set((state) => ({
-                skills: state.skills.filter(s => s.id !== id)
-            })),
+            deleteSkill: (id) => set((state) => {
+                const skill = state.skills.find(s => s.id === id);
+                if (skill?.name === 'Inglês Avançado') return state;
+                return {
+                    skills: state.skills.filter(s => s.id !== id)
+                };
+            }),
 
             // Progress Actions
             addLog: (skillId, log) => set((state) => ({
@@ -86,17 +90,22 @@ export const useSkillsStore = create<SkillsState>()(
                 })
             })),
 
-            deleteLog: (skillId, logId) => set((state) => ({
-                skills: state.skills.map(skill => {
-                    if (skill.id !== skillId) return skill;
-                    const log = skill.logs.find(l => l.id === logId);
-                    return {
-                        ...skill,
-                        logs: skill.logs.filter(l => l.id !== logId),
-                        currentMinutes: log ? skill.currentMinutes - log.minutes : skill.currentMinutes
-                    };
-                })
-            })),
+            deleteLog: (skillId, logId) => set((state) => {
+                const skill = state.skills.find(s => s.id === skillId);
+                if (skill?.name === 'Inglês Avançado') return state;
+
+                return {
+                    skills: state.skills.map(skill => {
+                        if (skill.id !== skillId) return skill;
+                        const log = skill.logs.find(l => l.id === logId);
+                        return {
+                            ...skill,
+                            logs: skill.logs.filter(l => l.id !== logId),
+                            currentMinutes: log ? skill.currentMinutes - log.minutes : skill.currentMinutes
+                        };
+                    })
+                };
+            }),
 
             // Resource Actions
             addResource: (skillId, resource) => set((state) => ({

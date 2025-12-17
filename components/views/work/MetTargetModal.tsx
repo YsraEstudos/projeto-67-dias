@@ -17,6 +17,7 @@ interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
+    refactorings: number;
 }
 
 interface MetTargetModalProps {
@@ -41,10 +42,17 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
 }) => {
     // --- STATE ---
     const [activeTab, setActiveTab] = useState<'SESSION' | 'HISTORY' | 'SETTINGS'>('SESSION');
-    const [timerSeconds, setTimerSeconds] = useState(0);
+
+    // Countdown Timer State
+    const [initialTimerMinutes, setInitialTimerMinutes] = useState(10); // Default 10 minutes
+    const [timeRemaining, setTimeRemaining] = useState(10 * 60); // Seconds remaining
     const [isRunning, setIsRunning] = useState(false);
+    const [timerFinished, setTimerFinished] = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0); // Track actual time spent
+
     const [ankiCount, setAnkiCount] = useState(0);
     const [ncmCount, setNcmCount] = useState(0);
+    const [refactoringsCount, setRefactoringsCount] = useState(0);
 
     // Local state for goals editing
     const [localGoals, setLocalGoals] = useState(goals);
@@ -60,14 +68,63 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
         onUpdateSchedules
     });
 
-    // --- EFFECT: Timer ---
+    // --- EFFECT: Request Notification Permission ---
+    useEffect(() => {
+        if (isOpen && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, [isOpen]);
+
+    // --- Alarm and Notification Function ---
+    const playAlarmAndNotify = useCallback(() => {
+        // Play alarm sound
+        new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(() => { });
+
+        // Browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('⏰ Tempo Esgotado!', {
+                body: 'Sua sessão de Metas Extras terminou.',
+                icon: '/favicon.ico'
+            });
+        }
+    }, []);
+
+    // --- EFFECT: Countdown Timer ---
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (isRunning) {
-            interval = setInterval(() => setTimerSeconds(s => s + 1), 1000);
+        if (isRunning && timeRemaining > 0) {
+            interval = setInterval(() => {
+                setTimeRemaining(prev => {
+                    if (prev <= 1) {
+                        setIsRunning(false);
+                        setTimerFinished(true);
+                        playAlarmAndNotify();
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+                setElapsedSeconds(prev => prev + 1);
+            }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isRunning]);
+    }, [isRunning, timeRemaining, playAlarmAndNotify]);
+
+    // --- Handler: Set Timer Preset ---
+    const handleSetPreset = useCallback((minutes: number) => {
+        setInitialTimerMinutes(minutes);
+        setTimeRemaining(minutes * 60);
+        setTimerFinished(false);
+        setIsRunning(false);
+        setElapsedSeconds(0);
+    }, []);
+
+    // --- Handler: Reset Timer ---
+    const handleResetTimer = useCallback(() => {
+        setTimeRemaining(initialTimerMinutes * 60);
+        setTimerFinished(false);
+        setIsRunning(false);
+        setElapsedSeconds(0);
+    }, [initialTimerMinutes]);
 
     // --- EFFECT: Sync Local Goals ---
     useEffect(() => {
@@ -96,34 +153,46 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
     }, [history, goals]);
 
     const targetGoal = isInUltraPhase ? goals.ultra : goals.weekly;
+
     // Check if daily goals met for locking input
-    const isInputLocked = ankiCount >= goals.anki && ncmCount >= goals.ncm;
+    // Goals with value 0 are considered as "no goal set" and thus always met
+    const isAnkiMet = goals.anki === 0 || ankiCount >= goals.anki;
+    const isNcmMet = goals.ncm === 0 || ncmCount >= goals.ncm;
+    const isRefactoringsMet = goals.refactorings === 0 || refactoringsCount >= goals.refactorings;
+    // Lock only if at least one goal is set AND all set goals are met
+    const hasActiveGoals = goals.anki > 0 || goals.ncm > 0 || goals.refactorings > 0;
+    const isInputLocked = hasActiveGoals && isAnkiMet && isNcmMet && isRefactoringsMet;
 
     // --- HANDLERS ---
     const handleSaveSession = useCallback(() => {
-        if (timerSeconds === 0 && ankiCount === 0 && ncmCount === 0) return;
+        if (elapsedSeconds === 0 && ankiCount === 0 && ncmCount === 0 && refactoringsCount === 0) return;
 
-        // Calculate points: 1 pt per min, 2 pts per Anki/NCM
-        const points = Math.floor(timerSeconds / 60) + (ankiCount * 2) + (ncmCount * 2);
+        // Calculate points: 1 pt per min, 2 pts per Anki/NCM, 5 pts per Refactoring
+        const points = Math.floor(elapsedSeconds / 60) + (ankiCount * 2) + (ncmCount * 2) + (refactoringsCount * 5);
 
         const newSession: MetTargetSession = {
-            id: crypto.randomUUID(),
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             date: new Date().toISOString(),
-            durationSeconds: timerSeconds,
+            durationSeconds: elapsedSeconds,
             ankiCount: ankiCount,
             ncmCount: ncmCount,
+            refactoringsCount: refactoringsCount,
             points
         };
 
         onSaveSession(newSession);
 
-        // Reset
-        setTimerSeconds(0);
+        // Reset countdown timer
+        setTimeRemaining(initialTimerMinutes * 60);
+        setElapsedSeconds(0);
         setIsRunning(false);
+        setTimerFinished(false);
         setAnkiCount(0);
         setNcmCount(0);
+        setRefactoringsCount(0);
+
         setActiveTab('HISTORY');
-    }, [timerSeconds, ankiCount, ncmCount, onSaveSession]);
+    }, [elapsedSeconds, ankiCount, ncmCount, refactoringsCount, onSaveSession, initialTimerMinutes]);
 
     const handleSaveSettings = useCallback(() => {
         onUpdateGoals(localGoals);
@@ -177,14 +246,19 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {activeTab === 'SESSION' && (
                         <SessionTab
-                            timerSeconds={timerSeconds}
+                            timeRemaining={timeRemaining}
                             isRunning={isRunning}
                             setIsRunning={setIsRunning}
-                            setTimerSeconds={setTimerSeconds}
+                            timerFinished={timerFinished}
+                            initialTimerMinutes={initialTimerMinutes}
+                            onSetPreset={handleSetPreset}
+                            onResetTimer={handleResetTimer}
                             ankiCount={ankiCount}
                             setAnkiCount={setAnkiCount}
                             ncmCount={ncmCount}
                             setNcmCount={setNcmCount}
+                            refactoringsCount={refactoringsCount}
+                            setRefactoringsCount={setRefactoringsCount}
                             goals={goals}
                             isInputLocked={isInputLocked}
                             onSave={handleSaveSession}

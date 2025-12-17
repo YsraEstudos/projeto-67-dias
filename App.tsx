@@ -89,6 +89,26 @@ const App: React.FC = () => {
   const workCurrentCount = useWorkStore((state) => state.currentCount);
   const workGoal = useWorkStore((state) => state.goal);
 
+  // Read Reading Data for Dashboard (Zustand)
+  const books = useReadingStore((state) => state.books);
+
+  // Calculate reading stats dynamically
+  const readingStats = useMemo(() => {
+    const reading = books.filter(b => b.status === 'READING');
+    const completed = books.filter(b => b.status === 'COMPLETED');
+    const total = books.length;
+    const progressPercent = total > 0
+      ? Math.round((completed.length / total) * 100)
+      : 0;
+
+    return {
+      readingCount: reading.length,
+      completedCount: completed.length,
+      totalCount: total,
+      progressPercent
+    };
+  }, [books]);
+
   // --- PROJECT CONFIG (Zustand) ---
   const config = useConfigStore((state) => state.config);
   const setConfig = useConfigStore((state) => state.setConfig);
@@ -249,10 +269,12 @@ const App: React.FC = () => {
       {
         id: ViewState.READING,
         title: 'Leitura',
-        subtitle: '0/4 livros (0%)',
+        subtitle: `${readingStats.completedCount}/${readingStats.totalCount} livros (${readingStats.progressPercent}%)`,
         icon: Library,
         color: 'text-yellow-500',
-        stats: '2 lendo',
+        stats: readingStats.readingCount > 0
+          ? `${readingStats.readingCount} lendo`
+          : undefined,
       },
       {
         id: ViewState.SKILLS,
@@ -305,7 +327,7 @@ const App: React.FC = () => {
         color: 'text-purple-400',
       },
     ];
-  }, [notificationCount, workCurrentCount, workGoal]);
+  }, [notificationCount, workCurrentCount, workGoal, readingStats]);
 
   const renderContent = () => {
     let content: React.ReactNode;

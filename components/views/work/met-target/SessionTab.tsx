@@ -7,17 +7,26 @@ interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
+    refactorings: number;
 }
 
+// Timer presets in minutes
+const TIMER_PRESETS = [5, 10, 15, 25, 30];
+
 interface SessionTabProps {
-    timerSeconds: number;
+    timeRemaining: number; // Seconds remaining in countdown
     isRunning: boolean;
     setIsRunning: (v: boolean) => void;
-    setTimerSeconds: (v: number) => void;
+    timerFinished: boolean;
+    initialTimerMinutes: number;
+    onSetPreset: (minutes: number) => void;
+    onResetTimer: () => void;
     ankiCount: number;
     setAnkiCount: (v: number) => void;
     ncmCount: number;
     setNcmCount: (v: number) => void;
+    refactoringsCount: number;
+    setRefactoringsCount: (v: number) => void;
     goals: WorkGoals;
     isInputLocked: boolean;
     onSave: () => void;
@@ -25,35 +34,75 @@ interface SessionTabProps {
 }
 
 export const SessionTab: React.FC<SessionTabProps> = React.memo(({
-    timerSeconds, isRunning, setIsRunning, setTimerSeconds,
+    timeRemaining, isRunning, setIsRunning, timerFinished,
+    initialTimerMinutes, onSetPreset, onResetTimer,
     ankiCount, setAnkiCount, ncmCount, setNcmCount,
+    refactoringsCount, setRefactoringsCount,
     goals, isInputLocked, onSave, children
 }) => {
     return (
         <div className="space-y-8">
-            {/* Timer */}
-            <div className="flex flex-col items-center justify-center py-6 bg-slate-950 rounded-2xl border border-slate-800">
-                <div className="text-6xl font-mono font-bold text-slate-200 mb-4 tracking-wider">
-                    {formatDuration(timerSeconds)}
+            {/* Countdown Timer */}
+            <div className={`flex flex-col items-center justify-center py-6 rounded-2xl border transition-all ${timerFinished
+                    ? 'bg-red-950/50 border-red-500/50 animate-pulse'
+                    : 'bg-slate-950 border-slate-800'
+                }`}>
+                {/* Timer Presets */}
+                <div className="flex gap-2 mb-4">
+                    {TIMER_PRESETS.map(minutes => (
+                        <button
+                            key={minutes}
+                            onClick={() => onSetPreset(minutes)}
+                            disabled={isRunning}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${initialTimerMinutes === minutes && !timerFinished
+                                    ? 'bg-yellow-600 text-white'
+                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                                } ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {minutes}m
+                        </button>
+                    ))}
                 </div>
+
+                {/* Timer Display */}
+                <div className={`text-6xl font-mono font-bold mb-4 tracking-wider ${timerFinished ? 'text-red-400' : 'text-slate-200'
+                    }`}>
+                    {formatDuration(timeRemaining)}
+                </div>
+
+                {/* Timer Controls */}
                 <div className="flex gap-3">
                     <button
                         onClick={() => setIsRunning(!isRunning)}
-                        className={`px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-all ${isRunning ? 'bg-slate-800 text-red-400 hover:bg-slate-700' : 'bg-yellow-600 text-white hover:bg-yellow-500'}`}
+                        disabled={timerFinished}
+                        className={`px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-all ${timerFinished
+                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                : isRunning
+                                    ? 'bg-slate-800 text-red-400 hover:bg-slate-700'
+                                    : 'bg-yellow-600 text-white hover:bg-yellow-500'
+                            }`}
                     >
                         {isRunning ? <><Pause size={18} /> Pausar</> : <><Play size={18} /> Iniciar</>}
                     </button>
                     <button
-                        onClick={() => { setIsRunning(false); setTimerSeconds(0); }}
+                        onClick={onResetTimer}
                         className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                        title="Resetar timer"
                     >
                         <RotateCcw size={18} />
                     </button>
                 </div>
+
+                {/* Finished Message */}
+                {timerFinished && (
+                    <p className="mt-4 text-red-400 font-bold text-sm animate-bounce">
+                        ⏰ Tempo esgotado! Clique em resetar para continuar.
+                    </p>
+                )}
             </div>
 
             {/* Counters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Anki */}
                 <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
                     <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">Anki (Meta: {goals.anki})</h4>
@@ -74,9 +123,6 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                             <ArrowUp size={20} />
                         </button>
                     </div>
-                    {isInputLocked && (
-                        <p className="text-xs text-amber-400 mt-2 text-center">Ultra meta atingida!</p>
-                    )}
                 </div>
 
                 {/* NCM */}
@@ -99,11 +145,36 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                             <ArrowUp size={20} />
                         </button>
                     </div>
-                    {isInputLocked && (
-                        <p className="text-xs text-amber-400 mt-2 text-center">Ultra meta atingida!</p>
-                    )}
+                </div>
+
+                {/* Refactorings (Fixed Goal like Anki/NCM) */}
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
+                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3 whitespace-nowrap">Refatorações (Meta: {goals.refactorings})</h4>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setRefactoringsCount(Math.max(0, refactoringsCount - 1))}
+                            disabled={isInputLocked}
+                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <ArrowDown size={20} />
+                        </button>
+                        <span className={`text-4xl font-bold ${refactoringsCount >= goals.refactorings ? 'text-green-400' : 'text-white'}`}>{refactoringsCount}</span>
+                        <button
+                            onClick={() => setRefactoringsCount(refactoringsCount + 1)}
+                            disabled={isInputLocked}
+                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <ArrowUp size={20} />
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            {isInputLocked && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center animate-pulse">
+                    <p className="text-sm text-amber-400 font-bold">🏆 Ultra metas diárias atingidas!</p>
+                </div>
+            )}
 
             {/* Save Button */}
             <button

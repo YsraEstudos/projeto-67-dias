@@ -15,3 +15,6 @@ export const DEFAULT_ANKI_DAILY_GOAL = 15;
 
 /** Meta diária de NCM para sessões extras */
 export const DEFAULT_NCM_DAILY_GOAL = 20;
+
+/** Meta diária de Refatorações (variável) */
+export const DEFAULT_REFACTORINGS_DAILY_GOAL = 0;

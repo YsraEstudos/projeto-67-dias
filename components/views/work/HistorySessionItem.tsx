@@ -21,7 +21,7 @@ export const HistorySessionItem: React.FC<HistorySessionItemProps> = React.memo(
         }
     };
 
-    const sessionPoints = session.ankiCount + session.ncmCount;
+
 
     return (
         <div className={`p-4 rounded-xl border flex items-center justify-between transition-all duration-300 ${isConfirming ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-800 border-slate-700'}`}>
@@ -30,13 +30,13 @@ export const HistorySessionItem: React.FC<HistorySessionItemProps> = React.memo(
                     {new Date(session.date).toLocaleDateString('pt-BR')} <span className="text-slate-500 text-xs">• {formatDuration(session.durationSeconds)}</span>
                 </div>
                 <div className="text-xs text-slate-500 mt-1">
-                    Anki: {session.ankiCount} | NCM: {session.ncmCount}
+                    Anki: {session.ankiCount} | NCM: {session.ncmCount} | Refat: {session.refactoringsCount || 0}
                 </div>
             </div>
             <div className="flex items-center gap-3">
                 {!isConfirming && (
                     <div className="px-3 py-1 rounded-lg font-bold text-sm bg-green-500/10 text-green-400">
-                        +{sessionPoints} pts
+                        +{session.points} pts
                     </div>
                 )}
                 <button

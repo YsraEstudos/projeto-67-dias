@@ -22,15 +22,15 @@ describe('Skills Persistence Reproduction', () => {
         });
     });
 
-    it('should NOT re-add "Inglês Avançado" after deletion', () => {
+    it('should NOT re-add skill after deletion', () => {
         const store = useSkillsStore.getState();
 
         // 1. Simulate Initialization
         act(() => {
             store.markInitialized();
             store.addSkill({
-                id: 'english-1',
-                name: 'Inglês Avançado',
+                id: 'test-skill-1',
+                name: 'Test Skill',
                 level: 'Avançado',
                 currentMinutes: 0,
                 goalMinutes: 100,
@@ -47,7 +47,7 @@ describe('Skills Persistence Reproduction', () => {
 
         // 2. Simulate Deletion
         act(() => {
-            useSkillsStore.getState().deleteSkill('english-1');
+            useSkillsStore.getState().deleteSkill('test-skill-1');
         });
 
         expect(useSkillsStore.getState().skills).toHaveLength(0);

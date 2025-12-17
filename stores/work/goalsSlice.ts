@@ -9,6 +9,7 @@ export interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
+    refactorings: number;
 }
 
 export const DEFAULT_GOALS: WorkGoals = {
@@ -16,7 +17,8 @@ export const DEFAULT_GOALS: WorkGoals = {
     weekly: 125,
     ultra: 250,
     anki: 15,
-    ncm: 20
+    ncm: 20,
+    refactorings: 0
 };
 
 export interface GoalsSlice {
