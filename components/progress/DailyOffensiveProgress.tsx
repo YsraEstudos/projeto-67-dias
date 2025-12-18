@@ -1,16 +1,27 @@
 import React, { useMemo } from 'react';
-import { BookOpen, GraduationCap, Flame, AlertCircle } from 'lucide-react';
-import { useReadingStore } from '../../stores/readingStore';
-import { useSkillsStore } from '../../stores/skillsStore';
-import { calculateDailyOffensive } from '../../utils/dailyOffensiveUtils';
+import { BookOpen, GraduationCap, Flame, AlertCircle, Gamepad2, Target } from 'lucide-react';
+import { useReadingStore, useSkillsStore, useConfigStore, useGamesStore } from '../../stores';
+import { calculateDailyOffensiveAdvanced } from '../../utils/dailyOffensiveUtils';
+import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 
 export const DailyOffensiveProgress: React.FC = () => {
     const books = useReadingStore((s) => s.books);
     const skills = useSkillsStore((s) => s.skills);
+    const { games } = useGamesStore();
+    const config = useConfigStore((s) => s.config);
 
-    const { readingProgress, skillProgress, averageProgress, isOffensive } = useMemo(() => {
-        return calculateDailyOffensive(books, skills);
-    }, [books, skills]);
+    const offensiveConfig = config.offensiveGoals || DEFAULT_OFFENSIVE_GOALS;
+
+    const {
+        weightedProgress,
+        isOffensive,
+        readingProgress,
+        skillProgress,
+        gamesProgress,
+        categoryBreakdown
+    } = useMemo(() => {
+        return calculateDailyOffensiveAdvanced(books, skills, games, offensiveConfig);
+    }, [books, skills, games, offensiveConfig]);
 
     // Calcular cores e mensagens baseadas no progresso
     const getProgressColor = (value: number) => {
@@ -20,13 +31,13 @@ export const DailyOffensiveProgress: React.FC = () => {
     };
 
     const mainColor = isOffensive ? 'text-orange-500' : 'text-slate-400';
-    const mainBg = isOffensive ? 'bg-orange-500' : 'bg-slate-600';
+    const borderColor = isOffensive ? 'border-orange-500/30' : 'border-slate-700';
 
     return (
         <div className={`
             relative overflow-hidden rounded-2xl p-6 border transition-all duration-300
             ${isOffensive
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.1)]'
+                ? `bg-gradient-to-br from-slate-800 to-slate-900 ${borderColor} shadow-[0_0_20px_rgba(249,115,22,0.1)]`
                 : 'bg-slate-800 border-slate-700'
             }
         `}>
@@ -49,16 +60,16 @@ export const DailyOffensiveProgress: React.FC = () => {
                             <p className="text-xs text-slate-500 font-medium">
                                 {isOffensive
                                     ? '🔥 Modo ofensiva ativado!'
-                                    : 'Complete 50% da média para ativar'}
+                                    : `Complete ${offensiveConfig.minimumPercentage}% da meta para ativar`}
                             </p>
                         </div>
                     </div>
                     <div className="text-right">
                         <div className={`text-3xl font-bold ${mainColor}`}>
-                            {averageProgress}%
+                            {weightedProgress}%
                         </div>
                         <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                            Média Geral
+                            Progresso Ponderado
                         </div>
                     </div>
                 </div>
@@ -66,39 +77,80 @@ export const DailyOffensiveProgress: React.FC = () => {
                 {/* Bars Container */}
                 <div className="space-y-4">
 
-                    {/* Reading Bar */}
-                    <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                            <div className="flex items-center gap-2 text-sm text-slate-300">
-                                <BookOpen size={14} className="text-yellow-500" />
-                                <span>Leitura</span>
-                            </div>
-                            <span className="text-xs font-mono text-slate-400">{readingProgress}%</span>
-                        </div>
-                        <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(readingProgress)}`}
-                                style={{ width: `${Math.min(100, readingProgress)}%` }}
-                            />
-                        </div>
-                    </div>
-
                     {/* Skills Bar */}
-                    <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                            <div className="flex items-center gap-2 text-sm text-slate-300">
-                                <GraduationCap size={14} className="text-emerald-400" />
-                                <span>Estudo (Skills)</span>
+                    {offensiveConfig.categoryWeights.skills > 0 && (
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <div className="flex items-center gap-2 text-sm text-slate-300">
+                                    <GraduationCap size={14} className="text-emerald-400" />
+                                    <span>Skills</span>
+                                    <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                        Peso: {offensiveConfig.categoryWeights.skills}%
+                                    </span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs font-mono text-slate-300 mr-2">{skillProgress}%</span>
+                                    <span className="text-[10px] text-emerald-500/70">+{categoryBreakdown.skills.contribution}% total</span>
+                                </div>
                             </div>
-                            <span className="text-xs font-mono text-slate-400">{skillProgress}%</span>
+                            <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(skillProgress)}`}
+                                    style={{ width: `${Math.min(100, skillProgress)}%` }}
+                                />
+                            </div>
                         </div>
-                        <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(skillProgress)}`}
-                                style={{ width: `${Math.min(100, skillProgress)}%` }}
-                            />
+                    )}
+
+                    {/* Reading Bar */}
+                    {offensiveConfig.categoryWeights.reading > 0 && (
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <div className="flex items-center gap-2 text-sm text-slate-300">
+                                    <BookOpen size={14} className="text-yellow-500" />
+                                    <span>Leitura</span>
+                                    <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                        Peso: {offensiveConfig.categoryWeights.reading}%
+                                    </span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs font-mono text-slate-300 mr-2">{readingProgress}%</span>
+                                    <span className="text-[10px] text-yellow-500/70">+{categoryBreakdown.reading.contribution}% total</span>
+                                </div>
+                            </div>
+                            <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(readingProgress)}`}
+                                    style={{ width: `${Math.min(100, readingProgress)}%` }}
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Games Bar */}
+                    {offensiveConfig.categoryWeights.games > 0 && (
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <div className="flex items-center gap-2 text-sm text-slate-300">
+                                    <Gamepad2 size={14} className="text-purple-400" />
+                                    <span>Jogos</span>
+                                    <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                                        Peso: {offensiveConfig.categoryWeights.games}%
+                                    </span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs font-mono text-slate-300 mr-2">{gamesProgress}%</span>
+                                    <span className="text-[10px] text-purple-500/70">+{categoryBreakdown.games.contribution}% total</span>
+                                </div>
+                            </div>
+                            <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(gamesProgress)}`}
+                                    style={{ width: `${Math.min(100, gamesProgress)}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                 </div>
 
@@ -114,9 +166,9 @@ export const DailyOffensiveProgress: React.FC = () => {
                         </>
                     ) : (
                         <>
-                            <AlertCircle size={16} className="text-slate-500 shrink-0" />
+                            <Target size={16} className="text-slate-500 shrink-0" />
                             <p className="text-xs text-slate-500">
-                                Defina metas diárias em seus livros e skills para acompanhar seu progresso real.
+                                A barra de progresso total é a soma ponderada das categorias acima. Configure os pesos na tela de Ajustes.
                             </p>
                         </>
                     )}

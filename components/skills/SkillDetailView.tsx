@@ -5,6 +5,7 @@ import { ProgressStats } from './ProgressStats';
 import { ResourcesVault } from './ResourcesVault';
 import { RoadmapSection } from './RoadmapSection';
 import { MicroAchievementsTab } from './MicroAchievementsTab';
+import { useSkillsStore } from '../../stores/skillsStore';
 import { syncRoadmapState } from './roadmapSync';
 
 interface SkillDetailViewProps {
@@ -28,6 +29,8 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
     onUpdate,
     onDelete
 }) => {
+    const { completeSkill, uncompleteSkill } = useSkillsStore();
+
     // Session handler that creates a log entry
     const handleAddSession = (minutes: number) => {
         onUpdate({
@@ -52,6 +55,11 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                 onBack={onBack}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
+                onComplete={() => {
+                    completeSkill(skill.id);
+                    onBack(); // Voltar para a lista após concluir
+                }}
+                onUncomplete={() => uncompleteSkill(skill.id)}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import '../../services/firebase'; // Import to trigger side effects
 
 describe('Firebase Service', () => {
@@ -15,5 +15,9 @@ describe('Firebase Service', () => {
 
     it('initializes Firestore', () => {
         expect(getFirestore).toHaveBeenCalled();
+    });
+
+    it('enables offline persistence', () => {
+        expect(enableMultiTabIndexedDbPersistence).toHaveBeenCalled();
     });
 });

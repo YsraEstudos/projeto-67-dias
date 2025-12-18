@@ -1,16 +1,27 @@
 /**
- * Reading Store - Books and folders with Firebase persistence
+ * Reading Store - Books and folders with Firestore-first persistence
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { Book, Folder, ReadingLog } from '../types';
-import { createFirebaseStorage } from './persistMiddleware';
+import { writeToFirestore } from './firestoreSync';
 import { generateUUID } from '../utils/uuid';
+
+const STORE_KEY = 'p67_reading_store';
+
+const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+};
 
 interface ReadingState {
     books: Book[];
     folders: Folder[];
     isLoading: boolean;
+    _initialized: boolean;
 
     // Book Actions
     setBooks: (books: Book[]) => void;
@@ -31,138 +42,159 @@ interface ReadingState {
     deleteFolder: (id: string) => void;
 
     setLoading: (loading: boolean) => void;
+
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { books: Book[]; folders: Folder[] } | null) => void;
+    _reset: () => void;
 }
 
-export const useReadingStore = create<ReadingState>()(
-    persist(
-        (set) => ({
-            books: [],
-            folders: [],
-            isLoading: true,
+export const useReadingStore = create<ReadingState>()((set, get) => ({
+    books: [],
+    folders: [],
+    isLoading: true,
+    _initialized: false,
 
-            // Book Actions
-            setBooks: (books) => set({ books }),
+    setBooks: (books) => {
+        set({ books: deduplicateById(books) });
+        get()._syncToFirestore();
+    },
 
-            addBook: (book) => set((state) => ({
-                books: [...state.books, book]
-            })),
+    addBook: (book) => {
+        set((state) => ({ books: [...state.books, book] }));
+        get()._syncToFirestore();
+    },
 
-            updateBook: (id, updates) => set((state) => ({
-                books: state.books.map(b => b.id === id ? { ...b, ...updates } : b)
-            })),
+    updateBook: (id, updates) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, ...updates } : b)
+        }));
+        get()._syncToFirestore();
+    },
 
-            deleteBook: (id) => set((state) => ({
-                books: state.books.filter(b => b.id !== id)
-            })),
+    deleteBook: (id) => {
+        set((state) => ({ books: state.books.filter(b => b.id !== id) }));
+        get()._syncToFirestore();
+    },
 
-            updateProgress: (id, current) => set((state) => ({
-                books: state.books.map(b => {
-                    if (b.id !== id) return b;
-                    const newStatus = current >= b.total ? 'COMPLETED' : b.status;
-                    return { ...b, current, status: newStatus };
-                })
-            })),
+    updateProgress: (id, current) => {
+        set((state) => ({
+            books: state.books.map(b => {
+                if (b.id !== id) return b;
+                const newStatus = current >= b.total ? 'COMPLETED' : b.status;
+                return { ...b, current, status: newStatus };
+            })
+        }));
+        get()._syncToFirestore();
+    },
 
-            setBookStatus: (id, status) => set((state) => ({
-                books: state.books.map(b => b.id === id ? { ...b, status } : b)
-            })),
+    setBookStatus: (id, status) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, status } : b)
+        }));
+        get()._syncToFirestore();
+    },
 
-            setBookRating: (id, rating) => set((state) => ({
-                books: state.books.map(b => b.id === id ? { ...b, rating } : b)
-            })),
+    setBookRating: (id, rating) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, rating } : b)
+        }));
+        get()._syncToFirestore();
+    },
 
-            moveBookToFolder: (bookId, folderId) => set((state) => ({
-                books: state.books.map(b =>
-                    b.id === bookId ? { ...b, folderId } : b
-                )
-            })),
+    moveBookToFolder: (bookId, folderId) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === bookId ? { ...b, folderId } : b)
+        }));
+        get()._syncToFirestore();
+    },
 
-            setDailyGoal: (id, goal) => set((state) => ({
-                books: state.books.map(b => b.id === id ? { ...b, dailyGoal: goal } : b)
-            })),
+    setDailyGoal: (id, goal) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, dailyGoal: goal } : b)
+        }));
+        get()._syncToFirestore();
+    },
 
-            addReadingLog: (id, pagesRead) => set((state) => ({
-                books: state.books.map(book => {
-                    if (book.id !== id) return book;
+    addReadingLog: (id, pagesRead) => {
+        set((state) => ({
+            books: state.books.map(book => {
+                if (book.id !== id) return book;
+                const today = new Date().toISOString().split('T')[0];
+                const existingLog = book.logs?.find(l => l.date === today);
 
-                    const today = new Date().toISOString().split('T')[0];
-                    const existingLog = book.logs?.find(l => l.date === today);
-
-                    if (existingLog) {
-                        return {
-                            ...book,
-                            current: Math.min(book.total, book.current + pagesRead),
-                            logs: book.logs?.map(l =>
-                                l.date === today ? { ...l, pagesRead: l.pagesRead + pagesRead } : l
-                            )
-                        };
-                    }
-
+                if (existingLog) {
                     return {
                         ...book,
                         current: Math.min(book.total, book.current + pagesRead),
-                        logs: [...(book.logs || []), {
-                            id: generateUUID(),
-                            date: today,
-                            pagesRead,
-                            bookId: id
-                        }]
+                        logs: book.logs?.map(l =>
+                            l.date === today ? { ...l, pagesRead: l.pagesRead + pagesRead } : l
+                        )
                     };
-                })
-            })),
-
-            // Folder Actions
-            setFolders: (folders) => set({ folders }),
-
-            addFolder: (folder) => set((state) => ({
-                folders: [...state.folders, folder]
-            })),
-
-            updateFolder: (id, updates) => set((state) => ({
-                folders: state.folders.map(f => f.id === id ? { ...f, ...updates } : f)
-            })),
-
-            deleteFolder: (id) => set((state) => ({
-                folders: state.folders.filter(f => f.id !== id),
-                // Move books from deleted folder to root
-                books: state.books.map(b =>
-                    b.folderId === id ? { ...b, folderId: null } : b
-                )
-            })),
-
-            setLoading: (loading) => set({ isLoading: loading }),
-        }),
-        {
-            name: 'p67_reading_store',
-            storage: createFirebaseStorage('p67_reading_store'),
-            partialize: (state) => ({ books: state.books, folders: state.folders }),
-            onRehydrateStorage: () => (state) => {
-                // Clean up any duplicate books (same id)
-                if (state?.books?.length) {
-                    const seen = new Set<string>();
-                    const uniqueBooks = state.books.filter(b => {
-                        if (seen.has(b.id)) return false;
-                        seen.add(b.id);
-                        return true;
-                    });
-                    if (uniqueBooks.length !== state.books.length) {
-                        state.setBooks(uniqueBooks);
-                    }
                 }
-                // Clean up any duplicate folders (same id)
-                if (state?.folders?.length) {
-                    const seen = new Set<string>();
-                    const uniqueFolders = state.folders.filter(f => {
-                        if (seen.has(f.id)) return false;
-                        seen.add(f.id);
-                        return true;
-                    });
-                    if (uniqueFolders.length !== state.folders.length) {
-                        state.setFolders(uniqueFolders);
-                    }
-                }
-                state?.setLoading(false);
-            },
+
+                return {
+                    ...book,
+                    current: Math.min(book.total, book.current + pagesRead),
+                    logs: [...(book.logs || []), {
+                        id: generateUUID(),
+                        date: today,
+                        pagesRead,
+                        bookId: id
+                    }]
+                };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    setFolders: (folders) => {
+        set({ folders: deduplicateById(folders) });
+        get()._syncToFirestore();
+    },
+
+    addFolder: (folder) => {
+        set((state) => ({ folders: [...state.folders, folder] }));
+        get()._syncToFirestore();
+    },
+
+    updateFolder: (id, updates) => {
+        set((state) => ({
+            folders: state.folders.map(f => f.id === id ? { ...f, ...updates } : f)
+        }));
+        get()._syncToFirestore();
+    },
+
+    deleteFolder: (id) => {
+        set((state) => ({
+            folders: state.folders.filter(f => f.id !== id),
+            books: state.books.map(b => b.folderId === id ? { ...b, folderId: null } : b)
+        }));
+        get()._syncToFirestore();
+    },
+
+    setLoading: (loading) => set({ isLoading: loading }),
+
+    _syncToFirestore: () => {
+        const { books, folders, _initialized } = get();
+        if (_initialized) {
+            writeToFirestore(STORE_KEY, { books, folders });
         }
-    )
-);
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data) {
+            set({
+                books: deduplicateById(data.books || []),
+                folders: deduplicateById(data.folders || []),
+                isLoading: false,
+                _initialized: true
+            });
+        } else {
+            set({ isLoading: false, _initialized: true });
+        }
+    },
+
+    _reset: () => {
+        set({ books: [], folders: [], isLoading: true, _initialized: false });
+    }
+}));

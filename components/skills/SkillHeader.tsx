@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit2, Trophy } from 'lucide-react';
 import { Skill } from '../../types';
 import { useEditableField } from '../../hooks/useEditableField';
 import { THEME_VARIANTS, ThemeKey } from './constants';
@@ -9,13 +9,15 @@ interface SkillHeaderProps {
     onBack: () => void;
     onUpdate: (updates: Partial<Skill>) => void;
     onDelete: () => void;
+    onComplete?: () => void;
+    onUncomplete?: () => void;
 }
 
 /**
  * Header component for skill detail view.
  * Includes back button, inline-editable skill name, level badge, and delete action.
  */
-export const SkillHeader: React.FC<SkillHeaderProps> = ({ skill, onBack, onUpdate, onDelete }) => {
+export const SkillHeader: React.FC<SkillHeaderProps> = ({ skill, onBack, onUpdate, onDelete, onComplete, onUncomplete }) => {
     const nameEditor = useEditableField(skill.name, (newName) => {
         if (newName.trim()) {
             onUpdate({ name: newName.trim() });
@@ -62,7 +64,33 @@ export const SkillHeader: React.FC<SkillHeaderProps> = ({ skill, onBack, onUpdat
                     • Criado em {new Date(skill.createdAt).toLocaleDateString('pt-BR')}
                 </p>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+                {skill.isCompleted ? (
+                    <button
+                        onClick={onUncomplete}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 transition-all font-medium text-sm"
+                        title="Reativar habilidade"
+                    >
+                        <Trophy size={16} fill="currentColor" />
+                        Dominada
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => {
+                            if (window.confirm('Tem certeza que deseja marcar esta habilidade como concluída?\nEla será movida para o histórico de habilidades dominadas.')) {
+                                onComplete?.();
+                            }
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-slate-400 border border-slate-700 rounded-lg hover:border-emerald-500/50 hover:text-emerald-400 transition-all text-sm group"
+                        title="Marcar como dominada"
+                    >
+                        <Trophy size={16} className="group-hover:scale-110 transition-transform" />
+                        <span>Concluir</span>
+                    </button>
+                )}
+
+                <div className="w-px h-6 bg-slate-700 mx-2" />
+
                 <button
                     onClick={onDelete}
                     className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"

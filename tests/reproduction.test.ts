@@ -2,15 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useSkillsStore } from '../stores/skillsStore';
 import { act } from '@testing-library/react';
 
-// Mock useStorage and persistMiddleware
-vi.mock('../stores/persistMiddleware', () => ({
-    createFirebaseStorage: () => ({
-        // Simulate storage
-        getItem: vi.fn(),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-    }),
-    persistMiddleware: (config: any) => config
+// Mock firestoreSync to avoid side effects
+vi.mock('../stores/firestoreSync', () => ({
+    writeToFirestore: vi.fn(),
+    subscribeToDocument: vi.fn(() => vi.fn()),
+    getCurrentUserId: vi.fn(() => 'test-user'),
 }));
 
 describe('Skills Persistence Reproduction', () => {

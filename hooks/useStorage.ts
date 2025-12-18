@@ -20,6 +20,8 @@ export {
     removeNamespacedStorage
 };
 
+let warnedUseStorage = false;
+
 /**
  * Hook híbrido que usa Firebase Firestore quando online e LocalStorage como fallback
  * Sincroniza automaticamente entre dispositivos quando possível
@@ -38,6 +40,11 @@ export function useStorage<T>(
     initialValue: T
 ): [T, (value: T | ((val: T) => T)) => Promise<void>, boolean] {
     // Detect whether Firebase services are actually usable (tests/SSR may not provide them)
+    if (!warnedUseStorage && process.env.NODE_ENV !== 'test') {
+        console.warn('[useStorage] Deprecated. Use Zustand stores + firestoreSync for persistence.');
+        warnedUseStorage = true;
+    }
+
     const firebaseSupported = Boolean(
         auth &&
         db &&

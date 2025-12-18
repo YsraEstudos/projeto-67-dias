@@ -1,14 +1,25 @@
 /**
- * Sunday Store - Sunday tasks with Firebase persistence
+ * Sunday Store - Sunday tasks with Firestore-first persistence
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { SundayTask, SundaySubTask } from '../types';
-import { createFirebaseStorage } from './persistMiddleware';
+import { writeToFirestore } from './firestoreSync';
+
+const STORE_KEY = 'p67_sunday_store';
+
+const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+};
 
 interface SundayState {
     tasks: SundayTask[];
     isLoading: boolean;
+    _initialized: boolean;
 
     // Task Actions
     setTasks: (tasks: SundayTask[]) => void;
@@ -25,98 +36,123 @@ interface SundayState {
     toggleSubTaskComplete: (taskId: string, subTaskId: string) => void;
 
     setLoading: (loading: boolean) => void;
+
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { tasks: SundayTask[] } | null) => void;
+    _reset: () => void;
 }
 
-export const useSundayStore = create<SundayState>()(
-    persist(
-        (set) => ({
-            tasks: [],
-            isLoading: true,
+export const useSundayStore = create<SundayState>()((set, get) => ({
+    tasks: [],
+    isLoading: true,
+    _initialized: false,
 
-            // Task Actions
-            setTasks: (tasks) => set({ tasks }),
+    setTasks: (tasks) => {
+        set({ tasks: deduplicateById(tasks) });
+        get()._syncToFirestore();
+    },
 
-            addTask: (task) => set((state) => ({
-                tasks: [...state.tasks, task]
-            })),
+    addTask: (task) => {
+        set((state) => ({ tasks: [...state.tasks, task] }));
+        get()._syncToFirestore();
+    },
 
-            updateTask: (id, updates) => set((state) => ({
-                tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
-            })),
+    updateTask: (id, updates) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
+        }));
+        get()._syncToFirestore();
+    },
 
-            deleteTask: (id) => set((state) => ({
-                tasks: state.tasks.filter(t => t.id !== id)
-            })),
+    deleteTask: (id) => {
+        set((state) => ({ tasks: state.tasks.filter(t => t.id !== id) }));
+        get()._syncToFirestore();
+    },
 
-            archiveTask: (id) => set((state) => ({
-                tasks: state.tasks.map(t => t.id === id ? { ...t, isArchived: true } : t)
-            })),
+    archiveTask: (id) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => t.id === id ? { ...t, isArchived: true } : t)
+        }));
+        get()._syncToFirestore();
+    },
 
-            restoreTask: (id) => set((state) => ({
-                tasks: state.tasks.map(t => t.id === id ? { ...t, isArchived: false } : t)
-            })),
+    restoreTask: (id) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => t.id === id ? { ...t, isArchived: false } : t)
+        }));
+        get()._syncToFirestore();
+    },
 
-            // SubTask Actions
-            addSubTask: (taskId, subTask) => set((state) => ({
-                tasks: state.tasks.map(t => {
-                    if (t.id !== taskId) return t;
-                    return { ...t, subTasks: [...t.subTasks, subTask] };
-                })
-            })),
+    addSubTask: (taskId, subTask) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => {
+                if (t.id !== taskId) return t;
+                return { ...t, subTasks: [...t.subTasks, subTask] };
+            })
+        }));
+        get()._syncToFirestore();
+    },
 
-            updateSubTask: (taskId, subTaskId, updates) => set((state) => ({
-                tasks: state.tasks.map(t => {
-                    if (t.id !== taskId) return t;
-                    return {
-                        ...t,
-                        subTasks: t.subTasks.map(s => s.id === subTaskId ? { ...s, ...updates } : s)
-                    };
-                })
-            })),
+    updateSubTask: (taskId, subTaskId, updates) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => {
+                if (t.id !== taskId) return t;
+                return {
+                    ...t,
+                    subTasks: t.subTasks.map(s => s.id === subTaskId ? { ...s, ...updates } : s)
+                };
+            })
+        }));
+        get()._syncToFirestore();
+    },
 
-            deleteSubTask: (taskId, subTaskId) => set((state) => ({
-                tasks: state.tasks.map(t => {
-                    if (t.id !== taskId) return t;
-                    return {
-                        ...t,
-                        subTasks: t.subTasks.filter(s => s.id !== subTaskId)
-                    };
-                })
-            })),
+    deleteSubTask: (taskId, subTaskId) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => {
+                if (t.id !== taskId) return t;
+                return { ...t, subTasks: t.subTasks.filter(s => s.id !== subTaskId) };
+            })
+        }));
+        get()._syncToFirestore();
+    },
 
-            toggleSubTaskComplete: (taskId, subTaskId) => set((state) => ({
-                tasks: state.tasks.map(t => {
-                    if (t.id !== taskId) return t;
-                    return {
-                        ...t,
-                        subTasks: t.subTasks.map(s =>
-                            s.id === subTaskId ? { ...s, isCompleted: !s.isCompleted } : s
-                        )
-                    };
-                })
-            })),
+    toggleSubTaskComplete: (taskId, subTaskId) => {
+        set((state) => ({
+            tasks: state.tasks.map(t => {
+                if (t.id !== taskId) return t;
+                return {
+                    ...t,
+                    subTasks: t.subTasks.map(s =>
+                        s.id === subTaskId ? { ...s, isCompleted: !s.isCompleted } : s
+                    )
+                };
+            })
+        }));
+        get()._syncToFirestore();
+    },
 
-            setLoading: (loading) => set({ isLoading: loading }),
-        }),
-        {
-            name: 'p67_sunday_store',
-            storage: createFirebaseStorage('p67_sunday_store'),
-            partialize: (state) => ({ tasks: state.tasks }),
-            onRehydrateStorage: () => (state) => {
-                // Clean up any duplicate tasks (same id)
-                if (state?.tasks?.length) {
-                    const seen = new Set<string>();
-                    const uniqueTasks = state.tasks.filter(t => {
-                        if (seen.has(t.id)) return false;
-                        seen.add(t.id);
-                        return true;
-                    });
-                    if (uniqueTasks.length !== state.tasks.length) {
-                        state.setTasks(uniqueTasks);
-                    }
-                }
-                state?.setLoading(false);
-            },
+    setLoading: (loading) => set({ isLoading: loading }),
+
+    _syncToFirestore: () => {
+        const { tasks, _initialized } = get();
+        if (_initialized) {
+            writeToFirestore(STORE_KEY, { tasks });
         }
-    )
-);
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data) {
+            set({
+                tasks: deduplicateById(data.tasks || []),
+                isLoading: false,
+                _initialized: true
+            });
+        } else {
+            set({ isLoading: false, _initialized: true });
+        }
+    },
+
+    _reset: () => {
+        set({ tasks: [], isLoading: true, _initialized: false });
+    }
+}));

@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { DATA_CATEGORIES, DataCategory } from '../../constants/dataCategories';
 import { readNamespacedStorage, writeNamespacedStorage, removeNamespacedStorage } from '../../hooks/useStorage';
-import { doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
 const ICON_MAP: Record<string, any> = {
@@ -101,22 +101,37 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
         try {
             const data: Record<string, any> = {};
 
-            // Process keys in chunks to avoid blocking the main thread
             for (const key of selectedKeys) {
-                const value = readNamespacedStorage(key, userId);
-                if (value) {
-                    try {
-                        data[key] = JSON.parse(value);
-                    } catch {
-                        data[key] = value;
+                let value: any = null;
+
+                if (userId) {
+                    const ref = doc(db, 'users', userId, 'data', key);
+                    const snap = await getDoc(ref);
+                    if (snap.exists()) {
+                        value = snap.data().value ?? null;
                     }
                 }
-                // Yield to main thread to keep UI (spinner) responsive
+
+                if (value === null) {
+                    const local = readNamespacedStorage(key, userId);
+                    if (local) {
+                        try {
+                            value = JSON.parse(local);
+                        } catch {
+                            value = local;
+                        }
+                    }
+                }
+
+                if (value !== null && value !== undefined) {
+                    data[key] = value;
+                }
+
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
 
             data.exportedAt = new Date().toISOString();
-            data.version = '2.0';
+            data.version = '3.0';
 
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -178,21 +193,17 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
 
                 if (value === undefined || value === null) continue;
 
-                const normalizedValue = typeof value === 'string' ? value : JSON.stringify(value);
+                writeNamespacedStorage(key, JSON.stringify(value), userId);
 
-                // 1. Local Storage
-                writeNamespacedStorage(key, normalizedValue, userId);
-
-                // 2. Firestore (if logged in)
                 if (batch && userId) {
                     const docRef = doc(db, 'users', userId, 'data', key);
                     batch.set(docRef, {
-                        value: normalizedValue,
-                        updatedAt: new Date().toISOString()
+                        value,
+                        updatedAt: Date.now()
                     });
                     hasUpdates = true;
                 }
-                // Yield to main thread to keep UI responsive
+
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
 
@@ -200,8 +211,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
                 await batch.commit();
             }
 
-            // Small delay for UI feedback
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             alert('Importação concluída com sucesso!');
             window.location.reload();

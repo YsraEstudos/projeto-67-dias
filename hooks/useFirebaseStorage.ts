@@ -3,6 +3,8 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
 
+let warnedUseFirebaseStorage = false;
+
 /**
  * Hook customizado que sincroniza dados com Firebase Firestore
  * Mantém a mesma API do useLocalStorage para facilitar a migração
@@ -15,6 +17,11 @@ export function useFirebaseStorage<T>(
     key: string,
     initialValue: T
 ): [T, (value: T | ((val: T) => T)) => void, { loading: boolean; error: string | null }] {
+    if (!warnedUseFirebaseStorage && process.env.NODE_ENV !== 'test') {
+        console.warn('[useFirebaseStorage] Deprecated. Prefer Zustand stores + firestoreSync.');
+        warnedUseFirebaseStorage = true;
+    }
+
     const [storedValue, setStoredValue] = useState<T>(initialValue);
     const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);

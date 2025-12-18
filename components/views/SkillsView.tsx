@@ -58,6 +58,13 @@ const SkillsView: React.FC = () => {
   // Derived State
   const activeSkill = useMemo(() => skills.find(s => s.id === activeSkillId), [skills, activeSkillId]);
 
+  const { activeSkills, completedSkills } = useMemo(() => ({
+    activeSkills: skills.filter(s => !s.isCompleted),
+    completedSkills: skills.filter(s => s.isCompleted)
+  }), [skills]);
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   // Handlers
   const handleCreateSkill = (newSkill: Skill) => {
     addSkill(newSkill);
@@ -109,7 +116,7 @@ const SkillsView: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {skills.map(skill => (
+        {activeSkills.map(skill => (
           <SkillCard
             key={skill.id}
             skill={skill}
@@ -129,6 +136,48 @@ const SkillsView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* History Section */}
+      {completedSkills.length > 0 && (
+        <div className="mt-12 border-t border-slate-800 pt-8">
+          <button
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors mb-6 group w-full"
+          >
+            <div className={`p-2 rounded-lg bg-yellow-500/10 text-yellow-500 transition-transform duration-300 ${isHistoryOpen ? 'rotate-0' : '-rotate-90'}`}>
+              <GraduationCap size={20} />
+            </div>
+            <div className="text-left">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                Habilidades Dominadas
+                <span className="text-xs font-normal bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
+                  {completedSkills.length}
+                </span>
+              </h3>
+              <p className="text-sm text-slate-500 group-hover:text-slate-400">
+                {isHistoryOpen ? 'Clique para ocultar o histórico' : 'Clique para ver suas conquistas'}
+              </p>
+            </div>
+          </button>
+
+          {isHistoryOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-top-4 duration-300">
+              {completedSkills.map(skill => (
+                <SkillCard
+                  key={skill.id}
+                  skill={skill}
+                  onClick={() => setActiveSkillId(skill.id)}
+                  onAddSession={(mins) => {
+                    const newLogs = [...skill.logs, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins }];
+                    handleUpdateSkill(skill.id, { currentMinutes: skill.currentMinutes + mins, logs: newLogs });
+                  }}
+                  isCompact
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {isCreateModalOpen && (
         <CreateSkillModal onClose={() => setIsCreateModalOpen(false)} onCreate={handleCreateSkill} />

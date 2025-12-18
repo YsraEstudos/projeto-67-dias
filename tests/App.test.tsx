@@ -44,56 +44,78 @@ const resetMockUIState = () => {
 };
 
 // Mock stores to bypass rehydration loading
-vi.mock('../stores', () => ({
-    useUIStore: vi.fn((selector) => {
-        return typeof selector === 'function' ? selector(mockUIState) : mockUIState;
-    }),
-    useConfigStore: vi.fn((selector) => {
-        const state = { config: { startDate: new Date().toISOString(), userName: 'Test' }, setConfig: vi.fn() };
-        return typeof selector === 'function' ? selector(state) : state;
-    }),
-    useWorkStore: vi.fn((selector) => {
-        const state = { currentCount: 0, goal: 300 };
-        return typeof selector === 'function' ? selector(state) : state;
-    }),
-    useHabitsStore: vi.fn((selector) => {
-        const state = { tasks: [] };
-        return typeof selector === 'function' ? selector(state) : state;
-    }),
-    useStreakStore: Object.assign(
-        vi.fn((selector) => {
+vi.mock('../stores', () => {
+    const mockFn = vi.fn;
+
+    // Helper to create store mocks with getState for Firestore-first architecture
+    const createStoreMock = (defaultState: any) => Object.assign(
+        mockFn((selector: any) => typeof selector === 'function' ? selector(defaultState) : defaultState),
+        { getState: () => ({ ...defaultState, _hydrateFromFirestore: mockFn(), _reset: mockFn() }) }
+    );
+
+    return {
+        useUIStore: mockFn((selector: any) => {
             const state = {
-                checkStreak: vi.fn(),
-                currentStreak: 5,
-                freezeDaysAvailable: 3,
-                isActiveToday: () => true
+                activeView: 'DASHBOARD',
+                isMenuOpen: false,
+                setActiveView: mockFn(),
+                setMenuOpen: mockFn()
             };
             return typeof selector === 'function' ? selector(state) : state;
         }),
-        {
-            getState: () => ({
-                checkStreak: vi.fn(),
-                currentStreak: 5,
-                freezeDaysAvailable: 3,
-                isActiveToday: () => true
-            })
-        }
-    ),
-    useSkillsStore: vi.fn(() => ({})),
-    useReadingStore: vi.fn((selector) => {
-        const state = { books: [] };
-        return typeof selector === 'function' ? selector(state) : state;
+        useConfigStore: createStoreMock({ config: { startDate: new Date().toISOString(), userName: 'Test' }, setConfig: mockFn() }),
+        useWorkStore: createStoreMock({ currentCount: 0, goal: 300 }),
+        useHabitsStore: createStoreMock({ tasks: [] }),
+        useStreakStore: Object.assign(
+            mockFn((selector: any) => {
+                const state = {
+                    checkStreak: mockFn(),
+                    currentStreak: 5,
+                    freezeDaysAvailable: 3,
+                    isActiveToday: () => true
+                };
+                return typeof selector === 'function' ? selector(state) : state;
+            }),
+            {
+                getState: () => ({
+                    checkStreak: mockFn(),
+                    currentStreak: 5,
+                    freezeDaysAvailable: 3,
+                    isActiveToday: () => true,
+                    _hydrateFromFirestore: mockFn(),
+                    _reset: mockFn()
+                })
+            }
+        ),
+        useSkillsStore: createStoreMock({}),
+        useReadingStore: createStoreMock({ books: [] }),
+        useJournalStore: createStoreMock({}),
+        useNotesStore: createStoreMock({}),
+        useSundayStore: createStoreMock({}),
+        useGamesStore: createStoreMock({}),
+        useLinksStore: createStoreMock({}),
+        useRestStore: createStoreMock({}),
+        usePromptsStore: createStoreMock({}),
+        useReviewStore: createStoreMock({}),
+        useWaterStore: createStoreMock({}),
+        useTimerStore: createStoreMock({ timer: { display: '00:00' }, setTimer: mockFn() }),
+        clearAllStores: mockFn(),
+    };
+});
+
+// Mock firestoreSync module - IMPORTANT: Call callback immediately to trigger hydration
+vi.mock('../stores/firestoreSync', () => ({
+    subscribeToDocument: vi.fn((docName: string, callback: (data: any) => void) => {
+        // Call immediately with empty data to trigger checkAllHydrated
+        setTimeout(() => callback({}), 0);
+        return vi.fn(); // Return unsubscribe function
     }),
-    useJournalStore: vi.fn(() => ({})),
-    useNotesStore: vi.fn(() => ({})),
-    useSundayStore: vi.fn(() => ({})),
-    useGamesStore: vi.fn(() => ({})),
-    useTimerStore: vi.fn((selector) => {
-        const state = { timer: { display: '00:00' }, setTimer: vi.fn() };
-        return typeof selector === 'function' ? selector(state) : state;
-    }),
-    subscribeToFirestore: vi.fn(() => vi.fn()),
-    rehydrateAllStores: vi.fn(() => Promise.resolve()),
+    writeToFirestore: vi.fn(),
+    getCurrentUserId: vi.fn(() => '123'),
+    getPendingWriteCount: vi.fn(() => 0),
+    isFullySynced: vi.fn(() => true),
+    subscribeToPendingWrites: vi.fn(() => vi.fn()),
+    flushPendingWrites: vi.fn(),
 }));
 
 type MockFn = ReturnType<typeof vi.fn>;

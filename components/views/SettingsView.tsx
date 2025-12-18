@@ -2,15 +2,17 @@
 import React, { useRef, useState } from 'react';
 import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { Database, Download, Upload, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon, RefreshCw, User, Mail, Shield } from 'lucide-react';
+import { Database, Download, Upload, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays } from 'lucide-react';
 import { ProjectConfig } from '../../types';
 import { readNamespacedStorage, writeNamespacedStorage, removeNamespacedStorage } from '../../hooks/useStorage';
 import { useConfigStore, useStreakStore } from '../../stores';
 import { useAuth } from '../../hooks/useAuth';
-import { forceFlush } from '../../stores/persistMiddleware';
+import { flushPendingWrites } from '../../stores/firestoreSync';
 import { LoadingSimple } from '../shared/Loading';
 import { StreakCard } from '../settings/StreakCard';
 import { DataManagementSection } from '../settings/DataManagementSection';
+
+import { OffensiveSettingsSection } from '../settings/OffensiveSettingsSection';
 
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
 const ResetProjectModal = React.lazy(() => import('../modals/ResetProjectModal'));
@@ -25,7 +27,7 @@ const SettingsView: React.FC = () => {
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
 
   const handleClearData = () => {
-    if (confirm("ATENÇÃO: Isso apagará TODOS os seus dados (tarefas, diário, skills, etc) deste navegador. Essa ação é irreversível. Deseja continuar?")) {
+    if (confirm("Isto limpa apenas o cache local deste navegador. Seus dados no Firestore permanecem, mas você precisará re-sincronizar após o reload. Continuar?")) {
       localStorage.clear();
       window.location.reload();
     }
@@ -122,8 +124,51 @@ const SettingsView: React.FC = () => {
             </div>
           </div>
 
+          {/* Challenge Settings Card */}
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
+            <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center gap-3">
+              <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+                <CalendarDays size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Configurações do Desafio</h3>
+                <p className="text-sm text-slate-400">Defina as datas do seu projeto de 67 dias.</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Data de Início</label>
+                  <input
+                    type="date"
+                    value={config.startDate ? config.startDate.split('T')[0] : ''}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const newDate = new Date(e.target.value + 'T00:00:00');
+                        setConfig({ startDate: newDate.toISOString() });
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex-1 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Data de Término</label>
+                  <div className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300">
+                    {config.startDate
+                      ? new Date(new Date(config.startDate).getTime() + 67 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
+                      : '-'}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Calculado automaticamente (67 dias)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Streak System Card */}
           <StreakCard />
+
+          {/* Offensive Settings Card */}
+          <OffensiveSettingsSection />
 
           {/* Sync & Defaults Section */}
           <DataManagementSection />
@@ -136,7 +181,7 @@ const SettingsView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-white">Gerenciamento de Dados</h3>
-                <p className="text-sm text-slate-400">Seus dados são armazenados localmente no navegador.</p>
+                <p className="text-sm text-slate-400">Dados sincronizados pelo Firestore com cache offline automático. Use esta área para backup/import ou limpar o cache local.</p>
               </div>
             </div>
 
@@ -279,8 +324,8 @@ const SettingsView: React.FC = () => {
               // Reset streak in Zustand store
               useStreakStore.getState().resetStreak();
 
-              // 4. Force synchronous flush to ensures it hits Firebase/LocalStorage before unload
-              await forceFlush('p67_project_config');
+              // 4. Flush pending writes to ensure data hits Firebase before unload
+              flushPendingWrites();
 
               // 5. Reload to apply cleanly
               window.location.reload();

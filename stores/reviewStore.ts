@@ -1,37 +1,11 @@
 /**
- * Review Store - Journey review data with Firebase persistence
+ * Review Store - Journey review data with Firestore-first persistence
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { JourneyReviewData, WeeklySnapshot, ImprovementPoint, FinalJourneySummary } from '../types';
-import { createFirebaseStorage } from './persistMiddleware';
+import { writeToFirestore } from './firestoreSync';
 
-interface ReviewState {
-    reviewData: JourneyReviewData;
-    isLoading: boolean;
-
-    // Snapshot Actions
-    addSnapshot: (snapshot: WeeklySnapshot) => void;
-    addSnapshotWithImprovements: (snapshot: WeeklySnapshot, newImprovements: ImprovementPoint[]) => void;
-    updateSnapshot: (id: string, updates: Partial<WeeklySnapshot>) => void;
-    confirmSnapshot: (id: string) => void;
-    skipSnapshot: (id: string) => void;
-    setPendingSnapshot: (snapshot: WeeklySnapshot | undefined) => void;
-
-    // Improvement Actions
-    addImprovement: (improvement: ImprovementPoint) => void;
-    updateImprovement: (id: string, updates: Partial<ImprovementPoint>) => void;
-    markImprovementAddressed: (id: string) => void;
-    toggleImprovementAddressed: (id: string) => void;
-
-    // Final Summary
-    setFinalSummary: (summary: FinalJourneySummary) => void;
-
-    // Full state
-    setReviewData: (data: JourneyReviewData) => void;
-
-    setLoading: (loading: boolean) => void;
-}
+const STORE_KEY = 'p67_review_store';
 
 const DEFAULT_REVIEW_DATA: JourneyReviewData = {
     snapshots: [],
@@ -39,163 +13,212 @@ const DEFAULT_REVIEW_DATA: JourneyReviewData = {
     lastSnapshotWeek: 0
 };
 
-export const useReviewStore = create<ReviewState>()(
-    persist(
-        (set) => ({
-            reviewData: DEFAULT_REVIEW_DATA,
-            isLoading: true,
+interface ReviewState {
+    reviewData: JourneyReviewData;
+    isLoading: boolean;
+    _initialized: boolean;
 
-            // Snapshot Actions
-            addSnapshot: (snapshot) => set((state) => {
-                // Prevent duplicate snapshots for the same week
-                const existsForWeek = state.reviewData.snapshots.some(
-                    s => s.weekNumber === snapshot.weekNumber
-                );
-                if (existsForWeek) {
-                    return state; // Don't add if already exists for this week
-                }
-                return {
-                    reviewData: {
-                        ...state.reviewData,
-                        snapshots: [...state.reviewData.snapshots, snapshot],
-                        lastSnapshotWeek: snapshot.weekNumber
-                    }
-                };
-            }),
+    addSnapshot: (snapshot: WeeklySnapshot) => void;
+    addSnapshotWithImprovements: (snapshot: WeeklySnapshot, newImprovements: ImprovementPoint[]) => void;
+    updateSnapshot: (id: string, updates: Partial<WeeklySnapshot>) => void;
+    confirmSnapshot: (id: string) => void;
+    skipSnapshot: (id: string) => void;
+    setPendingSnapshot: (snapshot: WeeklySnapshot | undefined) => void;
 
-            addSnapshotWithImprovements: (snapshot, newImprovements) => set((state) => {
-                // Prevent duplicate snapshots for the same week
-                const existsForWeek = state.reviewData.snapshots.some(
-                    s => s.weekNumber === snapshot.weekNumber
-                );
-                if (existsForWeek) {
-                    return state; // Don't add if already exists for this week
-                }
-                return {
-                    reviewData: {
-                        ...state.reviewData,
-                        snapshots: [...state.reviewData.snapshots, snapshot],
-                        improvements: [
-                            ...state.reviewData.improvements,
-                            ...newImprovements.filter(ni =>
-                                !state.reviewData.improvements.some(pi => pi.title === ni.title)
-                            )
-                        ],
-                        lastSnapshotWeek: snapshot.weekNumber
-                    }
-                };
-            }),
+    addImprovement: (improvement: ImprovementPoint) => void;
+    updateImprovement: (id: string, updates: Partial<ImprovementPoint>) => void;
+    markImprovementAddressed: (id: string) => void;
+    toggleImprovementAddressed: (id: string) => void;
 
-            updateSnapshot: (id, updates) => set((state) => ({
+    setFinalSummary: (summary: FinalJourneySummary) => void;
+    setReviewData: (data: JourneyReviewData) => void;
+
+    setLoading: (loading: boolean) => void;
+
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { reviewData: JourneyReviewData } | null) => void;
+    _reset: () => void;
+}
+
+export const useReviewStore = create<ReviewState>()((set, get) => ({
+    reviewData: DEFAULT_REVIEW_DATA,
+    isLoading: true,
+    _initialized: false,
+
+    addSnapshot: (snapshot) => {
+        set((state) => {
+            const existsForWeek = state.reviewData.snapshots.some(
+                s => s.weekNumber === snapshot.weekNumber
+            );
+            if (existsForWeek) return state;
+            return {
                 reviewData: {
                     ...state.reviewData,
-                    snapshots: state.reviewData.snapshots.map(s =>
-                        s.id === id ? { ...s, ...updates } : s
-                    )
+                    snapshots: [...state.reviewData.snapshots, snapshot],
+                    lastSnapshotWeek: snapshot.weekNumber
                 }
-            })),
+            };
+        });
+        get()._syncToFirestore();
+    },
 
-            confirmSnapshot: (id) => set((state) => ({
+    addSnapshotWithImprovements: (snapshot, newImprovements) => {
+        set((state) => {
+            const existsForWeek = state.reviewData.snapshots.some(
+                s => s.weekNumber === snapshot.weekNumber
+            );
+            if (existsForWeek) return state;
+            return {
                 reviewData: {
                     ...state.reviewData,
-                    snapshots: state.reviewData.snapshots.map(s =>
-                        s.id === id ? { ...s, status: 'CONFIRMED' as const } : s
-                    ),
-                    pendingSnapshot: undefined
+                    snapshots: [...state.reviewData.snapshots, snapshot],
+                    improvements: [
+                        ...state.reviewData.improvements,
+                        ...newImprovements.filter(ni =>
+                            !state.reviewData.improvements.some(pi => pi.title === ni.title)
+                        )
+                    ],
+                    lastSnapshotWeek: snapshot.weekNumber
                 }
-            })),
+            };
+        });
+        get()._syncToFirestore();
+    },
 
-            skipSnapshot: (id) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    snapshots: state.reviewData.snapshots.map(s =>
-                        s.id === id ? { ...s, status: 'SKIPPED' as const } : s
-                    ),
-                    pendingSnapshot: undefined
-                }
-            })),
+    updateSnapshot: (id, updates) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                snapshots: state.reviewData.snapshots.map(s =>
+                    s.id === id ? { ...s, ...updates } : s
+                )
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            setPendingSnapshot: (snapshot) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    pendingSnapshot: snapshot
-                }
-            })),
+    confirmSnapshot: (id) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                snapshots: state.reviewData.snapshots.map(s =>
+                    s.id === id ? { ...s, status: 'CONFIRMED' as const } : s
+                ),
+                pendingSnapshot: undefined
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            // Improvement Actions
-            addImprovement: (improvement) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    improvements: [...state.reviewData.improvements, improvement]
-                }
-            })),
+    skipSnapshot: (id) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                snapshots: state.reviewData.snapshots.map(s =>
+                    s.id === id ? { ...s, status: 'SKIPPED' as const } : s
+                ),
+                pendingSnapshot: undefined
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            updateImprovement: (id, updates) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    improvements: state.reviewData.improvements.map(i =>
-                        i.id === id ? { ...i, ...updates } : i
-                    )
-                }
-            })),
+    setPendingSnapshot: (snapshot) => {
+        set((state) => ({
+            reviewData: { ...state.reviewData, pendingSnapshot: snapshot }
+        }));
+        get()._syncToFirestore();
+    },
 
-            markImprovementAddressed: (id) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    improvements: state.reviewData.improvements.map(i =>
-                        i.id === id ? { ...i, isAddressed: true } : i
-                    )
-                }
-            })),
+    addImprovement: (improvement) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                improvements: [...state.reviewData.improvements, improvement]
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            toggleImprovementAddressed: (id) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    improvements: state.reviewData.improvements.map(i =>
-                        i.id === id ? { ...i, isAddressed: !i.isAddressed } : i
-                    )
-                }
-            })),
+    updateImprovement: (id, updates) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                improvements: state.reviewData.improvements.map(i =>
+                    i.id === id ? { ...i, ...updates } : i
+                )
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            // Final Summary
-            setFinalSummary: (summary) => set((state) => ({
-                reviewData: {
-                    ...state.reviewData,
-                    finalSummary: summary
-                }
-            })),
+    markImprovementAddressed: (id) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                improvements: state.reviewData.improvements.map(i =>
+                    i.id === id ? { ...i, isAddressed: true } : i
+                )
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            // Full state
-            setReviewData: (data) => set({ reviewData: data }),
+    toggleImprovementAddressed: (id) => {
+        set((state) => ({
+            reviewData: {
+                ...state.reviewData,
+                improvements: state.reviewData.improvements.map(i =>
+                    i.id === id ? { ...i, isAddressed: !i.isAddressed } : i
+                )
+            }
+        }));
+        get()._syncToFirestore();
+    },
 
-            setLoading: (loading) => set({ isLoading: loading }),
-        }),
-        {
-            name: 'p67_review_store',
-            storage: createFirebaseStorage('p67_review_store'),
-            partialize: (state) => ({ reviewData: state.reviewData }),
-            onRehydrateStorage: () => (state) => {
-                // Clean up any duplicate snapshots (same weekNumber)
-                if (state?.reviewData?.snapshots?.length) {
-                    const seen = new Set<number>();
-                    const uniqueSnapshots = state.reviewData.snapshots.filter(s => {
-                        if (seen.has(s.weekNumber)) {
-                            return false; // Skip duplicate
-                        }
-                        seen.add(s.weekNumber);
-                        return true;
-                    });
+    setFinalSummary: (summary) => {
+        set((state) => ({
+            reviewData: { ...state.reviewData, finalSummary: summary }
+        }));
+        get()._syncToFirestore();
+    },
 
-                    if (uniqueSnapshots.length !== state.reviewData.snapshots.length) {
-                        // There were duplicates, update the store
-                        state.setReviewData({
-                            ...state.reviewData,
-                            snapshots: uniqueSnapshots
-                        });
-                    }
-                }
-                state?.setLoading(false);
-            },
+    setReviewData: (data) => {
+        set({ reviewData: data });
+        get()._syncToFirestore();
+    },
+
+    setLoading: (loading) => set({ isLoading: loading }),
+
+    _syncToFirestore: () => {
+        const { reviewData, _initialized } = get();
+        if (_initialized) {
+            writeToFirestore(STORE_KEY, { reviewData });
         }
-    )
-);
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data?.reviewData) {
+            // Deduplicate snapshots by weekNumber
+            let snapshots = data.reviewData.snapshots || [];
+            const seenWeeks = new Set<number>();
+            snapshots = snapshots.filter(s => {
+                if (seenWeeks.has(s.weekNumber)) return false;
+                seenWeeks.add(s.weekNumber);
+                return true;
+            });
+
+            set({
+                reviewData: { ...data.reviewData, snapshots },
+                isLoading: false,
+                _initialized: true
+            });
+        } else {
+            set({ isLoading: false, _initialized: true });
+        }
+    },
+
+    _reset: () => {
+        set({ reviewData: DEFAULT_REVIEW_DATA, isLoading: true, _initialized: false });
+    }
+}));

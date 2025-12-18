@@ -1,17 +1,27 @@
 /**
- * Links Store - Quick links with Firebase persistence
+ * Links Store - Quick links with Firestore-first persistence
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { LinkItem } from '../types';
-import { createFirebaseStorage } from './persistMiddleware';
+import { writeToFirestore } from './firestoreSync';
+
+const STORE_KEY = 'p67_links_store';
+
+const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+};
 
 interface LinksState {
     links: LinkItem[];
     isLoading: boolean;
+    _initialized: boolean;
 
-    // Link Actions
     setLinks: (links: LinkItem[]) => void;
     addLink: (link: LinkItem) => void;
     updateLink: (id: string, updates: Partial<LinkItem>) => void;
@@ -20,61 +30,78 @@ interface LinksState {
     reorderLinks: (links: LinkItem[]) => void;
 
     setLoading: (loading: boolean) => void;
+
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { links: LinkItem[] } | null) => void;
+    _reset: () => void;
 }
 
-export const useLinksStore = create<LinksState>()(
-    persist(
-        (set) => ({
-            links: [],
-            isLoading: true,
+export const useLinksStore = create<LinksState>()((set, get) => ({
+    links: [],
+    isLoading: true,
+    _initialized: false,
 
-            // Link Actions
-            setLinks: (links) => set({ links }),
+    setLinks: (links) => {
+        set({ links: deduplicateById(links) });
+        get()._syncToFirestore();
+    },
 
-            addLink: (link) => set((state) => ({
-                links: [...state.links, link]
-            })),
+    addLink: (link) => {
+        set((state) => ({ links: [...state.links, link] }));
+        get()._syncToFirestore();
+    },
 
-            updateLink: (id, updates) => set((state) => ({
-                links: state.links.map(l => l.id === id ? { ...l, ...updates } : l)
-            })),
+    updateLink: (id, updates) => {
+        set((state) => ({
+            links: state.links.map(l => l.id === id ? { ...l, ...updates } : l)
+        }));
+        get()._syncToFirestore();
+    },
 
-            deleteLink: (id) => set((state) => ({
-                links: state.links.filter(l => l.id !== id)
-            })),
+    deleteLink: (id) => {
+        set((state) => ({ links: state.links.filter(l => l.id !== id) }));
+        get()._syncToFirestore();
+    },
 
-            incrementClickCount: (id) => set((state) => ({
-                links: state.links.map(l =>
-                    l.id === id ? { ...l, clickCount: l.clickCount + 1, lastClicked: Date.now() } : l
-                )
-            })),
+    incrementClickCount: (id) => {
+        set((state) => ({
+            links: state.links.map(l =>
+                l.id === id ? { ...l, clickCount: l.clickCount + 1, lastClicked: Date.now() } : l
+            )
+        }));
+        get()._syncToFirestore();
+    },
 
-            reorderLinks: (links) => set({ links }),
+    reorderLinks: (links) => {
+        set({ links });
+        get()._syncToFirestore();
+    },
 
-            setLoading: (loading) => set({ isLoading: loading }),
-        }),
-        {
-            name: 'p67_links_store',
-            storage: createFirebaseStorage('p67_links_store'),
-            partialize: (state) => ({ links: state.links }),
-            onRehydrateStorage: () => (state) => {
-                // Clean up any duplicate links (same id)
-                if (state?.links?.length) {
-                    const seen = new Set<string>();
-                    const uniqueLinks = state.links.filter(l => {
-                        if (seen.has(l.id)) return false;
-                        seen.add(l.id);
-                        return true;
-                    });
-                    if (uniqueLinks.length !== state.links.length) {
-                        state.setLinks(uniqueLinks);
-                    }
-                }
-                state?.setLoading(false);
-            },
+    setLoading: (loading) => set({ isLoading: loading }),
+
+    _syncToFirestore: () => {
+        const { links, _initialized } = get();
+        if (_initialized) {
+            writeToFirestore(STORE_KEY, { links });
         }
-    )
-);
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data) {
+            set({
+                links: deduplicateById(data.links || []),
+                isLoading: false,
+                _initialized: true
+            });
+        } else {
+            set({ isLoading: false, _initialized: true });
+        }
+    },
+
+    _reset: () => {
+        set({ links: [], isLoading: true, _initialized: false });
+    }
+}));
 
 // Atomic Selectors
 export const useLinks = () => useLinksStore((state) => state.links);

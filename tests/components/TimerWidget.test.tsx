@@ -4,13 +4,11 @@ import { TimerWidget } from '../../components/TimerWidget';
 import { useTimerStore } from '../../stores/timerStore';
 import { GlobalTimerState } from '../../types';
 
-// Mock persistMiddleware to avoid side effects
-vi.mock('../../stores/persistMiddleware', () => ({
-    createFirebaseStorage: () => ({
-        getItem: vi.fn(),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-    }),
+// Mock firestoreSync to avoid side effects
+vi.mock('../../stores/firestoreSync', () => ({
+    writeToFirestore: vi.fn(),
+    subscribeToDocument: vi.fn(() => vi.fn()),
+    getCurrentUserId: vi.fn(() => 'test-user'),
 }));
 
 const DEFAULT_TIMER: GlobalTimerState = {

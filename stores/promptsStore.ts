@@ -1,18 +1,28 @@
 /**
- * Prompts Store - Prompts and categories with Firebase persistence
+ * Prompts Store - Prompts and categories with Firestore-first persistence
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { Prompt, PromptCategory } from '../types';
-import { createFirebaseStorage } from './persistMiddleware';
+import { writeToFirestore } from './firestoreSync';
 import { DEFAULT_PROMPTS, DEFAULT_PROMPT_CATEGORIES } from '../constants/defaultData';
+
+const STORE_KEY = 'p67_prompts_store';
+
+const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+};
 
 interface PromptsState {
     prompts: Prompt[];
     categories: PromptCategory[];
     isLoading: boolean;
+    _initialized: boolean;
 
-    // Prompt Actions
     setPrompts: (prompts: Prompt[]) => void;
     addPrompt: (prompt: Prompt) => void;
     updatePrompt: (id: string, updates: Partial<Prompt>) => void;
@@ -21,7 +31,6 @@ interface PromptsState {
     toggleFavorite: (id: string) => void;
     initializeDefaults: () => void;
 
-    // Category Actions
     setCategories: (categories: PromptCategory[]) => void;
     addCategory: (category: PromptCategory) => void;
     updateCategory: (id: string, updates: Partial<PromptCategory>) => void;
@@ -29,111 +38,130 @@ interface PromptsState {
     reorderCategories: (categories: PromptCategory[]) => void;
 
     setLoading: (loading: boolean) => void;
+
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { prompts: Prompt[]; categories: PromptCategory[] } | null) => void;
+    _reset: () => void;
 }
 
-export const usePromptsStore = create<PromptsState>()(
-    persist(
-        (set) => ({
-            prompts: [],
-            categories: [],
-            isLoading: true,
+export const usePromptsStore = create<PromptsState>()((set, get) => ({
+    prompts: [],
+    categories: [],
+    isLoading: true,
+    _initialized: false,
 
-            // Prompt Actions
-            setPrompts: (prompts) => set({ prompts }),
+    setPrompts: (prompts) => {
+        set({ prompts: deduplicateById(prompts) });
+        get()._syncToFirestore();
+    },
 
-            addPrompt: (prompt) => set((state) => ({
-                prompts: [...state.prompts, prompt]
-            })),
+    addPrompt: (prompt) => {
+        set((state) => ({ prompts: [...state.prompts, prompt] }));
+        get()._syncToFirestore();
+    },
 
-            updatePrompt: (id, updates) => set((state) => ({
-                prompts: state.prompts.map(p =>
-                    p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
-                )
-            })),
+    updatePrompt: (id, updates) => {
+        set((state) => ({
+            prompts: state.prompts.map(p =>
+                p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
+            )
+        }));
+        get()._syncToFirestore();
+    },
 
-            deletePrompt: (id) => set((state) => ({
-                prompts: state.prompts.filter(p => p.id !== id)
-            })),
+    deletePrompt: (id) => {
+        set((state) => ({ prompts: state.prompts.filter(p => p.id !== id) }));
+        get()._syncToFirestore();
+    },
 
-            incrementCopyCount: (id) => set((state) => ({
-                prompts: state.prompts.map(p =>
-                    p.id === id ? { ...p, copyCount: p.copyCount + 1 } : p
-                )
-            })),
+    incrementCopyCount: (id) => {
+        set((state) => ({
+            prompts: state.prompts.map(p =>
+                p.id === id ? { ...p, copyCount: p.copyCount + 1 } : p
+            )
+        }));
+        get()._syncToFirestore();
+    },
 
-            toggleFavorite: (id) => set((state) => ({
-                prompts: state.prompts.map(p =>
-                    p.id === id ? { ...p, isFavorite: !p.isFavorite } : p
-                )
-            })),
+    toggleFavorite: (id) => {
+        set((state) => ({
+            prompts: state.prompts.map(p =>
+                p.id === id ? { ...p, isFavorite: !p.isFavorite } : p
+            )
+        }));
+        get()._syncToFirestore();
+    },
 
-            initializeDefaults: () => set((state) => {
-                const hasData = state.prompts.length > 0 || state.categories.length > 0;
-                if (hasData) return state; // Don't overwrite if data exists
+    initializeDefaults: () => {
+        const state = get();
+        if (state.prompts.length > 0 || state.categories.length > 0) return;
+        set({
+            prompts: DEFAULT_PROMPTS,
+            categories: DEFAULT_PROMPT_CATEGORIES,
+            isLoading: false
+        });
+        get()._syncToFirestore();
+    },
 
-                return {
-                    prompts: DEFAULT_PROMPTS,
-                    categories: DEFAULT_PROMPT_CATEGORIES,
-                    isLoading: false
-                };
-            }),
+    setCategories: (categories) => {
+        set({ categories: deduplicateById(categories) });
+        get()._syncToFirestore();
+    },
 
-            // Category Actions
-            setCategories: (categories) => set({ categories }),
+    addCategory: (category) => {
+        set((state) => ({ categories: [...state.categories, category] }));
+        get()._syncToFirestore();
+    },
 
-            addCategory: (category) => set((state) => ({
-                categories: [...state.categories, category]
-            })),
+    updateCategory: (id, updates) => {
+        set((state) => ({
+            categories: state.categories.map(c => c.id === id ? { ...c, ...updates } : c)
+        }));
+        get()._syncToFirestore();
+    },
 
-            updateCategory: (id, updates) => set((state) => ({
-                categories: state.categories.map(c => c.id === id ? { ...c, ...updates } : c)
-            })),
+    deleteCategory: (id) => {
+        set((state) => ({ categories: state.categories.filter(c => c.id !== id) }));
+        get()._syncToFirestore();
+    },
 
-            deleteCategory: (id) => set((state) => ({
-                categories: state.categories.filter(c => c.id !== id)
-            })),
+    reorderCategories: (categories) => {
+        set({ categories });
+        get()._syncToFirestore();
+    },
 
-            reorderCategories: (categories) => set({ categories }),
+    setLoading: (loading) => set({ isLoading: loading }),
 
-            setLoading: (loading) => set({ isLoading: loading }),
-        }),
-        {
-            name: 'p67_prompts_store',
-            storage: createFirebaseStorage('p67_prompts_store'),
-            partialize: (state) => ({ prompts: state.prompts, categories: state.categories }),
-            onRehydrateStorage: () => (state) => {
-                // Clean up any duplicate prompts (same id)
-                if (state?.prompts?.length) {
-                    const seen = new Set<string>();
-                    const uniquePrompts = state.prompts.filter(p => {
-                        if (seen.has(p.id)) return false;
-                        seen.add(p.id);
-                        return true;
-                    });
-                    if (uniquePrompts.length !== state.prompts.length) {
-                        state.setPrompts(uniquePrompts);
-                    }
-                }
-                // Clean up any duplicate categories (same id)
-                if (state?.categories?.length) {
-                    const seen = new Set<string>();
-                    const uniqueCategories = state.categories.filter(c => {
-                        if (seen.has(c.id)) return false;
-                        seen.add(c.id);
-                        return true;
-                    });
-                    if (uniqueCategories.length !== state.categories.length) {
-                        state.setCategories(uniqueCategories);
-                    }
-                }
-
-                // Auto-initialize defaults if empty
-                if ((!state?.prompts || state.prompts.length === 0) && (!state?.categories || state.categories.length === 0)) {
-                    state?.initializeDefaults();
-                }
-
-                state?.setLoading(false);
-            },
+    _syncToFirestore: () => {
+        const { prompts, categories, _initialized } = get();
+        if (_initialized) {
+            writeToFirestore(STORE_KEY, { prompts, categories });
         }
-    )
-);
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data) {
+            const prompts = deduplicateById(data.prompts || []);
+            const categories = deduplicateById(data.categories || []);
+
+            set({
+                prompts,
+                categories,
+                isLoading: false,
+                _initialized: true
+            });
+
+            // Auto-initialize defaults if empty
+            if (prompts.length === 0 && categories.length === 0) {
+                get().initializeDefaults();
+            }
+        } else {
+            set({ isLoading: false, _initialized: true });
+            get().initializeDefaults();
+        }
+    },
+
+    _reset: () => {
+        set({ prompts: [], categories: [], isLoading: true, _initialized: false });
+    }
+}));

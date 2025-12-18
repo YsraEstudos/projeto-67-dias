@@ -39,6 +39,39 @@ vi.mock('../../../services/firebase', () => ({
     auth: { currentUser: { uid: 'test-uid' } }
 }));
 
+// Mock useWorkStore with isLoading: false to prevent skeleton from showing
+vi.mock('../../../stores', () => ({
+    useWorkStore: (selector: any) => {
+        const state = {
+            isLoading: false,
+            goal: 300,
+            currentCount: 150,
+            preBreakCount: 0,
+            startTime: '08:00',
+            endTime: '17:00',
+            breakTime: '12:00',
+            paceMode: 'remaining' as const,
+            history: [],
+            goals: { weekly: 100, ultra: 500, anki: 15, ncm: 20, refactorings: 5 },
+            studySubjects: [],
+            studySchedules: [],
+            setGoal: vi.fn(),
+            setCurrentCount: vi.fn(),
+            setPreBreakCount: vi.fn(),
+            setStartTime: vi.fn(),
+            setEndTime: vi.fn(),
+            setBreakTime: vi.fn(),
+            setPaceMode: vi.fn(),
+            addSession: vi.fn(),
+            deleteSession: vi.fn(),
+            setGoals: vi.fn(),
+            setStudySubjects: vi.fn(),
+            setSchedules: vi.fn(),
+        };
+        return typeof selector === 'function' ? selector(state) : state;
+    }
+}));
+
 vi.mock('firebase/firestore', () => ({
     doc: vi.fn(),
     setDoc: vi.fn(),

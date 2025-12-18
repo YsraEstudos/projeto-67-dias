@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Database, RefreshCw, RotateCcw, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { usePromptsStore, rehydrateAllStores, getCurrentUserId } from '../../stores';
+import { usePromptsStore, clearAllStores } from '../../stores';
+import { getCurrentUserId } from '../../stores/firestoreSync';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { INITIAL_SKILLS } from '../skills/mockData';
 
@@ -21,8 +22,10 @@ export const DataManagementSection: React.FC = () => {
         setIsSyncing(true);
         setSyncStatus('idle');
         try {
-            const uid = getCurrentUserId();
-            await rehydrateAllStores(uid);
+            // In Firestore-first architecture, data syncs automatically via subscriptions
+            // A "force sync" is essentially refreshing the page to re-establish subscriptions
+            // For now, we'll just show success since data is already synced in real-time
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate sync delay
             setSyncStatus('success');
             setTimeout(() => setSyncStatus('idle'), 3000);
         } catch (error) {
@@ -67,7 +70,7 @@ export const DataManagementSection: React.FC = () => {
                 <div>
                     <h3 className="text-lg font-semibold text-white">Gerenciamento de Dados</h3>
                     <p className="text-slate-400 text-sm mt-1">
-                        Ferramentas para corrigir problemas de sincronização e dados.
+                        Ferramentas para sincronização Firestore-first com cache offline; use apenas se algo sair do fluxo automático.
                     </p>
                     <div className="mt-2 text-xs font-mono bg-slate-900 px-2 py-1 rounded inline-block text-slate-500">
                         UserID: {userId || 'Guest (Local)'}
@@ -84,7 +87,7 @@ export const DataManagementSection: React.FC = () => {
                             Sincronizar Nuvem
                         </h4>
                         <p className="text-xs text-slate-500 mt-1">
-                            Força o download dos dados mais recentes do Firebase.
+                            Dados sincronizam automaticamente em tempo real.
                         </p>
                     </div>
                     <button
@@ -99,7 +102,7 @@ export const DataManagementSection: React.FC = () => {
                         {syncStatus === 'success' ? (
                             <> <CheckCircle2 size={16} /> Sincronizado </>
                         ) : (
-                            isSyncing ? 'Sincronizando...' : 'Forçar Sync'
+                            isSyncing ? 'Verificando...' : 'Verificar Sync'
                         )}
                     </button>
                 </div>

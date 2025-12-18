@@ -1,15 +1,29 @@
 /**
- * Notes Store - Notes and tags with Firebase persistence
+ * Notes Store - Notes and tags with Firestore-first persistence
  */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { Note, Tag, NoteColor } from '../types';
-import { createFirebaseStorage } from './persistMiddleware';
+import { writeToFirestore } from './firestoreSync';
+
+const STORE_KEY = 'p67_notes_store';
+
+/**
+ * Deduplicate items by ID
+ */
+const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+};
 
 interface NotesState {
     notes: Note[];
     tags: Tag[];
     isLoading: boolean;
+    _initialized: boolean;
 
     // Note Actions
     setNotes: (notes: Note[]) => void;
@@ -30,130 +44,170 @@ interface NotesState {
     deleteTag: (id: string) => void;
 
     setLoading: (loading: boolean) => void;
+
+    // Internal sync methods
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { notes: Note[]; tags: Tag[] } | null) => void;
+    _reset: () => void;
 }
 
-export const useNotesStore = create<NotesState>()(
-    persist(
-        (set) => ({
+export const useNotesStore = create<NotesState>()((set, get) => ({
+    notes: [],
+    tags: [],
+    isLoading: true,
+    _initialized: false,
+
+    // Note Actions
+    setNotes: (notes) => {
+        set({ notes: deduplicateById(notes) });
+        get()._syncToFirestore();
+    },
+
+    addNote: (note) => {
+        set((state) => ({
+            notes: [...state.notes, note]
+        }));
+        get()._syncToFirestore();
+    },
+
+    updateNote: (id, updates) => {
+        set((state) => ({
+            notes: state.notes.map(n =>
+                n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    deleteNote: (id) => {
+        set((state) => ({
+            notes: state.notes.filter(n => n.id !== id)
+        }));
+        get()._syncToFirestore();
+    },
+
+    togglePinNote: (id) => {
+        set((state) => ({
+            notes: state.notes.map(n =>
+                n.id === id ? { ...n, isPinned: !n.isPinned } : n
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    pinNoteToTag: (noteId, tagId) => {
+        set((state) => ({
+            notes: state.notes.map(n => {
+                if (n.id !== noteId) return n;
+                const pinnedToTags = n.pinnedToTags || [];
+                if (pinnedToTags.includes(tagId)) return n;
+                return { ...n, pinnedToTags: [...pinnedToTags, tagId] };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    unpinNoteFromTag: (noteId, tagId) => {
+        set((state) => ({
+            notes: state.notes.map(n => {
+                if (n.id !== noteId) return n;
+                return {
+                    ...n,
+                    pinnedToTags: (n.pinnedToTags || []).filter(t => t !== tagId)
+                };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    setNoteColor: (id, color) => {
+        set((state) => ({
+            notes: state.notes.map(n => n.id === id ? { ...n, color } : n)
+        }));
+        get()._syncToFirestore();
+    },
+
+    addTagToNote: (noteId, tagId) => {
+        set((state) => ({
+            notes: state.notes.map(n => {
+                if (n.id !== noteId) return n;
+                if (n.tags.includes(tagId)) return n;
+                return { ...n, tags: [...n.tags, tagId] };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    removeTagFromNote: (noteId, tagId) => {
+        set((state) => ({
+            notes: state.notes.map(n => {
+                if (n.id !== noteId) return n;
+                return { ...n, tags: n.tags.filter(t => t !== tagId) };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    // Tag Actions
+    setTags: (tags) => {
+        set({ tags: deduplicateById(tags) });
+        get()._syncToFirestore();
+    },
+
+    addTag: (tag) => {
+        set((state) => ({
+            tags: [...state.tags, tag]
+        }));
+        get()._syncToFirestore();
+    },
+
+    updateTag: (id, updates) => {
+        set((state) => ({
+            tags: state.tags.map(t => t.id === id ? { ...t, ...updates } : t)
+        }));
+        get()._syncToFirestore();
+    },
+
+    deleteTag: (id) => {
+        set((state) => ({
+            tags: state.tags.filter(t => t.id !== id),
+            notes: state.notes.map(n => ({
+                ...n,
+                tags: n.tags.filter(t => t !== id),
+                pinnedToTags: (n.pinnedToTags || []).filter(t => t !== id)
+            }))
+        }));
+        get()._syncToFirestore();
+    },
+
+    setLoading: (loading) => set({ isLoading: loading }),
+
+    _syncToFirestore: () => {
+        const { notes, tags, _initialized } = get();
+        if (_initialized) {
+            writeToFirestore(STORE_KEY, { notes, tags });
+        }
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data) {
+            set({
+                notes: deduplicateById(data.notes || []),
+                tags: deduplicateById(data.tags || []),
+                isLoading: false,
+                _initialized: true
+            });
+        } else {
+            set({ isLoading: false, _initialized: true });
+        }
+    },
+
+    _reset: () => {
+        set({
             notes: [],
             tags: [],
             isLoading: true,
-
-            // Note Actions
-            setNotes: (notes) => set({ notes }),
-
-            addNote: (note) => set((state) => ({
-                notes: [...state.notes, note]
-            })),
-
-            updateNote: (id, updates) => set((state) => ({
-                notes: state.notes.map(n =>
-                    n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
-                )
-            })),
-
-            deleteNote: (id) => set((state) => ({
-                notes: state.notes.filter(n => n.id !== id)
-            })),
-
-            togglePinNote: (id) => set((state) => ({
-                notes: state.notes.map(n =>
-                    n.id === id ? { ...n, isPinned: !n.isPinned } : n
-                )
-            })),
-
-            pinNoteToTag: (noteId, tagId) => set((state) => ({
-                notes: state.notes.map(n => {
-                    if (n.id !== noteId) return n;
-                    const pinnedToTags = n.pinnedToTags || [];
-                    if (pinnedToTags.includes(tagId)) return n;
-                    return { ...n, pinnedToTags: [...pinnedToTags, tagId] };
-                })
-            })),
-
-            unpinNoteFromTag: (noteId, tagId) => set((state) => ({
-                notes: state.notes.map(n => {
-                    if (n.id !== noteId) return n;
-                    return {
-                        ...n,
-                        pinnedToTags: (n.pinnedToTags || []).filter(t => t !== tagId)
-                    };
-                })
-            })),
-
-            setNoteColor: (id, color) => set((state) => ({
-                notes: state.notes.map(n => n.id === id ? { ...n, color } : n)
-            })),
-
-            addTagToNote: (noteId, tagId) => set((state) => ({
-                notes: state.notes.map(n => {
-                    if (n.id !== noteId) return n;
-                    if (n.tags.includes(tagId)) return n;
-                    return { ...n, tags: [...n.tags, tagId] };
-                })
-            })),
-
-            removeTagFromNote: (noteId, tagId) => set((state) => ({
-                notes: state.notes.map(n => {
-                    if (n.id !== noteId) return n;
-                    return { ...n, tags: n.tags.filter(t => t !== tagId) };
-                })
-            })),
-
-            // Tag Actions
-            setTags: (tags) => set({ tags }),
-
-            addTag: (tag) => set((state) => ({
-                tags: [...state.tags, tag]
-            })),
-
-            updateTag: (id, updates) => set((state) => ({
-                tags: state.tags.map(t => t.id === id ? { ...t, ...updates } : t)
-            })),
-
-            deleteTag: (id) => set((state) => ({
-                tags: state.tags.filter(t => t.id !== id),
-                // Remove tag from all notes
-                notes: state.notes.map(n => ({
-                    ...n,
-                    tags: n.tags.filter(t => t !== id),
-                    pinnedToTags: (n.pinnedToTags || []).filter(t => t !== id)
-                }))
-            })),
-
-            setLoading: (loading) => set({ isLoading: loading }),
-        }),
-        {
-            name: 'p67_notes_store',
-            storage: createFirebaseStorage('p67_notes_store'),
-            partialize: (state) => ({ notes: state.notes, tags: state.tags }),
-            onRehydrateStorage: () => (state) => {
-                // Clean up any duplicate notes (same id)
-                if (state?.notes?.length) {
-                    const seen = new Set<string>();
-                    const uniqueNotes = state.notes.filter(n => {
-                        if (seen.has(n.id)) return false;
-                        seen.add(n.id);
-                        return true;
-                    });
-                    if (uniqueNotes.length !== state.notes.length) {
-                        state.setNotes(uniqueNotes);
-                    }
-                }
-                // Clean up any duplicate tags (same id)
-                if (state?.tags?.length) {
-                    const seen = new Set<string>();
-                    const uniqueTags = state.tags.filter(t => {
-                        if (seen.has(t.id)) return false;
-                        seen.add(t.id);
-                        return true;
-                    });
-                    if (uniqueTags.length !== state.tags.length) {
-                        state.setTags(uniqueTags);
-                    }
-                }
-                state?.setLoading(false);
-            },
-        }
-    )
-);
+            _initialized: false
+        });
+    }
+}));

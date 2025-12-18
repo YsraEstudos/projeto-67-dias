@@ -31,6 +31,7 @@ vi.mock('firebase/auth', () => {
 
 vi.mock('firebase/firestore', () => ({
     getFirestore: vi.fn(() => ({})),
+    enableMultiTabIndexedDbPersistence: vi.fn(() => Promise.resolve()),
     doc: vi.fn(),
     setDoc: vi.fn(() => Promise.resolve()),
     getDoc: vi.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),

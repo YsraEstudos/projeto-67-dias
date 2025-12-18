@@ -24,11 +24,14 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, subscribeToFirestore, rehydrateAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, clearAllStores } from './stores';
+import { subscribeToDocument } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
+import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
 
 // Data Migration
 import { setupDataMigration } from './utils/dataMigration';
+import { setupFirestoreMigration } from './utils/legacyToFirestoreMigration';
 
 
 // Lazy load AuthView (only needed before login)
@@ -123,23 +126,116 @@ const App: React.FC = () => {
     }
   }, [user, config.userName, setConfig, isDataReady]);
 
-  // Ensure ALL stores rehydrate with the authenticated user scope (avoids guest fallback when auth is late)
-  // CLOUD-FIRST: Wait for Firebase sync to complete before showing UI
+  // FIRESTORE-FIRST: Subscribe to real-time updates for all stores
+  // This replaces the old rehydrateAllStores approach
   useEffect(() => {
-    if (user?.id) {
-      setIsDataReady(false);
-      rehydrateAllStores(user.id)
-        .then(() => {
-          setIsDataReady(true);
-          console.log('[App] Data sync complete, UI ready');
-        })
-        .catch((error) => {
-          console.error('[App] Data sync failed:', error);
-          setIsDataReady(true); // Still show UI on error, with local data
-        });
-    } else {
+    if (!user?.id) {
       setIsDataReady(true); // No user, no sync needed
+      return;
     }
+
+    setIsDataReady(false);
+    clearAllStores(); // Prevent data leaks between users
+
+    const unsubscribers: (() => void)[] = [];
+    let hydratedCount = 0;
+    const totalStores = 16;
+
+    const checkAllHydrated = () => {
+      hydratedCount++;
+      if (hydratedCount >= totalStores) {
+        setIsDataReady(true);
+        console.log('[App] All stores hydrated, UI ready');
+      }
+    };
+
+    // Subscribe to all stores and hydrate with _hydrateFromFirestore
+    unsubscribers.push(subscribeToDocument('p67_project_config', (data: any) => {
+      useConfigStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_habits_store', (data: any) => {
+      useHabitsStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_work_store', (data: any) => {
+      useWorkStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_notes_store', (data: any) => {
+      useNotesStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_sunday_store', (data: any) => {
+      useSundayStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_journal_store', (data: any) => {
+      useJournalStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_links_store', (data: any) => {
+      useLinksStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_skills_store', (data: any) => {
+      useSkillsStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_reading_store', (data: any) => {
+      useReadingStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_rest_store', (data: any) => {
+      useRestStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_prompts_store', (data: any) => {
+      usePromptsStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('games-storage', (data: any) => {
+      useGamesStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_review_store', (data: any) => {
+      useReviewStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_water_store', (data: any) => {
+      useWaterStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_streak_store', (data: any) => {
+      useStreakStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_tool_timer', (data: any) => {
+      useTimerStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated();
+    }));
+
+    console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+      console.log('[App] Unsubscribed from all stores');
+    };
   }, [user?.id]);
 
   // Run data migration from legacy useStorage to Zustand stores
@@ -147,6 +243,14 @@ const App: React.FC = () => {
     const unsubscribe = setupDataMigration();
     return () => unsubscribe();
   }, []);
+
+  // Run LocalStorage to Firestore migration for existing users
+  useEffect(() => {
+    if (user?.id) {
+      const unsubscribe = setupFirestoreMigration();
+      return () => unsubscribe();
+    }
+  }, [user?.id]);
 
   // Check streak status on load
   // Check streak status ONLY after data is fully synced
@@ -156,45 +260,6 @@ const App: React.FC = () => {
     }
   }, [isDataReady]);
 
-  // Real-time sync with Firebase for multi-device support
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const unsubscribers: (() => void)[] = [];
-
-    // Subscribe to main stores for real-time sync across devices
-    // When data changes in Firebase, update the local store
-    const storeConfigs: Array<{ store: { getState: () => any; setState: (state: any) => void }; key: string }> = [
-      { store: useConfigStore, key: 'p67_project_config' },
-      { store: useHabitsStore, key: 'p67_habits_store' },
-      { store: useWorkStore, key: 'p67_work_store' },
-      { store: useSkillsStore, key: 'p67_skills_store' },
-      { store: useReadingStore, key: 'p67_reading_store' },
-      { store: useStreakStore, key: 'p67_streak_store' },
-      { store: useJournalStore, key: 'p67_journal_store' },
-      { store: useNotesStore, key: 'p67_notes_store' },
-      { store: useSundayStore, key: 'p67_sunday_store' },
-      { store: useGamesStore, key: 'games-storage' },
-    ];
-
-    storeConfigs.forEach(({ store, key }) => {
-      const unsub = subscribeToFirestore(key, (data: any) => {
-        if (data) {
-          const currentState = store.getState();
-          // Merge remote data with current state (preserve actions/methods)
-          store.setState({ ...currentState, ...data });
-        }
-      });
-      unsubscribers.push(unsub);
-    });
-
-    console.log('[App] Firebase real-time sync enabled for', storeConfigs.length, 'stores');
-
-    return () => {
-      unsubscribers.forEach(unsub => unsub());
-      console.log('[App] Firebase real-time sync disabled');
-    };
-  }, [user?.id]);
 
 
   // Calculate current day
@@ -487,6 +552,7 @@ const App: React.FC = () => {
             {/* User Profile / Logout */}
             {activeView === ViewState.DASHBOARD && (
               <div className="flex items-center gap-3">
+                <SyncStatusIndicator />
                 <span className="hidden md:block text-sm text-slate-400 text-right">
                   <div className="font-bold text-slate-200">{user.name}</div>
                   <div className="text-[10px] uppercase tracking-wider">{user.isGuest ? 'Visitante' : 'Membro'}</div>

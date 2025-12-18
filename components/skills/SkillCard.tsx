@@ -7,9 +7,11 @@ interface SkillCardProps {
     skill: Skill;
     onClick: () => void;
     onAddSession: (m: number) => void;
+    isCompact?: boolean;
 }
 
-export const SkillCard: React.FC<SkillCardProps> = React.memo(({ skill, onClick, onAddSession }) => {
+export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
+    const { skill, onClick, onAddSession } = props;
     const percentage = Math.min(100, Math.round((skill.currentMinutes / (skill.goalMinutes || 1)) * 100));
     const themeColor = THEMES[skill.colorTheme as keyof typeof THEMES] || THEMES.emerald;
     const textColor = themeColor.split(' ')[0];
@@ -32,10 +34,33 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo(({ skill, onClick,
         setIsAdding(false);
     };
 
+    if (props.isCompact) {
+        return (
+            <div
+                onClick={onClick}
+                className="group bg-slate-900/50 border border-slate-700/50 hover:border-yellow-500/30 hover:bg-yellow-500/5 rounded-xl p-4 cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-yellow-500 shadow-lg shadow-yellow-900/10">
+                        <CheckCircle2 size={18} fill="currentColor" className="text-yellow-500/20" />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-bold text-sm line-clamp-1">{skill.name}</h3>
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                            <span className="text-yellow-500/80">Dominada</span>
+                            <span>•</span>
+                            <span>{(skill.currentMinutes / 60).toFixed(0)}h totais</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             onClick={onClick}
-            className="group bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg relative overflow-hidden"
+            className={`group bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg relative overflow-hidden ${skill.isCompleted ? 'ring-1 ring-yellow-500/30' : ''}`}
         >
             {/* Progress Bar Background */}
             <div className="absolute top-0 left-0 h-1 w-full bg-slate-900">

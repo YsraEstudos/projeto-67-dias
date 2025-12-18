@@ -34,6 +34,32 @@ export interface ProjectConfig {
   userName: string;
   isGuest: boolean;
   restartCount?: number; // Quantas vezes o plano foi reiniciado sem concluir
+  offensiveGoals?: OffensiveGoalsConfig;
+}
+
+// Skill com peso individual para ofensiva
+export interface FocusSkill {
+  skillId: string;      // ID da skill selecionada
+  weight: number;       // Peso desta skill (0-100, soma de todas = 100)
+}
+
+// Configuração completa de metas de ofensiva
+export interface OffensiveGoalsConfig {
+  // Porcentagem mínima para ativar ofensiva (0-100)
+  minimumPercentage: number;          // default: 50
+
+  // Pesos por categoria (devem somar 100)
+  categoryWeights: {
+    skills: number;                   // default: 50
+    reading: number;                  // default: 30
+    games: number;                    // default: 20
+  };
+
+  // Skills em foco (vazio = considera todas)
+  focusSkills: FocusSkill[];         // default: []
+
+  // Meta diária de horas de jogo (para calcular %)
+  dailyGameHoursGoal: number;        // default: 1
 }
 
 export interface User {
@@ -286,6 +312,10 @@ export interface Skill {
 
   // Next Day Content
   nextDayContents?: NextDayContent[];
+
+  // Completion Status
+  isCompleted?: boolean;
+  completedAt?: number;
 }
 
 // --- PROMPTS MODULE INTERFACES ---
