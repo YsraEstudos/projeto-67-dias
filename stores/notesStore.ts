@@ -21,6 +21,13 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     });
 };
 
+/**
+ * Remove undefined values from object (Firestore doesn't accept undefined)
+ */
+const removeUndefined = <T extends object>(obj: T): T => {
+    return JSON.parse(JSON.stringify(obj));
+};
+
 interface NotesState {
     notes: Note[];
     tags: Tag[];
@@ -212,7 +219,8 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
     _syncToFirestore: () => {
         const { notes, tags, _initialized } = get();
         const userId = getCurrentUserId();
-        const payload = { notes, tags };
+        // Remove undefined values - Firestore doesn't accept them
+        const payload = removeUndefined({ notes, tags });
 
         console.log('[notesStore] _syncToFirestore:', { noteCount: notes.length, tagCount: tags.length, _initialized, userId });
 
