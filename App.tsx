@@ -25,7 +25,7 @@ import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
 import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, clearAllStores } from './stores';
-import { subscribeToDocument } from './stores/firestoreSync';
+import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
 
@@ -135,6 +135,7 @@ const App: React.FC = () => {
     }
 
     setIsDataReady(false);
+    flushPendingWrites(); // Flush pending writes before clearing stores
     clearAllStores(); // Prevent data leaks between users
 
     const unsubscribers: (() => void)[] = [];

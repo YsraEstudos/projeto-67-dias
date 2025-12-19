@@ -90,6 +90,7 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
     },
 
     addNote: (note) => {
+        console.log('[notesStore] addNote:', note.id, note.title);
         set((state) => ({
             notes: [...state.notes, note]
         }));
@@ -210,10 +211,18 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
 
     _syncToFirestore: () => {
         const { notes, tags, _initialized } = get();
+        const userId = getCurrentUserId();
         const payload = { notes, tags };
+
+        console.log('[notesStore] _syncToFirestore:', { noteCount: notes.length, tagCount: tags.length, _initialized, userId });
 
         // Always keep a local backup to avoid data loss if Firestore is temporarily unavailable
         writeLocalBackup(payload);
+
+        if (!userId) {
+            console.warn('[notesStore] Cannot sync - no userId');
+            return;
+        }
 
         if (_initialized) {
             writeToFirestore(STORE_KEY, payload);
@@ -231,6 +240,12 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
 
         const remoteNotes = fallback.notes || [];
         const remoteTags = fallback.tags || [];
+
+        console.log('[notesStore] _hydrateFromFirestore:', {
+            remoteNotes: remoteNotes.length,
+            localNotes: localNotes.length,
+            _initialized
+        });
 
         // Se já foi inicializado, fazer merge inteligente para evitar sobrescrever dados locais pendentes
         if (_initialized) {

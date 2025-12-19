@@ -47,7 +47,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
 
     const handleSave = () => {
         const savedNote: Note = {
-            id: note?.id || Date.now().toString(),
+            id: note?.id || generateUUID(),
             title: title.trim() || 'Sem título',
             content: content.trim(),
             color,
