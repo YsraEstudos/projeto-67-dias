@@ -55,7 +55,14 @@ export const isFullySynced = (): boolean => pendingWriteCount === 0 && writeTime
  * Get current authenticated user ID
  */
 export const getCurrentUserId = (): string | null => {
-    return auth.currentUser?.uid ?? null;
+    const liveUid = auth.currentUser?.uid;
+    if (liveUid) return liveUid;
+    // Fallback: use cached UID saved by useAuth for early hydration / edge timing
+    if (typeof window !== 'undefined') {
+        const cached = window.localStorage.getItem('p67_last_uid');
+        if (cached) return cached;
+    }
+    return null;
 };
 
 /**

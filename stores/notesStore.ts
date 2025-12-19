@@ -3,9 +3,11 @@
  */
 import { create } from 'zustand';
 import { Note, Tag, NoteColor } from '../types';
-import { writeToFirestore } from './firestoreSync';
+import { writeToFirestore, getCurrentUserId } from './firestoreSync';
+import { readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
 
 const STORE_KEY = 'p67_notes_store';
+const LOCAL_BACKUP_KEY = `${STORE_KEY}::backup`;
 
 /**
  * Deduplicate items by ID
@@ -50,6 +52,30 @@ interface NotesState {
     _hydrateFromFirestore: (data: { notes: Note[]; tags: Tag[] } | null) => void;
     _reset: () => void;
 }
+
+const readLocalBackup = (): { notes: Note[]; tags: Tag[] } | null => {
+    const userId = getCurrentUserId();
+    const raw = readNamespacedStorage(LOCAL_BACKUP_KEY, userId);
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.notes && parsed?.tags) {
+            return parsed;
+        }
+    } catch {
+        // ignore malformed cache
+    }
+    return null;
+};
+
+const writeLocalBackup = (data: { notes: Note[]; tags: Tag[] }) => {
+    const userId = getCurrentUserId();
+    try {
+        writeNamespacedStorage(LOCAL_BACKUP_KEY, JSON.stringify({ ...data, updatedAt: Date.now() }), userId);
+    } catch {
+        // localStorage may be unavailable; ignore
+    }
+};
 
 export const useNotesStore = create<NotesState>()((set, get) => ({
     notes: [],
@@ -184,16 +210,22 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
 
     _syncToFirestore: () => {
         const { notes, tags, _initialized } = get();
+        const payload = { notes, tags };
+
+        // Always keep a local backup to avoid data loss if Firestore is temporarily unavailable
+        writeLocalBackup(payload);
+
         if (_initialized) {
-            writeToFirestore(STORE_KEY, { notes, tags });
+            writeToFirestore(STORE_KEY, payload);
         }
     },
 
     _hydrateFromFirestore: (data) => {
-        if (data) {
+        const fallback = data || readLocalBackup();
+        if (fallback) {
             set({
-                notes: deduplicateById(data.notes || []),
-                tags: deduplicateById(data.tags || []),
+                notes: deduplicateById(fallback.notes || []),
+                tags: deduplicateById(fallback.tags || []),
                 isLoading: false,
                 _initialized: true
             });

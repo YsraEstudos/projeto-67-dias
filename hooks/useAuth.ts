@@ -10,6 +10,7 @@ import {
     subscribeToAuthChanges,
     FirebaseUser
 } from '../services/firebase';
+import { flushPendingWrites } from '../stores/firestoreSync';
 
 interface AuthState {
     user: User | null;
@@ -191,6 +192,8 @@ export function useAuth(): AuthState & AuthActions {
     const logout = useCallback(async () => {
         setState(prev => ({ ...prev, loading: true, error: null }));
         try {
+            // Ensure any debounced Firestore writes are sent before signOut
+            flushPendingWrites();
             await firebaseLogout();
             // Auth state listener will update the user
         } catch (error: any) {
