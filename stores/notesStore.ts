@@ -222,15 +222,65 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         const fallback = data || readLocalBackup();
-        if (fallback) {
+        const { notes: localNotes, tags: localTags, _initialized } = get();
+
+        if (!fallback) {
+            set({ isLoading: false, _initialized: true });
+            return;
+        }
+
+        const remoteNotes = fallback.notes || [];
+        const remoteTags = fallback.tags || [];
+
+        // Se já foi inicializado, fazer merge inteligente para evitar sobrescrever dados locais pendentes
+        if (_initialized) {
+            // Merge notes: comparar updatedAt para decidir qual versão manter
+            const remoteNoteMap = new Map(remoteNotes.map((n: Note) => [n.id, n]));
+            const localNoteIds = new Set(localNotes.map(n => n.id));
+
+            const mergedNotes = localNotes.map(localNote => {
+                const remoteNote = remoteNoteMap.get(localNote.id);
+                if (!remoteNote) return localNote; // Nova nota local, manter
+                // Remoto mais recente = usar remoto, senão manter local
+                return remoteNote.updatedAt > localNote.updatedAt ? remoteNote : localNote;
+            });
+
+            // Adicionar notas remotas que não existem localmente
+            remoteNotes.forEach((rn: Note) => {
+                if (!localNoteIds.has(rn.id)) {
+                    mergedNotes.push(rn);
+                }
+            });
+
+            // Merge tags: similar lógica
+            const remoteTagMap = new Map(remoteTags.map((t: Tag) => [t.id, t]));
+            const localTagIds = new Set(localTags.map(t => t.id));
+
+            const mergedTags = localTags.map(localTag => {
+                const remoteTag = remoteTagMap.get(localTag.id);
+                if (!remoteTag) return localTag;
+                return remoteTag;
+            });
+
+            remoteTags.forEach((rt: Tag) => {
+                if (!localTagIds.has(rt.id)) {
+                    mergedTags.push(rt);
+                }
+            });
+
             set({
-                notes: deduplicateById(fallback.notes || []),
-                tags: deduplicateById(fallback.tags || []),
+                notes: deduplicateById(mergedNotes),
+                tags: deduplicateById(mergedTags),
+                isLoading: false
+            });
+        } else {
+            // Primeira hidratação: usar dados remotos diretamente
+            set({
+                notes: deduplicateById(remoteNotes),
+                tags: deduplicateById(remoteTags),
                 isLoading: false,
                 _initialized: true
             });
-        } else {
-            set({ isLoading: false, _initialized: true });
         }
     },
 
