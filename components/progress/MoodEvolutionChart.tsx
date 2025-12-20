@@ -102,7 +102,7 @@ export const MoodEvolutionChart: React.FC<{ dayCount: number }> = ({ dayCount })
                 </div>
             </div>
 
-            <div className="h-[200px] w-full">
+            <div className="h-[200px] w-full" style={{ minHeight: '200px', minWidth: '100px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>

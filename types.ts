@@ -110,7 +110,7 @@ export interface Book {
   folderId: string | null;
 
   notes: string;
-  addedAt: Date;
+  addedAt: string | Date; // Permite string ISO para persistência fácil
 
   // Daily Progress Tracking
   dailyGoal?: number; // Meta diária (páginas/capítulos)
@@ -313,6 +313,9 @@ export interface Skill {
   // Next Day Content
   nextDayContents?: NextDayContent[];
 
+  // Deadline (data limite para completar a skill)
+  deadline?: string; // ISO date (YYYY-MM-DD)
+
   // Completion Status
   isCompleted?: boolean;
   completedAt?: number;
@@ -344,6 +347,7 @@ export interface Prompt {
   variables?: PromptVariable[];  // Lista de variáveis dinâmicas extraídas do content
   copyCount: number;
   isFavorite: boolean;
+  order: number;       // Ordem dentro da categoria (para drag-and-drop)
   createdAt: number;
   updatedAt: number;
 }
@@ -362,11 +366,24 @@ export interface LinkItem {
   id: string;
   title: string;
   url: string;
-  category: 'PERSONAL' | 'GENERAL';
+  categoryId: string;           // ID da categoria (dinâmica ou legacy)
   clickCount: number;
   lastClicked?: number;
   order: number;
-  promptId?: string;  // ID do prompt vinculado
+  promptIds: string[];          // IDs dos prompts vinculados (múltiplos)
+  /** @deprecated Use promptIds. Mantido para migração. */
+  promptId?: string;
+}
+
+// --- SITE CATEGORIES ---
+
+export interface SiteCategory {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  order: number;
+  isDefault?: boolean;  // Categorias padrão não podem ser deletadas
 }
 
 

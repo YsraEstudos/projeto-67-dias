@@ -22,6 +22,24 @@ type PendingWrite = {
 const writeTimeouts = new Map<string, PendingWrite>();
 const WRITE_DEBOUNCE_MS = 300;
 
+/**
+ * Recursively remove undefined values from an object
+ * Firestore fails with "Unsupported field value: undefined"
+ */
+const removeUndefined = (obj: any): any => {
+    if (obj && typeof obj === 'object') {
+        // Use JSON stringify/parse for deep cleaning of simple objects
+        // This also handles Date serialization which is safer for our sync pattern
+        try {
+            return JSON.parse(JSON.stringify(obj));
+        } catch (e) {
+            console.error('[FirestoreSync] Failed to clean object:', e);
+            return obj;
+        }
+    }
+    return obj;
+};
+
 // Track pending writes for UI indicator
 let pendingWriteCount = 0;
 const pendingWriteListeners: (() => void)[] = [];
@@ -95,7 +113,9 @@ export const writeToFirestore = <T extends object>(collectionKey: string, data: 
         return;
     }
 
-    const payload: PendingWrite['payload'] = { userId, collectionKey, data };
+    // Clean data before writing (removes undefined which Firestore rejects)
+    const cleanedData = removeUndefined(data);
+    const payload: PendingWrite['payload'] = { userId, collectionKey, data: cleanedData };
 
     const existing = writeTimeouts.get(collectionKey);
     if (existing) {

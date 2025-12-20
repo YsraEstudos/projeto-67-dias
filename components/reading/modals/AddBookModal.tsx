@@ -3,6 +3,7 @@ import { Book as IBook } from '../../../types';
 import { useBookAI } from '../../../hooks/useBookAI';
 import BookForm from '../BookForm';
 import { X, ArrowLeft, Bot, Search, Book, Sparkles } from 'lucide-react';
+import { generateUUID } from '../../../utils/uuid';
 
 interface AddBookModalProps {
     onClose: () => void;
@@ -86,14 +87,15 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onAdd, currentFold
 
     const handleFinalSave = (data: any) => {
         onAdd({
-            id: Date.now().toString(),
             ...data,
+            id: generateUUID(), // Use robust UUID instead of Date.now()
             status: 'TO_READ',
             rating: 0,
             notes: data.notes || '',
             folderId: currentFolderId,
-            addedAt: new Date()
+            addedAt: new Date().toISOString() // Store as ISO string for better persistence serialization
         });
+        onClose();
     };
 
     const handleGenerateAI = async () => {
@@ -138,7 +140,7 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onAdd, currentFold
                     </div>
                 )}
 
-                <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-y-auto flex flex-col">
                     {step === 'SEARCH' ? (
                         mode === 'AI' ? (
                             <div className="p-6 space-y-5 overflow-y-auto">
@@ -210,7 +212,19 @@ const AddBookModal: React.FC<AddBookModalProps> = ({ onClose, onAdd, currentFold
                                         return (
                                             <div key={i} onClick={() => handleSelect(item)} className="flex gap-3 p-2 bg-slate-800 border border-slate-700 rounded-lg hover:border-indigo-500 cursor-pointer hover:bg-slate-750 transition-colors">
                                                 <div className="w-12 h-16 bg-slate-900 rounded overflow-hidden flex-shrink-0">
-                                                    {img ? <img src={img} className="w-full h-full object-cover" alt="" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center"><Book size={16} className="text-slate-600" /></div>}
+                                                    {img ? (
+                                                        <img
+                                                            src={img}
+                                                            className="w-full h-full object-cover"
+                                                            alt=""
+                                                            loading="lazy"
+                                                            onError={(e) => {
+                                                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=No+Cover';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center"><Book size={16} className="text-slate-600" /></div>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-sm text-white line-clamp-1">{title}</div>

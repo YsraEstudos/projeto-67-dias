@@ -99,7 +99,17 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
                             placeholder="https://..."
                             className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-indigo-500 outline-none text-sm"
                         />
-                        {formData.coverUrl && <img src={formData.coverUrl} alt="Preview" className="h-10 w-10 object-cover rounded border border-slate-600" loading="lazy" decoding="async" />}
+                        {formData.coverUrl && (
+                            <img
+                                src={formData.coverUrl}
+                                alt="Preview"
+                                className="h-10 w-10 object-cover rounded border border-slate-600"
+                                loading="lazy"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=No+Cover';
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
 

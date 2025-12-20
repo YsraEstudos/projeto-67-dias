@@ -14,10 +14,13 @@ import {
     onAuthStateChanged,
     User as FirebaseUser
 } from "firebase/auth";
-import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
+import {
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager
+} from "firebase/firestore";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -57,21 +60,12 @@ const app = initializeApp(firebaseConfig);
 
 // Export services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-// Enable offline persistence with multi-tab support
-// This uses IndexedDB internally, replacing the need for manual LocalStorage cache
-enableMultiTabIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one tab at a time.
-        // Other tabs will still work but use network-only.
-        console.warn('[Firebase] Persistence limited: Multiple tabs open. Only one tab will have full offline support.');
-    } else if (err.code === 'unimplemented') {
-        // The current browser doesn't support IndexedDB persistence
-        console.warn('[Firebase] Persistence not available in this browser. Offline mode will be limited.');
-    } else {
-        console.error('[Firebase] Persistence setup failed:', err);
-    }
+// FIRESTORE: Configuração de cache persistente (substitui enableMultiTabIndexedDbPersistence deprecado)
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    })
 });
 
 // Google Provider

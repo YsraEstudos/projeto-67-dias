@@ -18,6 +18,7 @@ export const skillSchema = z.object({
     level: z.enum(['Iniciante', 'Intermediário', 'Avançado']),
     goalHours: z.number().min(1, 'A meta deve ser de pelo menos 1 hora'),
     theme: z.enum(['emerald', 'blue', 'purple', 'amber', 'rose']),
+    deadline: z.string().optional(), // ISO date (YYYY-MM-DD)
 });
 
 export type GameFormData = z.infer<typeof gameSchema>;

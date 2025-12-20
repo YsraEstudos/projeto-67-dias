@@ -1,10 +1,11 @@
 import React from 'react';
-import { Clock, Edit2, Timer } from 'lucide-react';
+import { Clock, Edit2, Timer, CalendarClock } from 'lucide-react';
 import { Skill, SkillGoalType } from '../../types';
 import { useEditableField } from '../../hooks/useEditableField';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { THEME_VARIANTS, ThemeKey } from './constants';
 import { GoalTypeSelector } from './GoalTypeSelector';
+import { calculateDailyRequirement } from '../../utils/skillPrediction';
 
 interface ProgressStatsProps {
     skill: Skill;
@@ -40,8 +41,9 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
             const value = parseFloat(newValue);
             if (!isNaN(value) && value > 0) {
                 if (isPomodoro) {
-                    // For pomodoros, we need to update through skill update
-                    // This is handled via onUpdateGoal by the parent (not ideal but works)
+                    // Ao alterar pomodoros, sincronizar com minutos
+                    const newMinutes = Math.round(value * 25);
+                    onUpdateGoal(newMinutes);
                 } else {
                     onUpdateGoal(Math.round(value * 60));
                 }
@@ -141,6 +143,43 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                     <div className="text-lg font-bold text-blue-400">{skill.logs.length}</div>
                 </div>
             </div>
+
+            {/* Daily Prediction - mostra quando skill tem deadline */}
+            {(() => {
+                const prediction = calculateDailyRequirement(skill);
+                if (!prediction) return null;
+
+                return (
+                    <div className="mt-3 p-3 bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl border border-slate-700">
+                        <div className="flex items-center gap-2 mb-2">
+                            <CalendarClock size={14} className={variants.text} />
+                            <span className="text-xs text-slate-500 uppercase">Previsão Diária</span>
+                        </div>
+                        {prediction.isExpired ? (
+                            <div className="text-center text-red-400 font-medium text-sm">
+                                ⚠️ Prazo expirado!
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className={`text-xl font-bold ${variants.text}`}>
+                                        {isPomodoro
+                                            ? `${prediction.pomodorosPerDay} 🍅/dia`
+                                            : `${prediction.hoursPerDay.toFixed(1)}h/dia`
+                                        }
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                        para terminar em {prediction.remainingDays} dia{prediction.remainingDays !== 1 ? 's' : ''}
+                                    </div>
+                                </div>
+                                <div className="text-right text-xs text-slate-600">
+                                    Deadline: {new Date(skill.deadline!).toLocaleDateString('pt-BR')}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {isPomodoro ? (
                 <button
