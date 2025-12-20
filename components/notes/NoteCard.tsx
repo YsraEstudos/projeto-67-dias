@@ -2,12 +2,14 @@ import React from 'react';
 import { Sparkles, MoreVertical, Trash2, Copy, Download, Pin } from 'lucide-react';
 import { Note, Tag } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { sanitizeFilename } from '../../utils/sanitizeFilename';
 
 interface NoteCardProps {
     note: Note;
     onClick: (note: Note) => void;
     onDelete: (id: string) => void;
     onDuplicate: (id: string) => void;
+    onTogglePin: (id: string) => void;
     availableTags?: Tag[];
 }
 
@@ -22,7 +24,7 @@ const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; 
     orange: { bg: 'bg-orange-500/5', border: 'border-orange-500/20', text: 'text-orange-400', hover: 'hover:border-orange-500/40' },
 };
 
-export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, onDelete, onDuplicate, availableTags = [] }) => {
+export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, onDelete, onDuplicate, onTogglePin, availableTags = [] }) => {
     const [showMenu, setShowMenu] = React.useState(false);
     const colorScheme = COLOR_CLASSES[note.color] || COLOR_CLASSES.blue;
 
@@ -51,7 +53,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${note.title.replace(/[^a-z0-9]/gi, '_')}.md`;
+        a.download = `${sanitizeFilename(note.title)}.md`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -73,14 +75,17 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
             {/* Top Color Bar */}
             <div className={`h-1.5 w-full ${colorScheme.text.replace('text-', 'bg-')}`} />
 
-            {/* Pin Indicator */}
-            {note.isPinned && (
-                <div className="absolute top-3 right-3 z-10">
-                    <div className="p-1.5 bg-amber-500/20 rounded-lg border border-amber-500/30 backdrop-blur-sm" title={`Fixada em: ${pinnedTagLabels.join(', ') || 'Geral'}`}>
-                        <Pin size={14} className="text-amber-400" />
-                    </div>
-                </div>
-            )}
+            {/* Pin Button - Always at top right, visible on hover or when pinned */}
+            <button
+                onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+                className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg border transition-all ${note.isPinned
+                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                    : 'bg-slate-800/50 border-slate-700/50 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:border-amber-500/30'
+                    }`}
+                title={note.isPinned ? `Desafixar (fixada em: ${pinnedTagLabels.join(', ') || 'Geral'})` : 'Fixar'}
+            >
+                <Pin size={14} className={note.isPinned ? 'fill-current' : ''} />
+            </button>
 
             <div className="p-5">
                 {/* Header */}

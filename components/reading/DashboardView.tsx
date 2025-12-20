@@ -33,6 +33,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMod
             'TO_READ': [],
             'PAUSED': [],
             'COMPLETED': [],
+            'ABANDONED': [],
         };
         for (const book of books) {
             map[book.status].push(book);

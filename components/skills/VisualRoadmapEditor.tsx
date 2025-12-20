@@ -593,3 +593,5 @@ export const VisualRoadmapEditor: React.FC<VisualRoadmapEditorProps> = ({
         </div>
     );
 };
+
+export default VisualRoadmapEditor;

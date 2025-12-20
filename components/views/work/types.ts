@@ -1,10 +1,12 @@
 // Tipos do módulo Trabalho (WorkView)
 
+import type { PaceMode as StorePaceMode } from '../../../stores/work/trackingSlice';
+
 /** Status atual do dia de trabalho */
 export type WorkStatus = 'PRE_BREAK' | 'BREAK' | 'POST_BREAK' | 'FINISHED';
 
-/** Modo de cálculo de ritmo (10 ou 25 minutos) */
-export type PaceMode = '10m' | '25m';
+/** Modo de cálculo de ritmo (10 ou 25 minutos) - re-exportado do store */
+export type PaceMode = StorePaceMode;
 
 /** Metas de trabalho configuráveis */
 export interface WorkGoals {

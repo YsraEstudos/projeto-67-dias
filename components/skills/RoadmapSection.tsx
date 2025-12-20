@@ -1,6 +1,6 @@
 import React, { useState, Suspense } from 'react';
 import {
-    Bot, Plus, Sparkles, X, CheckCircle2, Circle,
+    Bot, Plus, X, CheckCircle2, Circle,
     Layers, Download, Maximize2, ListTodo, Map, Loader2
 } from 'lucide-react';
 import { SkillRoadmapItem, VisualRoadmap, RoadmapViewMode } from '../../types';
@@ -9,7 +9,7 @@ import { THEME_VARIANTS, ThemeKey } from './constants';
 
 // Lazy load heavy modals (~72KB combined) - loaded only when opened
 const ImportExportModal = React.lazy(() => import('./ImportExportModal').then(m => ({ default: m.ImportExportModal })));
-const AIRoadmapModal = React.lazy(() => import('./AIRoadmapModal').then(m => ({ default: m.AIRoadmapModal })));
+
 const FullRoadmapEditor = React.lazy(() => import('./FullRoadmapEditor').then(m => ({ default: m.FullRoadmapEditor })));
 const VisualRoadmapEditor = React.lazy(() => import('./VisualRoadmapEditor'));
 
@@ -41,7 +41,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     onUpdateVisual,
     onViewModeChange
 }) => {
-    const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+
     const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
     const [isVisualEditorOpen, setIsVisualEditorOpen] = useState(false);
     const [isImportExportOpen, setIsImportExportOpen] = useState(false);
@@ -57,10 +57,19 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     // Current mode
     const currentMode = viewMode || 'tasks';
 
-    // Roadmap Stats (for Tasks mode)
-    const roadmapTasks = roadmap.filter(i => i.type !== 'SECTION');
-    const completedTasks = roadmapTasks.filter(i => i.isCompleted).length;
-    const totalTasks = roadmapTasks.length;
+    // Flatten all tasks including subtasks for progress calculation
+    const flattenTasks = (items: SkillRoadmapItem[]): SkillRoadmapItem[] => {
+        return items.reduce<SkillRoadmapItem[]>((acc, item) => {
+            if (item.type === 'SECTION') return acc;
+            const subs = item.subTasks ? flattenTasks(item.subTasks) : [];
+            return [...acc, item, ...subs];
+        }, []);
+    };
+
+    // Roadmap Stats (for Tasks mode) - includes subtasks
+    const allTasks = flattenTasks(roadmap);
+    const completedTasks = allTasks.filter(i => i.isCompleted).length;
+    const totalTasks = allTasks.length;
     const roadmapProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     // Item Handlers
@@ -68,20 +77,23 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
         onUpdate(roadmap.map(i => i.id === itemId ? { ...i, isCompleted: !i.isCompleted } : i));
     };
 
+    // Subtask toggle with auto-complete parent logic
+    const toggleSubTask = (parentId: string, subTaskId: string) => {
+        onUpdate(roadmap.map(item => {
+            if (item.id !== parentId || !item.subTasks) return item;
+            const updatedSubs = item.subTasks.map(sub =>
+                sub.id === subTaskId ? { ...sub, isCompleted: !sub.isCompleted } : sub
+            );
+            const allSubsComplete = updatedSubs.every(s => s.isCompleted);
+            return { ...item, subTasks: updatedSubs, isCompleted: allSubsComplete };
+        }));
+    };
+
     const removeItem = (itemId: string) => {
         onUpdate(roadmap.filter(r => r.id !== itemId));
     };
 
-    const handleAIRoadmap = (items: string[]) => {
-        const newItems: SkillRoadmapItem[] = items.map((t, i) => ({
-            id: Date.now().toString() + i,
-            title: t,
-            isCompleted: false,
-            type: 'TASK'
-        }));
-        onUpdate([...roadmap, ...newItems]);
-        setIsAIModalOpen(false);
-    };
+
 
     // Manual Add Handlers
     const handleAddTask = () => {
@@ -216,12 +228,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                             >
                                 <Plus size={12} /> Tarefa
                             </button>
-                            <button
-                                onClick={() => setIsAIModalOpen(true)}
-                                className="text-xs bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg border border-purple-500/30 flex items-center gap-1 transition-colors"
-                            >
-                                <Sparkles size={12} /> Gerar com IA
-                            </button>
+
                         </>
                     ) : (
                         <>
@@ -258,8 +265,8 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                     <div className="flex-1 space-y-3 overflow-y-auto scrollbar-thin">
                         {roadmap.length === 0 && (
                             <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-60 min-h-[200px]">
-                                <Sparkles size={48} className="mb-4" />
-                                <p>Gere um plano de estudos com IA para começar.</p>
+                                <ListTodo size={48} className="mb-4" />
+                                <p>Adicione tarefas para montar seu plano de estudos.</p>
                             </div>
                         )}
 
@@ -316,13 +323,35 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                         </button>
                                     </div>
 
-                                    {/* Render Subtasks if any */}
+                                    {/* Render Subtasks if any - clickable with auto-complete */}
                                     {item.subTasks && item.subTasks.length > 0 && (
-                                        <div className="ml-8 pl-4 border-l border-slate-800 mt-2 space-y-2">
-                                            {item.subTasks.map((subTask, idx) => (
-                                                <div key={idx} className="flex items-start gap-2 py-1">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-700 mt-2" />
-                                                    <p className="text-xs text-slate-400 flex-1">{typeof subTask === 'string' ? subTask : subTask.title}</p>
+                                        <div className="ml-8 pl-4 border-l border-slate-700 mt-2 space-y-1">
+                                            {item.subTasks.map((subTask) => (
+                                                <div
+                                                    key={subTask.id}
+                                                    className={`flex items-center gap-2 py-1.5 px-2 cursor-pointer rounded-lg transition-all
+                                                        ${subTask.isCompleted
+                                                            ? 'opacity-50 bg-slate-900/30'
+                                                            : 'hover:bg-slate-800/50'}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSubTask(item.id, subTask.id);
+                                                    }}
+                                                >
+                                                    <button
+                                                        className={`transition-colors flex-shrink-0 ${subTask.isCompleted
+                                                            ? variants.checkbox
+                                                            : `text-slate-600 ${variants.hoverIcon}`}`}
+                                                    >
+                                                        {subTask.isCompleted
+                                                            ? <CheckCircle2 size={14} />
+                                                            : <Circle size={14} />}
+                                                    </button>
+                                                    <p className={`text-xs flex-1 ${subTask.isCompleted
+                                                        ? 'line-through text-slate-500'
+                                                        : 'text-slate-300'}`}>
+                                                        {typeof subTask === 'string' ? subTask : subTask.title}
+                                                    </p>
                                                 </div>
                                             ))}
                                         </div>
@@ -385,14 +414,6 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
 
             {/* Modals - Lazy loaded for performance */}
             <Suspense fallback={<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"><Loader2 className="animate-spin text-emerald-400" size={32} /></div>}>
-                {isAIModalOpen && (
-                    <AIRoadmapModal
-                        skillName={skillName}
-                        level={skillLevel}
-                        onClose={() => setIsAIModalOpen(false)}
-                        onGenerate={handleAIRoadmap}
-                    />
-                )}
 
                 {isImportExportOpen && (
                     <ImportExportModal

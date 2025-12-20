@@ -31,6 +31,12 @@ export interface SchedulerSlice {
     setSchedules: (schedules: DailyStudySchedule[]) => void;
     updateSchedule: (date: string, schedule: DailyStudySchedule) => void;
     toggleScheduleItem: (date: string, itemId: string) => void;
+    // Aliases for workStore compatibility
+    addStudySubject: (subject: StudySubject) => void;
+    updateStudySubject: (id: string, updates: Partial<StudySubject>) => void;
+    deleteStudySubject: (id: string) => void;
+    setStudySchedule: (date: string, schedule: DailyStudySchedule) => void;
+    clearStudySchedule: (date: string) => void;
 }
 
 export const createSchedulerSlice: StateCreator<
@@ -76,5 +82,30 @@ export const createSchedulerSlice: StateCreator<
                 )
             };
         })
+    })),
+
+    // Aliases for workStore compatibility
+    addStudySubject: (subject) => set((state) => ({
+        studySubjects: [...state.studySubjects, subject]
+    })),
+
+    updateStudySubject: (id, updates) => set((state) => ({
+        studySubjects: state.studySubjects.map(s =>
+            s.id === id ? { ...s, ...updates } : s
+        )
+    })),
+
+    deleteStudySubject: (id) => set((state) => ({
+        studySubjects: state.studySubjects.filter(s => s.id !== id)
+    })),
+
+    setStudySchedule: (date, schedule) => set((state) => ({
+        studySchedules: state.studySchedules.some(s => s.date === date)
+            ? state.studySchedules.map(s => s.date === date ? schedule : s)
+            : [...state.studySchedules, schedule]
+    })),
+
+    clearStudySchedule: (date) => set((state) => ({
+        studySchedules: state.studySchedules.filter(s => s.date !== date)
     })),
 });

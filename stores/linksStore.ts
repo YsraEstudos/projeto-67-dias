@@ -28,6 +28,8 @@ interface LinksState {
     deleteLink: (id: string) => void;
     incrementClickCount: (id: string) => void;
     reorderLinks: (links: LinkItem[]) => void;
+    addPromptToLink: (linkId: string, promptId: string) => void;
+    removePromptFromLink: (linkId: string, promptId: string) => void;
 
     setLoading: (loading: boolean) => void;
 
@@ -77,6 +79,33 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
         get()._syncToFirestore();
     },
 
+    addPromptToLink: (linkId, promptId) => {
+        set((state) => ({
+            links: state.links.map(l => {
+                if (l.id === linkId) {
+                    const currentIds = l.promptIds || [];
+                    if (!currentIds.includes(promptId)) {
+                        return { ...l, promptIds: [...currentIds, promptId] };
+                    }
+                }
+                return l;
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    removePromptFromLink: (linkId, promptId) => {
+        set((state) => ({
+            links: state.links.map(l => {
+                if (l.id === linkId) {
+                    return { ...l, promptIds: (l.promptIds || []).filter(id => id !== promptId) };
+                }
+                return l;
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
     setLoading: (loading) => set({ isLoading: loading }),
 
     _syncToFirestore: () => {
@@ -88,11 +117,20 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data) {
+            // Migrate promptId -> promptIds and category -> categoryId
+            const migratedLinks = (data.links || []).map((link: any) => ({
+                ...link,
+                promptIds: link.promptIds ?? (link.promptId ? [link.promptId] : []),
+                categoryId: link.categoryId ?? (link.category === 'PERSONAL' ? 'personal' : link.category === 'GENERAL' ? 'general' : link.category || 'personal'),
+                promptId: undefined // Remove deprecated field
+            }));
             set({
-                links: deduplicateById(data.links || []),
+                links: deduplicateById(migratedLinks),
                 isLoading: false,
                 _initialized: true
             });
+            // Persist migration
+            get()._syncToFirestore();
         } else {
             set({ isLoading: false, _initialized: true });
         }
@@ -115,5 +153,7 @@ export const useLinkActions = () => useLinksStore(
         incrementClickCount: state.incrementClickCount,
         reorderLinks: state.reorderLinks,
         setLinks: state.setLinks,
+        addPromptToLink: state.addPromptToLink,
+        removePromptFromLink: state.removePromptFromLink,
     }))
 );

@@ -16,19 +16,7 @@ vi.mock('../../../components/skills/ImportExportModal', () => ({
     )
 }));
 
-// AI Modal - note: handleAIRoadmap in RoadmapSection expects string[] but actually receives objects from AIRoadmapModal
-// The real modal passes objects with {title, subTasks}, but the handler maps t (the object) directly to title
-// This is a bug in the production code - we mock it to match the bug behavior for testing
-vi.mock('../../../components/skills/AIRoadmapModal', () => ({
-    AIRoadmapModal: ({ onClose, onGenerate }: { onClose: () => void; onGenerate: (items: any[]) => void }) => (
-        <div data-testid="ai-roadmap-modal">
-            <button onClick={onClose}>Close AI</button>
-            <button onClick={() => onGenerate(['AI Task 1', 'AI Task 2'])}>
-                Generate AI
-            </button>
-        </div>
-    )
-}));
+
 
 vi.mock('../../../components/skills/FullRoadmapEditor', () => ({
     FullRoadmapEditor: ({ onClose, onSave, roadmap }: {
@@ -62,18 +50,17 @@ vi.mock('../../../components/skills/VisualRoadmapView', () => ({
     )
 }));
 
-// Sample roadmap data - subTasks are rendered as {subTask} in RoadmapSection
-// Per the types.ts, subTasks should be SkillRoadmapItem[] but component renders them directly as strings
-// Using strings here to match actual component rendering behavior  
+// Sample roadmap data - subTasks are now clickable SkillRoadmapItem objects
+// with id and isCompleted for proper toggle functionality
 const createMockRoadmap = (): SkillRoadmapItem[] => [
     { id: 'section-1', title: 'FUNDAMENTOS', isCompleted: false, type: 'SECTION' },
     { id: 'task-1', title: 'Aprender conceitos básicos', isCompleted: false, type: 'TASK' },
     { id: 'task-2', title: 'Praticar exercícios', isCompleted: true, type: 'TASK' },
     {
         id: 'task-3', title: 'Task com subs', isCompleted: false, type: 'TASK', subTasks: [
-            'Sub-tarefa A',
-            'Sub-tarefa B'
-        ] as any
+            { id: 'sub-1', title: 'Sub-tarefa A', isCompleted: false, type: 'TASK' },
+            { id: 'sub-2', title: 'Sub-tarefa B', isCompleted: true, type: 'TASK' }
+        ]
     }
 ];
 
@@ -119,7 +106,7 @@ describe('RoadmapSection Component', () => {
         expect(screen.getByText('Sub-tarefa B')).toBeInTheDocument();
     });
 
-    it('calculates progress correctly (excluding SECTIONs)', () => {
+    it('calculates progress correctly (including subtasks, excluding SECTIONs)', () => {
         render(
             <RoadmapSection
                 roadmap={createMockRoadmap()}
@@ -130,9 +117,11 @@ describe('RoadmapSection Component', () => {
             />
         );
 
-        // 1 of 3 tasks completed = 33%
-        expect(screen.getByText('1 / 3')).toBeInTheDocument();
-        expect(screen.getByText('33% Completo')).toBeInTheDocument();
+        // 3 parent tasks + 2 subtasks = 5 total tasks
+        // Completed: task-2 (true) + sub-2 (true) = 2 completed
+        // Progress: 2/5 = 40%
+        expect(screen.getByText('2 / 5')).toBeInTheDocument();
+        expect(screen.getByText('40% Completo')).toBeInTheDocument();
     });
 
     it('toggles task completion', () => {
@@ -158,6 +147,120 @@ describe('RoadmapSection Component', () => {
         expect(mockOnUpdate).toHaveBeenCalledWith(expect.arrayContaining([
             expect.objectContaining({ id: 'task-1', isCompleted: true })
         ]));
+    });
+
+    it('toggles subtask completion when clicked', () => {
+        render(
+            <RoadmapSection
+                roadmap={createMockRoadmap()}
+                skillName="Python"
+                skillLevel="Intermediário"
+                skillColorTheme="emerald"
+                onUpdate={mockOnUpdate}
+            />
+        );
+
+        // Find subtask and click it
+        const subTaskText = screen.getByText('Sub-tarefa A');
+        const subTaskContainer = subTaskText.closest('div[class*="cursor-pointer"]');
+
+        if (subTaskContainer) {
+            fireEvent.click(subTaskContainer);
+        }
+
+        // Subtask should be toggled
+        expect(mockOnUpdate).toHaveBeenCalledWith(expect.arrayContaining([
+            expect.objectContaining({
+                id: 'task-3',
+                subTasks: expect.arrayContaining([
+                    expect.objectContaining({ id: 'sub-1', isCompleted: true })
+                ])
+            })
+        ]));
+    });
+
+    it('auto-completes parent task when all subtasks are completed', () => {
+        // Create roadmap where all subtasks will be complete after toggle
+        const roadmapWithOneSubLeft: SkillRoadmapItem[] = [
+            {
+                id: 'task-1', title: 'Parent Task', isCompleted: false, type: 'TASK', subTasks: [
+                    { id: 'sub-1', title: 'Sub 1', isCompleted: true, type: 'TASK' },
+                    { id: 'sub-2', title: 'Sub 2', isCompleted: false, type: 'TASK' }
+                ]
+            }
+        ];
+
+        render(
+            <RoadmapSection
+                roadmap={roadmapWithOneSubLeft}
+                skillName="Python"
+                skillLevel="Intermediário"
+                skillColorTheme="emerald"
+                onUpdate={mockOnUpdate}
+            />
+        );
+
+        // Click the incomplete subtask
+        const subTaskText = screen.getByText('Sub 2');
+        const subTaskContainer = subTaskText.closest('div[class*="cursor-pointer"]');
+
+        if (subTaskContainer) {
+            fireEvent.click(subTaskContainer);
+        }
+
+        // Parent should now be auto-completed
+        expect(mockOnUpdate).toHaveBeenCalledWith([
+            expect.objectContaining({
+                id: 'task-1',
+                isCompleted: true, // Auto-completed!
+                subTasks: expect.arrayContaining([
+                    expect.objectContaining({ id: 'sub-1', isCompleted: true }),
+                    expect.objectContaining({ id: 'sub-2', isCompleted: true })
+                ])
+            })
+        ]);
+    });
+
+    it('uncompletes parent task when a subtask is unchecked', () => {
+        // Create roadmap where parent is complete and all subs are complete
+        const roadmapAllComplete: SkillRoadmapItem[] = [
+            {
+                id: 'task-1', title: 'Parent Task', isCompleted: true, type: 'TASK', subTasks: [
+                    { id: 'sub-1', title: 'Sub 1', isCompleted: true, type: 'TASK' },
+                    { id: 'sub-2', title: 'Sub 2', isCompleted: true, type: 'TASK' }
+                ]
+            }
+        ];
+
+        render(
+            <RoadmapSection
+                roadmap={roadmapAllComplete}
+                skillName="Python"
+                skillLevel="Intermediário"
+                skillColorTheme="emerald"
+                onUpdate={mockOnUpdate}
+            />
+        );
+
+        // Click to uncheck a subtask
+        const subTaskText = screen.getByText('Sub 1');
+        const subTaskContainer = subTaskText.closest('div[class*="cursor-pointer"]');
+
+        if (subTaskContainer) {
+            fireEvent.click(subTaskContainer);
+        }
+
+        // Parent should now be uncompleted
+        expect(mockOnUpdate).toHaveBeenCalledWith([
+            expect.objectContaining({
+                id: 'task-1',
+                isCompleted: false, // Auto-uncompleted!
+                subTasks: expect.arrayContaining([
+                    expect.objectContaining({ id: 'sub-1', isCompleted: false }),
+                    expect.objectContaining({ id: 'sub-2', isCompleted: true })
+                ])
+            })
+        ]);
     });
 
     it('adds manual task', async () => {
@@ -217,45 +320,6 @@ describe('RoadmapSection Component', () => {
 
     // --- MODAL INTEGRATION TESTS ---
 
-    it('opens AI Roadmap modal', async () => {
-        render(
-            <RoadmapSection
-                roadmap={createMockRoadmap()}
-                skillName="Python"
-                skillLevel="Intermediário"
-                skillColorTheme="emerald"
-                onUpdate={mockOnUpdate}
-            />
-        );
-
-        fireEvent.click(screen.getByText('Gerar com IA'));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('ai-roadmap-modal')).toBeInTheDocument();
-        });
-    });
-
-    it('applies AI generated items to roadmap', async () => {
-        render(
-            <RoadmapSection
-                roadmap={[]}
-                skillName="Python"
-                skillLevel="Intermediário"
-                skillColorTheme="emerald"
-                onUpdate={mockOnUpdate}
-            />
-        );
-
-        fireEvent.click(screen.getByText('Gerar com IA'));
-        await waitFor(() => {
-            fireEvent.click(screen.getByText('Generate AI'));
-        });
-
-        expect(mockOnUpdate).toHaveBeenCalledWith(expect.arrayContaining([
-            expect.objectContaining({ title: 'AI Task 1', type: 'TASK' }),
-            expect.objectContaining({ title: 'AI Task 2', type: 'TASK' })
-        ]));
-    });
 
     it('opens FullRoadmapEditor modal', async () => {
         render(
@@ -348,7 +412,7 @@ describe('RoadmapSection Component', () => {
             />
         );
 
-        expect(screen.getByText('Gere um plano de estudos com IA para começar.')).toBeInTheDocument();
+        expect(screen.getByText('Adicione tarefas para montar seu plano de estudos.')).toBeInTheDocument();
     });
 
     it('shows 0% progress with empty roadmap', () => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { X, Plus, CalendarClock } from 'lucide-react';
 import { Skill } from '../../types';
 import { ThemeKey } from './constants';
@@ -6,6 +6,7 @@ import { ThemePicker } from './ThemePicker';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { skillSchema, SkillFormData } from '../../schemas';
+import { useConfigStore } from '../../stores/configStore';
 
 interface CreateSkillModalProps {
     onClose: () => void;
@@ -13,6 +14,15 @@ interface CreateSkillModalProps {
 }
 
 export const CreateSkillModal: React.FC<CreateSkillModalProps> = ({ onClose, onCreate }) => {
+    const { config } = useConfigStore();
+
+    // Calculate default deadline: startDate + 67 days
+    const defaultDeadline = useMemo(() => {
+        const startDate = new Date(config.startDate);
+        startDate.setDate(startDate.getDate() + 67);
+        return startDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    }, [config.startDate]);
+
     const {
         register,
         handleSubmit,
@@ -25,7 +35,7 @@ export const CreateSkillModal: React.FC<CreateSkillModalProps> = ({ onClose, onC
             level: 'Iniciante',
             goalHours: 20,
             theme: 'emerald',
-            deadline: ''
+            deadline: defaultDeadline
         }
     });
 

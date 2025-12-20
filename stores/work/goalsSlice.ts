@@ -24,6 +24,8 @@ export const DEFAULT_GOALS: WorkGoals = {
 export interface GoalsSlice {
     goals: WorkGoals;
     setGoals: (goals: Partial<WorkGoals>) => void;
+    updateGoal: (key: keyof WorkGoals, value: number) => void;
+    resetGoals: () => void;
 }
 
 export const createGoalsSlice: StateCreator<
@@ -37,4 +39,10 @@ export const createGoalsSlice: StateCreator<
     setGoals: (updates) => set((state) => ({
         goals: { ...state.goals, ...updates }
     })),
+
+    updateGoal: (key, value) => set((state) => ({
+        goals: { ...state.goals, [key]: value }
+    })),
+
+    resetGoals: () => set({ goals: DEFAULT_GOALS }),
 });

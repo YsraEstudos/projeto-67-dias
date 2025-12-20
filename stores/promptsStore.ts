@@ -29,6 +29,7 @@ interface PromptsState {
     deletePrompt: (id: string) => void;
     incrementCopyCount: (id: string) => void;
     toggleFavorite: (id: string) => void;
+    reorderPrompts: (categoryId: string, reorderedPrompts: Prompt[]) => void;
     initializeDefaults: () => void;
 
     setCategories: (categories: PromptCategory[]) => void;
@@ -56,7 +57,14 @@ export const usePromptsStore = create<PromptsState>()((set, get) => ({
     },
 
     addPrompt: (prompt) => {
-        set((state) => ({ prompts: [...state.prompts, prompt] }));
+        const state = get();
+        // Auto-calculate order within category
+        const categoryPrompts = state.prompts.filter(p => p.category === prompt.category);
+        const maxOrder = categoryPrompts.length > 0
+            ? Math.max(...categoryPrompts.map(p => p.order ?? 0))
+            : -1;
+        const promptWithOrder = { ...prompt, order: maxOrder + 1 };
+        set({ prompts: [...state.prompts, promptWithOrder] });
         get()._syncToFirestore();
     },
 
@@ -89,6 +97,18 @@ export const usePromptsStore = create<PromptsState>()((set, get) => ({
                 p.id === id ? { ...p, isFavorite: !p.isFavorite } : p
             )
         }));
+        get()._syncToFirestore();
+    },
+
+    reorderPrompts: (categoryId, reorderedPrompts) => {
+        set((state) => {
+            // Get IDs of reordered prompts for quick lookup
+            const reorderedIds = new Set(reorderedPrompts.map(p => p.id));
+            // Keep prompts from other categories unchanged
+            const otherPrompts = state.prompts.filter(p => !reorderedIds.has(p.id));
+            // Merge with reordered prompts (which have updated order)
+            return { prompts: [...otherPrompts, ...reorderedPrompts] };
+        });
         get()._syncToFirestore();
     },
 

@@ -1,26 +1,38 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Clock, Edit2, Timer, CalendarClock } from 'lucide-react';
 import { Skill, SkillGoalType } from '../../types';
 import { useEditableField } from '../../hooks/useEditableField';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { THEME_VARIANTS, ThemeKey } from './constants';
 import { GoalTypeSelector } from './GoalTypeSelector';
-import { calculateDailyRequirement } from '../../utils/skillPrediction';
+import { calculateDailyRequirement, calculateDailyPlan } from '../../utils/skillPrediction';
 
 interface ProgressStatsProps {
     skill: Skill;
     onAddSession: (minutes: number) => void;
     onUpdateGoal: (goalMinutes: number) => void;
     onUpdateGoalType: (goalType: SkillGoalType) => void;
+    onUpdateDeadline?: (deadline: string | undefined) => void;
 }
 
 /**
  * Progress statistics component showing current progress, remaining hours/pomodoros,
  * session count, and editable goal.
  */
-export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSession, onUpdateGoal, onUpdateGoalType }) => {
-    const { addPomodoro } = useSkillsStore();
+export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSession, onUpdateGoal, onUpdateGoalType, onUpdateDeadline }) => {
+    const { addPomodoro, updateSkill } = useSkillsStore();
     const isPomodoro = skill.goalType === 'POMODOROS';
+
+    // Auto-sync goalPomodoros if it doesn't match goalMinutes
+    useEffect(() => {
+        const expectedPomodoros = Math.ceil(skill.goalMinutes / 25);
+        const currentPomodoros = skill.goalPomodoros || 0;
+
+        // If there's a significant mismatch, auto-fix it
+        if (Math.abs(expectedPomodoros - currentPomodoros) > 1 && skill.goalMinutes > 0) {
+            updateSkill(skill.id, { goalPomodoros: expectedPomodoros });
+        }
+    }, [skill.id, skill.goalMinutes, skill.goalPomodoros, updateSkill]);
 
     // Calculate progress based on goal type
     const percentage = isPomodoro
@@ -29,6 +41,54 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
 
     const remainingHours = Math.max(0, (skill.goalMinutes - skill.currentMinutes) / 60);
     const remainingPomodoros = Math.max(0, (skill.goalPomodoros || 0) - (skill.pomodorosCompleted || 0));
+
+    // Memoized daily prediction - only recalculates when relevant skill fields change
+    const prediction = useMemo(() => calculateDailyRequirement(skill), [
+        skill.deadline,
+        skill.goalType,
+        skill.goalMinutes,
+        skill.currentMinutes,
+        skill.goalPomodoros,
+        skill.pomodorosCompleted
+    ]);
+
+    // Memoized exponential daily plan - for phase-aware predictions
+    const dailyPlan = useMemo(() => {
+        if (skill.distributionType !== 'EXPONENTIAL') return null;
+        return calculateDailyPlan(skill);
+    }, [
+        skill.deadline,
+        skill.goalType,
+        skill.goalMinutes,
+        skill.currentMinutes,
+        skill.goalPomodoros,
+        skill.pomodorosCompleted,
+        skill.distributionType,
+        skill.exponentialIntensity,
+        skill.excludedDays
+    ]);
+
+    // Get today's plan from exponential distribution
+    const todayPlan = useMemo(() => {
+        if (!dailyPlan || dailyPlan.isExpired || dailyPlan.items.length === 0) return null;
+        const today = new Date().toISOString().split('T')[0];
+        return dailyPlan.items.find(item => item.date === today) || dailyPlan.items[0];
+    }, [dailyPlan]);
+
+    // Get current phase info
+    const currentPhase = useMemo(() => {
+        if (!dailyPlan || dailyPlan.phases.length === 0 || !todayPlan) return null;
+        const today = new Date().toISOString().split('T')[0];
+        const todayIndex = dailyPlan.items.filter(i => !i.isExcluded).findIndex(i => i.date === today);
+        if (todayIndex === -1) return dailyPlan.phases[0];
+        
+        for (const phase of dailyPlan.phases) {
+            if (todayIndex >= phase.startDay - 1 && todayIndex < phase.endDay) {
+                return phase;
+            }
+        }
+        return dailyPlan.phases[dailyPlan.phases.length - 1];
+    }, [dailyPlan, todayPlan]);
 
     const theme = skill.colorTheme as ThemeKey || 'emerald';
     const variants = THEME_VARIANTS[theme];
@@ -145,41 +205,85 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
             </div>
 
             {/* Daily Prediction - mostra quando skill tem deadline */}
-            {(() => {
-                const prediction = calculateDailyRequirement(skill);
-                if (!prediction) return null;
-
-                return (
-                    <div className="mt-3 p-3 bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl border border-slate-700">
-                        <div className="flex items-center gap-2 mb-2">
-                            <CalendarClock size={14} className={variants.text} />
-                            <span className="text-xs text-slate-500 uppercase">Previsão Diária</span>
-                        </div>
-                        {prediction.isExpired ? (
-                            <div className="text-center text-red-400 font-medium text-sm">
-                                ⚠️ Prazo expirado!
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className={`text-xl font-bold ${variants.text}`}>
-                                        {isPomodoro
-                                            ? `${prediction.pomodorosPerDay} 🍅/dia`
-                                            : `${prediction.hoursPerDay.toFixed(1)}h/dia`
-                                        }
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                        para terminar em {prediction.remainingDays} dia{prediction.remainingDays !== 1 ? 's' : ''}
-                                    </div>
-                                </div>
-                                <div className="text-right text-xs text-slate-600">
-                                    Deadline: {new Date(skill.deadline!).toLocaleDateString('pt-BR')}
-                                </div>
-                            </div>
+            {prediction && (
+                <div className="mt-3 p-3 bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl border border-slate-700">
+                    <div className="flex items-center gap-2 mb-2">
+                        <CalendarClock size={14} className={variants.text} />
+                        <span className="text-xs text-slate-500 uppercase">Previsão Diária</span>
+                        {currentPhase && (
+                            <span className="text-xs bg-slate-700 px-2 py-0.5 rounded-full text-slate-300">
+                                {currentPhase.emoji} {currentPhase.name}
+                            </span>
                         )}
                     </div>
-                );
-            })()}
+                    {prediction.isExpired ? (
+                        <div className="text-center text-red-400 font-medium text-sm">
+                            ⚠️ Prazo expirado!
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className={`text-xl font-bold ${variants.text}`}>
+                                    {/* Use exponential plan for today if available, otherwise use linear average */}
+                                    {todayPlan && !todayPlan.isExcluded ? (
+                                        isPomodoro
+                                            ? `${Math.ceil(todayPlan.minutes / 25)} 🍅/dia`
+                                            : `${(todayPlan.minutes / 60).toFixed(1)}h/dia`
+                                    ) : (
+                                        isPomodoro
+                                            ? `${prediction.pomodorosPerDay} 🍅/dia`
+                                            : `${prediction.hoursPerDay.toFixed(1)}h/dia`
+                                    )}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                    {todayPlan && currentPhase ? (
+                                        <>
+                                            {todayPlan.percentOfAverage}% da média • Fase {currentPhase.name}
+                                        </>
+                                    ) : (
+                                        <>para terminar em {prediction.remainingDays} dia{prediction.remainingDays !== 1 ? 's' : ''}</>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-right text-xs text-slate-600">
+                                Deadline: {new Date(skill.deadline!).toLocaleDateString('pt-BR')}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Deadline Editor */}
+            {onUpdateDeadline && (
+                <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-700">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <CalendarClock size={14} className="text-amber-400" />
+                            <span className="text-xs text-slate-500 uppercase font-bold">Deadline</span>
+                        </div>
+                        {skill.deadline && (
+                            <button
+                                onClick={() => onUpdateDeadline(undefined)}
+                                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                            >
+                                Remover
+                            </button>
+                        )}
+                    </div>
+                    <input
+                        type="date"
+                        value={skill.deadline || ''}
+                        onChange={(e) => onUpdateDeadline(e.target.value || undefined)}
+                        className="w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 outline-none transition-colors"
+                        min={new Date().toISOString().split('T')[0]}
+                    />
+                    {!skill.deadline && (
+                        <p className="text-xs text-slate-500 mt-1">
+                            Defina uma data para calcular estudo diário
+                        </p>
+                    )}
+                </div>
+            )}
 
             {isPomodoro ? (
                 <button

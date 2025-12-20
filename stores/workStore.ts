@@ -67,6 +67,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         addSession: withSync(sessionsSlice.addSession),
         updateSession: withSync(sessionsSlice.updateSession),
         deleteSession: withSync(sessionsSlice.deleteSession),
+        clearHistory: withSync(sessionsSlice.clearHistory),
 
         // Goals slice - wrap mutating actions
         goals: goalsSlice.goals,
@@ -77,6 +78,14 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         // Scheduler slice - wrap mutating actions
         studySubjects: schedulerSlice.studySubjects,
         studySchedules: schedulerSlice.studySchedules,
+        setStudySubjects: withSync(schedulerSlice.setStudySubjects),
+        addSubject: withSync(schedulerSlice.addSubject),
+        updateSubject: withSync(schedulerSlice.updateSubject),
+        deleteSubject: withSync(schedulerSlice.deleteSubject),
+        setSchedules: withSync(schedulerSlice.setSchedules),
+        updateSchedule: withSync(schedulerSlice.updateSchedule),
+        toggleScheduleItem: withSync(schedulerSlice.toggleScheduleItem),
+        // Aliases
         addStudySubject: withSync(schedulerSlice.addStudySubject),
         updateStudySubject: withSync(schedulerSlice.updateStudySubject),
         deleteStudySubject: withSync(schedulerSlice.deleteStudySubject),
@@ -95,6 +104,11 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         setCurrentCount: withSync(trackingSlice.setCurrentCount),
         setGoal: withSync(trackingSlice.setGoal),
         setPreBreakCount: withSync(trackingSlice.setPreBreakCount),
+        incrementCount: withSync(trackingSlice.incrementCount),
+        decrementCount: withSync(trackingSlice.decrementCount),
+        setStartTime: withSync(trackingSlice.setStartTime),
+        setEndTime: withSync(trackingSlice.setEndTime),
+        setBreakTime: withSync(trackingSlice.setBreakTime),
         setTimeConfig: withSync(trackingSlice.setTimeConfig),
         setPaceMode: withSync(trackingSlice.setPaceMode),
         setLoading: trackingSlice.setLoading, // Don't sync loading state
@@ -152,14 +166,14 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 history: [],
                 goals: goalsSlice.goals,
                 studySubjects: [],
-                studySchedules: {},
+                studySchedules: [],
                 currentCount: 0,
                 goal: 4,
                 preBreakCount: 0,
                 startTime: '08:00',
                 endTime: '22:00',
-                breakTime: 10,
-                paceMode: 'NORMAL',
+                breakTime: '12:00',
+                paceMode: '10m',
                 isLoading: true,
                 _initialized: false,
             });

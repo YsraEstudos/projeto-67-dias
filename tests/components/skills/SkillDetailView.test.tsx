@@ -13,14 +13,7 @@ vi.mock('../../../components/skills/ImportExportModal', () => ({
     )
 }));
 
-vi.mock('../../../components/skills/AIRoadmapModal', () => ({
-    AIRoadmapModal: ({ onClose, onGenerate }: { onClose: () => void; onGenerate: (items: string[]) => void }) => (
-        <div data-testid="ai-roadmap-modal">
-            <button onClick={onClose}>Close AI Modal</button>
-            <button onClick={() => onGenerate(['Tarefa 1', 'Tarefa 2'])}>Generate</button>
-        </div>
-    )
-}));
+
 
 vi.mock('../../../components/skills/FullRoadmapEditor', () => ({
     FullRoadmapEditor: ({ onClose }: { onClose: () => void }) => (
@@ -56,7 +49,7 @@ const createMockSkill = (overrides: Partial<Skill> = {}): Skill => ({
 
 // Mock prompts and categories data
 const mockPrompts: Prompt[] = [
-    { id: 'p1', title: 'Prompt Test', content: 'Test content', category: 'c1', images: [], copyCount: 0, isFavorite: false, createdAt: Date.now(), updatedAt: Date.now() }
+    { id: 'p1', title: 'Prompt Test', content: 'Test content', category: 'c1', images: [], copyCount: 0, isFavorite: false, order: 0, createdAt: Date.now(), updatedAt: Date.now() }
 ];
 
 const mockPromptCategories: PromptCategory[] = [
@@ -374,7 +367,7 @@ describe('SkillDetailView Component', () => {
             />
         );
 
-        expect(screen.getByText('Gere um plano de estudos com IA para começar.')).toBeInTheDocument();
+        expect(screen.getByText('Adicione tarefas para montar seu plano de estudos.')).toBeInTheDocument();
     });
 
     it('shows empty state for empty resources', () => {
@@ -453,23 +446,7 @@ describe('SkillDetailView Component', () => {
         expect(screen.getByText('50% Completo')).toBeInTheDocument();
     });
 
-    it('opens AI Roadmap modal', async () => {
-        const skill = createMockSkill();
-        render(
-            <SkillDetailView
-                skill={skill}
-                onBack={mockOnBack}
-                onUpdate={mockOnUpdate}
-                onDelete={mockOnDelete}
-                {...defaultProps}
-            />
-        );
 
-        fireEvent.click(screen.getByText('Gerar com IA'));
-        await waitFor(() => {
-            expect(screen.getByTestId('ai-roadmap-modal')).toBeInTheDocument();
-        });
-    });
 
     it('opens Import/Export modal', async () => {
         const skill = createMockSkill();

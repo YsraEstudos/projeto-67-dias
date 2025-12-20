@@ -186,3 +186,13 @@ if (typeof window !== 'undefined') {
         }
     });
 }
+
+/**
+ * RESET STATE FOR TESTING ONLY
+ */
+export const __resetForTesting = () => {
+    writeTimeouts.forEach(({ timeout }) => clearTimeout(timeout));
+    writeTimeouts.clear();
+    pendingWriteCount = 0;
+    pendingWriteListeners.length = 0;
+};

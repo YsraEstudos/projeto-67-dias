@@ -203,6 +203,17 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         }
     }, [deleteTag]);
 
+    const handleTogglePin = useCallback((id: string) => {
+        const note = notes.find((n) => n.id === id);
+        if (!note) return;
+        updateNote(id, {
+            ...note,
+            isPinned: !note.isPinned,
+            // Option B: Keep pinnedToTags even when unpinning (memory)
+            updatedAt: Date.now(),
+        });
+    }, [notes, updateNote]);
+
 
     const openCreateModal = useCallback(() => setIsCreating(true), []);
     const closeEditor = useCallback(() => {
@@ -347,6 +358,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                                     onClick={setEditingNote}
                                                     onDelete={handleDeleteNote}
                                                     onDuplicate={handleDuplicateNote}
+                                                    onTogglePin={handleTogglePin}
                                                     availableTags={tags}
                                                 />
                                             </div>
@@ -393,6 +405,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                 onClick={setEditingNote}
                                 onDelete={handleDeleteNote}
                                 onDuplicate={handleDuplicateNote}
+                                onTogglePin={handleTogglePin}
                                 availableTags={tags}
                             />
                         ))}

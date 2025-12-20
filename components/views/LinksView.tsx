@@ -1,25 +1,26 @@
 import React, { useState, useMemo, Suspense, useCallback } from 'react';
 import {
-   Globe, Search, Plus, X, Layout, LayoutGrid, Sparkles
+   Globe, Search, Plus, X, Sparkles, FolderPlus, MoreVertical, Trash2, Edit2
 } from 'lucide-react';
 import LinkCard from '../links/LinkCard';
-import { LinkItem, Prompt, PromptCategory } from '../../types';
+import { LinkItem, SiteCategory } from '../../types';
 import { useLinks, useLinkActions } from '../../stores/linksStore';
-import { usePromptsStore } from '../../stores';
-import { PromptSelectorModal } from '../skills/PromptSelectorModal';
+import { usePromptsStore, useSiteCategories, useSiteCategoryActions } from '../../stores';
 import { PromptPreviewModal } from '../skills/PromptPreviewModal';
+import { siteIcons, siteColorClasses } from '../links/SiteCategoryModal';
 
 // Lazy load Components
 const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
 const LinkModal = React.lazy(() => import('../links/LinkModal'));
+const SiteCategoryModal = React.lazy(() => import('../links/SiteCategoryModal'));
 
-// --- MOCK DATA ---
-const INITIAL_LINKS: LinkItem[] = [
-   { id: '1', title: 'Meu Portfolio', url: 'https://github.com', category: 'PERSONAL', clickCount: 12, order: 0 },
-   { id: '2', title: 'Projeto React', url: 'https://react.dev', category: 'PERSONAL', clickCount: 5, order: 1 },
-   { id: '3', title: 'Google', url: 'https://google.com', category: 'GENERAL', clickCount: 42, order: 0 },
-   { id: '4', title: 'YouTube', url: 'https://youtube.com', category: 'GENERAL', clickCount: 150, order: 1 },
-   { id: '5', title: 'ChatGPT', url: 'https://chat.openai.com', category: 'GENERAL', clickCount: 89, order: 2 },
+// --- MOCK DATA (deprecated - data comes from store now) ---
+const _INITIAL_LINKS: LinkItem[] = [
+   { id: '1', title: 'Meu Portfolio', url: 'https://github.com', categoryId: 'personal', clickCount: 12, order: 0, promptIds: [] },
+   { id: '2', title: 'Projeto React', url: 'https://react.dev', categoryId: 'personal', clickCount: 5, order: 1, promptIds: [] },
+   { id: '3', title: 'Google', url: 'https://google.com', categoryId: 'general', clickCount: 42, order: 0, promptIds: [] },
+   { id: '4', title: 'YouTube', url: 'https://youtube.com', categoryId: 'general', clickCount: 150, order: 1, promptIds: [] },
+   { id: '5', title: 'ChatGPT', url: 'https://chat.openai.com', categoryId: 'general', clickCount: 89, order: 2, promptIds: [] },
 ];
 
 const formatUrl = (url: string) => {
@@ -36,10 +37,17 @@ const LinksView: React.FC = () => {
    const links = useLinks();
    const { addLink, updateLink, deleteLink: removeLink, incrementClickCount, reorderLinks } = useLinkActions();
    const { prompts, categories: promptCategories } = usePromptsStore();
+   const siteCategories = useSiteCategories();
+   const { addCategory: addSiteCategory, updateCategory: updateSiteCategory, deleteCategory: deleteSiteCategory } = useSiteCategoryActions();
 
    const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts'>('links');
-   const [activeTab, setActiveTab] = useState<'PERSONAL' | 'GENERAL'>('PERSONAL');
+   const [activeTab, setActiveTab] = useState(siteCategories[0]?.id || 'personal');
    const [searchQuery, setSearchQuery] = useState('');
+
+   // Site Category Modal State
+   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+   const [editingCategory, setEditingCategory] = useState<SiteCategory | null>(null);
+   const [categoryMenuOpen, setCategoryMenuOpen] = useState<string | null>(null);
 
    // Modal State
    const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,9 +70,10 @@ const LinksView: React.FC = () => {
             id: Date.now().toString(),
             title: data.title || 'Novo Link',
             url: formatUrl(data.url || ''),
-            category: activeTab, // This depends on activeTab, so it will update when tab changes
+            categoryId: activeTab,
             clickCount: 0,
-            order: links.filter(l => l.category === activeTab).length,
+            order: links.filter(l => l.categoryId === activeTab).length,
+            promptIds: [],
             ...data
          } as LinkItem;
          addLink(newLink);
@@ -102,7 +111,7 @@ const LinksView: React.FC = () => {
 
    const handleDragOver = useCallback((e: React.DragEvent, targetItem: LinkItem) => {
       e.preventDefault();
-      if (!draggedItem || draggedItem.id === targetItem.id || draggedItem.category !== targetItem.category) return;
+      if (!draggedItem || draggedItem.id === targetItem.id || draggedItem.categoryId !== targetItem.categoryId) return;
 
       // Reorder logic using Zustand
       const newList = [...links];
@@ -115,10 +124,10 @@ const LinksView: React.FC = () => {
       newList.splice(targetIndex, 0, draggedItem);
 
       // Update order property ONLY for items in the same category
-      const category = draggedItem.category;
+      const categoryId = draggedItem.categoryId;
       let orderIndex = 0;
       const reorderedList = newList.map(item => {
-         if (item.category === category) {
+         if (item.categoryId === categoryId) {
             return { ...item, order: orderIndex++ };
          }
          return item;
@@ -143,11 +152,17 @@ const LinksView: React.FC = () => {
    // Prompt Helpers
    const getPromptById = (promptId: string) => prompts.find(p => p.id === promptId);
    const getCategoryById = (catId: string) => promptCategories.find(c => c.id === catId);
+   const getLinkedPrompts = useCallback((link: LinkItem) => {
+      if (!link.promptIds || link.promptIds.length === 0) return [];
+      return link.promptIds
+         .map(id => prompts.find(p => p.id === id))
+         .filter((p): p is typeof prompts[number] => !!p);
+   }, [prompts]);
 
    // Filtering
    const filteredLinks = useMemo(() => {
       return links
-         .filter(l => l.category === activeTab)
+         .filter(l => l.categoryId === activeTab)
          .filter(l =>
             searchQuery
                ? l.title.toLowerCase().includes(searchQuery.toLowerCase()) || l.url.toLowerCase().includes(searchQuery.toLowerCase())
@@ -218,18 +233,67 @@ const LinksView: React.FC = () => {
                </div>
 
                {/* LINK CATEGORY TABS */}
-               <div className="flex bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700 mb-8 w-full max-w-md">
+               <div className="flex flex-wrap gap-2 mb-8">
+                  {siteCategories.map(cat => {
+                     const isActive = activeTab === cat.id;
+                     const IconComponent = siteIcons[cat.icon];
+                     const linkCount = links.filter(l => l.categoryId === cat.id).length;
+
+                     return (
+                        <div key={cat.id} className="relative">
+                           <button
+                              onClick={() => setActiveTab(cat.id)}
+                              className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isActive
+                                 ? 'bg-indigo-600 text-white shadow-md'
+                                 : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700'
+                                 }`}
+                           >
+                              {IconComponent}
+                              {cat.name}
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-indigo-500' : 'bg-slate-700'}`}>
+                                 {linkCount}
+                              </span>
+                           </button>
+
+                           {/* Context menu button for non-default categories */}
+                           {!cat.isDefault && (
+                              <button
+                                 onClick={(e) => { e.stopPropagation(); setCategoryMenuOpen(categoryMenuOpen === cat.id ? null : cat.id); }}
+                                 className="absolute -top-1 -right-1 p-1 bg-slate-700 rounded-full opacity-0 group-hover:opacity-100 hover:bg-slate-600 transition-opacity"
+                                 title="Opções"
+                              >
+                                 <MoreVertical size={12} />
+                              </button>
+                           )}
+
+                           {/* Context menu dropdown */}
+                           {categoryMenuOpen === cat.id && !cat.isDefault && (
+                              <div className="absolute top-full right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 py-1 min-w-32">
+                                 <button
+                                    onClick={() => { setEditingCategory(cat); setIsCategoryModalOpen(true); setCategoryMenuOpen(null); }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+                                 >
+                                    <Edit2 size={14} /> Editar
+                                 </button>
+                                 <button
+                                    onClick={() => { if (confirm(`Excluir categoria "${cat.name}"?`)) { deleteSiteCategory(cat.id); setCategoryMenuOpen(null); } }}
+                                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2"
+                                 >
+                                    <Trash2 size={14} /> Excluir
+                                 </button>
+                              </div>
+                           )}
+                        </div>
+                     );
+                  })}
+
+                  {/* Add Category Button */}
                   <button
-                     onClick={() => setActiveTab('PERSONAL')}
-                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'PERSONAL' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                     onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
+                     className="px-3 py-2.5 rounded-xl text-sm font-medium bg-slate-800/30 border border-dashed border-slate-600 text-slate-500 hover:text-indigo-400 hover:border-indigo-500 transition-all flex items-center gap-1.5"
+                     title="Nova categoria"
                   >
-                     <Layout size={16} /> Meus Sites
-                  </button>
-                  <button
-                     onClick={() => setActiveTab('GENERAL')}
-                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'GENERAL' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                  >
-                     <LayoutGrid size={16} /> Sites Gerais
+                     <FolderPlus size={16} /> Nova
                   </button>
                </div>
 
@@ -257,7 +321,7 @@ const LinksView: React.FC = () => {
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         onPreviewPrompt={handlePreviewPrompt}
-                        hasLinkedPrompt={!!(link.promptId && getPromptById(link.promptId))}
+                        linkedPrompts={getLinkedPrompts(link)}
                      />
                   ))}
                </div>
@@ -284,6 +348,25 @@ const LinksView: React.FC = () => {
                category={getCategoryById(getPromptById(previewPromptId)!.category)}
                onClose={() => setPreviewPromptId(null)}
             />
+         )}
+
+         {/* SITE CATEGORY MODAL */}
+         {isCategoryModalOpen && (
+            <Suspense fallback={null}>
+               <SiteCategoryModal
+                  category={editingCategory}
+                  onClose={() => { setIsCategoryModalOpen(false); setEditingCategory(null); }}
+                  onSave={(category) => {
+                     if (editingCategory) {
+                        updateSiteCategory(editingCategory.id, category);
+                     } else {
+                        addSiteCategory({ ...category, order: siteCategories.length });
+                     }
+                     setIsCategoryModalOpen(false);
+                     setEditingCategory(null);
+                  }}
+               />
+            </Suspense>
          )}
       </div>
    );

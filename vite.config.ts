@@ -17,6 +17,18 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       }
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor': ['react', 'react-dom', 'zustand'],
+            'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'charts': ['recharts'],
+            'markdown': ['react-markdown', 'remark-gfm'],
+          }
+        }
+      }
+    },
     // Make env variables available to the app
     define: {
       'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),

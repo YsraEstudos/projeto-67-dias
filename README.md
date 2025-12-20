@@ -13,10 +13,13 @@ O **Projeto 67 Dias** é uma aplicação web "Single Page Application" (SPA) que
 
 ## 🛠 Tecnologias
 
-- **React 18+**: Core do frontend.
+- **React 19+**: Core do frontend.
 - **Tailwind CSS**: Estilização utilitária (Tema Dark/Slate).
 - **Lucide React**: Ícones consistentes e leves.
 - **Recharts**: Biblioteca de gráficos para visualização de dados.
+- **@dnd-kit**: Drag-and-drop acessível para reordenação de itens.
+- **Zustand**: Gerenciamento de estado leve e reativo.
+- **Firebase**: Autenticação e Firestore para persistência.
 - **Lazy Loading**: Otimização de performance via `React.lazy` e `Suspense`.
 
 ## 🔑 Configuração do Gemini

@@ -6,6 +6,7 @@ import { usePromptsStore } from '../../stores/promptsStore';
 import { SkillCard } from '../skills/SkillCard';
 import { SkillDetailView } from '../skills/SkillDetailView';
 import { CreateSkillModal } from '../skills/CreateSkillModal';
+import { DailyPlanModal } from '../skills/DailyPlanModal';
 import { INITIAL_SKILLS } from '../skills/mockData';
 
 const SkillsView: React.FC = () => {
@@ -16,6 +17,7 @@ const SkillsView: React.FC = () => {
     updateSkill: storeUpdateSkill,
     deleteSkill: storeDeleteSkill,
     addLog,
+    setDistributionType,
     isLoading: skillsLoading,
     hasInitialized,
     markInitialized
@@ -24,6 +26,7 @@ const SkillsView: React.FC = () => {
 
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [dailyPlanSkill, setDailyPlanSkill] = useState<Skill | null>(null);
   const initializationRef = React.useRef(false);
 
   // Initialize with default skills if empty AND not yet initialized
@@ -82,6 +85,18 @@ const SkillsView: React.FC = () => {
     }
   };
 
+  const handleToggleDistribution = (skillId: string) => {
+    const skill = skills.find(s => s.id === skillId);
+    if (skill) {
+      const newType = skill.distributionType === 'EXPONENTIAL' ? 'LINEAR' : 'EXPONENTIAL';
+      setDistributionType(skillId, newType);
+    }
+  };
+
+  const handleViewDailyPlan = (skill: Skill) => {
+    setDailyPlanSkill(skill);
+  };
+
 
   // --- RENDER ---
 
@@ -121,10 +136,9 @@ const SkillsView: React.FC = () => {
             key={skill.id}
             skill={skill}
             onClick={() => setActiveSkillId(skill.id)}
-            onAddSession={(mins) => {
-              const newLogs = [...skill.logs, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins }];
-              handleUpdateSkill(skill.id, { currentMinutes: skill.currentMinutes + mins, logs: newLogs });
-            }}
+            onAddSession={(mins) => addLog(skill.id, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins })}
+            onToggleDistribution={handleToggleDistribution}
+            onViewDailyPlan={handleViewDailyPlan}
           />
         ))}
 
@@ -167,10 +181,9 @@ const SkillsView: React.FC = () => {
                   key={skill.id}
                   skill={skill}
                   onClick={() => setActiveSkillId(skill.id)}
-                  onAddSession={(mins) => {
-                    const newLogs = [...skill.logs, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins }];
-                    handleUpdateSkill(skill.id, { currentMinutes: skill.currentMinutes + mins, logs: newLogs });
-                  }}
+                  onAddSession={(mins) => addLog(skill.id, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins })}
+                  onToggleDistribution={handleToggleDistribution}
+                  onViewDailyPlan={handleViewDailyPlan}
                   isCompact
                 />
               ))}
@@ -182,8 +195,17 @@ const SkillsView: React.FC = () => {
       {isCreateModalOpen && (
         <CreateSkillModal onClose={() => setIsCreateModalOpen(false)} onCreate={handleCreateSkill} />
       )}
+
+      {/* Daily Plan Modal */}
+      {dailyPlanSkill && (
+        <DailyPlanModal
+          skill={dailyPlanSkill}
+          onClose={() => setDailyPlanSkill(null)}
+        />
+      )}
     </div>
   );
 };
 
 export default SkillsView;
+

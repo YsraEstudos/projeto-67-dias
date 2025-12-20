@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { StudySubject, ScheduledStudyItem, DailyStudySchedule } from '../../../stores';
+import { StudySubject, ScheduledStudyItem, DailyStudySchedule } from '../../../../stores';
 import { getTodayKey } from '../utils';
 
 // Subject colors for selection

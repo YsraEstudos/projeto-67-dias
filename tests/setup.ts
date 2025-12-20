@@ -29,19 +29,34 @@ vi.mock('firebase/auth', () => {
     };
 });
 
-vi.mock('firebase/firestore', () => ({
-    getFirestore: vi.fn(() => ({})),
-    enableMultiTabIndexedDbPersistence: vi.fn(() => Promise.resolve()),
-    doc: vi.fn(),
-    setDoc: vi.fn(() => Promise.resolve()),
-    getDoc: vi.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),
-    onSnapshot: vi.fn((_ref, onNext) => {
-        if (typeof onNext === 'function') {
-            onNext({ exists: () => false, data: () => ({}) });
-        }
-        return vi.fn();
-    })
-}));
+vi.mock('firebase/firestore', () => {
+    const mockDb = { type: 'firestore', toJSON: () => ({}) };
+    return {
+        getFirestore: vi.fn(() => mockDb),
+        initializeFirestore: vi.fn(() => mockDb),
+        persistentLocalCache: vi.fn(() => ({ kind: 'persistent' })),
+        persistentMultipleTabManager: vi.fn(() => ({ kind: 'multi-tab' })),
+        enableMultiTabIndexedDbPersistence: vi.fn(() => Promise.resolve()),
+        doc: vi.fn(() => ({ id: 'mock-doc-ref' })),
+        setDoc: vi.fn(() => Promise.resolve()),
+        getDoc: vi.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),
+        onSnapshot: vi.fn((_ref, onNext) => {
+            if (typeof onNext === 'function') {
+                onNext({ exists: () => false, data: () => ({}) });
+            }
+            return vi.fn();
+        }),
+        collection: vi.fn(() => ({})),
+        query: vi.fn(() => ({})),
+        where: vi.fn(() => ({})),
+        orderBy: vi.fn(() => ({})),
+        limit: vi.fn(() => ({})),
+        getDocs: vi.fn(() => Promise.resolve({ docs: [], empty: true })),
+        addDoc: vi.fn(() => Promise.resolve({ id: 'mock-id' })),
+        updateDoc: vi.fn(() => Promise.resolve()),
+        deleteDoc: vi.fn(() => Promise.resolve()),
+    };
+});
 
 // Mock LocalStorage
 const localStorageMock = (function () {

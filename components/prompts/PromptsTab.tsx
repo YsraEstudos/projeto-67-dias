@@ -1,5 +1,20 @@
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, Suspense, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import {
   Search, Plus, Trash2, X, Copy, Check, ChevronDown,
   Sparkles, Star, StarOff, FolderPlus, Image as ImageIcon, Edit2
@@ -8,6 +23,7 @@ import { usePromptsStore } from '../../stores';
 import { Prompt, PromptCategory } from '../../types';
 import { VariableSelectorModal, parseVariables } from './VariableSelectorModal';
 import { categoryIcons, colorClasses } from './constants';
+import SortablePromptItem from './SortablePromptItem';
 
 // Lazy load components
 const MarkdownRenderer = React.lazy(() =>
@@ -29,7 +45,8 @@ const PromptsTab: React.FC = () => {
     deletePrompt,
     incrementCopyCount,
     toggleFavorite: togglePromptFavorite,
-    addCategory
+    addCategory,
+    reorderPrompts
   } = usePromptsStore(useShallow((state) => ({
     prompts: state.prompts,
     categories: state.categories,
@@ -38,7 +55,8 @@ const PromptsTab: React.FC = () => {
     deletePrompt: state.deletePrompt,
     incrementCopyCount: state.incrementCopyCount,
     toggleFavorite: state.toggleFavorite,
-    addCategory: state.addCategory
+    addCategory: state.addCategory,
+    reorderPrompts: state.reorderPrompts
   })));
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +74,47 @@ const PromptsTab: React.FC = () => {
 
   // Variable selector modal state
   const [variableSelectorPrompt, setVariableSelectorPrompt] = useState<Prompt | null>(null);
+
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // DnD Handler
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    // Only allow reordering within a specific category
+    if (selectedCategory === 'all' || selectedCategory === 'favorites') {
+      // Can't reorder when viewing all or favorites
+      return;
+    }
+
+    const categoryPrompts = prompts
+      .filter(p => p.category === selectedCategory)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const oldIndex = categoryPrompts.findIndex(p => p.id === active.id);
+    const newIndex = categoryPrompts.findIndex(p => p.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(categoryPrompts, oldIndex, newIndex).map((p, idx) => ({
+      ...p,
+      order: idx
+    }));
+
+    reorderPrompts(selectedCategory, reordered);
+  }, [prompts, selectedCategory, reorderPrompts]);
 
   // --- HANDLERS ---
   const toggleExpand = (id: string) => {
@@ -150,6 +209,7 @@ const PromptsTab: React.FC = () => {
         images: data.images || [],
         copyCount: 0,
         isFavorite: false,
+        order: 0,  // Will be recalculated by addPrompt action
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -191,8 +251,11 @@ const PromptsTab: React.FC = () => {
             p.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
-    });
+    }).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [prompts, searchQuery, selectedCategory]);
+
+  // Check if drag-and-drop should be enabled (only for specific category view)
+  const isDndEnabled = selectedCategory !== 'all' && selectedCategory !== 'favorites' && !searchQuery;
 
   const getCategoryById = (id: string) => categories.find(c => c.id === id);
 
@@ -285,159 +348,123 @@ const PromptsTab: React.FC = () => {
       </div>
 
       {/* PROMPTS LIST */}
-      <div className="space-y-3">
-        {filteredPrompts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
-            <Sparkles size={48} className="text-slate-600 mb-4" />
-            <p className="text-slate-500">Nenhum prompt encontrado.</p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="mt-3 text-purple-400 hover:underline text-sm"
-            >
-              Criar primeiro prompt
-            </button>
-          </div>
-        )}
-
-        {filteredPrompts.map(prompt => {
-          const isExpanded = expandedPrompts.has(prompt.id);
-          const category = getCategoryById(prompt.category);
-          const colors = colorClasses[category?.color || 'slate'];
-          const isCopied = copiedId === prompt.id;
-
-          return (
-            <div
-              key={prompt.id}
-              className={`bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'shadow-xl shadow-purple-900/10' : 'hover:border-slate-600'
-                }`}
-            >
-              {/* Header */}
-              <div
-                className="p-4 flex items-center gap-3 cursor-pointer group"
-                onClick={() => toggleExpand(prompt.id)}
-              >
-                {/* Category Badge */}
-                <div className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 ${colors.badge}`}>
-                  {categoryIcons[category?.icon || 'default']}
-                  {category?.name || 'Geral'}
-                </div>
-
-                {/* Title */}
-                <h4 className="flex-1 font-semibold text-white truncate">{prompt.title}</h4>
-
-                {/* Stats */}
-                <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
-                  {prompt.images.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <ImageIcon size={12} /> {prompt.images.length}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Copy size={12} /> {prompt.copyCount}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => toggleFavorite(prompt.id)}
-                    aria-label={prompt.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                    className={`p-2 rounded-lg transition-colors ${prompt.isFavorite
-                      ? 'text-amber-400 bg-amber-500/10'
-                      : 'text-slate-500 hover:text-amber-400 hover:bg-slate-700'
-                      }`}
-                  >
-                    {prompt.isFavorite ? <Star size={16} fill="currentColor" /> : <StarOff size={16} />}
-                  </button>
-                  <button
-                    onClick={() => handleCopyClick(prompt)}
-                    aria-label={isCopied ? 'Prompt copiado' : 'Copiar prompt'}
-                    className={`p-2 rounded-lg transition-all ${isCopied
-                      ? 'text-emerald-400 bg-emerald-500/10'
-                      : 'text-slate-500 hover:text-white hover:bg-slate-700'
-                      }`}
-                    title="Copiar prompt"
-                  >
-                    {isCopied ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
-                </div>
-
-                {/* Expand Icon */}
-                <div className={`p-1 text-slate-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                  <ChevronDown size={20} />
-                </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={filteredPrompts.map(p => p.id)}
+          strategy={verticalListSortingStrategy}
+          disabled={!isDndEnabled}
+        >
+          <div className="space-y-3">
+            {filteredPrompts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
+                <Sparkles size={48} className="text-slate-600 mb-4" />
+                <p className="text-slate-500">Nenhum prompt encontrado.</p>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="mt-3 text-purple-400 hover:underline text-sm"
+                >
+                  Criar primeiro prompt
+                </button>
               </div>
+            )}
 
-              {/* Expandable Content */}
-              <div
-                className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                  }`}
-              >
-                <div className="overflow-hidden">
-                  <div className="px-4 pb-4 border-t border-slate-700/50">
-                    {/* Prompt Content with Markdown */}
-                    <div className="mt-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-                      <React.Suspense fallback={<div className="h-20 bg-slate-800/50 animate-pulse rounded-lg" />}>
-                        <MarkdownRenderer content={prompt.content} className="text-sm" />
-                      </React.Suspense>
+            {/* DnD Info Banner */}
+            {isDndEnabled && filteredPrompts.length > 1 && (
+              <div className="text-xs text-slate-500 text-center py-2 border border-dashed border-slate-700 rounded-lg bg-slate-800/30">
+                ✨ Arraste os prompts pelo ícone ≡ para reorganizar
+              </div>
+            )}
+
+            {filteredPrompts.map(prompt => {
+              const isExpanded = expandedPrompts.has(prompt.id);
+              const category = getCategoryById(prompt.category);
+              const isCopied = copiedId === prompt.id;
+
+              // Render content function for SortablePromptItem
+              const renderExpandedContent = (p: Prompt) => (
+                <div className="px-4 pb-4 border-t border-slate-700/50">
+                  {/* Prompt Content with Markdown */}
+                  <div className="mt-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                    <React.Suspense fallback={<div className="h-20 bg-slate-800/50 animate-pulse rounded-lg" />}>
+                      <MarkdownRenderer content={p.content} className="text-sm" />
+                    </React.Suspense>
+                  </div>
+
+                  {/* Images */}
+                  {p.images.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
+                        <ImageIcon size={12} /> Imagens de Exemplo
+                      </h5>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {p.images.map(img => (
+                          <div
+                            key={img.id}
+                            className="relative group rounded-lg overflow-hidden border border-slate-700 bg-slate-900 cursor-pointer hover:border-purple-500 transition-colors"
+                            onClick={() => setPreviewImage(img.url)}
+                          >
+                            <img
+                              src={img.url}
+                              alt={img.caption || 'Exemplo'}
+                              className="w-full h-24 object-cover transition-transform group-hover:scale-105"
+                            />
+                            {img.caption && (
+                              <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/70 text-xs text-slate-300 truncate">
+                                {img.caption}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
 
-                    {/* Images */}
-                    {prompt.images.length > 0 && (
-                      <div className="mt-4">
-                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
-                          <ImageIcon size={12} /> Imagens de Exemplo
-                        </h5>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {prompt.images.map(img => (
-                            <div
-                              key={img.id}
-                              className="relative group rounded-lg overflow-hidden border border-slate-700 bg-slate-900 cursor-pointer hover:border-purple-500 transition-colors"
-                              onClick={() => setPreviewImage(img.url)}
-                            >
-                              <img
-                                src={img.url}
-                                alt={img.caption || 'Exemplo'}
-                                className="w-full h-24 object-cover transition-transform group-hover:scale-105"
-                              />
-                              {img.caption && (
-                                <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/70 text-xs text-slate-300 truncate">
-                                  {img.caption}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Actions Footer */}
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs text-slate-600">
-                        Criado em {new Date(prompt.createdAt).toLocaleDateString('pt-BR')}
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setEditingPrompt(prompt); setIsModalOpen(true); }}
-                          className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg flex items-center gap-1.5 transition-colors"
-                        >
-                          <Edit2 size={12} /> Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(prompt.id)}
-                          className="px-3 py-1.5 text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center gap-1.5 transition-colors"
-                        >
-                          <Trash2 size={12} /> Excluir
-                        </button>
-                      </div>
+                  {/* Actions Footer */}
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-xs text-slate-600">
+                      Criado em {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setEditingPrompt(p); setIsModalOpen(true); }}
+                        className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg flex items-center gap-1.5 transition-colors"
+                      >
+                        <Edit2 size={12} /> Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className="px-3 py-1.5 text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center gap-1.5 transition-colors"
+                      >
+                        <Trash2 size={12} /> Excluir
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              );
+
+              return (
+                <SortablePromptItem
+                  key={prompt.id}
+                  prompt={prompt}
+                  isExpanded={isExpanded}
+                  isCopied={isCopied}
+                  category={category}
+                  onToggleExpand={toggleExpand}
+                  onToggleFavorite={toggleFavorite}
+                  onCopyClick={handleCopyClick}
+                  onEdit={(p) => { setEditingPrompt(p); setIsModalOpen(true); }}
+                  onDelete={handleDelete}
+                  renderContent={renderExpandedContent}
+                />
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* PROMPT MODAL */}
       {isModalOpen && (
@@ -449,49 +476,56 @@ const PromptsTab: React.FC = () => {
             onSave={handleSave}
           />
         </Suspense>
-      )}
+      )
+      }
 
       {/* CATEGORY MODAL */}
-      {isCategoryModalOpen && (
-        <Suspense fallback={null}>
-          <CategoryModal
-            onClose={() => setIsCategoryModalOpen(false)}
-            onSave={handleAddCategory}
-          />
-        </Suspense>
-      )}
+      {
+        isCategoryModalOpen && (
+          <Suspense fallback={null}>
+            <CategoryModal
+              onClose={() => setIsCategoryModalOpen(false)}
+              onSave={handleAddCategory}
+            />
+          </Suspense>
+        )
+      }
 
       {/* IMAGE PREVIEW MODAL */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in cursor-pointer"
-          onClick={() => setPreviewImage(null)}
-        >
-          <button
-            className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"
-            aria-label="Fechar visualização de imagem"
+      {
+        previewImage && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in cursor-pointer"
             onClick={() => setPreviewImage(null)}
           >
-            <X size={24} />
-          </button>
-          <img
-            src={previewImage}
-            alt="Preview"
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
-      )}
+            <button
+              className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition-colors"
+              aria-label="Fechar visualização de imagem"
+              onClick={() => setPreviewImage(null)}
+            >
+              <X size={24} />
+            </button>
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95"
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        )
+      }
 
       {/* VARIABLE SELECTOR MODAL */}
-      {variableSelectorPrompt && (
-        <VariableSelectorModal
-          content={variableSelectorPrompt.content}
-          onCopy={handleVariableCopy}
-          onClose={() => setVariableSelectorPrompt(null)}
-        />
-      )}
-    </div>
+      {
+        variableSelectorPrompt && (
+          <VariableSelectorModal
+            content={variableSelectorPrompt.content}
+            onCopy={handleVariableCopy}
+            onClose={() => setVariableSelectorPrompt(null)}
+          />
+        )
+      }
+    </div >
   );
 };
 

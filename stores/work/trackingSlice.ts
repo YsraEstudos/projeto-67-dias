@@ -37,6 +37,9 @@ export interface TrackingSlice {
     // Pace mode action
     setPaceMode: (mode: PaceMode) => void;
 
+    // Time config action (combined)
+    setTimeConfig: (config: { startTime?: string; endTime?: string; breakTime?: string }) => void;
+
     // Loading action
     setLoading: (loading: boolean) => void;
 }
@@ -72,6 +75,13 @@ export const createTrackingSlice: StateCreator<
 
     // Pace mode
     setPaceMode: (mode) => set({ paceMode: mode }),
+
+    // Time config (combined)
+    setTimeConfig: (config) => set((state) => ({
+        ...(config.startTime !== undefined && { startTime: config.startTime }),
+        ...(config.endTime !== undefined && { endTime: config.endTime }),
+        ...(config.breakTime !== undefined && { breakTime: config.breakTime }),
+    })),
 
     // Loading
     setLoading: (loading) => set({ isLoading: loading }),

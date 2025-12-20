@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Calendar, Video, Check, X, BookOpen } from 'lucide-react';
-import { StudySubject, ScheduledStudyItem, DailyStudySchedule } from '../../../stores';
+import { StudySubject, ScheduledStudyItem, DailyStudySchedule } from '../../../../stores';
 
 interface StudySchedulerProps {
     today: string;

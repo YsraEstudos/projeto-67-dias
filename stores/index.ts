@@ -37,7 +37,10 @@ export { usePromptsStore } from './promptsStore';
 export { useNotesStore } from './notesStore';
 
 // Links Store - Quick links
-export { useLinksStore } from './linksStore';
+export { useLinksStore, useLinkActions, useLinks, useIsLinksLoading } from './linksStore';
+
+// Site Categories Store - Categories for links
+export { useSiteCategoriesStore, useSiteCategories, useSiteCategoryActions, useIsSiteCategoriesLoading, DEFAULT_SITE_CATEGORIES } from './siteCategoriesStore';
 
 // Sunday Store - Sunday tasks
 export { useSundayStore } from './sundayStore';
@@ -109,6 +112,7 @@ import { useReviewStore } from './reviewStore';
 import { useWaterStore } from './waterStore';
 import { useStreakStore } from './streakStore';
 import { useTimerStore } from './timerStore';
+import { useSiteCategoriesStore } from './siteCategoriesStore';
 
 /**
  * Clears all stores to initial state.
@@ -133,5 +137,6 @@ export const clearAllStores = () => {
     useWaterStore.getState()._reset();
     useStreakStore.getState()._reset();
     useTimerStore.getState()._reset();
+    useSiteCategoriesStore.getState()._reset();
     console.log('[clearAllStores] All stores reset for user switch');
 };

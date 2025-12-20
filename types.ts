@@ -319,6 +319,11 @@ export interface Skill {
   // Completion Status
   isCompleted?: boolean;
   completedAt?: number;
+
+  // Exponential Distribution Settings
+  distributionType?: 'LINEAR' | 'EXPONENTIAL';  // LINEAR = padrão, EXPONENTIAL = crescimento progressivo
+  excludedDays?: number[];  // Dias da semana excluídos (0=dom, 1=seg, ..., 6=sáb)
+  exponentialIntensity?: number;  // 0.0 = linear, 1.0 = máximo (30%-170%)
 }
 
 // --- PROMPTS MODULE INTERFACES ---

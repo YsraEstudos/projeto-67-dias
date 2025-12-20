@@ -71,8 +71,12 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                     <ProgressStats
                         skill={skill}
                         onAddSession={handleAddSession}
-                        onUpdateGoal={(goalMinutes) => onUpdate({ goalMinutes })}
+                        onUpdateGoal={(goalMinutes) => onUpdate({
+                            goalMinutes,
+                            goalPomodoros: Math.ceil(goalMinutes / 25)
+                        })}
                         onUpdateGoalType={(goalType) => onUpdate({ goalType })}
+                        onUpdateDeadline={(deadline) => onUpdate({ deadline })}
                     />
 
                     <ResourcesVault

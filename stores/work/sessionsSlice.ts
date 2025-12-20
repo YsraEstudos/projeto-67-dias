@@ -17,6 +17,7 @@ export interface MetTargetSession {
 export interface SessionsSlice {
     history: MetTargetSession[];
     addSession: (session: MetTargetSession) => void;
+    updateSession: (id: string, updates: Partial<MetTargetSession>) => void;
     deleteSession: (id: string) => void;
     clearHistory: () => void;
 }
@@ -31,6 +32,10 @@ export const createSessionsSlice: StateCreator<
 
     addSession: (session) => set((state) => ({
         history: [...state.history, session]
+    })),
+
+    updateSession: (id, updates) => set((state) => ({
+        history: state.history.map(s => s.id === id ? { ...s, ...updates } : s)
     })),
 
     deleteSession: (id) => set((state) => ({

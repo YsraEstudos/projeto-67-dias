@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Globe, Sparkles, ArrowUpRight } from 'lucide-react';
 import { LinkItem, Prompt, PromptCategory } from '../../types';
-import { PromptSelectorModal } from '../skills/PromptSelectorModal';
+import MultiPromptSelector from './MultiPromptSelector';
 
 interface LinkModalProps {
     link: LinkItem | null;
@@ -12,20 +12,21 @@ interface LinkModalProps {
 }
 
 const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, onClose, onSave }) => {
-    const [formData, setFormData] = useState<{ title: string; url: string; category: 'PERSONAL' | 'GENERAL'; promptId?: string }>({
+    const [formData, setFormData] = useState<{ title: string; url: string; categoryId: string; promptIds: string[] }>({
         title: link?.title || '',
         url: link?.url || '',
-        category: link?.category || 'PERSONAL',
-        promptId: link?.promptId
+        categoryId: link?.categoryId || 'personal',
+        promptIds: link?.promptIds || []
     });
     const [isPromptSelectorOpen, setIsPromptSelectorOpen] = useState(false);
 
-    const linkedPrompt = formData.promptId ? prompts.find(p => p.id === formData.promptId) : null;
-    const linkedCategory = linkedPrompt ? promptCategories.find(c => c.id === linkedPrompt.category) : null;
+    // Get linked prompts data for display
+    const linkedPrompts = formData.promptIds
+        .map(id => prompts.find(p => p.id === id))
+        .filter((p): p is Prompt => p !== undefined);
 
-    const handleSelectPrompt = (prompt: Prompt) => {
-        setFormData({ ...formData, promptId: prompt.id });
-        setIsPromptSelectorOpen(false);
+    const removePrompt = (promptId: string) => {
+        setFormData({ ...formData, promptIds: formData.promptIds.filter(id => id !== promptId) });
     };
 
     return (
@@ -64,14 +65,14 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                             <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Categoria</label>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={() => setFormData({ ...formData, category: 'PERSONAL' })}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${formData.category === 'PERSONAL' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                                    onClick={() => setFormData({ ...formData, categoryId: 'personal' })}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${formData.categoryId === 'personal' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
                                 >
                                     Meus Sites
                                 </button>
                                 <button
-                                    onClick={() => setFormData({ ...formData, category: 'GENERAL' })}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${formData.category === 'GENERAL' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
+                                    onClick={() => setFormData({ ...formData, categoryId: 'general' })}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${formData.categoryId === 'general' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
                                 >
                                     Sites Gerais
                                 </button>
@@ -81,33 +82,39 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                         {/* PROMPT LINKING SECTION */}
                         <div>
                             <label className="block text-xs text-slate-500 uppercase font-bold mb-2 flex items-center gap-1">
-                                <Sparkles size={12} className="text-purple-400" /> Prompt Vinculado (opcional)
+                                <Sparkles size={12} className="text-purple-400" /> Prompts Vinculados (opcional)
                             </label>
-                            {linkedPrompt ? (
-                                <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-3 flex items-center gap-3">
-                                    <div className="p-2 bg-purple-600/20 rounded-lg">
-                                        <Sparkles size={16} className="text-purple-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-purple-300 truncate">{linkedPrompt.title}</p>
-                                        <p className="text-xs text-slate-500">{linkedCategory?.name || 'Geral'}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setFormData({ ...formData, promptId: undefined })}
-                                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                        title="Desvincular prompt"
-                                    >
-                                        <X size={16} />
-                                    </button>
+
+                            {/* Linked Prompts as Chips */}
+                            {linkedPrompts.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    {linkedPrompts.map(prompt => (
+                                        <div
+                                            key={prompt.id}
+                                            className="bg-purple-900/30 border border-purple-700/50 rounded-lg px-3 py-1.5 flex items-center gap-2 group"
+                                        >
+                                            <Sparkles size={12} className="text-purple-400" />
+                                            <span className="text-sm text-purple-300">{prompt.title}</span>
+                                            <button
+                                                onClick={() => removePrompt(prompt.id)}
+                                                className="p-0.5 text-slate-500 hover:text-red-400 transition-colors"
+                                                title="Remover prompt"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            ) : (
-                                <button
-                                    onClick={() => setIsPromptSelectorOpen(true)}
-                                    className="w-full py-3 bg-slate-900 hover:bg-slate-700 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:text-purple-400 text-sm flex items-center justify-center gap-2 transition-all"
-                                >
-                                    <Sparkles size={16} /> Vincular um Prompt
-                                </button>
                             )}
+
+                            {/* Add Prompts Button */}
+                            <button
+                                onClick={() => setIsPromptSelectorOpen(true)}
+                                className="w-full py-3 bg-slate-900 hover:bg-slate-700 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:text-purple-400 text-sm flex items-center justify-center gap-2 transition-all"
+                            >
+                                <Sparkles size={16} />
+                                {linkedPrompts.length === 0 ? 'Vincular Prompts' : 'Adicionar mais prompts'}
+                            </button>
                         </div>
                     </div>
 
@@ -124,14 +131,17 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                 </div>
             </div>
 
-            {/* PROMPT SELECTOR MODAL */}
+            {/* MULTI-PROMPT SELECTOR MODAL */}
             {isPromptSelectorOpen && (
-                <PromptSelectorModal
+                <MultiPromptSelector
                     prompts={prompts}
                     categories={promptCategories}
-                    excludeIds={[]}
-                    onSelect={handleSelectPrompt}
+                    selectedIds={formData.promptIds}
                     onClose={() => setIsPromptSelectorOpen(false)}
+                    onSave={(ids) => {
+                        setFormData({ ...formData, promptIds: ids });
+                        setIsPromptSelectorOpen(false);
+                    }}
                 />
             )}
         </>

@@ -227,7 +227,6 @@ projeto-67-dias/
 │   │   ├── VisualConnection.tsx      # Conexões do roadmap
 │   │   ├── ResourcesVault.tsx        # Cofre de recursos
 │   │   ├── ProgressStats.tsx
-│   │   ├── AIRoadmapModal.tsx        # Geração de roadmap com Gemini
 │   │   ├── CreateSkillModal.tsx
 │   │   ├── FullRoadmapEditor.tsx
 │   │   ├── ImportExportModal.tsx
@@ -246,8 +245,18 @@ projeto-67-dias/
 │   │   ├── TagFilter.tsx
 │   │   └── TagManager.tsx
 │   │
-│   ├── prompts/            # Sistema de Prompts
-│   │   └── PromptsTab.tsx
+│   ├── prompts/            # Sistema de Prompts (com Drag-and-Drop)
+│   │   ├── PromptsTab.tsx         # Tab principal + DnD integration
+│   │   ├── SortablePromptItem.tsx # Item arrastável (@dnd-kit)
+│   │   ├── CategoryModal.tsx      # Modal CRUD de categorias
+│   │   ├── VariableSelector.tsx   # Seletor de variáveis
+│   │   └── constants.ts           # Ícones e paleta de cores
+│   │
+│   ├── links/              # Componentes de Links (NOVO)
+│   │   ├── LinkCard.tsx           # Card de link individual
+│   │   ├── LinkModal.tsx          # Modal criar/editar link
+│   │   ├── SiteCategoryModal.tsx  # Modal CRUD de categorias de sites
+│   │   └── MultiPromptSelector.tsx # Seletor multi-prompt com checkboxes
 │   │
 │   ├── modals/             # Modais compartilhados
 │   │   └── ...
@@ -731,7 +740,6 @@ const useWorkDataPersistence = () => {
 **Subcomponentes:**
 - `SkillCard.tsx` - Card resumido com quick-add de minutos
 - `SkillDetailView.tsx` - View completa
-- `AIRoadmapModal.tsx` - Geração de roadmap com Gemini
 - `ImportExportModal.tsx` - Markdown/JSON
 - `CreateSkillModal.tsx` - Criar nova skill
 

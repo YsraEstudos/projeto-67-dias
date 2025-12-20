@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Play, CheckCircle2, X } from 'lucide-react';
+import { Play, CheckCircle2, X, BarChart3 } from 'lucide-react';
 import { Skill } from '../../types';
 import { THEMES } from './constants';
+import { SkillContextMenu } from './SkillContextMenu';
 
 interface SkillCardProps {
     skill: Skill;
     onClick: () => void;
     onAddSession: (m: number) => void;
     isCompact?: boolean;
+    onToggleDistribution?: (skillId: string) => void;
+    onViewDailyPlan?: (skill: Skill) => void;
 }
 
 export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
-    const { skill, onClick, onAddSession } = props;
+    const { skill, onClick, onAddSession, onToggleDistribution, onViewDailyPlan } = props;
     const percentage = Math.min(100, Math.round((skill.currentMinutes / (skill.goalMinutes || 1)) * 100));
     const themeColor = THEMES[skill.colorTheme as keyof typeof THEMES] || THEMES.emerald;
     const textColor = themeColor.split(' ')[0];
@@ -19,6 +22,7 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
 
     const [isAdding, setIsAdding] = useState(false);
     const [sessionMinutes, setSessionMinutes] = useState('30');
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
     const handleConfirmSession = (e: React.MouseEvent | React.KeyboardEvent) => {
         e.stopPropagation();
@@ -34,10 +38,19 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
         setIsAdding(false);
     };
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    const isExponential = skill.distributionType === 'EXPONENTIAL';
+
     if (props.isCompact) {
         return (
             <div
                 onClick={onClick}
+                onContextMenu={handleContextMenu}
                 className="group bg-slate-900/50 border border-slate-700/50 hover:border-yellow-500/30 hover:bg-yellow-500/5 rounded-xl p-4 cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden"
             >
                 <div className="flex items-center gap-4">
@@ -53,6 +66,17 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
                         </p>
                     </div>
                 </div>
+
+                {contextMenu && (
+                    <SkillContextMenu
+                        x={contextMenu.x}
+                        y={contextMenu.y}
+                        skill={skill}
+                        onClose={() => setContextMenu(null)}
+                        onToggleDistribution={() => onToggleDistribution?.(skill.id)}
+                        onViewDailyPlan={() => onViewDailyPlan?.(skill)}
+                    />
+                )}
             </div>
         );
     }
@@ -60,12 +84,22 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
     return (
         <div
             onClick={onClick}
+            onContextMenu={handleContextMenu}
             className={`group bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg relative overflow-hidden ${skill.isCompleted ? 'ring-1 ring-yellow-500/30' : ''}`}
         >
             {/* Progress Bar Background */}
             <div className="absolute top-0 left-0 h-1 w-full bg-slate-900">
                 <div className={`h-full ${barColor} transition-all duration-1000`} style={{ width: `${percentage}%` }}></div>
             </div>
+
+            {/* Distribution indicator */}
+            {isExponential && skill.deadline && (
+                <div className="absolute top-2 right-2">
+                    <div className="p-1 bg-purple-500/20 rounded text-purple-400" title="Distribuição Exponencial">
+                        <BarChart3 size={12} />
+                    </div>
+                </div>
+            )}
 
             <div className="flex justify-between items-start mb-4">
                 <div>
@@ -122,8 +156,21 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
                     </button>
                 )}
             </div>
+
+            {/* Context Menu */}
+            {contextMenu && (
+                <SkillContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    skill={skill}
+                    onClose={() => setContextMenu(null)}
+                    onToggleDistribution={() => onToggleDistribution?.(skill.id)}
+                    onViewDailyPlan={() => onViewDailyPlan?.(skill)}
+                />
+            )}
         </div>
     );
 });
 
 SkillCard.displayName = 'SkillCard';
+
