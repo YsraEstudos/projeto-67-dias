@@ -58,6 +58,27 @@ O **Projeto 67 Dias** é uma aplicação web "Single Page Application" (SPA) que
 
 O projeto utiliza **Code Splitting**. As views (Trabalho, Descanso, etc.) não são carregadas no bundle inicial. Elas são baixadas apenas quando o usuário clica no cartão correspondente no dashboard, garantindo um carregamento inicial extremamente rápido.
 
+## 🔄 Sincronização Firestore
+
+A aplicação usa uma arquitetura **Firestore-first** com sincronização em tempo real:
+
+### Fluxo de Dados
+1. **Writes**: Todas as mutações passam por `writeToFirestore()` com debounce de 300ms
+2. **Reads**: Subscriptions via `onSnapshot` mantêm dados sempre atualizados
+3. **Offline**: SDK do Firebase gerencia cache IndexedDB automaticamente
+
+### Indicador de Sincronização
+O `SyncStatusIndicator` no header mostra:
+- 🔵 **Sincronizando...** - Writes pendentes sendo processados
+- ✅ **Salvo** - Todos os dados sincronizados
+- ⚪ **Offline** - Sem conexão (writes serão enviados quando online)
+
+### Stores Zustand
+Cada store (`habitsStore`, `linksStore`, etc.) segue o padrão:
+- `_syncToFirestore()` - Envia estado para nuvem (debounced)
+- `_hydrateFromFirestore()` - Recebe dados da nuvem (via subscription)
+- `_initialized` flag evita overwrites acidentais durante hidratação
+
 ## 🎨 Design System
 
 - **Fundo**: Slate-950 (`#020617`)

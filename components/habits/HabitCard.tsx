@@ -127,8 +127,16 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
     }, [isTimeHabit, habit.goalType, isOverLimit, currentValue, target, isNegativeHabit, isFullyCompleted]);
 
     return (
-        <div className={`rounded-2xl p-5 shadow-md hover:shadow-lg transition-all border ${colors.card}`}>
-            <div className="flex items-start justify-between gap-4">
+        <div className={`group rounded-2xl p-5 shadow-md hover:shadow-lg transition-all border relative overflow-hidden ${colors.card}`}>
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none z-0">
+                <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12" />
+            </div>
+
+            {/* Background glow - adapts to habit type */}
+            <div className={`absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-15 transition-all duration-700 blur-xl pointer-events-none ${isNegativeHabit ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+
+            <div className="flex items-start justify-between gap-4 relative z-10">
                 <div className="flex-1">
                     <div className="flex items-start gap-3 mb-2">
                         {!isTimeHabit && (

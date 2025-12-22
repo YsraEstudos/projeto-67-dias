@@ -12,7 +12,9 @@ interface EditBookModalProps {
 const EditBookModal: React.FC<EditBookModalProps> = ({ book, onClose, onSave }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-slate-800 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Clickable backdrop - delegates to BookForm's handleClose via onClose */}
+            <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+            <div className="relative bg-slate-800 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] min-h-0">
                 <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
                     <h3 className="font-bold text-white flex items-center gap-2"><Edit2 size={18} className="text-indigo-400" /> Editar Informações</h3>
                     <button onClick={onClose}><X className="text-slate-400 hover:text-white" /></button>

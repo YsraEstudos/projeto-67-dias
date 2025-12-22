@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Book as IBook } from '../../types';
-import { Save, TrendingUp } from 'lucide-react';
+import { Save, TrendingUp, Calendar } from 'lucide-react';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
 
 interface BookFormProps {
     initialData: Partial<IBook>;
@@ -18,11 +20,41 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
         current: initialData.current || 0,
         unit: initialData.unit || 'PAGES',
         coverUrl: initialData.coverUrl || '',
-        notes: initialData.notes || ''
+        notes: initialData.notes || '',
+        deadline: initialData.deadline || ''
+    });
+    const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+    // Memoize initial values for comparison
+    const initialValues = useMemo(() => ({
+        title: initialData.title || '',
+        author: initialData.author || '',
+        genre: initialData.genre || '',
+        total: initialData.total || 0,
+        current: initialData.current || 0,
+        unit: initialData.unit || 'PAGES',
+        coverUrl: initialData.coverUrl || '',
+        notes: initialData.notes || '',
+        deadline: initialData.deadline || ''
+    }), []);
+
+    // Track unsaved changes
+    const { hasChanges } = useUnsavedChanges({
+        initialValue: initialValues,
+        currentValue: formData,
     });
 
+    // Intercept close to check for unsaved changes
+    const handleClose = () => {
+        if (hasChanges) {
+            setShowUnsavedModal(true);
+        } else {
+            onCancel();
+        }
+    };
+
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col min-h-0 flex-1">
             <div className="p-6 space-y-4 overflow-y-auto flex-1 scrollbar-thin">
                 <div>
                     <label className="block text-xs text-slate-500 uppercase font-bold mb-1">Título</label>
@@ -90,6 +122,24 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
                     </div>
                 </div>
 
+                {/* Deadline Section */}
+                <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/20 space-y-2">
+                    <h4 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                        <Calendar size={16} /> Meta de Leitura
+                    </h4>
+                    <div>
+                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Deadline (opcional)</label>
+                        <input
+                            type="date"
+                            value={formData.deadline}
+                            onChange={e => setFormData({ ...formData, deadline: e.target.value })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white focus:border-amber-500 outline-none text-sm"
+                            min={new Date().toISOString().split('T')[0]}
+                        />
+                        <p className="text-[10px] text-slate-600 mt-1">Define uma data para calcular páginas/dia</p>
+                    </div>
+                </div>
+
                 <div>
                     <label className="block text-xs text-slate-500 uppercase font-bold mb-1">URL da Capa</label>
                     <div className="flex gap-2">
@@ -125,11 +175,25 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
             </div>
 
             <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex gap-3">
-                <button onClick={onCancel} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors">Cancelar</button>
+                <button onClick={handleClose} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors">Cancelar</button>
                 <button onClick={() => onSave(formData)} className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2">
                     <Save size={18} /> {saveLabel}
                 </button>
             </div>
+
+            {/* Unsaved Changes Confirmation Modal */}
+            <UnsavedChangesModal
+                isOpen={showUnsavedModal}
+                onSave={() => {
+                    setShowUnsavedModal(false);
+                    onSave(formData);
+                }}
+                onDiscard={() => {
+                    setShowUnsavedModal(false);
+                    onCancel();
+                }}
+                onCancel={() => setShowUnsavedModal(false)}
+            />
         </div>
     );
 });

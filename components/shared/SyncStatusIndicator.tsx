@@ -12,7 +12,6 @@ import { getPendingWriteCount, isFullySynced, subscribeToPendingWrites } from '.
  */
 export const SyncStatusIndicator: React.FC = () => {
     const [status, setStatus] = React.useState<'synced' | 'syncing' | 'offline'>('synced');
-    const [isOnline, setIsOnline] = React.useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
     React.useEffect(() => {
         const checkStatus = () => {
@@ -32,14 +31,8 @@ export const SyncStatusIndicator: React.FC = () => {
         const unsubscribePending = subscribeToPendingWrites(checkStatus);
 
         // Subscribe to browser online/offline events
-        const handleOnline = () => {
-            setIsOnline(true);
-            checkStatus();
-        };
-        const handleOffline = () => {
-            setIsOnline(false);
-            setStatus('offline');
-        };
+        const handleOnline = () => checkStatus();
+        const handleOffline = () => setStatus('offline');
 
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);

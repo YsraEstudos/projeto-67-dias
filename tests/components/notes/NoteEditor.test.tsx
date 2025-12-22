@@ -43,7 +43,7 @@ describe('NoteEditor', () => {
     });
 
     describe('viewMode for existing notes', () => {
-        it('opens in preview mode for existing note', () => {
+        it('opens in focus mode for existing note', () => {
             render(
                 <NoteEditor
                     note={mockExistingNote}
@@ -52,15 +52,14 @@ describe('NoteEditor', () => {
                 />
             );
 
-            // Should show "Visualizar Nota" header
-            expect(screen.getByText('Visualizar Nota')).toBeInTheDocument();
+            // In focus mode, should display title in large text
+            expect(screen.getByText('Existing Note')).toBeInTheDocument();
 
-            // Preview button should be active (has specific styling)
-            const previewButton = screen.getByRole('button', { name: /Preview/i });
-            expect(previewButton).toHaveClass('bg-purple-600');
+            // Should show the markdown preview content
+            expect(screen.getByTestId('markdown-preview')).toHaveTextContent('Existing content');
         });
 
-        it('title input is readonly in preview mode', () => {
+        it('displays floating action bar with edit and close buttons', () => {
             render(
                 <NoteEditor
                     note={mockExistingNote}
@@ -69,11 +68,17 @@ describe('NoteEditor', () => {
                 />
             );
 
-            const titleInput = screen.getByDisplayValue('Existing Note');
-            expect(titleInput).toHaveAttribute('readOnly');
+            // Should have edit button accessible via title
+            expect(screen.getByTitle('Editar nota')).toBeInTheDocument();
+
+            // Should have close button
+            expect(screen.getByTitle('Fechar')).toBeInTheDocument();
+
+            // Should have pin button
+            expect(screen.getByTitle(/fixar nota/i)).toBeInTheDocument();
         });
 
-        it('can switch to edit mode', () => {
+        it('can switch from focus to edit mode', () => {
             render(
                 <NoteEditor
                     note={mockExistingNote}
@@ -82,18 +87,19 @@ describe('NoteEditor', () => {
                 />
             );
 
-            // Click edit button
-            const editButton = screen.getByRole('button', { name: /Editar/i });
+            // Click edit button in floating bar
+            const editButton = screen.getByTitle('Editar nota');
             fireEvent.click(editButton);
 
-            // Header should change
+            // Header should show edit mode
             expect(screen.getByText('Editar Nota')).toBeInTheDocument();
 
-            // Title should no longer be readonly
+            // Title input should be editable  
             const titleInput = screen.getByDisplayValue('Existing Note');
             expect(titleInput).not.toHaveAttribute('readOnly');
         });
     });
+
 
     describe('viewMode for new notes', () => {
         it('opens in edit mode for new note (no note prop)', () => {

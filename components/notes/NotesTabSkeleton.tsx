@@ -3,7 +3,7 @@ import { Skeleton } from '../ui/Skeleton';
 
 export const NotesTabSkeleton: React.FC = () => {
     return (
-        <div className="animate-in fade-in duration-500 w-full">
+        <div className="animate-in fade-in duration-200 w-full">
             {/* Header Skeleton */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">

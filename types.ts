@@ -29,12 +29,16 @@ export const MOOD_CONFIG: Record<Mood, { label: string; color: string; value: nu
   terrible: { label: 'Péssimo', color: 'text-red-400', value: 1 },
 };
 
+// Theme type for app appearance
+export type AppTheme = 'default' | 'amoled';
+
 export interface ProjectConfig {
   startDate: string; // ISO Date
   userName: string;
   isGuest: boolean;
   restartCount?: number; // Quantas vezes o plano foi reiniciado sem concluir
   offensiveGoals?: OffensiveGoalsConfig;
+  theme?: AppTheme;  // Tema da aplicação
 }
 
 // Skill com peso individual para ofensiva
@@ -115,6 +119,12 @@ export interface Book {
   // Daily Progress Tracking
   dailyGoal?: number; // Meta diária (páginas/capítulos)
   logs?: ReadingLog[];
+
+  // Exponential Distribution (sistema de fases igual às Skills)
+  deadline?: string;                              // ISO date (YYYY-MM-DD)
+  distributionType?: 'LINEAR' | 'EXPONENTIAL';    // LINEAR = padrão
+  excludedDays?: number[];                        // 0=dom, 1=seg, ..., 6=sáb
+  exponentialIntensity?: number;                  // 0.0-1.0 intensidade da curva
 }
 
 export interface ReadingLog {
@@ -547,6 +557,56 @@ export interface JourneyReviewData {
   finalSummary?: FinalJourneySummary;
   lastSnapshotWeek: number;
   pendingSnapshot?: WeeklySnapshot; // Snapshot aguardando confirmação
+
+  // Sistema de Ciclos (10 Anos)
+  decadeProgress?: DecadeProgress;
+  pendingCycleGoal?: string;    // Objetivo sendo escrito antes de finalizar
+}
+
+// --- DECADE PROGRESS SYSTEM (10 Anos / 55 Ciclos) ---
+
+// Snapshot de um ciclo completado (dados arquivados, NÃO zerados)
+export interface CycleSnapshot {
+  cycleNumber: number;          // 1-55
+  startDate: string;            // ISO date de início do ciclo
+  endDate: string;              // ISO date de conclusão do ciclo
+  completedAt: number;          // timestamp de conclusão
+
+  // Objetivo obrigatório definido pelo usuário
+  cycleGoal: string;            // "Onde quero chegar" - texto livre (min 20 chars)
+  goalAchieved?: 'YES' | 'PARTIAL' | 'NO';  // Auto-avaliação ao finalizar
+
+  // Estatísticas finais do ciclo (snapshot, não reset)
+  finalStats: {
+    totalHabitsCompleted: number;
+    averageConsistency: number;
+    totalBooksRead: number;
+    totalPagesRead: number;
+    totalSkillHours: number;
+    totalTasksCompleted: number;
+    totalJournalEntries: number;
+    overallScore: number;       // Score médio das 10 semanas
+  };
+
+  // Referência aos snapshots semanais do ciclo
+  weeklySnapshots: WeeklySnapshot[];
+}
+
+// Dados de progresso da década (10 anos = 55 ciclos)
+export interface DecadeProgress {
+  currentCycle: number;           // 1-55 (ciclo atual)
+  cycleHistory: CycleSnapshot[];  // Histórico de ciclos completados
+  decadeStartDate: string;        // Data de início da jornada de 10 anos
+  isDecadeComplete: boolean;      // Se completou todos os 55 ciclos
+  pendingCycleGoal?: string;      // Objetivo sendo escrito (antes de finalizar)
+
+  // Estatísticas agregadas (calculadas on-demand)
+  totalStats?: {
+    cyclesCompleted: number;
+    totalDaysProgressed: number;
+    bestCycle?: number;           // Ciclo com melhor score
+    averageScore?: number;        // Score médio de todos os ciclos
+  };
 }
 
 // --- GAMES MODULE INTERFACES ---

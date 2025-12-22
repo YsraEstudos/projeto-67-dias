@@ -372,12 +372,6 @@ const PromptsTab: React.FC = () => {
               </div>
             )}
 
-            {/* DnD Info Banner */}
-            {isDndEnabled && filteredPrompts.length > 1 && (
-              <div className="text-xs text-slate-500 text-center py-2 border border-dashed border-slate-700 rounded-lg bg-slate-800/30">
-                ✨ Arraste os prompts pelo ícone ≡ para reorganizar
-              </div>
-            )}
 
             {filteredPrompts.map(prompt => {
               const isExpanded = expandedPrompts.has(prompt.id);

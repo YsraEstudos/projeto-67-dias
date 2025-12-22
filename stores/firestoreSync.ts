@@ -67,7 +67,7 @@ export const getPendingWriteCount = (): number => pendingWriteCount;
 /**
  * Check if all writes are synced
  */
-export const isFullySynced = (): boolean => pendingWriteCount === 0 && writeTimeouts.size === 0;
+export const isFullySynced = (): boolean => pendingWriteCount === 0;
 
 /**
  * Get current authenticated user ID
@@ -88,8 +88,7 @@ export const getCurrentUserId = (): string | null => {
  * Firestore SDK automatically handles offline queueing via IndexedDB
  */
 const performWrite = async (payload: PendingWrite['payload']) => {
-    pendingWriteCount++;
-    notifyPendingListeners();
+    // Note: pendingWriteCount already incremented in writeToFirestore
 
     try {
         const { collectionKey, data, userId } = payload;
@@ -119,7 +118,13 @@ export const writeToFirestore = <T extends object>(collectionKey: string, data: 
 
     const existing = writeTimeouts.get(collectionKey);
     if (existing) {
+        // Cancel previous timeout - the new write replaces it
+        // Don't change pendingWriteCount since we're just updating the pending write
         clearTimeout(existing.timeout);
+    } else {
+        // Truly new write - increment pending count
+        pendingWriteCount++;
+        notifyPendingListeners();
     }
 
     const timeout = setTimeout(() => {

@@ -17,6 +17,7 @@ const AddBookModal = React.lazy(() => import('../reading/modals/AddBookModal'));
 const AIAddBookModal = React.lazy(() => import('../reading/modals/AIAddBookModal'));
 const EditBookModal = React.lazy(() => import('../reading/modals/EditBookModal'));
 const MoveBookModal = React.lazy(() => import('../reading/modals/MoveBookModal'));
+const ReadingDailyPlanModal = React.lazy(() => import('../reading/ReadingDailyPlanModal'));
 
 // Actions são estáveis - obtidas fora do componente para evitar subscriptions desnecessárias
 const getReadingActions = () => useReadingStore.getState();
@@ -44,6 +45,7 @@ const ReadingView: React.FC = () => {
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<IBook | null>(null);
   const [movingBook, setMovingBook] = useState<IBook | null>(null);
+  const [planningBook, setPlanningBook] = useState<IBook | null>(null);
 
   // Handlers
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
@@ -169,6 +171,12 @@ const ReadingView: React.FC = () => {
             onMove={(bookId, folderId) => { moveBookToFolder(bookId, folderId); setMovingBook(null); }}
           />
         )}
+        {planningBook && (
+          <ReadingDailyPlanModal
+            book={planningBook}
+            onClose={() => setPlanningBook(null)}
+          />
+        )}
       </Suspense>
 
       {/* Main Content */}
@@ -185,6 +193,7 @@ const ReadingView: React.FC = () => {
             onDelete={removeBook}
             onMove={setMovingBook}
             onSelect={setSelectedBook}
+            onPlan={setPlanningBook}
           />
         ) : (
           <LibraryView
@@ -204,6 +213,7 @@ const ReadingView: React.FC = () => {
             onDelete={removeBook}
             onMove={setMovingBook}
             onSelect={setSelectedBook}
+            onPlan={setPlanningBook}
           />
         )}
       </div>

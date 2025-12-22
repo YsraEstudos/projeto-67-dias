@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { Book as IBook, ProjectConfig } from '../../types';
 import { Target, BookOpen, AlertTriangle, TrendingUp, Clock, Flame, Book } from 'lucide-react';
+import { calculateReadingDailyPlan, getTodayPlan, getCurrentPhase } from '../../utils/readingPrediction';
+import { JOURNEY_CONFIG } from '../../services/weeklySnapshot';
 
 interface ReadingGoalSidebarProps {
     books: IBook[];
@@ -10,9 +12,9 @@ interface ReadingGoalSidebarProps {
 const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ books, projectConfig }) => {
 
     const goalStats = useMemo(() => {
-        const TOTAL_DAYS = 67;
-        const MARGIN_DAYS = 2; // Buffer for missed days
-        const EFFECTIVE_DAYS = TOTAL_DAYS - MARGIN_DAYS;
+        // Usar constantes centralizadas - 67 para display, 63 para cálculo
+        const DISPLAY_DAYS = JOURNEY_CONFIG.DISPLAY_DAYS;
+        const EFFECTIVE_DAYS = JOURNEY_CONFIG.EFFECTIVE_DAYS;
 
         // Calculate days elapsed
         const startDate = new Date(projectConfig.startDate);
@@ -30,16 +32,34 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
             return acc + remaining;
         }, 0);
 
-        // Calculate pages per day needed
-        const pagesPerDay = totalRemaining > 0 ? Math.ceil(totalRemaining / daysRemaining) : 0;
-
-        // Per-book breakdown
+        // Per-book breakdown with exponential distribution support
         const bookDetails = readingBooks.map(book => {
             const remaining = Math.max(0, book.total - book.current);
-            const perDay = remaining > 0 ? Math.ceil(remaining / daysRemaining) : 0;
+
+            // Use exponential calculation if book has deadline
+            let perDay = remaining > 0 ? Math.ceil(remaining / daysRemaining) : 0;
+            let currentPhase: { name: string; emoji: string } | null = null;
+
+            if (book.deadline) {
+                const dailyPlan = calculateReadingDailyPlan(book);
+                if (dailyPlan && !dailyPlan.isExpired) {
+                    const todayPlan = getTodayPlan(dailyPlan);
+                    if (todayPlan && !todayPlan.isExcluded) {
+                        perDay = todayPlan.pages;
+                    }
+                    const phase = getCurrentPhase(dailyPlan, todayPlan);
+                    if (phase) {
+                        currentPhase = { name: phase.name, emoji: phase.emoji };
+                    }
+                }
+            }
+
             const progress = Math.round((book.current / (book.total || 1)) * 100);
-            return { ...book, remaining, perDay, progress };
+            return { ...book, remaining, perDay, progress, currentPhase, hasDeadline: !!book.deadline };
         });
+
+        // Calculate pages per day as SUM of each book's perDay (consistent with book list)
+        const pagesPerDay = bookDetails.reduce((sum, book) => sum + book.perDay, 0);
 
         // Status indicators
         const isOnTrack = daysElapsed < EFFECTIVE_DAYS;
@@ -53,7 +73,8 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
             readingCount: readingBooks.length,
             bookDetails,
             isOnTrack,
-            urgencyLevel
+            urgencyLevel,
+            displayDays: DISPLAY_DAYS
         };
     }, [books, projectConfig.startDate]);
 
@@ -121,7 +142,7 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
                         <Clock size={12} /> Progresso do Projeto
                     </span>
                     <span className="text-slate-300 font-mono">
-                        Dia {goalStats.daysElapsed} / 65
+                        Dia {goalStats.daysElapsed} / {goalStats.displayDays}
                     </span>
                 </div>
                 <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
@@ -130,7 +151,7 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
                             goalStats.urgencyLevel === 'medium' ? 'bg-orange-500' :
                                 'bg-indigo-500'
                             }`}
-                        style={{ width: `${Math.min(100, (goalStats.daysElapsed / 65) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (goalStats.daysElapsed / goalStats.displayDays) * 100)}%` }}
                     />
                 </div>
             </div>
@@ -164,13 +185,20 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
                                         {book.remaining} {book.unit === 'PAGES' ? 'págs' : 'caps'} restantes
                                     </p>
 
-                                    {/* Per-day badge */}
-                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${book.perDay > 20 ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                                        book.perDay > 10 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
-                                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                        }`}>
-                                        <TrendingUp size={10} />
-                                        {book.perDay}/dia
+                                    {/* Per-day badge with phase indicator */}
+                                    <div className="flex items-center gap-2">
+                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${book.perDay > 20 ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                            book.perDay > 10 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
+                                                'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                            }`}>
+                                            <TrendingUp size={10} />
+                                            {book.perDay}/dia
+                                        </div>
+                                        {book.currentPhase && (
+                                            <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                                                {book.currentPhase.emoji} {book.currentPhase.name}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 

@@ -114,6 +114,7 @@ export const MicroAchievementsTab: React.FC<MicroAchievementsTabProps> = ({ skil
     }, [skill.id, toggleMicroAchievement]);
 
     const handleDeleteAchievement = useCallback((id: string) => {
+        if (!confirm('Remover esta micro-vitória?')) return;
         deleteMicroAchievement(skill.id, id);
     }, [skill.id, deleteMicroAchievement]);
 
@@ -142,6 +143,7 @@ export const MicroAchievementsTab: React.FC<MicroAchievementsTabProps> = ({ skil
     }, [skill.id, toggleNextDayContent]);
 
     const handleDeleteContent = useCallback((id: string) => {
+        if (!confirm('Remover este conteúdo preparado?')) return;
         deleteNextDayContent(skill.id, id);
     }, [skill.id, deleteNextDayContent]);
 

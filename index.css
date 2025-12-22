@@ -5,6 +5,148 @@
 }
 
 /* ===============================================
+   THEME SYSTEM - CSS Custom Properties
+   =============================================== */
+:root {
+    /* Base colors - Default Dark Theme */
+    --color-bg-app: #0f172a;
+    /* slate-950 */
+    --color-bg-card: #1e293b;
+    /* slate-800 */
+    --color-bg-card-hover: #334155;
+    /* slate-700 */
+    --color-bg-input: #0f172a;
+    /* slate-900 */
+    --color-border: #334155;
+    /* slate-700 */
+    --color-border-light: rgba(51, 65, 85, 0.5);
+
+    /* Scrollbar colors */
+    --color-scrollbar-track: #1e293b;
+    --color-scrollbar-thumb: #475569;
+    --color-scrollbar-thumb-hover: #64748b;
+}
+
+/* AMOLED Theme - Pure Black */
+.theme-amoled {
+    --color-bg-app: #000000;
+    --color-bg-card: #0a0a0a;
+    --color-bg-card-hover: #171717;
+    --color-bg-input: #0a0a0a;
+    --color-border: #262626;
+    --color-border-light: rgba(38, 38, 38, 0.5);
+
+    /* Scrollbar colors for AMOLED */
+    --color-scrollbar-track: #0a0a0a;
+    --color-scrollbar-thumb: #262626;
+    --color-scrollbar-thumb-hover: #404040;
+}
+
+/* AMOLED Theme - Override ALL slate backgrounds */
+.theme-amoled .bg-slate-950,
+.theme-amoled .bg-slate-900,
+.theme-amoled .bg-slate-900\/50,
+.theme-amoled .bg-slate-900\/80 {
+    background-color: #000000 !important;
+}
+
+.theme-amoled .bg-slate-850,
+.theme-amoled .bg-slate-800,
+.theme-amoled .bg-slate-800\/50,
+.theme-amoled .bg-slate-800\/80,
+.theme-amoled .bg-slate-800\/90,
+.theme-amoled .bg-slate-800\/60 {
+    background-color: #0a0a0a !important;
+}
+
+.theme-amoled .bg-slate-700,
+.theme-amoled .bg-slate-700\/50,
+.theme-amoled .bg-slate-700\/80 {
+    background-color: #171717 !important;
+}
+
+/* AMOLED Theme - Override gradient backgrounds (Cards, etc) */
+.theme-amoled .bg-gradient-to-br,
+.theme-amoled .bg-gradient-to-r,
+.theme-amoled .bg-gradient-to-b,
+.theme-amoled .bg-gradient-to-t,
+.theme-amoled .bg-gradient-to-l,
+.theme-amoled .bg-gradient-to-tr,
+.theme-amoled .bg-gradient-to-bl,
+.theme-amoled .bg-gradient-to-tl {
+    --tw-gradient-from: #0a0a0a !important;
+    --tw-gradient-to: #000000 !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+/* Override specific gradient utilities */
+.theme-amoled .from-slate-800,
+.theme-amoled .from-slate-800\/80,
+.theme-amoled .from-slate-800\/90 {
+    --tw-gradient-from: #0a0a0a !important;
+}
+
+.theme-amoled .to-slate-900,
+.theme-amoled .to-slate-900\/80,
+.theme-amoled .to-slate-850 {
+    --tw-gradient-to: #000000 !important;
+}
+
+/* AMOLED Theme - Override borders */
+.theme-amoled .border-slate-600,
+.theme-amoled .border-slate-600\/50,
+.theme-amoled .border-slate-600\/80,
+.theme-amoled .border-slate-700,
+.theme-amoled .border-slate-700\/50,
+.theme-amoled .border-slate-800,
+.theme-amoled .border-slate-800\/50 {
+    border-color: #262626 !important;
+}
+
+/* AMOLED Theme - Header and glass effects */
+.theme-amoled .glass-strong {
+    background: rgba(0, 0, 0, 0.95) !important;
+    border-color: #262626 !important;
+}
+
+.theme-amoled .glass {
+    background: rgba(0, 0, 0, 0.85) !important;
+}
+
+.theme-amoled .glass-light {
+    background: rgba(10, 10, 10, 0.7) !important;
+}
+
+/* AMOLED Theme - Card gradient backgrounds */
+.theme-amoled .card-gradient-border {
+    background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%) !important;
+}
+
+/* AMOLED Theme - Hover states */
+.theme-amoled .hover\:bg-slate-800:hover,
+.theme-amoled .hover\:bg-slate-800\/80:hover,
+.theme-amoled .hover\:from-slate-800:hover {
+    background-color: #171717 !important;
+}
+
+.theme-amoled .hover\:bg-slate-700:hover,
+.theme-amoled .hover\:to-slate-850:hover {
+    background-color: #262626 !important;
+}
+
+/* AMOLED Theme - Main app container override (critical) */
+.theme-amoled.min-h-screen,
+.theme-amoled .min-h-screen {
+    background-color: #000000 !important;
+}
+
+/* AMOLED Theme - Additional common patterns */
+.theme-amoled [class*="bg-slate-9"],
+.theme-amoled [class*="bg-slate-8"] {
+    background-color: #0a0a0a !important;
+}
+
+/* ===============================================
    PREMIUM ANIMATION KEYFRAMES
    =============================================== */
 
@@ -357,18 +499,18 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: #1e293b;
+    background: var(--color-scrollbar-track);
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #475569 0%, #334155 100%);
+    background: linear-gradient(180deg, var(--color-scrollbar-thumb) 0%, var(--color-scrollbar-thumb) 100%);
     border-radius: 4px;
     transition: background 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #64748b 0%, #475569 100%);
+    background: linear-gradient(180deg, var(--color-scrollbar-thumb-hover) 0%, var(--color-scrollbar-thumb) 100%);
 }
 
 /* ===============================================
@@ -376,7 +518,7 @@
    =============================================== */
 
 body {
-    background-color: #0f172a;
+    background-color: var(--color-bg-app);
     color: white;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }

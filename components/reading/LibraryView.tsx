@@ -19,10 +19,11 @@ interface LibraryViewProps {
     onDelete: (id: string) => void;
     onMove: (b: IBook) => void;
     onSelect: (b: IBook) => void;
+    onPlan?: (b: IBook) => void;
     breadcrumbs: IFolder[];
 }
 
-const LibraryView: React.FC<LibraryViewProps> = React.memo(({ books, folders, currentFolderId, viewMode, onNavigate, onCreateFolder, onDeleteFolder, onDragStart, onDropOnFolder, onUpdateProgress, onUpdateStatus, onEdit, onDelete, onMove, onSelect, breadcrumbs }) => {
+const LibraryView: React.FC<LibraryViewProps> = React.memo(({ books, folders, currentFolderId, viewMode, onNavigate, onCreateFolder, onDeleteFolder, onDragStart, onDropOnFolder, onUpdateProgress, onUpdateStatus, onEdit, onDelete, onMove, onSelect, onPlan, breadcrumbs }) => {
 
     const currentFolders = folders.filter(f => f.parentId === currentFolderId);
     const currentBooks = books.filter(b => b.folderId === currentFolderId);
@@ -102,6 +103,7 @@ const LibraryView: React.FC<LibraryViewProps> = React.memo(({ books, folders, cu
                             onDelete={onDelete}
                             onMove={onMove}
                             onSelect={onSelect}
+                            onPlan={onPlan}
                         />
                     </div>
                 ))}

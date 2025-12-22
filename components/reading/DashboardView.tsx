@@ -22,9 +22,10 @@ interface DashboardViewProps {
     onDelete: (id: string) => void;
     onMove: (b: IBook) => void;
     onSelect: (b: IBook) => void;
+    onPlan?: (b: IBook) => void;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMode, onDragStart, onDropOnStatus, onUpdateProgress, onUpdateStatus, onEdit, onDelete, onMove, onSelect }) => {
+const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMode, onDragStart, onDropOnStatus, onUpdateProgress, onUpdateStatus, onEdit, onDelete, onMove, onSelect, onPlan }) => {
 
     // Memoize books by status to avoid O(4n) filter on every render
     const booksByStatus = useMemo(() => {
@@ -76,6 +77,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMod
                             onDelete={onDelete}
                             onMove={onMove}
                             onSelect={onSelect}
+                            onPlan={onPlan}
                         />
                     ))}
                 </div>

@@ -3,6 +3,7 @@ import { Sparkles, MoreVertical, Trash2, Copy, Download, Pin } from 'lucide-reac
 import { Note, Tag } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { sanitizeFilename } from '../../utils/sanitizeFilename';
+import { stripMarkdown } from '../../utils/markdownPreview';
 
 interface NoteCardProps {
     note: Note;
@@ -10,7 +11,7 @@ interface NoteCardProps {
     onDelete: (id: string) => void;
     onDuplicate: (id: string) => void;
     onTogglePin: (id: string) => void;
-    availableTags?: Tag[];
+    tagMap?: Record<string, Tag>;
 }
 
 const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; hover: string }> = {
@@ -24,13 +25,40 @@ const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; 
     orange: { bg: 'bg-orange-500/5', border: 'border-orange-500/20', text: 'text-orange-400', hover: 'hover:border-orange-500/40' },
 };
 
-export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, onDelete, onDuplicate, onTogglePin, availableTags = [] }) => {
+export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, onDelete, onDuplicate, onTogglePin, tagMap = {} }) => {
     const [showMenu, setShowMenu] = React.useState(false);
+    const cardRef = React.useRef<HTMLDivElement>(null);
     const colorScheme = COLOR_CLASSES[note.color] || COLOR_CLASSES.blue;
+
+    // Close menu when clicking/right-clicking outside this card
+    React.useEffect(() => {
+        if (!showMenu) return;
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+                setShowMenu(false);
+            }
+        };
+
+        // Use capture phase to ensure we catch the event before other handlers
+        document.addEventListener('mousedown', handleClickOutside, true);
+        document.addEventListener('contextmenu', handleClickOutside, true);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside, true);
+            document.removeEventListener('contextmenu', handleClickOutside, true);
+        };
+    }, [showMenu]);
 
     const handleMenuClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setShowMenu(!showMenu);
+    };
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowMenu(true);
     };
 
     const handleDelete = (e: React.MouseEvent) => {
@@ -63,29 +91,65 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
 
     // Get pinned tags labels
     const pinnedTagLabels = (note.pinnedToTags || []).map(tagId => {
-        const tag = availableTags.find(t => t.id === tagId);
+        const tag = tagMap[tagId];
         return tag ? tag.label : tagId;
     }).filter(Boolean);
 
     return (
         <div
+            ref={cardRef}
             onClick={() => onClick(note)}
+            onContextMenu={handleContextMenu}
             className={`relative group cursor-pointer rounded-xl border-2 ${colorScheme.border} ${colorScheme.bg} ${colorScheme.hover} hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-in fade-in slide-in-from-bottom-2`}
         >
             {/* Top Color Bar */}
             <div className={`h-1.5 w-full ${colorScheme.text.replace('text-', 'bg-')}`} />
 
-            {/* Pin Button - Always at top right, visible on hover or when pinned */}
-            <button
-                onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
-                className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg border transition-all ${note.isPinned
-                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                    : 'bg-slate-800/50 border-slate-700/50 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:border-amber-500/30'
-                    }`}
-                title={note.isPinned ? `Desafixar (fixada em: ${pinnedTagLabels.join(', ') || 'Geral'})` : 'Fixar'}
-            >
-                <Pin size={14} className={note.isPinned ? 'fill-current' : ''} />
-            </button>
+            {/* Action Buttons - Top Right */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
+                {/* Menu Button (3 dots) */}
+                <button
+                    onClick={handleMenuClick}
+                    className={`p-1.5 rounded-lg border transition-all bg-slate-800/50 border-slate-700/50 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-white hover:border-slate-600`}
+                    title="Opções"
+                >
+                    <MoreVertical size={14} />
+                </button>
+
+                {/* Pin Button */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+                    className={`p-1.5 rounded-lg border transition-all ${note.isPinned
+                        ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                        : 'bg-slate-800/50 border-slate-700/50 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:border-amber-500/30'
+                        }`}
+                    title={note.isPinned ? `Desafixar (fixada em: ${pinnedTagLabels.join(', ') || 'Geral'})` : 'Fixar'}
+                >
+                    <Pin size={14} className={note.isPinned ? 'fill-current' : ''} />
+                </button>
+            </div>
+
+            {/* Dropdown Menu */}
+            {showMenu && (
+                <>
+                    {/* Overlay to close menu on outside click */}
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}
+                    />
+                    <div className="absolute right-3 top-12 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <button onClick={handleDuplicate} className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 w-full text-left">
+                            <Copy size={14} /> Duplicar
+                        </button>
+                        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 w-full text-left">
+                            <Download size={14} /> Exportar
+                        </button>
+                        <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-red-900/20 w-full text-left">
+                            <Trash2 size={14} /> Deletar
+                        </button>
+                    </div>
+                </>
+            )}
 
             <div className="p-5">
                 {/* Header */}
@@ -93,13 +157,13 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                     <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-bold text-white truncate">{note.title || 'Sem título'}</h3>
                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                            <span>
-                                {new Date(note.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            <span className="shrink-0">
+                                {new Date(note.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                             </span>
                             {note.isPinned && pinnedTagLabels.length > 0 && (
                                 <>
                                     <span>•</span>
-                                    <span className="text-amber-400/70">📌 {pinnedTagLabels.slice(0, 2).join(', ')}{pinnedTagLabels.length > 2 ? '...' : ''}</span>
+                                    <span className="text-amber-400/70 truncate">📌 {pinnedTagLabels.slice(0, 2).join(', ')}{pinnedTagLabels.length > 2 ? '...' : ''}</span>
                                 </>
                             )}
                         </div>
@@ -111,43 +175,12 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                             <Sparkles size={14} className="text-purple-400" />
                         </div>
                     )}
-
-                    {/* Menu Button */}
-                    <div className="relative flex-shrink-0">
-                        <button
-                            onClick={handleMenuClick}
-                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-slate-800 rounded-lg transition-all text-slate-400 hover:text-white"
-                        >
-                            <MoreVertical size={16} />
-                        </button>
-
-                        {showMenu && (
-                            <>
-                                {/* Overlay to close menu on outside click */}
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}
-                                />
-                                <div className="absolute right-0 top-8 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                    <button onClick={handleDuplicate} className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 w-full text-left">
-                                        <Copy size={14} /> Duplicar
-                                    </button>
-                                    <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 w-full text-left">
-                                        <Download size={14} /> Exportar
-                                    </button>
-                                    <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-red-900/20 w-full text-left">
-                                        <Trash2 size={14} /> Deletar
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
                 </div>
 
-                {/* Content Preview - Markdown Rendered */}
-                <div className="text-sm text-slate-300 line-clamp-3 leading-relaxed mb-4 overflow-hidden">
+                {/* Content Preview - Lightweight */}
+                <div className="text-sm text-slate-300 line-clamp-3 leading-relaxed mb-4 overflow-hidden h-14">
                     {note.content ? (
-                        <MarkdownRenderer content={note.content} compact />
+                        stripMarkdown(note.content)
                     ) : (
                         <span className="text-slate-500 italic">Nota vazia...</span>
                     )}
@@ -155,22 +188,19 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
 
                 {/* Tags */}
                 {note.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                        {note.tags.slice(0, 3).map((tagStr, idx) => {
-                            // Resolve tag
-                            const smartTag = availableTags.find(t => t.id === tagStr);
-                            const smartTagByName = availableTags.find(t => t.label.toLowerCase() === tagStr.toLowerCase());
-
-                            const displayLabel = smartTag?.label || smartTagByName?.label || tagStr;
-                            const isSmart = !!(smartTag || smartTagByName);
-                            const smartColor = smartTag?.color || smartTagByName?.color;
+                    <div className="flex flex-wrap gap-1.5 mt-auto">
+                        {note.tags.slice(0, 3).map((tagId, idx) => {
+                            // Resolve tag using map
+                            const tag = tagMap[tagId];
+                            const displayLabel = tag?.label || tagId;
+                            const smartColor = tag?.color || 'bg-slate-700';
 
                             return (
                                 <span
                                     key={idx}
-                                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${isSmart
+                                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${tag
                                         ? `${smartColor} text-white border-white/20`
-                                        : `${colorScheme.border} ${colorScheme.text}`
+                                        : `bg-slate-700/50 text-slate-400 border-slate-700`
                                         }`}
                                 >
                                     {displayLabel}

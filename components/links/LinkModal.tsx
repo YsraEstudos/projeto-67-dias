@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Globe, Sparkles, ArrowUpRight } from 'lucide-react';
 import { LinkItem, Prompt, PromptCategory } from '../../types';
 import MultiPromptSelector from './MultiPromptSelector';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
 
 interface LinkModalProps {
     link: LinkItem | null;
@@ -19,6 +21,30 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
         promptIds: link?.promptIds || []
     });
     const [isPromptSelectorOpen, setIsPromptSelectorOpen] = useState(false);
+    const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+    // Memoize initial values for comparison
+    const initialValues = useMemo(() => ({
+        title: link?.title || '',
+        url: link?.url || '',
+        categoryId: link?.categoryId || 'personal',
+        promptIds: link?.promptIds || [],
+    }), []);
+
+    // Track unsaved changes
+    const { hasChanges } = useUnsavedChanges({
+        initialValue: initialValues,
+        currentValue: formData,
+    });
+
+    // Intercept close to check for unsaved changes
+    const handleClose = () => {
+        if (hasChanges) {
+            setShowUnsavedModal(true);
+        } else {
+            onClose();
+        }
+    };
 
     // Get linked prompts data for display
     const linkedPrompts = formData.promptIds
@@ -32,10 +58,12 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
     return (
         <>
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-                <div className="bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+                {/* Clickable backdrop */}
+                <div className="absolute inset-0" onClick={handleClose} aria-hidden="true" />
+                <div className="relative bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
                     <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
                         <h3 className="font-bold text-white">{link ? 'Editar Link' : 'Novo Link'}</h3>
-                        <button onClick={onClose} title="Fechar"><X className="text-slate-400 hover:text-white" size={20} /></button>
+                        <button onClick={handleClose} title="Fechar"><X className="text-slate-400 hover:text-white" size={20} /></button>
                     </div>
 
                     <div className="p-6 space-y-4">
@@ -119,7 +147,7 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                     </div>
 
                     <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-medium">Cancelar</button>
+                        <button onClick={handleClose} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-medium">Cancelar</button>
                         <button
                             disabled={!formData.title || !formData.url}
                             onClick={() => onSave(formData)}
@@ -144,6 +172,20 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                     }}
                 />
             )}
+
+            {/* Unsaved Changes Confirmation Modal */}
+            <UnsavedChangesModal
+                isOpen={showUnsavedModal}
+                onSave={() => {
+                    setShowUnsavedModal(false);
+                    onSave(formData);
+                }}
+                onDiscard={() => {
+                    setShowUnsavedModal(false);
+                    onClose();
+                }}
+                onCancel={() => setShowUnsavedModal(false)}
+            />
         </>
     );
 };

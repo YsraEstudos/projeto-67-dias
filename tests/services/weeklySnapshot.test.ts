@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { calculateCurrentDay, calculateCurrentWeek, JOURNEY_CONFIG } from '../../services/weeklySnapshot';
+import { calculateCurrentDay, calculateCurrentWeek, getDaysUntilStart, JOURNEY_CONFIG } from '../../services/weeklySnapshot';
 
 describe('weeklySnapshot date calculations', () => {
     beforeEach(() => {
@@ -68,6 +68,74 @@ describe('weeklySnapshot date calculations', () => {
             const startDate = new Date('2025-12-13T08:00:00').toISOString();
             expect(calculateCurrentDay(startDate)).toBe(1);
         });
+
+        // NEW: Tests for future dates
+        it('returns 0 when startDate is tomorrow (journey not started)', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2025-12-21T08:00:00').toISOString();
+            expect(calculateCurrentDay(startDate)).toBe(0);
+        });
+
+        it('returns 0 when startDate is 2 days in the future', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2025-12-22T08:00:00').toISOString();
+            expect(calculateCurrentDay(startDate)).toBe(0);
+        });
+
+        it('returns 0 when startDate is far in the future', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2026-01-15T08:00:00').toISOString();
+            expect(calculateCurrentDay(startDate)).toBe(0);
+        });
+    });
+
+    describe('getDaysUntilStart', () => {
+        it('returns 0 when startDate is today', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2025-12-20T12:00:00').toISOString();
+            expect(getDaysUntilStart(startDate)).toBe(0);
+        });
+
+        it('returns 0 when startDate is in the past', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2025-12-15T08:00:00').toISOString();
+            expect(getDaysUntilStart(startDate)).toBe(0);
+        });
+
+        it('returns 1 when startDate is tomorrow', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2025-12-21T08:00:00').toISOString();
+            expect(getDaysUntilStart(startDate)).toBe(1);
+        });
+
+        it('returns 2 when startDate is 2 days in the future', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            const startDate = new Date('2025-12-22T08:00:00').toISOString();
+            expect(getDaysUntilStart(startDate)).toBe(2);
+        });
+
+        it('returns correct days for far future date', () => {
+            const now = new Date('2025-12-20T08:00:00');
+            vi.setSystemTime(now);
+
+            // 26 days in the future
+            const startDate = new Date('2026-01-15T08:00:00').toISOString();
+            expect(getDaysUntilStart(startDate)).toBe(26);
+        });
     });
 
     describe('calculateCurrentWeek', () => {
@@ -105,3 +173,4 @@ describe('weeklySnapshot date calculations', () => {
         });
     });
 });
+

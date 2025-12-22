@@ -7,7 +7,7 @@ import { LinkItem, SiteCategory } from '../../types';
 import { useLinks, useLinkActions } from '../../stores/linksStore';
 import { usePromptsStore, useSiteCategories, useSiteCategoryActions } from '../../stores';
 import { PromptPreviewModal } from '../skills/PromptPreviewModal';
-import { siteIcons, siteColorClasses } from '../links/SiteCategoryModal';
+import { siteIcons, siteColorClasses } from '../links/constants';
 
 // Lazy load Components
 const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
@@ -152,12 +152,22 @@ const LinksView: React.FC = () => {
    // Prompt Helpers
    const getPromptById = (promptId: string) => prompts.find(p => p.id === promptId);
    const getCategoryById = (catId: string) => promptCategories.find(c => c.id === catId);
-   const getLinkedPrompts = useCallback((link: LinkItem) => {
-      if (!link.promptIds || link.promptIds.length === 0) return [];
-      return link.promptIds
-         .map(id => prompts.find(p => p.id === id))
-         .filter((p): p is typeof prompts[number] => !!p);
-   }, [prompts]);
+
+   // Pre-compute linked prompts map for all links (prevents recreating arrays on each render)
+   const linkedPromptsMap = useMemo(() => {
+      const map = new Map<string, typeof prompts>();
+      for (const link of links) {
+         if (link.promptIds && link.promptIds.length > 0) {
+            const linkedPrompts = link.promptIds
+               .map(id => prompts.find(p => p.id === id))
+               .filter((p): p is typeof prompts[number] => !!p);
+            map.set(link.id, linkedPrompts);
+         } else {
+            map.set(link.id, []);
+         }
+      }
+      return map;
+   }, [links, prompts]);
 
    // Filtering
    const filteredLinks = useMemo(() => {
@@ -321,7 +331,7 @@ const LinksView: React.FC = () => {
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         onPreviewPrompt={handlePreviewPrompt}
-                        linkedPrompts={getLinkedPrompts(link)}
+                        linkedPrompts={linkedPromptsMap.get(link.id) || []}
                      />
                   ))}
                </div>

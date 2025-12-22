@@ -393,5 +393,58 @@ describe('firestoreSync', () => {
             // Listener should not be called after unsubscribe
             expect(listener).not.toHaveBeenCalled();
         });
+
+        // 🆕 NEW: Tests for immediate pendingWriteCount increment
+        it('pendingWriteCount should increment immediately when write is scheduled', () => {
+            expect(getPendingWriteCount()).toBe(0);
+
+            writeToFirestore('test', { data: 1 });
+
+            // Count should increment immediately, not after debounce
+            expect(getPendingWriteCount()).toBe(1);
+            expect(isFullySynced()).toBe(false);
+        });
+
+        it('pendingWriteCount should NOT double-increment for replaced writes', () => {
+            writeToFirestore('same_collection', { version: 1 });
+            expect(getPendingWriteCount()).toBe(1);
+
+            // Replace with new write (within debounce window)
+            writeToFirestore('same_collection', { version: 2 });
+
+            // Should still be 1, not 2
+            expect(getPendingWriteCount()).toBe(1);
+        });
+
+        it('pendingWriteCount should track multiple different collections separately', () => {
+            writeToFirestore('collection_a', { a: 1 });
+            writeToFirestore('collection_b', { b: 2 });
+            writeToFirestore('collection_c', { c: 3 });
+
+            expect(getPendingWriteCount()).toBe(3);
+        });
+
+        it('isFullySynced should return true after all writes complete', async () => {
+            writeToFirestore('test_a', { a: 1 });
+            writeToFirestore('test_b', { b: 2 });
+
+            expect(isFullySynced()).toBe(false);
+
+            vi.advanceTimersByTime(350);
+            await vi.runAllTimersAsync();
+
+            expect(isFullySynced()).toBe(true);
+            expect(getPendingWriteCount()).toBe(0);
+        });
+
+        it('listener should be notified immediately on write schedule', () => {
+            const listener = vi.fn();
+            subscribeToPendingWrites(listener);
+
+            writeToFirestore('test', { data: 1 });
+
+            // Listener should be called immediately (not after debounce)
+            expect(listener).toHaveBeenCalledTimes(1);
+        });
     });
 });

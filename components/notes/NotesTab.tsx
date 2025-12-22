@@ -23,6 +23,13 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         tags: state.tags
     })));
 
+    // Performance: Map for O(1) tag lookups
+    const tagMap = useMemo(() => {
+        const map: Record<string, Tag> = {};
+        tags.forEach(t => map[t.id] = t);
+        return map;
+    }, [tags]);
+
     const {
         addNote,
         updateNote,
@@ -48,6 +55,9 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [sortBy, setSortBy] = useState<SortOption>('recent');
     const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+
+    // Pagination
+    const [visibleCount, setVisibleCount] = useState(12);
 
     // Derive all unique tags from notes + global tags
     const allTags = useMemo(() => {
@@ -78,7 +88,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     }, [notes, tags]);
 
     const resolveTagToLabel = (tagStr: string): string => {
-        const smartTag = tags.find(t => t.id === tagStr);
+        const smartTag = tagMap[tagStr];
         return smartTag ? smartTag.label : tagStr;
     };
 
@@ -148,7 +158,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         }
 
         return sorted;
-    }, [notes, searchTerm, selectedTags, sortBy, tags, showPinnedOnly]);
+    }, [notes, searchTerm, selectedTags, sortBy, tagMap, showPinnedOnly]);
 
     const handleSaveNote = useCallback((note: Note) => {
         const existing = notes.find((n) => n.id === note.id);
@@ -236,7 +246,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     });
 
     return (
-        <div className="animate-in fade-in duration-500">
+        <div className="animate-in fade-in duration-200">
             {/* Header */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">
@@ -359,7 +369,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                                     onDelete={handleDeleteNote}
                                                     onDuplicate={handleDuplicateNote}
                                                     onTogglePin={handleTogglePin}
-                                                    availableTags={tags}
+                                                    tagMap={tagMap}
                                                 />
                                             </div>
                                         ))}
@@ -398,7 +408,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                         <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Todas as Notas</h3>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {filteredNotes.map((note) => (
+                        {filteredNotes.slice(0, visibleCount).map((note) => (
                             <NoteCard
                                 key={note.id}
                                 note={note}
@@ -406,10 +416,21 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                 onDelete={handleDeleteNote}
                                 onDuplicate={handleDuplicateNote}
                                 onTogglePin={handleTogglePin}
-                                availableTags={tags}
+                                tagMap={tagMap}
                             />
                         ))}
                     </div>
+
+                    {filteredNotes.length > visibleCount && (
+                        <div className="mt-8 flex justify-center">
+                            <button
+                                onClick={() => setVisibleCount(prev => prev + 12)}
+                                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-colors text-sm font-medium"
+                            >
+                                Carregar mais notas ({filteredNotes.length - visibleCount} restantes)
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
 

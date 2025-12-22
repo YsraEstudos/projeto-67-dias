@@ -18,6 +18,7 @@ import {
 import {
     calculateCurrentWeek,
     calculateCurrentDay,
+    getDaysUntilStart,
     generateWeeklySnapshot,
     shouldGenerateSnapshot,
     detectImprovements,
@@ -34,6 +35,7 @@ const WeeklyReviewCard = React.lazy(() => import('../progress/WeeklyReviewCard')
 const ImprovementsList = React.lazy(() => import('../progress/ImprovementsList').then(module => ({ default: module.ImprovementsList })));
 const MoodEvolutionChart = React.lazy(() => import('../progress/MoodEvolutionChart').then(module => ({ default: module.MoodEvolutionChart })));
 const FinalJourneySummaryComponent = React.lazy(() => import('../progress/FinalJourneySummary').then(module => ({ default: module.FinalJourneySummaryComponent })));
+const DecadeModeView = React.lazy(() => import('../progress/DecadeModeView').then(module => ({ default: module.DecadeModeView })));
 const SnapshotConfirmationModal = React.lazy(() => import('../progress/SnapshotConfirmationModal').then(module => ({ default: module.SnapshotConfirmationModal })));
 const HabitWeeklyChart = React.lazy(() => import('../progress/HabitWeeklyChart'));
 
@@ -45,7 +47,7 @@ const TabLoading = () => (
     </div>
 );
 
-type TabType = 'overview' | 'weeks' | 'evolution' | 'final';
+type TabType = 'overview' | 'weeks' | 'evolution' | 'decade' | 'final';
 
 const ProgressView: React.FC = () => {
     // --- DATA AGGREGATION (Zustand Stores - Optimized Selectors) ---
@@ -71,9 +73,23 @@ const ProgressView: React.FC = () => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [pendingSnapshot, setPendingSnapshot] = useState<WeeklySnapshot | null>(null);
 
+    // Current Week calculation - Should persist across cycles for now?
+    // User requested NON-RESET of data, so day continues counting if startDate is old.
+    // However, if we want "cycles", startDate effectively resets for the "cycle current day" perspective?
+    // Implementation Plan: Data is NOT reset. So "currentDay" keeps growing beyond 67?
+    // The user requirement "55 cycles of 67 days" implies restart. But user said "Data DOES NOT reset".
+    // Reconciling: Data is archived, but kept available.
+    // For the UI logic, we should probably keep startDate fixed unless manually changed?
+    // Or: "Cycle 2 Day 1" means startDate + 67 days?
+    // Let's stick to the simplest interpretation of what I built: CompleteCycleModal marks cycle +1 but keeps data.
+    // If startDate doesn't change, currentDay grows > 67.
+    // We might need to adjust currentDay calculation logic for Decade Mode specifically if we want "Day 1 of Cycle 2".
+
     const currentWeek = useMemo(() => calculateCurrentWeek(config.startDate), [config.startDate]);
     const currentDay = useMemo(() => calculateCurrentDay(config.startDate), [config.startDate]);
-    const journeyComplete = currentDay >= 67;
+    const daysUntilStart = useMemo(() => getDaysUntilStart(config.startDate), [config.startDate]);
+    const hasStarted = currentDay > 0;
+    const journeyComplete = hasStarted && currentDay >= 67;
 
     // --- GRANULAR STATS CALCULATIONS ---
 
@@ -241,6 +257,7 @@ const ProgressView: React.FC = () => {
         { id: 'overview', label: 'Visão Geral', icon: <LayoutGrid size={16} /> },
         { id: 'weeks', label: 'Semanas', icon: <Clock size={16} /> },
         { id: 'evolution', label: 'Evolução', icon: <Activity size={16} /> },
+        { id: 'decade', label: '10 Anos', icon: <Calendar size={16} /> },
         { id: 'final', label: 'Resumo Final', icon: <Trophy size={16} />, disabled: !journeyComplete && reviewData.snapshots.length < 5 }
     ];
 
@@ -297,13 +314,23 @@ const ProgressView: React.FC = () => {
                                     <Calendar size={16} /> Projeto 67 Dias
                                 </div>
                                 <h2 className="text-4xl md:text-5xl font-bold text-white mb-2">
-                                    Dia {Math.min(67, stats.currentDay)}
+                                    {hasStarted
+                                        ? `Dia ${Math.min(67, stats.currentDay)}`
+                                        : daysUntilStart === 0
+                                            ? 'Começa Hoje!'
+                                            : `Faltam ${daysUntilStart} dias`
+                                    }
                                 </h2>
                                 <p className="text-slate-400 max-w-md">
                                     "A excelência não é um ato, mas um hábito." Você está construindo a melhor versão de si mesmo.
                                 </p>
                                 <div className="mt-4 flex items-center gap-2">
-                                    <span className="text-sm text-slate-500">Semana {currentWeek}/10</span>
+                                    <span className="text-sm text-slate-500">
+                                        {hasStarted
+                                            ? `Semana ${currentWeek}/10`
+                                            : `Início: ${new Date(config.startDate).toLocaleDateString('pt-BR')}`
+                                        }
+                                    </span>
                                     {reviewData.snapshots.length > 0 && (
                                         <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded-full">
                                             {reviewData.snapshots.length} snapshots
@@ -406,12 +433,19 @@ const ProgressView: React.FC = () => {
                             <div className="w-24 h-24 rounded-full bg-indigo-600 flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(79,70,229,0.5)] border-4 border-indigo-400">
                                 <Award size={48} className="text-white" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-1">Nível {Math.floor(stats.currentDay / 7) + 1}</h3>
-                            <p className="text-indigo-300 text-sm mb-4 font-medium">Explorador Disciplinado</p>
+                            <h3 className="text-xl font-bold text-white mb-1">Nível {hasStarted ? Math.floor(stats.currentDay / 7) + 1 : 0}</h3>
+                            <p className="text-indigo-300 text-sm mb-4 font-medium">
+                                {hasStarted ? 'Explorador Disciplinado' : 'Aguardando Início'}
+                            </p>
                             <div className="w-full bg-slate-800 rounded-full h-2 mb-2 overflow-hidden">
-                                <div className="bg-indigo-500 h-full" style={{ width: `${(stats.currentDay % 7) * 14.28}%` }}></div>
+                                <div className="bg-indigo-500 h-full" style={{ width: `${hasStarted ? (stats.currentDay % 7) * 14.28 : 0}%` }}></div>
                             </div>
-                            <p className="text-xs text-slate-500">Próximo nível em {7 - (stats.currentDay % 7)} dias</p>
+                            <p className="text-xs text-slate-500">
+                                {hasStarted
+                                    ? `Próximo nível em ${7 - (stats.currentDay % 7)} dias`
+                                    : `A jornada começa em ${daysUntilStart} dia${daysUntilStart !== 1 ? 's' : ''}`
+                                }
+                            </p>
                         </div>
                     </div>
 
@@ -513,6 +547,8 @@ const ProgressView: React.FC = () => {
                     </React.Suspense>
                 </div>
             )}
+
+            {activeTab === 'decade' && <DecadeModeView />}
 
             {activeTab === 'final' && (
                 <div>

@@ -85,10 +85,23 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
         <div
             onClick={onClick}
             onContextMenu={handleContextMenu}
-            className={`group bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg relative overflow-hidden ${skill.isCompleted ? 'ring-1 ring-yellow-500/30' : ''}`}
+            className={`group bg-slate-800 border border-slate-700 hover:border-emerald-500/30 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg hover:shadow-emerald-500/10 relative overflow-hidden ${skill.isCompleted ? 'ring-1 ring-yellow-500/30' : ''}`}
         >
+            {/* Animated gradient border glow */}
+            <div className="absolute inset-0 rounded-2xl p-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/30 via-cyan-500/30 to-emerald-500/30 animate-gradient-shift" style={{ backgroundSize: '200% 200%' }} />
+            </div>
+
+            {/* Background gradient glow */}
+            <div className="absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-20 transition-all duration-700 blur-xl pointer-events-none bg-emerald-500" />
+
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none">
+                <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12" />
+            </div>
+
             {/* Progress Bar Background */}
-            <div className="absolute top-0 left-0 h-1 w-full bg-slate-900">
+            <div className="absolute top-0 left-0 h-1 w-full bg-slate-900 z-10">
                 <div className={`h-full ${barColor} transition-all duration-1000`} style={{ width: `${percentage}%` }}></div>
             </div>
 

@@ -39,6 +39,7 @@ export const useStudyScheduler = ({
     }, [newSubjectName, newSubjectColor, studySubjects, onUpdateSubjects]);
 
     const handleDeleteSubject = useCallback((subjectId: string) => {
+        if (!confirm('Remover esta matéria? Os agendamentos relacionados também serão removidos.')) return;
         onUpdateSubjects(studySubjects.filter(s => s.id !== subjectId));
         // Also remove from schedules
         const updatedSchedules = studySchedules.map(schedule => ({

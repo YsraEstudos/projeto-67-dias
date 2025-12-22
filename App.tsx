@@ -29,6 +29,9 @@ import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync'
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
 
+// Services
+import { calculateCurrentDay, getDaysUntilStart } from './services/weeklySnapshot';
+
 // Data Migration
 import { setupDataMigration } from './utils/dataMigration';
 import { setupFirestoreMigration } from './utils/legacyToFirestoreMigration';
@@ -39,7 +42,6 @@ const AuthView = React.lazy(() => import('./components/views/AuthView').then(m =
 
 // --- Constants ---
 const PROJECT_DURATION_DAYS = 67;
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 // --- Interfaces ---
 interface WorkViewData {
@@ -126,6 +128,14 @@ const App: React.FC = () => {
     }
   }, [user, config.userName, setConfig, isDataReady]);
 
+  // Apply theme class to body element
+  useEffect(() => {
+    // Remove all theme classes
+    document.body.classList.remove('theme-default', 'theme-amoled');
+    // Apply current theme
+    document.body.classList.add(`theme-${config.theme || 'default'}`);
+  }, [config.theme]);
+
   // FIRESTORE-FIRST: Subscribe to real-time updates for all stores
   // This replaces the old rehydrateAllStores approach
   useEffect(() => {
@@ -139,12 +149,15 @@ const App: React.FC = () => {
     clearAllStores(); // Prevent data leaks between users
 
     const unsubscribers: (() => void)[] = [];
-    let hydratedCount = 0;
+    const hydratedStores = new Set<string>();
     const totalStores = 16;
 
-    const checkAllHydrated = () => {
-      hydratedCount++;
-      if (hydratedCount >= totalStores) {
+    const checkAllHydrated = (storeKey: string) => {
+      // Only count first hydration per store
+      if (hydratedStores.has(storeKey)) return;
+      hydratedStores.add(storeKey);
+
+      if (hydratedStores.size >= totalStores) {
         setIsDataReady(true);
         console.log('[App] All stores hydrated, UI ready');
       }
@@ -153,82 +166,82 @@ const App: React.FC = () => {
     // Subscribe to all stores and hydrate with _hydrateFromFirestore
     unsubscribers.push(subscribeToDocument('p67_project_config', (data: any) => {
       useConfigStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_project_config');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_habits_store', (data: any) => {
       useHabitsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_habits_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_work_store', (data: any) => {
       useWorkStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_work_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_notes_store', (data: any) => {
       useNotesStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_notes_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_sunday_store', (data: any) => {
       useSundayStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_sunday_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_journal_store', (data: any) => {
       useJournalStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_journal_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_links_store', (data: any) => {
       useLinksStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_links_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_skills_store', (data: any) => {
       useSkillsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_skills_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_reading_store', (data: any) => {
       useReadingStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_reading_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_rest_store', (data: any) => {
       useRestStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_rest_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_prompts_store', (data: any) => {
       usePromptsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_prompts_store');
     }));
 
     unsubscribers.push(subscribeToDocument('games-storage', (data: any) => {
       useGamesStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('games-storage');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_review_store', (data: any) => {
       useReviewStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_review_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_water_store', (data: any) => {
       useWaterStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_water_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_streak_store', (data: any) => {
       useStreakStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_streak_store');
     }));
 
     unsubscribers.push(subscribeToDocument('p67_tool_timer', (data: any) => {
       useTimerStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated();
+      checkAllHydrated('p67_tool_timer');
     }));
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
@@ -263,14 +276,10 @@ const App: React.FC = () => {
 
 
 
-  // Calculate current day
-  const currentDay = useMemo(() => {
-    const start = new Date(config.startDate);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / MS_PER_DAY);
-    return diffDays;
-  }, [config.startDate]);
+  // Calculate current day and days until start
+  const currentDay = useMemo(() => calculateCurrentDay(config.startDate), [config.startDate]);
+  const daysUntilStart = useMemo(() => getDaysUntilStart(config.startDate), [config.startDate]);
+  const hasStarted = currentDay > 0;
 
   // Optimization: Calculate notifications directly in selector to avoid re-renders
   const notificationCount = useHabitsStore((state) => {
@@ -537,13 +546,18 @@ const App: React.FC = () => {
                   {[...Array(7)].map((_, i) => (
                     <div
                       key={i}
-                      className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${Math.floor(currentDay / 10) > i ? 'bg-cyan-500' : 'bg-slate-700'
+                      className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${hasStarted && Math.floor(currentDay / 10) > i ? 'bg-cyan-500' : 'bg-slate-700'
                         }`}
                     />
                   ))}
                 </div>
                 <p className="text-xs md:text-sm text-slate-400 font-medium tracking-wide">
-                  Dia {Math.min(PROJECT_DURATION_DAYS, Math.max(1, currentDay))} de {PROJECT_DURATION_DAYS}
+                  {hasStarted
+                    ? `Dia ${Math.min(PROJECT_DURATION_DAYS, currentDay)} de ${PROJECT_DURATION_DAYS}`
+                    : daysUntilStart === 0
+                      ? 'Começa hoje!'
+                      : `Faltam ${daysUntilStart} dia${daysUntilStart > 1 ? 's' : ''} para começar`
+                  }
                 </p>
               </div>
             )}
@@ -597,7 +611,7 @@ const App: React.FC = () => {
 
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
-        versão 2.1
+        versão 2.2
       </footer>
 
     </div>

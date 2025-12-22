@@ -127,6 +127,48 @@ export const ProgressViewSkeleton: React.FC = () => (
     </div>
 );
 
+// Skeleton for LinksView
+export const LinksViewSkeleton: React.FC = () => (
+    <div className="space-y-6 animate-in fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <SkeletonPulse className="w-12 h-12 rounded-xl" />
+                <div className="space-y-2">
+                    <SkeletonPulse className="h-6 w-48" />
+                    <SkeletonPulse className="h-4 w-32" />
+                </div>
+            </div>
+        </div>
+
+        {/* Main tabs */}
+        <div className="flex gap-2">
+            <SkeletonPulse className="h-12 w-36 rounded-xl" />
+            <SkeletonPulse className="h-12 w-36 rounded-xl" />
+        </div>
+
+        {/* Search and button */}
+        <div className="flex gap-3">
+            <SkeletonPulse className="h-12 flex-1 rounded-xl" />
+            <SkeletonPulse className="h-12 w-32 rounded-xl" />
+        </div>
+
+        {/* Category tabs */}
+        <div className="flex gap-2 overflow-hidden">
+            {[...Array(4)].map((_, i) => (
+                <SkeletonPulse key={i} className="h-10 w-28 rounded-xl flex-shrink-0" />
+            ))}
+        </div>
+
+        {/* Links grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+                <SkeletonPulse key={i} className="h-24 rounded-2xl" />
+            ))}
+        </div>
+    </div>
+);
+
 // Generic view skeleton for smaller views
 export const GenericViewSkeleton: React.FC = () => (
     <div className="space-y-6 animate-in fade-in">

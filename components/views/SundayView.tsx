@@ -94,6 +94,7 @@ const SundayView: React.FC = () => {
     }, [toggleSubTaskComplete]);
 
     const handleRemoveSubTask = useCallback((taskId: string, subTaskId: string) => {
+        if (!confirm('Remover esta sub-tarefa?')) return;
         deleteSubTask(taskId, subTaskId);
     }, [deleteSubTask]);
 

@@ -21,8 +21,13 @@ import {
 
 export const JOURNEY_CONFIG = {
     TOTAL_DAYS: 67,
+    EFFECTIVE_DAYS: 63,  // Dias usados no cálculo (margem de 4 dias de folga)
+    DISPLAY_DAYS: 67,    // Dias exibidos no UI
     TOTAL_WEEKS: 10,
     DAYS_PER_WEEK: 7,
+    // Sistema de Ciclos (10 Anos)
+    TOTAL_CYCLES: 55,
+    DECADE_YEARS: 10,
 } as const;
 
 export const SCORING_CONFIG = {
@@ -76,7 +81,8 @@ export function calculateCurrentWeek(startDate: string): number {
 }
 
 /**
- * Calcula o dia atual da jornada (1-67)
+ * Calcula o dia atual da jornada (0-67)
+ * Retorna 0 se a jornada ainda não iniciou (startDate no futuro)
  * Normaliza as datas para meia-noite local para evitar bugs de timezone
  */
 export function calculateCurrentDay(startDate: string): number {
@@ -90,8 +96,30 @@ export function calculateCurrentDay(startDate: string): number {
     const diffTime = nowMidnight.getTime() - startMidnight.getTime();
     const dayDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
+    // Se startDate está no futuro, retorna 0 (jornada não iniciada)
+    if (dayDiff < 0) {
+        return 0;
+    }
+
     // Day 1 is the start day, Day 2 is the next day, etc.
-    return Math.min(JOURNEY_CONFIG.TOTAL_DAYS, Math.max(1, dayDiff + 1));
+    return Math.min(JOURNEY_CONFIG.TOTAL_DAYS, dayDiff + 1);
+}
+
+/**
+ * Calcula quantos dias faltam para o início da jornada
+ * Retorna 0 se já começou ou se é hoje
+ */
+export function getDaysUntilStart(startDate: string): number {
+    const start = new Date(startDate);
+    const now = new Date();
+
+    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const diffTime = startMidnight.getTime() - nowMidnight.getTime();
+    const dayDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return Math.max(0, dayDiff);
 }
 
 /**

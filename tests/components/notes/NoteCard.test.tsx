@@ -4,10 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NoteCard } from '../../../components/notes/NoteCard';
 import { Note } from '../../../types';
 
-// Mock MarkdownRenderer to avoid complex markdown parsing in tests
-vi.mock('../../../components/notes/MarkdownRenderer', () => ({
-    MarkdownRenderer: ({ content }: { content: string }) => <div data-testid="markdown">{content}</div>
-}));
+// No longer using MarkdownRenderer in NoteCard preview
 
 describe('NoteCard', () => {
     const mockNote: Note = {
@@ -68,7 +65,7 @@ describe('NoteCard', () => {
             render(<NoteCard note={mockNote} {...mockHandlers} />);
 
             expect(screen.getByText('Test Note')).toBeInTheDocument();
-            expect(screen.getByTestId('markdown')).toHaveTextContent('Test content');
+            expect(screen.getByText('Test content')).toBeInTheDocument();
         });
 
         it('calls onClick when card is clicked', () => {
@@ -95,9 +92,9 @@ describe('NoteCard', () => {
                 isPinned: true,
                 pinnedToTags: ['tag-1'],
             };
-            const tags = [{ id: 'tag-1', label: 'Work', color: 'bg-blue-500', createdAt: Date.now() }];
+            const tagMap = { 'tag-1': { id: 'tag-1', label: 'Work', color: 'bg-blue-500', createdAt: Date.now() } };
 
-            render(<NoteCard note={pinnedNote} availableTags={tags} {...mockHandlers} />);
+            render(<NoteCard note={pinnedNote} tagMap={tagMap} {...mockHandlers} />);
 
             // Pin button should show tags in title
             const pinButton = screen.getByTitle(/Desafixar.*Work/);

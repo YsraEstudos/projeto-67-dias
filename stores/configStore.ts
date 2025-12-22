@@ -23,7 +23,8 @@ const DEFAULT_CONFIG: ProjectConfig = {
     userName: '',
     isGuest: false,
     restartCount: 0,
-    offensiveGoals: DEFAULT_OFFENSIVE_GOALS
+    offensiveGoals: DEFAULT_OFFENSIVE_GOALS,
+    theme: 'default',
 };
 
 interface ConfigState {

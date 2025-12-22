@@ -35,6 +35,13 @@ interface ReadingState {
     setDailyGoal: (id: string, goal: number) => void;
     addReadingLog: (id: string, pagesRead: number) => void;
 
+    // Exponential Distribution Actions
+    setBookDeadline: (id: string, deadline: string | undefined) => void;
+    setDistributionType: (id: string, type: 'LINEAR' | 'EXPONENTIAL') => void;
+    toggleExcludedDay: (id: string, dayOfWeek: number) => void;
+    setExcludedDays: (id: string, days: number[]) => void;
+    setExponentialIntensity: (id: string, intensity: number) => void;
+
     // Folder Actions
     setFolders: (folders: Folder[]) => void;
     addFolder: (folder: Folder) => void;
@@ -143,6 +150,49 @@ export const useReadingStore = create<ReadingState>()((set, get) => ({
                     }]
                 };
             })
+        }));
+        get()._syncToFirestore();
+    },
+
+    // Exponential Distribution Actions
+    setBookDeadline: (id, deadline) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, deadline } : b)
+        }));
+        get()._syncToFirestore();
+    },
+
+    setDistributionType: (id, type) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, distributionType: type } : b)
+        }));
+        get()._syncToFirestore();
+    },
+
+    toggleExcludedDay: (id, dayOfWeek) => {
+        set((state) => ({
+            books: state.books.map(b => {
+                if (b.id !== id) return b;
+                const currentDays = b.excludedDays || [];
+                const newDays = currentDays.includes(dayOfWeek)
+                    ? currentDays.filter(d => d !== dayOfWeek)
+                    : [...currentDays, dayOfWeek].sort();
+                return { ...b, excludedDays: newDays };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    setExcludedDays: (id, days) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, excludedDays: days.sort() } : b)
+        }));
+        get()._syncToFirestore();
+    },
+
+    setExponentialIntensity: (id, intensity) => {
+        set((state) => ({
+            books: state.books.map(b => b.id === id ? { ...b, exponentialIntensity: intensity } : b)
         }));
         get()._syncToFirestore();
     },

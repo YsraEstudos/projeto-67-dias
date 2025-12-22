@@ -129,8 +129,8 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
                 isLoading: false,
                 _initialized: true
             });
-            // Persist migration
-            get()._syncToFirestore();
+            // NOTE: Do NOT call _syncToFirestore here - it causes an infinite loop!
+            // Migration will be persisted on the next user action.
         } else {
             set({ isLoading: false, _initialized: true });
         }

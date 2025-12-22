@@ -582,6 +582,88 @@ users/
         lastUpdated: string
 ```
 
+### Firestore Sync Layer (`stores/firestoreSync.ts`)
+
+Camada de sincronização centralizada que gerencia writes debounced e subscriptions em tempo real.
+
+```typescript
+// Exports principais
+export const writeToFirestore: <T>(collectionKey: string, data: T) => void;
+export const subscribeToDocument: <T>(key: string, onData: (data: T | null) => void) => Unsubscribe;
+export const flushPendingWrites: () => void;  // Força envio imediato (antes de logout)
+
+// Para UI (SyncStatusIndicator)
+export const isFullySynced: () => boolean;
+export const getPendingWriteCount: () => number;
+export const subscribeToPendingWrites: (listener: () => void) => () => void;
+```
+
+**Comportamento:**
+- Debounce de 300ms evita writes excessivos durante digitação rápida
+- `pendingWriteCount` incrementa **imediatamente** ao agendar write (não após debounce)
+- Writes para mesma collection substituem o anterior sem duplicar contagem
+- SDK do Firebase gerencia cache IndexedDB automaticamente (funciona offline)
+
+**⚠️ REGRA CRÍTICA:**
+Nunca chame `_syncToFirestore()` dentro de `_hydrateFromFirestore()` - isso causa loop infinito!
+
+### Padrão de Stores Zustand
+
+Todas as stores seguem o mesmo padrão:
+
+```typescript
+interface StoreState {
+    // Dados
+    items: Item[];
+    isLoading: boolean;
+    _initialized: boolean;  // Evita overwrite durante hidratação
+
+    // Actions
+    addItem: (item: Item) => void;
+    // ...
+
+    // Internals
+    _syncToFirestore: () => void;
+    _hydrateFromFirestore: (data: { items: Item[] } | null) => void;
+    _reset: () => void;
+}
+
+export const useStore = create<StoreState>()((set, get) => ({
+    items: [],
+    isLoading: true,
+    _initialized: false,
+
+    addItem: (item) => {
+        set((state) => ({ items: [...state.items, item] }));
+        get()._syncToFirestore();  // ✅ Sync após mutação
+    },
+
+    _syncToFirestore: () => {
+        const { items, _initialized } = get();
+        if (_initialized) {  // ✅ Só sync se já hidratou
+            writeToFirestore(STORE_KEY, { items });
+        }
+    },
+
+    _hydrateFromFirestore: (data) => {
+        if (data) {
+            set({
+                items: data.items || [],
+                isLoading: false,
+                _initialized: true
+            });
+            // ⚠️ NÃO chamar _syncToFirestore aqui!
+        } else {
+            set({ isLoading: false, _initialized: true });
+        }
+    },
+
+    _reset: () => {
+        set({ items: [], isLoading: true, _initialized: false });
+    }
+}));
+```
+
 ### Gemini API (`services/gemini.ts`)
 
 ```typescript

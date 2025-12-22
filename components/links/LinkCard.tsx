@@ -166,7 +166,8 @@ const LinkCard = React.memo<LinkCardProps>(({
         prev.link.clickCount === next.link.clickCount &&
         prev.link.order === next.link.order &&
         prev.link.categoryId === next.link.categoryId &&
-        JSON.stringify(prev.link.promptIds) === JSON.stringify(next.link.promptIds) &&
+        prev.link.promptIds.length === next.link.promptIds.length &&
+        prev.link.promptIds.every((id, i) => id === next.link.promptIds[i]) &&
         prev.isDragging === next.isDragging &&
         prev.linkedPrompts.length === next.linkedPrompts.length &&
         prev.linkedPrompts.every((p, i) => p.id === next.linkedPrompts[i]?.id);

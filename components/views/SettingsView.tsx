@@ -1,18 +1,14 @@
 
-import React, { useRef, useState } from 'react';
-import { doc, writeBatch } from 'firebase/firestore';
-import { db } from '../../services/firebase';
-import { Database, Download, Upload, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, CheckSquare, Square, X, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays } from 'lucide-react';
-import { ProjectConfig } from '../../types';
-import { readNamespacedStorage, writeNamespacedStorage, removeNamespacedStorage } from '../../hooks/useStorage';
-import { useConfigStore, useStreakStore } from '../../stores';
+import React, { useState } from 'react';
+import { Database, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays } from 'lucide-react';
+import { useConfigStore } from '../../stores';
 import { useAuth } from '../../hooks/useAuth';
-import { flushPendingWrites } from '../../stores/firestoreSync';
 import { LoadingSimple } from '../shared/Loading';
 import { StreakCard } from '../settings/StreakCard';
 import { DataManagementSection } from '../settings/DataManagementSection';
 
 import { OffensiveSettingsSection } from '../settings/OffensiveSettingsSection';
+import { ThemeSettingsSection } from '../settings/ThemeSettingsSection';
 
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
 const ResetProjectModal = React.lazy(() => import('../modals/ResetProjectModal'));
@@ -167,6 +163,9 @@ const SettingsView: React.FC = () => {
           {/* Streak System Card */}
           <StreakCard />
 
+          {/* Theme Settings Card */}
+          <ThemeSettingsSection />
+
           {/* Offensive Settings Card */}
           <OffensiveSettingsSection />
 
@@ -247,89 +246,8 @@ const SettingsView: React.FC = () => {
       {isResetModalOpen && (
         <React.Suspense fallback={<LoadingSimple />}>
           <ResetProjectModal
+            isOpen={isResetModalOpen}
             onClose={() => setIsResetModalOpen(false)}
-            onConfirm={async (options) => {
-              // Reset Start Date - criar novo config com startDate de AGORA
-              // Incrementar contador de reinícios
-              const newStartDate = new Date().toISOString();
-              // Create new config object
-              const newConfig: ProjectConfig = {
-                ...config,
-                startDate: newStartDate,
-                restartCount: (config.restartCount ?? 0) + 1
-              };
-
-              // Apply changes to both the current user scope and the guest fallback to avoid stale hydrations
-              const storageScopes = Array.from(new Set([storageScope, null]));
-
-              // 1. ATOMIC WRITE: Prepared persisted value
-              const stateToPersist = {
-                state: {
-                  config: newConfig,
-                  isLoading: false // Ensure loading is false on restore
-                },
-                version: 0
-              };
-              const stringifiedState = JSON.stringify(stateToPersist);
-
-              // 2. CRITICAL: Write directly to storage with metadata to prevent race conditions
-              // We write to both specific user scope AND default scope if they differ, just to be safe
-              storageScopes.forEach(scope => {
-                writeNamespacedStorage('p67_project_config', stringifiedState, scope);
-              });
-
-              // Force metadata update to now to ensure this "wins" against any cloud sync
-              const now = Date.now();
-              // Import writeLocalMeta from storage utils if needed, or use the exposed helper
-              // Since we don't have writeLocalMeta exposed directly here, we rely on writeNamespacedStorage 
-              // which keeps local state. 
-
-              // 3. Update Zustand state immediately
-              setConfig(newConfig);
-
-              // Clear selected data
-              storageScopes.forEach(scope => {
-                // Core Data Options
-                if (!options.keepBooks) removeNamespacedStorage('p67_books', scope);
-                if (!options.keepSkills) removeNamespacedStorage('p67_skills', scope);
-                if (!options.keepLinks) removeNamespacedStorage('p67_links', scope);
-
-                // Habits & Tasks
-                if (!options.keepHabits) {
-                  removeNamespacedStorage('p67_habits', scope); // Old legacy just in case
-                  removeNamespacedStorage('p67_habits_store', scope); // Current store
-                  removeNamespacedStorage('p67_tasks', scope); // Legacy task store
-                }
-
-                // Journal & Reviews
-                if (!options.keepJournal) {
-                  removeNamespacedStorage('p67_journal', scope); // Old legacy
-                  removeNamespacedStorage('p67_journal_store', scope); // Current store
-                  removeNamespacedStorage('p67_review_store', scope); // Weekly reviews
-                }
-
-                // Planning (Sunday & Tasks)
-                if (!options.keepPlanning) {
-                  removeNamespacedStorage('p67_sunday_store', scope);
-                  removeNamespacedStorage('p67_sunday_tasks', scope);
-                }
-
-                // NOTE: We NEVER delete 'p67_notes_store' (Notes & Tags) - deemed critical user data
-                // NOTE: 'p67_games_store', 'p67_water_store', 'p67_rest_store' are also deemed permanent unless wiped manually
-
-                // Clear streak data on reset (ALWAYS RESET STREAK on Restart)
-                removeNamespacedStorage('p67_streak_store', scope);
-              });
-
-              // Reset streak in Zustand store
-              useStreakStore.getState().resetStreak();
-
-              // 4. Flush pending writes to ensure data hits Firebase before unload
-              flushPendingWrites();
-
-              // 5. Reload to apply cleanly
-              window.location.reload();
-            }}
           />
         </React.Suspense>
       )}
