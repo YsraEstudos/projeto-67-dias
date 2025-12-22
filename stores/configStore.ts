@@ -9,6 +9,11 @@ const STORE_KEY = 'p67_project_config';
 
 export const DEFAULT_OFFENSIVE_GOALS: OffensiveGoalsConfig = {
     minimumPercentage: 50,
+    enabledModules: {
+        skills: true,
+        reading: true,
+        games: true,
+    },
     categoryWeights: {
         skills: 50,
         reading: 30,

@@ -131,31 +131,40 @@ export function calculateDailyOffensiveAdvanced(
     isOffensive: boolean;
     targetPercentage: number;
     categoryBreakdown: {
-        skills: { progress: number; weight: number; contribution: number };
-        reading: { progress: number; weight: number; contribution: number };
-        games: { progress: number; weight: number; contribution: number };
+        skills: { progress: number; weight: number; contribution: number; enabled: boolean };
+        reading: { progress: number; weight: number; contribution: number; enabled: boolean };
+        games: { progress: number; weight: number; contribution: number; enabled: boolean };
     };
 } {
-    // 1. Calcular progressos individuais (0-100)
-    const readingProgress = calculateReadingProgress(books);
-    const skillProgress = calculateSkillProgress(skills, config.focusSkills);
-    const gamesProgress = calculateGamesProgress(games, config.dailyGameHoursGoal);
+    // Verificar módulos habilitados (fallback para todos true se não existir)
+    const enabled = config.enabledModules ?? { skills: true, reading: true, games: true };
 
-    // 2. Extrair pesos
-    const wSkills = config.categoryWeights.skills / 100;
-    const wReading = config.categoryWeights.reading / 100;
-    const wGames = config.categoryWeights.games / 100;
+    // 1. Calcular progressos individuais (0 se desativado)
+    const readingProgress = enabled.reading ? calculateReadingProgress(books) : 0;
+    const skillProgress = enabled.skills ? calculateSkillProgress(skills, config.focusSkills) : 0;
+    const gamesProgress = enabled.games ? calculateGamesProgress(games, config.dailyGameHoursGoal) : 0;
 
-    // 3. Calcular contribuições
+    // 2. Extrair pesos efetivos (0 se desativado)
+    const rawWeights = {
+        skills: enabled.skills ? config.categoryWeights.skills : 0,
+        reading: enabled.reading ? config.categoryWeights.reading : 0,
+        games: enabled.games ? config.categoryWeights.games : 0,
+    };
+
+    // 3. Normalizar pesos para soma = 1
+    const totalRaw = rawWeights.skills + rawWeights.reading + rawWeights.games;
+    const wSkills = totalRaw > 0 ? rawWeights.skills / totalRaw : 0;
+    const wReading = totalRaw > 0 ? rawWeights.reading / totalRaw : 0;
+    const wGames = totalRaw > 0 ? rawWeights.games / totalRaw : 0;
+
+    // 4. Calcular contribuições
     const cSkills = skillProgress * wSkills;
     const cReading = readingProgress * wReading;
     const cGames = gamesProgress * wGames;
 
-    // 4. Progresso final ponderado
-    // Se a soma dos pesos não for 1, normalizamos (embora UI deva garantir)
-    const totalWeight = wSkills + wReading + wGames;
-    const weightedProgress = totalWeight > 0
-        ? Math.round((cSkills + cReading + cGames) / totalWeight)
+    // 5. Progresso final ponderado
+    const weightedProgress = totalRaw > 0
+        ? Math.round(cSkills + cReading + cGames)
         : 0;
 
     return {
@@ -166,9 +175,24 @@ export function calculateDailyOffensiveAdvanced(
         isOffensive: weightedProgress >= config.minimumPercentage,
         targetPercentage: config.minimumPercentage,
         categoryBreakdown: {
-            skills: { progress: skillProgress, weight: config.categoryWeights.skills, contribution: Math.round(cSkills) },
-            reading: { progress: readingProgress, weight: config.categoryWeights.reading, contribution: Math.round(cReading) },
-            games: { progress: gamesProgress, weight: config.categoryWeights.games, contribution: Math.round(cGames) }
+            skills: {
+                progress: skillProgress,
+                weight: config.categoryWeights.skills,
+                contribution: Math.round(cSkills),
+                enabled: enabled.skills
+            },
+            reading: {
+                progress: readingProgress,
+                weight: config.categoryWeights.reading,
+                contribution: Math.round(cReading),
+                enabled: enabled.reading
+            },
+            games: {
+                progress: gamesProgress,
+                weight: config.categoryWeights.games,
+                contribution: Math.round(cGames),
+                enabled: enabled.games
+            }
         }
     };
 }

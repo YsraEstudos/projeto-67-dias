@@ -10,6 +10,9 @@ import ReadingGoalSidebar from '../reading/ReadingGoalSidebar';
 import DashboardView from '../reading/DashboardView';
 import LibraryView from '../reading/LibraryView';
 import { LoadingSimple as Loading } from '../shared/Loading';
+import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
+import { calculateReadingProgress } from '../../utils/dailyOffensiveUtils';
+import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 
 // Lazy Modals
 const BookDetailsModal = React.lazy(() => import('../reading/modals/BookDetailsModal'));
@@ -33,6 +36,12 @@ const ReadingView: React.FC = () => {
     updateProgress, setBookStatus, moveBookToFolder } = useMemo(() => getReadingActions(), []);
 
   const config = useConfigStore((state) => state.config);
+  const offensiveConfig = config.offensiveGoals || DEFAULT_OFFENSIVE_GOALS;
+
+  // Cálculo de progresso de ofensiva para Leitura
+  const readingProgress = useMemo(() => calculateReadingProgress(books), [books]);
+  const readingOffensive = readingProgress >= offensiveConfig.minimumPercentage;
+  const showReadingOffensiveBar = offensiveConfig.enabledModules?.reading ?? true;
 
   // Local State
   const [activeTab, setActiveTab] = useState<'dashboard' | 'library'>('dashboard');
@@ -112,6 +121,16 @@ const ReadingView: React.FC = () => {
       </div>
 
       <ReadingGoalSidebar books={books} projectConfig={config} />
+
+      {/* Barra de Ofensiva de Leitura */}
+      {showReadingOffensiveBar && (
+        <ModuleOffensiveBar
+          progress={readingProgress}
+          isOffensive={readingOffensive}
+          label="Ofensiva de Leitura"
+          accentColor="yellow"
+        />
+      )}
 
       {/* Toolbar */}
       <div className="flex justify-between items-center gap-4">

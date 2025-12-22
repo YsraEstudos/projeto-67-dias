@@ -52,9 +52,9 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
         skill.pomodorosCompleted
     ]);
 
-    // Memoized exponential daily plan - for phase-aware predictions
+    // Memoized daily plan - respects both LINEAR and EXPONENTIAL distribution
+    // This ensures the daily prediction shown matches the actual plan
     const dailyPlan = useMemo(() => {
-        if (skill.distributionType !== 'EXPONENTIAL') return null;
         return calculateDailyPlan(skill);
     }, [
         skill.deadline,
@@ -68,27 +68,39 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
         skill.excludedDays
     ]);
 
-    // Get today's plan from exponential distribution
+    // Get today's plan from daily distribution
     const todayPlan = useMemo(() => {
         if (!dailyPlan || dailyPlan.isExpired || dailyPlan.items.length === 0) return null;
         const today = new Date().toISOString().split('T')[0];
         return dailyPlan.items.find(item => item.date === today) || dailyPlan.items[0];
     }, [dailyPlan]);
 
-    // Get current phase info
-    const currentPhase = useMemo(() => {
-        if (!dailyPlan || dailyPlan.phases.length === 0 || !todayPlan) return null;
+    // Get next study day when today is excluded (OFF day)
+    const nextStudyDay = useMemo(() => {
+        if (!dailyPlan || !todayPlan || !todayPlan.isExcluded) return null;
         const today = new Date().toISOString().split('T')[0];
-        const todayIndex = dailyPlan.items.filter(i => !i.isExcluded).findIndex(i => i.date === today);
-        if (todayIndex === -1) return dailyPlan.phases[0];
-        
+        // Find the next non-excluded day after today
+        return dailyPlan.items.find(item => item.date > today && !item.isExcluded) || null;
+    }, [dailyPlan, todayPlan]);
+
+    // Get current phase info (based on next study day if today is excluded)
+    const currentPhase = useMemo(() => {
+        if (!dailyPlan || dailyPlan.phases.length === 0) return null;
+
+        // Use next study day if today is excluded, otherwise use today
+        const targetDay = todayPlan?.isExcluded ? nextStudyDay : todayPlan;
+        if (!targetDay) return dailyPlan.phases[0];
+
+        const targetIndex = dailyPlan.items.filter(i => !i.isExcluded).findIndex(i => i.date === targetDay.date);
+        if (targetIndex === -1) return dailyPlan.phases[0];
+
         for (const phase of dailyPlan.phases) {
-            if (todayIndex >= phase.startDay - 1 && todayIndex < phase.endDay) {
+            if (targetIndex >= phase.startDay - 1 && targetIndex < phase.endDay) {
                 return phase;
             }
         }
         return dailyPlan.phases[dailyPlan.phases.length - 1];
-    }, [dailyPlan, todayPlan]);
+    }, [dailyPlan, todayPlan, nextStudyDay]);
 
     const theme = skill.colorTheme as ThemeKey || 'emerald';
     const variants = THEME_VARIANTS[theme];
@@ -210,7 +222,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                     <div className="flex items-center gap-2 mb-2">
                         <CalendarClock size={14} className={variants.text} />
                         <span className="text-xs text-slate-500 uppercase">Previsão Diária</span>
-                        {currentPhase && (
+                        {currentPhase && skill.distributionType === 'EXPONENTIAL' && (
                             <span className="text-xs bg-slate-700 px-2 py-0.5 rounded-full text-slate-300">
                                 {currentPhase.emoji} {currentPhase.name}
                             </span>
@@ -220,12 +232,37 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                         <div className="text-center text-red-400 font-medium text-sm">
                             ⚠️ Prazo expirado!
                         </div>
+                    ) : todayPlan?.isExcluded ? (
+                        /* Today is an OFF day - show DIA OFF and next study day info */
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-xl font-bold text-amber-400 flex items-center gap-2">
+                                    📴 DIA OFF
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                    {nextStudyDay ? (
+                                        <>
+                                            Próximo: {nextStudyDay.dayOfWeekName} ({(nextStudyDay.minutes / 60).toFixed(1)}h)
+                                            {currentPhase && skill.distributionType === 'EXPONENTIAL' && (
+                                                <> • {currentPhase.emoji} {currentPhase.name}</>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>Nenhum dia de estudo restante</>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-right text-xs text-slate-600">
+                                Deadline: {new Date(skill.deadline!).toLocaleDateString('pt-BR')}
+                            </div>
+                        </div>
                     ) : (
+                        /* Normal study day - show today's prediction */
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className={`text-xl font-bold ${variants.text}`}>
-                                    {/* Use exponential plan for today if available, otherwise use linear average */}
-                                    {todayPlan && !todayPlan.isExcluded ? (
+                                    {/* Use daily plan for today - respects both LINEAR and EXPONENTIAL */}
+                                    {todayPlan ? (
                                         isPomodoro
                                             ? `${Math.ceil(todayPlan.minutes / 25)} 🍅/dia`
                                             : `${(todayPlan.minutes / 60).toFixed(1)}h/dia`
@@ -236,7 +273,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                                     )}
                                 </div>
                                 <div className="text-xs text-slate-500">
-                                    {todayPlan && currentPhase ? (
+                                    {todayPlan && currentPhase && skill.distributionType === 'EXPONENTIAL' ? (
                                         <>
                                             {todayPlan.percentOfAverage}% da média • Fase {currentPhase.name}
                                         </>

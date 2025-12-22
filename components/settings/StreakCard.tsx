@@ -1,18 +1,31 @@
 import React from 'react';
 import { Flame, Snowflake, Trophy, Calendar, TrendingUp, Shield } from 'lucide-react';
 import { useStreakStore } from '../../stores';
+import { useShallow } from 'zustand/react/shallow';
 
 export const StreakCard: React.FC = () => {
-    const currentStreak = useStreakStore((s) => s.currentStreak);
-    const longestStreak = useStreakStore((s) => s.longestStreak);
-    const freezeDaysAvailable = useStreakStore((s) => s.freezeDaysAvailable);
-    const freezeDaysUsed = useStreakStore((s) => s.freezeDaysUsed);
-    const totalActiveDays = useStreakStore((s) => s.totalActiveDays);
-    const totalFreezeUsed = useStreakStore((s) => s.totalFreezeUsed);
-    const lastActiveDate = useStreakStore((s) => s.lastActiveDate);
-    const streakStartDate = useStreakStore((s) => s.streakStartDate);
-    const useFreeze = useStreakStore((s) => s.useFreeze);
-    const isActiveToday = useStreakStore((s) => s.isActiveToday());
+    // Consolidated selector to reduce subscription overhead
+    const {
+        currentStreak,
+        longestStreak,
+        freezeDaysAvailable,
+        totalActiveDays,
+        totalFreezeUsed,
+        lastActiveDate,
+        streakStartDate,
+        useFreeze,
+        isActiveToday
+    } = useStreakStore(useShallow((s) => ({
+        currentStreak: s.currentStreak,
+        longestStreak: s.longestStreak,
+        freezeDaysAvailable: s.freezeDaysAvailable,
+        totalActiveDays: s.totalActiveDays,
+        totalFreezeUsed: s.totalFreezeUsed,
+        lastActiveDate: s.lastActiveDate,
+        streakStartDate: s.streakStartDate,
+        useFreeze: s.useFreeze,
+        isActiveToday: s.isActiveToday()
+    })));
 
     const handleUseFreeze = () => {
         if (freezeDaysAvailable > 0) {
@@ -29,9 +42,9 @@ export const StreakCard: React.FC = () => {
     };
 
     return (
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
+        <div className="divide-y divide-slate-700">
             {/* Header */}
-            <div className="p-6 border-b border-slate-700 bg-gradient-to-r from-orange-500/10 to-red-500/10">
+            <div className="p-6 bg-gradient-to-r from-orange-500/10 to-red-500/10">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-orange-500/20 rounded-lg">

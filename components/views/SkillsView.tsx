@@ -3,11 +3,15 @@ import { GraduationCap, Plus } from 'lucide-react';
 import { Skill, Prompt, PromptCategory } from '../../types';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { usePromptsStore } from '../../stores/promptsStore';
+import { useConfigStore } from '../../stores/configStore';
 import { SkillCard } from '../skills/SkillCard';
 import { SkillDetailView } from '../skills/SkillDetailView';
 import { CreateSkillModal } from '../skills/CreateSkillModal';
 import { DailyPlanModal } from '../skills/DailyPlanModal';
 import { INITIAL_SKILLS } from '../skills/mockData';
+import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
+import { calculateSkillProgress } from '../../utils/dailyOffensiveUtils';
+import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 
 const SkillsView: React.FC = () => {
   // Zustand stores
@@ -23,6 +27,7 @@ const SkillsView: React.FC = () => {
     markInitialized
   } = useSkillsStore();
   const { prompts, categories: promptCategories } = usePromptsStore();
+  const offensiveConfig = useConfigStore(s => s.config.offensiveGoals) || DEFAULT_OFFENSIVE_GOALS;
 
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -67,6 +72,14 @@ const SkillsView: React.FC = () => {
   }), [skills]);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Cálculo de progresso de ofensiva para Skills
+  const skillsProgress = useMemo(() =>
+    calculateSkillProgress(skills, offensiveConfig.focusSkills),
+    [skills, offensiveConfig.focusSkills]
+  );
+  const skillsOffensive = skillsProgress >= offensiveConfig.minimumPercentage;
+  const showSkillsOffensiveBar = offensiveConfig.enabledModules?.skills ?? true;
 
   // Handlers
   const handleCreateSkill = (newSkill: Skill) => {
@@ -129,6 +142,18 @@ const SkillsView: React.FC = () => {
           <Plus size={18} /> Nova Habilidade
         </button>
       </div>
+
+      {/* Barra de Ofensiva de Skills */}
+      {showSkillsOffensiveBar && (
+        <div className="mb-6">
+          <ModuleOffensiveBar
+            progress={skillsProgress}
+            isOffensive={skillsOffensive}
+            label="Ofensiva de Skills"
+            accentColor="emerald"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {activeSkills.map(skill => (

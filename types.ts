@@ -52,6 +52,13 @@ export interface OffensiveGoalsConfig {
   // Porcentagem mínima para ativar ofensiva (0-100)
   minimumPercentage: number;          // default: 50
 
+  // Módulos ativos para ofensiva (desativados são excluídos do cálculo)
+  enabledModules: {
+    skills: boolean;                  // default: true
+    reading: boolean;                 // default: true
+    games: boolean;                   // default: true
+  };
+
   // Pesos por categoria (devem somar 100)
   categoryWeights: {
     skills: number;                   // default: 50

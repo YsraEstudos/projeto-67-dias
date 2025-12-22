@@ -1,9 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
 import { Plus, Search, Filter, Gamepad2, Trophy, Clock, FolderPlus, ChevronRight, Home, PencilLine } from 'lucide-react';
-import { useGames, useGameFolders, useGameFolderActions } from '../../stores';
+import { useGames, useGameFolders, useGameFolderActions, useConfigStore } from '../../stores';
 import { GameStatus, Game, CENTRAL_FOLDER_ID } from '../../types';
 import { GameCard } from '../games/GameCard';
 import { FolderCard, FOLDER_COLORS } from '../games/FolderCard';
+import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
+import { calculateGamesProgress } from '../../utils/dailyOffensiveUtils';
+import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 
 // Lazy load heavy modals to reduce initial bundle size
 const AddGameModal = React.lazy(() =>
@@ -17,6 +20,15 @@ const GamesView: React.FC = () => {
     const games = useGames();
     const folders = useGameFolders();
     const { createFolder, deleteFolder } = useGameFolderActions();
+    const offensiveConfig = useConfigStore(s => s.config.offensiveGoals) || DEFAULT_OFFENSIVE_GOALS;
+
+    // Cálculo de progresso de ofensiva para Jogos
+    const gamesProgress = useMemo(() =>
+        calculateGamesProgress(games, offensiveConfig.dailyGameHoursGoal),
+        [games, offensiveConfig.dailyGameHoursGoal]
+    );
+    const gamesOffensive = gamesProgress >= offensiveConfig.minimumPercentage;
+    const showGamesOffensiveBar = offensiveConfig.enabledModules?.games ?? true;
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -163,6 +175,16 @@ const GamesView: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Barra de Ofensiva de Jogos */}
+            {showGamesOffensiveBar && (
+                <ModuleOffensiveBar
+                    progress={gamesProgress}
+                    isOffensive={gamesOffensive}
+                    label="Ofensiva de Jogos"
+                    accentColor="purple"
+                />
+            )}
 
             {/* Controls & Navigation */}
             <div className="flex flex-col gap-4">

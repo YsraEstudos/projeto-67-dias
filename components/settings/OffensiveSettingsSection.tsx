@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useConfigStore, useSkillsStore } from '../../stores';
-import { Target, Weight, Crosshair, Gamepad2, BookOpen, GraduationCap, Flame, AlertCircle } from 'lucide-react';
+import { Weight, Crosshair, Gamepad2, BookOpen, GraduationCap, Flame, ToggleLeft } from 'lucide-react';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 import { FocusSkill } from '../../types';
 
@@ -14,6 +14,16 @@ export const OffensiveSettingsSection: React.FC = () => {
     const [weights, setWeights] = useState(offensiveConfig.categoryWeights);
     const [gameGoal, setGameGoal] = useState(offensiveConfig.dailyGameHoursGoal);
     const [focusSkills, setFocusSkills] = useState<FocusSkill[]>(offensiveConfig.focusSkills || []);
+    const [enabledModules, setEnabledModules] = useState(offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true });
+
+    // Sincroniza estado local quando o config é atualizado (ex: após hidratação do Firestore)
+    useEffect(() => {
+        setMinPercentage(offensiveConfig.minimumPercentage);
+        setWeights(offensiveConfig.categoryWeights);
+        setGameGoal(offensiveConfig.dailyGameHoursGoal);
+        setFocusSkills(offensiveConfig.focusSkills || []);
+        setEnabledModules(offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true });
+    }, [offensiveConfig]);
 
     // Handlers
     const handleSave = () => {
@@ -36,6 +46,7 @@ export const OffensiveSettingsSection: React.FC = () => {
         setConfig({
             offensiveGoals: {
                 minimumPercentage: minPercentage,
+                enabledModules: enabledModules,
                 categoryWeights: weights,
                 dailyGameHoursGoal: gameGoal,
                 focusSkills: focusSkills
@@ -59,7 +70,11 @@ export const OffensiveSettingsSection: React.FC = () => {
         setFocusSkills(prev => prev.map(s => s.skillId === skillId ? { ...s, weight } : s));
     };
 
-    const activeSkillsList = skills.filter(s => !s.visualRoadmap?.nodes); // Excluir se tiver lógica de arquivar, por enquanto mostra todas
+    // Memoized to prevent recalculation on every render
+    const activeSkillsList = useMemo(() =>
+        skills.filter(s => !s.visualRoadmap?.nodes),
+        [skills]
+    );
 
     const totalWeight = weights.skills + weights.reading + weights.games;
     const isWeightValid = totalWeight === 100;
@@ -68,17 +83,9 @@ export const OffensiveSettingsSection: React.FC = () => {
     const isFocusWeightValid = focusSkills.length === 0 || totalFocusWeight === 100;
 
     return (
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg mb-6">
-            <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-500/10 rounded-lg text-orange-400">
-                        <Target size={24} />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-white">Metas de Ofensiva</h3>
-                        <p className="text-sm text-slate-400">Personalize os critérios para sua ofensiva diária.</p>
-                    </div>
-                </div>
+        <div className="divide-y divide-slate-700">
+            {/* Save Button Bar */}
+            <div className="p-4 bg-slate-800/50 flex items-center justify-end">
                 <button
                     onClick={handleSave}
                     className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold transition-colors"
@@ -111,7 +118,77 @@ export const OffensiveSettingsSection: React.FC = () => {
 
                 <div className="h-px bg-slate-700/50" />
 
-                {/* 2. Pesos por Categoria */}
+                {/* 2. Módulos Ativos */}
+                <div className="space-y-4">
+                    <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                        <ToggleLeft size={16} className="text-cyan-400" /> Módulos Ativos
+                    </label>
+                    <p className="text-xs text-slate-500">
+                        Desative módulos que você não está utilizando. Eles serão excluídos do cálculo de ofensiva.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {/* Skills Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setEnabledModules(prev => ({ ...prev, skills: !prev.skills }))}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.skills
+                                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
+                                    : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
+                                }`}
+                        >
+                            <GraduationCap size={20} />
+                            <div className="flex-1 text-left">
+                                <div className="font-semibold">Skills</div>
+                                <div className="text-xs opacity-70">{enabledModules.skills ? 'Ativo' : 'Inativo'}</div>
+                            </div>
+                            <div className={`w-10 h-6 rounded-full transition-colors ${enabledModules.skills ? 'bg-emerald-500' : 'bg-slate-600'} relative`}>
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabledModules.skills ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </div>
+                        </button>
+
+                        {/* Reading Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setEnabledModules(prev => ({ ...prev, reading: !prev.reading }))}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.reading
+                                    ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
+                                    : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
+                                }`}
+                        >
+                            <BookOpen size={20} />
+                            <div className="flex-1 text-left">
+                                <div className="font-semibold">Leitura</div>
+                                <div className="text-xs opacity-70">{enabledModules.reading ? 'Ativo' : 'Inativo'}</div>
+                            </div>
+                            <div className={`w-10 h-6 rounded-full transition-colors ${enabledModules.reading ? 'bg-yellow-500' : 'bg-slate-600'} relative`}>
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabledModules.reading ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </div>
+                        </button>
+
+                        {/* Games Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setEnabledModules(prev => ({ ...prev, games: !prev.games }))}
+                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.games
+                                    ? 'bg-purple-500/10 border-purple-500/50 text-purple-400'
+                                    : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
+                                }`}
+                        >
+                            <Gamepad2 size={20} />
+                            <div className="flex-1 text-left">
+                                <div className="font-semibold">Jogos</div>
+                                <div className="text-xs opacity-70">{enabledModules.games ? 'Ativo' : 'Inativo'}</div>
+                            </div>
+                            <div className={`w-10 h-6 rounded-full transition-colors ${enabledModules.games ? 'bg-purple-500' : 'bg-slate-600'} relative`}>
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabledModules.games ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="h-px bg-slate-700/50" />
+
+                {/* 3. Pesos por Categoria */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <label className="text-sm font-bold text-slate-300 flex items-center gap-2">

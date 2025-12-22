@@ -78,7 +78,7 @@ export const DailyOffensiveProgress: React.FC = () => {
                 <div className="space-y-4">
 
                     {/* Skills Bar */}
-                    {offensiveConfig.categoryWeights.skills > 0 && (
+                    {categoryBreakdown.skills.enabled && offensiveConfig.categoryWeights.skills > 0 && (
                         <div>
                             <div className="flex justify-between items-center mb-1.5">
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
@@ -103,7 +103,7 @@ export const DailyOffensiveProgress: React.FC = () => {
                     )}
 
                     {/* Reading Bar */}
-                    {offensiveConfig.categoryWeights.reading > 0 && (
+                    {categoryBreakdown.reading.enabled && offensiveConfig.categoryWeights.reading > 0 && (
                         <div>
                             <div className="flex justify-between items-center mb-1.5">
                                 <div className="flex items-center gap-2 text-sm text-slate-300">
@@ -128,7 +128,7 @@ export const DailyOffensiveProgress: React.FC = () => {
                     )}
 
                     {/* Games Bar */}
-                    {offensiveConfig.categoryWeights.games > 0 && (
+                    {categoryBreakdown.games.enabled && offensiveConfig.categoryWeights.games > 0 && (
                         <div>
                             <div className="flex justify-between items-center mb-1.5">
                                 <div className="flex items-center gap-2 text-sm text-slate-300">

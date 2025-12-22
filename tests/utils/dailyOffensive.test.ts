@@ -111,4 +111,72 @@ describe('Daily Offensive Advanced Utils', () => {
             expect(result.weightedProgress).toBe(80);
         });
     });
+
+    describe('Module Toggles', () => {
+        const mockBooks = [{ id: '1', dailyGoal: 10, status: 'READING', logs: [{ date: today, pagesRead: 10 }] }] as unknown as Book[]; // 100%
+        const mockSkills = [{ id: 's1', goalMinutes: 1340, logs: [{ date: today, minutes: 20 }] }] as unknown as Skill[]; // 100%
+        const mockGames = [{ status: 'PLAYING', history: [{ date: today, hoursPlayed: 1 }] }] as unknown as Game[]; // 100%
+
+        it('should ignore disabled modules in calculation', () => {
+            const config = {
+                ...DEFAULT_OFFENSIVE_GOALS,
+                enabledModules: { skills: true, reading: false, games: false },
+                categoryWeights: { skills: 50, reading: 30, games: 20 }
+            };
+
+            const result = calculateDailyOffensiveAdvanced(
+                mockBooks,  // 100% (mas ignorado)
+                mockSkills, // 100%
+                mockGames,  // 100% (mas ignorado)
+                config
+            );
+
+            // Apenas skills conta, normalizado para 100% do peso
+            expect(result.skillProgress).toBe(100);
+            expect(result.readingProgress).toBe(0); // Desativado
+            expect(result.gamesProgress).toBe(0); // Desativado
+            expect(result.weightedProgress).toBe(100);
+            expect(result.categoryBreakdown.skills.enabled).toBe(true);
+            expect(result.categoryBreakdown.reading.enabled).toBe(false);
+        });
+
+        it('should re-distribute weights among active modules', () => {
+            // Skills (50), Reading (30), Games (20) -> Disable Games -> Skills (50->62.5%), Reading (30->37.5%)
+            const config = {
+                ...DEFAULT_OFFENSIVE_GOALS,
+                enabledModules: { skills: true, reading: true, games: false },
+                categoryWeights: { skills: 50, reading: 30, games: 20 }
+            };
+
+            // Vamos simular: Skills 100%, Reading 0%
+            // Weighted: (100 * 0.625) + (0 * 0.375) = 62.5 -> arredonda para 63?
+
+            const result = calculateDailyOffensiveAdvanced(
+                [],          // Reading 0%
+                mockSkills,  // Skills 100%
+                mockGames,   // Games 100% (ignorados)
+                config
+            );
+
+            // Total Raw Weight = 50 + 30 = 80
+            // Skills Weight = 50/80 = 0.625
+            // Reading Weight = 30/80 = 0.375
+
+            // Contribution Skills = 100 * 0.625 = 62.5
+            // Contribution Reading = 0
+
+            expect(result.weightedProgress).toBe(63); // Math.round(62.5) -> 63
+        });
+
+        it('should handle all modules disabled gracefully', () => {
+            const config = {
+                ...DEFAULT_OFFENSIVE_GOALS,
+                enabledModules: { skills: false, reading: false, games: false }
+            };
+
+            const result = calculateDailyOffensiveAdvanced(mockBooks, mockSkills, mockGames, config);
+            expect(result.weightedProgress).toBe(0);
+            expect(result.isOffensive).toBe(false);
+        });
+    });
 });

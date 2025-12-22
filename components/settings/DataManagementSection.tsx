@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Database, RefreshCw, RotateCcw, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { usePromptsStore, clearAllStores } from '../../stores';
+import { usePromptsStore } from '../../stores';
 import { getCurrentUserId } from '../../stores/firestoreSync';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { INITIAL_SKILLS } from '../skills/mockData';
@@ -62,14 +62,13 @@ export const DataManagementSection: React.FC = () => {
     }
 
     return (
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 space-y-6">
-            <div className="flex items-start gap-4">
-                <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
-                    <Database size={24} />
+        <div className="p-6 space-y-6">
+            <div className="flex items-start gap-4 p-4 bg-slate-900/30 rounded-xl border border-slate-700/50">
+                <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                    <Database size={20} />
                 </div>
                 <div>
-                    <h3 className="text-lg font-semibold text-white">Gerenciamento de Dados</h3>
-                    <p className="text-slate-400 text-sm mt-1">
+                    <p className="text-slate-400 text-sm">
                         Ferramentas para sincronização Firestore-first com cache offline; use apenas se algo sair do fluxo automático.
                     </p>
                     <div className="mt-2 text-xs font-mono bg-slate-900 px-2 py-1 rounded inline-block text-slate-500">
