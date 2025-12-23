@@ -16,6 +16,8 @@ export function stripMarkdown(text: string): string {
         .replace(/```[\s\S]*?```/g, '[Código]')
         // Remove inline code
         .replace(/`(.*?)`/g, '$1')
+        // Remove images ![alt](url) -> [Imagem: alt] or [Imagem]
+        .replace(/!\[(.*?)\]\(.*?\)/g, (_, alt) => alt ? `[Imagem: ${alt}]` : '[Imagem]')
         // Remove links [text](url) -> text
         .replace(/\[(.*?)\]\(.*?\)/g, '$1')
         // Remove blockquotes

@@ -30,7 +30,7 @@ export const HistorySessionItem: React.FC<HistorySessionItemProps> = React.memo(
                     {new Date(session.date).toLocaleDateString('pt-BR')} <span className="text-slate-500 text-xs">• {formatDuration(session.durationSeconds)}</span>
                 </div>
                 <div className="text-xs text-slate-500 mt-1">
-                    Anki: {session.ankiCount} | NCM: {session.ncmCount} | Refat: {session.refactoringsCount || 0}
+                    Anki: {session.ankiCount} | NCM: {session.ncmCount} | Amanhã: {session.tomorrowReady ? '✅' : '—'}
                 </div>
             </div>
             <div className="flex items-center gap-3">

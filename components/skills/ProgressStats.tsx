@@ -20,7 +20,7 @@ interface ProgressStatsProps {
  * session count, and editable goal.
  */
 export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSession, onUpdateGoal, onUpdateGoalType, onUpdateDeadline }) => {
-    const { addPomodoro, updateSkill } = useSkillsStore();
+    const { addPomodoro, updateSkill, setPomodorosCompleted } = useSkillsStore();
     const isPomodoro = skill.goalType === 'POMODOROS';
 
     // Auto-sync goalPomodoros if it doesn't match goalMinutes
@@ -137,6 +137,17 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
         addPomodoro(skill.id);
     };
 
+    // Editor para corrigir pomodoros completados
+    const pomodoroEditor = useEditableField(
+        (skill.pomodorosCompleted || 0).toString(),
+        (newValue) => {
+            const value = parseInt(newValue);
+            if (!isNaN(value) && value >= 0) {
+                setPomodorosCompleted(skill.id, value);
+            }
+        }
+    );
+
     return (
         <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-slate-700">
@@ -155,10 +166,31 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
             <div className="text-center py-4">
                 {isPomodoro ? (
                     <>
-                        <div className="text-5xl font-bold text-white font-mono flex items-center justify-center gap-2">
-                            {skill.pomodorosCompleted || 0}
-                            <span className="text-3xl">🍅</span>
-                        </div>
+                        {pomodoroEditor.isEditing ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <input
+                                    ref={pomodoroEditor.inputRef}
+                                    type="number"
+                                    min="0"
+                                    value={pomodoroEditor.editedValue}
+                                    onChange={e => pomodoroEditor.setEditedValue(e.target.value)}
+                                    onBlur={pomodoroEditor.save}
+                                    onKeyDown={pomodoroEditor.handleKeyDown}
+                                    className={`w-24 text-center text-4xl font-bold font-mono text-white bg-slate-900 border ${variants.border} rounded-xl px-3 py-2 outline-none`}
+                                />
+                                <span className="text-3xl">🍅</span>
+                            </div>
+                        ) : (
+                            <div
+                                className="text-5xl font-bold text-white font-mono flex items-center justify-center gap-2 group cursor-pointer hover:text-slate-300 transition-colors"
+                                onClick={pomodoroEditor.startEditing}
+                                title="Clique para corrigir o valor"
+                            >
+                                {skill.pomodorosCompleted || 0}
+                                <span className="text-3xl">🍅</span>
+                                <Edit2 size={16} className={`opacity-0 group-hover:opacity-100 transition-opacity ${variants.text}`} />
+                            </div>
+                        )}
                         <div className="text-sm text-slate-400 mt-1">
                             de {skill.goalPomodoros || 10} pomodoros
                         </div>

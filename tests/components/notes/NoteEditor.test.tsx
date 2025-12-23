@@ -42,8 +42,8 @@ describe('NoteEditor', () => {
         vi.clearAllMocks();
     });
 
-    describe('viewMode for existing notes', () => {
-        it('opens in focus mode for existing note', () => {
+    describe('Fullscreen Mode for existing notes', () => {
+        it('opens in view mode (not editing) for existing note', () => {
             render(
                 <NoteEditor
                     note={mockExistingNote}
@@ -52,7 +52,7 @@ describe('NoteEditor', () => {
                 />
             );
 
-            // In focus mode, should display title in large text
+            // In view mode, should display title as h1
             expect(screen.getByText('Existing Note')).toBeInTheDocument();
 
             // Should show the markdown preview content
@@ -72,13 +72,13 @@ describe('NoteEditor', () => {
             expect(screen.getByTitle('Editar nota')).toBeInTheDocument();
 
             // Should have close button
-            expect(screen.getByTitle('Fechar')).toBeInTheDocument();
+            expect(screen.getByTitle(/Fechar/)).toBeInTheDocument();
 
             // Should have pin button
             expect(screen.getByTitle(/fixar nota/i)).toBeInTheDocument();
         });
 
-        it('can switch from focus to edit mode', () => {
+        it('can switch to edit mode by clicking edit button', () => {
             render(
                 <NoteEditor
                     note={mockExistingNote}
@@ -91,17 +91,31 @@ describe('NoteEditor', () => {
             const editButton = screen.getByTitle('Editar nota');
             fireEvent.click(editButton);
 
-            // Header should show edit mode
-            expect(screen.getByText('Editar Nota')).toBeInTheDocument();
-
-            // Title input should be editable  
+            // Title input should now be visible (as input, not h1)
             const titleInput = screen.getByDisplayValue('Existing Note');
-            expect(titleInput).not.toHaveAttribute('readOnly');
+            expect(titleInput.tagName).toBe('INPUT');
+        });
+
+        it('can switch to edit mode by clicking on title', () => {
+            render(
+                <NoteEditor
+                    note={mockExistingNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            // Click on title to enter edit mode
+            const title = screen.getByText('Existing Note');
+            fireEvent.click(title);
+
+            // Should now show input
+            const titleInput = screen.getByDisplayValue('Existing Note');
+            expect(titleInput.tagName).toBe('INPUT');
         });
     });
 
-
-    describe('viewMode for new notes', () => {
+    describe('Fullscreen Mode for new notes', () => {
         it('opens in edit mode for new note (no note prop)', () => {
             render(
                 <NoteEditor
@@ -111,12 +125,11 @@ describe('NoteEditor', () => {
                 />
             );
 
-            // Should show "Nova Nota" header
-            expect(screen.getByText('Nova Nota')).toBeInTheDocument();
+            // Should have title input placeholder
+            expect(screen.getByPlaceholderText(/Título da nota/i)).toBeInTheDocument();
 
-            // Edit button should be active
-            const editButton = screen.getByRole('button', { name: /Editar/i });
-            expect(editButton).toHaveClass('bg-purple-600');
+            // View button should be active (showing eye icon to switch to view)
+            expect(screen.getByTitle('Visualizar')).toBeInTheDocument();
         });
 
         it('title input is editable for new note', () => {
@@ -129,7 +142,7 @@ describe('NoteEditor', () => {
             );
 
             const titleInput = screen.getByPlaceholderText(/Título da nota/i);
-            expect(titleInput).not.toHaveAttribute('readOnly');
+            expect(titleInput.tagName).toBe('INPUT');
         });
     });
 
@@ -147,8 +160,12 @@ describe('NoteEditor', () => {
             const titleInput = screen.getByPlaceholderText(/Título da nota/i);
             fireEvent.change(titleInput, { target: { value: 'New Test Note' } });
 
-            // Click save
-            const saveButton = screen.getByRole('button', { name: /Salvar/i });
+            // Open metadata panel to access save button
+            const metadataToggle = screen.getByText(/Metadados e Tags/i);
+            fireEvent.click(metadataToggle);
+
+            // Click save - use the "Salvar Nota" button in metadata panel
+            const saveButton = screen.getByRole('button', { name: /Salvar Nota/i });
             fireEvent.click(saveButton);
 
             expect(mockHandlers.onSave).toHaveBeenCalled();
@@ -156,6 +173,86 @@ describe('NoteEditor', () => {
 
             const savedNote = mockHandlers.onSave.mock.calls[0][0];
             expect(savedNote.title).toBe('New Test Note');
+        });
+
+        it('shows save button in action bar when there are changes', () => {
+            render(
+                <NoteEditor
+                    note={mockExistingNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            // Enter edit mode
+            const editButton = screen.getByTitle('Editar nota');
+            fireEvent.click(editButton);
+
+            // Make a change
+            const titleInput = screen.getByDisplayValue('Existing Note');
+            fireEvent.change(titleInput, { target: { value: 'Modified Title' } });
+
+            // Save button should appear in action bar
+            expect(screen.getByTitle(/Salvar/)).toBeInTheDocument();
+        });
+    });
+
+    describe('Markdown toolbar', () => {
+        it('shows markdown toolbar when in edit mode', () => {
+            render(
+                <NoteEditor
+                    note={null}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            // Should have formatting buttons
+            expect(screen.getByTitle(/Negrito/)).toBeInTheDocument();
+            expect(screen.getByTitle(/Itálico/)).toBeInTheDocument();
+            expect(screen.getByTitle(/Link/)).toBeInTheDocument();
+        });
+    });
+
+    describe('Color picker', () => {
+        it('toggles color picker when clicking color button', () => {
+            render(
+                <NoteEditor
+                    note={mockExistingNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            // Click color button
+            const colorButton = screen.getByTitle('Cor da nota');
+            fireEvent.click(colorButton);
+
+            // Should show color options
+            expect(screen.getByTitle('Âmbar')).toBeInTheDocument();
+            expect(screen.getByTitle('Roxo')).toBeInTheDocument();
+        });
+    });
+
+    describe('Metadata panel', () => {
+        it('toggles metadata panel when clicking toggle button', () => {
+            render(
+                <NoteEditor
+                    note={mockExistingNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            // Click metadata toggle
+            const metadataToggle = screen.getByText(/Metadados e Tags/i);
+            fireEvent.click(metadataToggle);
+
+            // Should show tags section label
+            expect(screen.getByText('Tags')).toBeInTheDocument();
+
+            // Should show tag input placeholder
+            expect(screen.getByPlaceholderText(/Nova tag/i)).toBeInTheDocument();
         });
     });
 });

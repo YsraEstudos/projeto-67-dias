@@ -7,7 +7,6 @@ interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
-    refactorings: number;
 }
 
 // Timer presets in minutes
@@ -25,8 +24,8 @@ interface SessionTabProps {
     setAnkiCount: (v: number) => void;
     ncmCount: number;
     setNcmCount: (v: number) => void;
-    refactoringsCount: number;
-    setRefactoringsCount: (v: number) => void;
+    tomorrowReady: boolean;
+    setTomorrowReady: (v: boolean) => void;
     goals: WorkGoals;
     isInputLocked: boolean;
     onSave: () => void;
@@ -37,15 +36,15 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
     timeRemaining, isRunning, setIsRunning, timerFinished,
     initialTimerMinutes, onSetPreset, onResetTimer,
     ankiCount, setAnkiCount, ncmCount, setNcmCount,
-    refactoringsCount, setRefactoringsCount,
+    tomorrowReady, setTomorrowReady,
     goals, isInputLocked, onSave, children
 }) => {
     return (
         <div className="space-y-8">
             {/* Countdown Timer */}
             <div className={`flex flex-col items-center justify-center py-6 rounded-2xl border transition-all ${timerFinished
-                    ? 'bg-red-950/50 border-red-500/50 animate-pulse'
-                    : 'bg-slate-950 border-slate-800'
+                ? 'bg-red-950/50 border-red-500/50 animate-pulse'
+                : 'bg-slate-950 border-slate-800'
                 }`}>
                 {/* Timer Presets */}
                 <div className="flex gap-2 mb-4">
@@ -55,8 +54,8 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                             onClick={() => onSetPreset(minutes)}
                             disabled={isRunning}
                             className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${initialTimerMinutes === minutes && !timerFinished
-                                    ? 'bg-yellow-600 text-white'
-                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                                 } ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {minutes}m
@@ -76,10 +75,10 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                         onClick={() => setIsRunning(!isRunning)}
                         disabled={timerFinished}
                         className={`px-6 py-2 rounded-full font-bold flex items-center gap-2 transition-all ${timerFinished
-                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                                : isRunning
-                                    ? 'bg-slate-800 text-red-400 hover:bg-slate-700'
-                                    : 'bg-yellow-600 text-white hover:bg-yellow-500'
+                            ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            : isRunning
+                                ? 'bg-slate-800 text-red-400 hover:bg-slate-700'
+                                : 'bg-yellow-600 text-white hover:bg-yellow-500'
                             }`}
                     >
                         {isRunning ? <><Pause size={18} /> Pausar</> : <><Play size={18} /> Iniciar</>}
@@ -147,26 +146,28 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                     </div>
                 </div>
 
-                {/* Refactorings (Fixed Goal like Anki/NCM) */}
+                {/* Arrumar o de Amanhã */}
                 <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
-                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3 whitespace-nowrap">Refatorações (Meta: {goals.refactorings})</h4>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setRefactoringsCount(Math.max(0, refactoringsCount - 1))}
-                            disabled={isInputLocked}
-                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <ArrowDown size={20} />
-                        </button>
-                        <span className={`text-4xl font-bold ${refactoringsCount >= goals.refactorings ? 'text-green-400' : 'text-white'}`}>{refactoringsCount}</span>
-                        <button
-                            onClick={() => setRefactoringsCount(refactoringsCount + 1)}
-                            disabled={isInputLocked}
-                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <ArrowUp size={20} />
-                        </button>
-                    </div>
+                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3 whitespace-nowrap">
+                        Arrumar o de Amanhã
+                    </h4>
+                    <button
+                        onClick={() => setTomorrowReady(!tomorrowReady)}
+                        disabled={isInputLocked}
+                        className={`w-full py-3 px-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${tomorrowReady
+                                ? 'bg-green-600 text-white shadow-lg shadow-green-900/30'
+                                : 'bg-slate-900 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-600'
+                            } ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {tomorrowReady ? (
+                            <>✅ Preparado!</>
+                        ) : (
+                            <>📦 Confirmar</>
+                        )}
+                    </button>
+                    <p className="text-slate-500 text-xs mt-2 text-center">
+                        +5 pts ao confirmar
+                    </p>
                 </div>
             </div>
 

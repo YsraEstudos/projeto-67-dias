@@ -14,7 +14,6 @@ export interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
-    refactorings: number;
 }
 
 /** Input para cálculo de métricas de trabalho */
@@ -34,7 +33,7 @@ export interface MetTargetSession {
     date: string;
     ankiCount: number;
     ncmCount: number;
-    refactoringsCount?: number;
+    tomorrowReady?: boolean;
     durationSeconds: number;
 }
 
@@ -73,7 +72,6 @@ export interface WorkData {
     ultraWeeklyGoal?: number;
     ankiDailyGoal?: number;
     ncmDailyGoal?: number;
-    refactoringsDailyGoal?: number;
     // Study Scheduler
     studySubjects?: StudySubject[];
     studySchedules?: DailyStudySchedule[];

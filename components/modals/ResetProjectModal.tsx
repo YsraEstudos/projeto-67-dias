@@ -73,6 +73,7 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
                 setConfig({
                     ...config,
                     startDate: new Date().toISOString(),
+                    isProjectStarted: false,
                     restartCount: (config.restartCount || 0) + 1
                 });
             } else {

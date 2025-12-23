@@ -49,7 +49,7 @@ vi.mock('../../../stores', () => ({
             breakTime: '12:00',
             paceMode: 'remaining' as const,
             history: [],
-            goals: { weekly: 100, ultra: 500, anki: 15, ncm: 20, refactorings: 5 },
+            goals: { weekly: 100, ultra: 500, anki: 15, ncm: 20 },
             studySubjects: [],
             studySchedules: [],
             setGoal: vi.fn(),

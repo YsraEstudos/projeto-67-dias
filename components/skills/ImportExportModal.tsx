@@ -60,11 +60,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
         reader.onload = (e) => {
             try {
                 const json = JSON.parse(e.target?.result as string);
+
+                // Case 1: Direct Roadmap Array
                 if (Array.isArray(json)) {
                     onImport(json);
                     setImportStatus('SUCCESS');
                     setTimeout(onClose, 1500);
-                } else {
+                }
+                // Case 2: Full Skill Object (extract roadmap)
+                else if (typeof json === 'object' && json !== null && Array.isArray((json as any).roadmap)) {
+                    onImport((json as any).roadmap);
+                    setImportStatus('SUCCESS');
+                    setTimeout(onClose, 1500);
+                }
+                else {
                     setImportStatus('ERROR');
                 }
             } catch (err) {
@@ -115,31 +124,41 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
                                 const sampleRoadmap: SkillRoadmapItem[] = [
                                     {
                                         id: '1',
-                                        title: 'Fundamentos',
-                                        isCompleted: true,
-                                        type: 'SECTION'
+                                        title: 'Fase 1: Fundamentos (Seção)',
+                                        isCompleted: false,
+                                        type: 'SECTION',
+                                        subTasks: [
+                                            {
+                                                id: '1-1',
+                                                title: 'Tarefa Principal',
+                                                isCompleted: false,
+                                                type: 'TASK',
+                                                subTasks: [
+                                                    {
+                                                        id: '1-1-1',
+                                                        title: 'Subtarefa Detalhada',
+                                                        isCompleted: false,
+                                                        type: 'TASK'
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                id: '1-2',
+                                                title: 'Leitura de Documentação',
+                                                isCompleted: true,
+                                                type: 'TASK'
+                                            }
+                                        ]
                                     },
                                     {
                                         id: '2',
-                                        title: 'Aprender HTML Semântico',
-                                        isCompleted: true,
-                                        type: 'TASK'
-                                    },
-                                    {
-                                        id: '3',
-                                        title: 'Aprender CSS Flexbox',
+                                        title: 'Fase 2: Prática Avançada (Seção)',
                                         isCompleted: false,
-                                        type: 'TASK',
+                                        type: 'SECTION',
                                         subTasks: [
                                             {
-                                                id: '3-1',
-                                                title: 'Entender justify-content',
-                                                isCompleted: true,
-                                                type: 'TASK'
-                                            },
-                                            {
-                                                id: '3-2',
-                                                title: 'Entender align-items',
+                                                id: '2-1',
+                                                title: 'Projeto Prático',
                                                 isCompleted: false,
                                                 type: 'TASK'
                                             }

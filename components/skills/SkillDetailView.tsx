@@ -29,7 +29,7 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
     onUpdate,
     onDelete
 }) => {
-    const { completeSkill, uncompleteSkill } = useSkillsStore();
+    const { completeSkill, uncompleteSkill, unlockSection, lockSection } = useSkillsStore();
 
     // Session handler that creates a log entry
     const handleAddSession = (minutes: number) => {
@@ -105,6 +105,9 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                         onUpdate({ roadmap, visualRoadmap });
                     }}
                     onViewModeChange={(roadmapViewMode) => onUpdate({ roadmapViewMode })}
+                    unlockedSections={skill.unlockedSections || []}
+                    onUnlockSection={(sectionId) => unlockSection(skill.id, sectionId)}
+                    onLockSection={(sectionId) => lockSection(skill.id, sectionId)}
                 />
             </div>
         </div>

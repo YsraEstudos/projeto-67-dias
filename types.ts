@@ -36,6 +36,7 @@ export interface ProjectConfig {
   startDate: string; // ISO Date
   userName: string;
   isGuest: boolean;
+  isProjectStarted?: boolean; // Se o projeto foi oficialmente iniciado (bloqueia edição de startDate)
   restartCount?: number; // Quantas vezes o plano foi reiniciado sem concluir
   offensiveGoals?: OffensiveGoalsConfig;
   theme?: AppTheme;  // Tema da aplicação
@@ -294,16 +295,6 @@ export interface NextDayContent {
   createdAt: number;
 }
 
-// Content to prepare for the next day
-export interface NextDayContent {
-  id: string;
-  title: string;
-  url?: string;
-  notes?: string;
-  isCompleted: boolean;
-  createdAt: number;
-}
-
 export type SkillGoalType = 'TIME' | 'POMODOROS';
 
 export interface Skill {
@@ -341,6 +332,10 @@ export interface Skill {
   distributionType?: 'LINEAR' | 'EXPONENTIAL';  // LINEAR = padrão, EXPONENTIAL = crescimento progressivo
   excludedDays?: number[];  // Dias da semana excluídos (0=dom, 1=seg, ..., 6=sáb)
   exponentialIntensity?: number;  // 0.0 = linear, 1.0 = máximo (30%-170%)
+
+  // Anti-Anxiety: Seções desbloqueadas no roadmap
+  // Por padrão, apenas primeira seção é visível; demais precisam ser desbloqueadas via clique direito
+  unlockedSections?: string[];  // IDs das seções (SECTION) desbloqueadas
 }
 
 // --- PROMPTS MODULE INTERFACES ---

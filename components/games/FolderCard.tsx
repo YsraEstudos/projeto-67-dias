@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { Folder, Clock, Gamepad2, Trash2 } from 'lucide-react';
+import { Folder, Clock, Gamepad2, Trash2, Pencil } from 'lucide-react';
 import { GameFolder, Game } from '../../types';
 
 interface FolderCardProps {
     folder: GameFolder;
     games: Game[]; // Games inside this folder
     onFolderClick: (folderId: string) => void;
+    onEditFolder: (e: React.MouseEvent, folderId: string) => void;
     onDeleteFolder: (e: React.MouseEvent, folderId: string) => void;
 }
 
@@ -36,7 +37,7 @@ export const FOLDER_COLORS = {
     }
 };
 
-export const FolderCard: React.FC<FolderCardProps> = React.memo(({ folder, games, onFolderClick, onDeleteFolder }) => {
+export const FolderCard: React.FC<FolderCardProps> = React.memo(({ folder, games, onFolderClick, onEditFolder, onDeleteFolder }) => {
     // Memoize total hours calculation
     const totalHours = useMemo(() =>
         games.reduce((acc, g) => acc + g.hoursPlayed, 0),
@@ -45,6 +46,7 @@ export const FolderCard: React.FC<FolderCardProps> = React.memo(({ folder, games
     const colorTheme = FOLDER_COLORS[folder.color as keyof typeof FOLDER_COLORS] || FOLDER_COLORS.purple;
 
     const handleClick = () => onFolderClick(folder.id);
+    const handleEdit = (e: React.MouseEvent) => onEditFolder(e, folder.id);
     const handleDelete = (e: React.MouseEvent) => onDeleteFolder(e, folder.id);
 
     return (
@@ -58,14 +60,24 @@ export const FolderCard: React.FC<FolderCardProps> = React.memo(({ folder, games
                 <div className={`p-3 rounded-xl bg-slate-950 border border-slate-800 ${colorTheme.text} transition-colors`}>
                     <Folder size={24} />
                 </div>
-                {/* Delete button (hidden for protected folders) */}
+                {/* Edit and Delete buttons (hidden for protected folders) */}
                 {!folder.isProtected && (
-                    <button
-                        onClick={handleDelete}
-                        className="p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
-                    >
-                        <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={handleEdit}
+                            className="p-2 text-slate-600 hover:text-purple-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
+                            title="Editar pasta"
+                        >
+                            <Pencil size={16} />
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            className="p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
+                            title="Excluir pasta"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                 )}
             </div>
 

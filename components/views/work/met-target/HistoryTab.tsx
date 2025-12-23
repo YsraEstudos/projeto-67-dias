@@ -7,7 +7,6 @@ import { getWeekStart } from '../utils';
 interface WorkGoals {
     weekly: number;
     ultra: number;
-    refactorings: number;
 }
 
 interface HistoryTabProps {

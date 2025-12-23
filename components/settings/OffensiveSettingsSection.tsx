@@ -70,6 +70,36 @@ export const OffensiveSettingsSection: React.FC = () => {
         setFocusSkills(prev => prev.map(s => s.skillId === skillId ? { ...s, weight } : s));
     };
 
+    // Atualiza peso de uma categoria mantendo a soma sempre em 100%
+    const updateCategoryWeight = (category: 'skills' | 'reading' | 'games', newValue: number) => {
+        const clampedValue = Math.min(100, Math.max(0, newValue));
+        const remaining = 100 - clampedValue;
+
+        // Pega os outros dois campos
+        const otherKeys = (['skills', 'reading', 'games'] as const).filter(k => k !== category);
+        const otherSum = weights[otherKeys[0]] + weights[otherKeys[1]];
+
+        let newWeights = { ...weights, [category]: clampedValue };
+
+        if (remaining === 0) {
+            // Se o novo valor é 100%, os outros vão para 0
+            newWeights[otherKeys[0]] = 0;
+            newWeights[otherKeys[1]] = 0;
+        } else if (otherSum === 0) {
+            // Se os outros estão em 0, distribui igualmente entre eles
+            newWeights[otherKeys[0]] = Math.round(remaining / 2);
+            newWeights[otherKeys[1]] = remaining - Math.round(remaining / 2);
+        } else {
+            // Distribui proporcionalmente entre os outros
+            const ratio0 = weights[otherKeys[0]] / otherSum;
+            const ratio1 = weights[otherKeys[1]] / otherSum;
+            newWeights[otherKeys[0]] = Math.round(remaining * ratio0);
+            newWeights[otherKeys[1]] = remaining - newWeights[otherKeys[0]];
+        }
+
+        setWeights(newWeights);
+    };
+
     // Memoized to prevent recalculation on every render
     const activeSkillsList = useMemo(() =>
         skills.filter(s => !s.visualRoadmap?.nodes),
@@ -132,8 +162,8 @@ export const OffensiveSettingsSection: React.FC = () => {
                             type="button"
                             onClick={() => setEnabledModules(prev => ({ ...prev, skills: !prev.skills }))}
                             className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.skills
-                                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
-                                    : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
+                                ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
+                                : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
                                 }`}
                         >
                             <GraduationCap size={20} />
@@ -151,8 +181,8 @@ export const OffensiveSettingsSection: React.FC = () => {
                             type="button"
                             onClick={() => setEnabledModules(prev => ({ ...prev, reading: !prev.reading }))}
                             className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.reading
-                                    ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
-                                    : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
+                                ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
+                                : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
                                 }`}
                         >
                             <BookOpen size={20} />
@@ -170,8 +200,8 @@ export const OffensiveSettingsSection: React.FC = () => {
                             type="button"
                             onClick={() => setEnabledModules(prev => ({ ...prev, games: !prev.games }))}
                             className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.games
-                                    ? 'bg-purple-500/10 border-purple-500/50 text-purple-400'
-                                    : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
+                                ? 'bg-purple-500/10 border-purple-500/50 text-purple-400'
+                                : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
                                 }`}
                         >
                             <Gamepad2 size={20} />
@@ -209,7 +239,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                             <input
                                 type="range"
                                 min="0" max="100" value={weights.skills}
-                                onChange={(e) => setWeights({ ...weights, skills: Number(e.target.value) })}
+                                onChange={(e) => updateCategoryWeight('skills', Number(e.target.value))}
                                 className="w-full accent-emerald-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
@@ -223,7 +253,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                             <input
                                 type="range"
                                 min="0" max="100" value={weights.reading}
-                                onChange={(e) => setWeights({ ...weights, reading: Number(e.target.value) })}
+                                onChange={(e) => updateCategoryWeight('reading', Number(e.target.value))}
                                 className="w-full accent-yellow-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
@@ -237,7 +267,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                             <input
                                 type="range"
                                 min="0" max="100" value={weights.games}
-                                onChange={(e) => setWeights({ ...weights, games: Number(e.target.value) })}
+                                onChange={(e) => updateCategoryWeight('games', Number(e.target.value))}
                                 className="w-full accent-purple-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>

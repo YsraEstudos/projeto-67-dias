@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { X, Plus, Sparkles, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { X, Plus, Sparkles, Image as ImageIcon, Eye, Edit3, Bold, Italic, Link2, List, Code, Heading } from 'lucide-react';
 import { Prompt, PromptCategory, PromptImage } from '../../types';
 import { categoryIcons, colorClasses } from './constants';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
+import { MarkdownRenderer } from '../notes/MarkdownRenderer';
+import { htmlToMarkdown, wrapSelection, insertLink, autoPair, insertAtCursor } from '../../utils/markdownUtils';
 
 interface PromptModalProps {
     prompt: Prompt | null;
@@ -22,6 +24,8 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
 
     const [newImageUrl, setNewImageUrl] = useState('');
     const [newImageCaption, setNewImageCaption] = useState('');
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const addImage = () => {
         if (!newImageUrl.trim()) return;
@@ -62,6 +66,183 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
         } else {
             onClose();
         }
+    };
+
+    // Update content helper
+    const updateContent = (newContent: string) => {
+        setFormData(prev => ({ ...prev, content: newContent }));
+    };
+
+    /**
+     * Handles paste event to convert HTML clipboard content to Markdown.
+     */
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const html = e.clipboardData.getData('text/html');
+
+        if (html && html.trim()) {
+            e.preventDefault();
+
+            const markdown = htmlToMarkdown(html);
+            const textarea = textareaRef.current;
+
+            if (textarea && markdown) {
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const before = formData.content.substring(0, start);
+                const after = formData.content.substring(end);
+
+                const newContent = before + markdown + after;
+                updateContent(newContent);
+
+                requestAnimationFrame(() => {
+                    if (textareaRef.current) {
+                        const newPos = start + markdown.length;
+                        textareaRef.current.selectionStart = newPos;
+                        textareaRef.current.selectionEnd = newPos;
+                        textareaRef.current.focus();
+                    }
+                });
+            }
+        }
+    };
+
+    /**
+     * Handles keyboard shortcuts for Markdown formatting.
+     */
+    const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+        // Ctrl/Cmd + B: Bold
+        if (isCtrlOrCmd && e.key === 'b') {
+            e.preventDefault();
+            const result = wrapSelection(formData.content, start, end, '**');
+            updateContent(result.text);
+            requestAnimationFrame(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.selectionStart = result.newStart;
+                    textareaRef.current.selectionEnd = result.newEnd;
+                }
+            });
+            return;
+        }
+
+        // Ctrl/Cmd + I: Italic
+        if (isCtrlOrCmd && e.key === 'i') {
+            e.preventDefault();
+            const result = wrapSelection(formData.content, start, end, '*');
+            updateContent(result.text);
+            requestAnimationFrame(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.selectionStart = result.newStart;
+                    textareaRef.current.selectionEnd = result.newEnd;
+                }
+            });
+            return;
+        }
+
+        // Ctrl/Cmd + K: Insert Link
+        if (isCtrlOrCmd && e.key === 'k') {
+            e.preventDefault();
+            const result = insertLink(formData.content, start, end);
+            updateContent(result.text);
+            requestAnimationFrame(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.selectionStart = result.newStart;
+                    textareaRef.current.selectionEnd = result.newEnd;
+                }
+            });
+            return;
+        }
+
+        // Tab: Insert 2 spaces
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const result = insertAtCursor(formData.content, start, '  ');
+            updateContent(result.text);
+            requestAnimationFrame(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.selectionStart = result.newCursor;
+                    textareaRef.current.selectionEnd = result.newCursor;
+                }
+            });
+            return;
+        }
+
+        // Auto-pairing for brackets and quotes
+        const pairChars = ['[', '(', '{', '`', '"', "'"];
+        if (pairChars.includes(e.key)) {
+            const result = autoPair(formData.content, start, e.key);
+            if (result && result.paired) {
+                e.preventDefault();
+                updateContent(result.text);
+                requestAnimationFrame(() => {
+                    if (textareaRef.current) {
+                        textareaRef.current.selectionStart = result.newCursor;
+                        textareaRef.current.selectionEnd = result.newCursor;
+                    }
+                });
+            }
+        }
+    };
+
+    // Toolbar action helpers
+    const insertMarkdown = (wrapper: string) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const result = wrapSelection(formData.content, start, end, wrapper);
+        updateContent(result.text);
+
+        requestAnimationFrame(() => {
+            if (textareaRef.current) {
+                textareaRef.current.selectionStart = result.newStart;
+                textareaRef.current.selectionEnd = result.newEnd;
+                textareaRef.current.focus();
+            }
+        });
+    };
+
+    const insertPrefix = (prefix: string) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const lineStart = formData.content.lastIndexOf('\n', start - 1) + 1;
+        const before = formData.content.substring(0, lineStart);
+        const after = formData.content.substring(lineStart);
+
+        updateContent(before + prefix + after);
+
+        requestAnimationFrame(() => {
+            if (textareaRef.current) {
+                textareaRef.current.selectionStart = start + prefix.length;
+                textareaRef.current.selectionEnd = start + prefix.length;
+                textareaRef.current.focus();
+            }
+        });
+    };
+
+    const handleInsertLink = () => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const result = insertLink(formData.content, start, end);
+        updateContent(result.text);
+        requestAnimationFrame(() => {
+            if (textareaRef.current) {
+                textareaRef.current.selectionStart = result.newStart;
+                textareaRef.current.selectionEnd = result.newEnd;
+                textareaRef.current.focus();
+            }
+        });
     };
 
     return (
@@ -123,18 +304,107 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
                             </div>
                         </div>
 
-                        {/* Content */}
+                        {/* Content with Markdown Support */}
                         <div>
-                            <label className="block text-xs text-slate-500 uppercase font-bold mb-1">
-                                Conteúdo do Prompt
-                            </label>
-                            <textarea
-                                value={formData.content}
-                                onChange={e => setFormData({ ...formData, content: e.target.value })}
-                                rows={8}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-purple-500 outline-none font-mono text-sm resize-none"
-                                placeholder={`Digite seu prompt aqui...\n\nUse [PLACEHOLDERS] para indicar onde o usuário deve inserir informações.`}
-                            />
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-xs text-slate-500 uppercase font-bold">
+                                    Conteúdo do Prompt
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPreviewMode(!isPreviewMode)}
+                                    className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${isPreviewMode
+                                            ? 'bg-purple-600 text-white'
+                                            : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                        }`}
+                                    title={isPreviewMode ? 'Editar' : 'Visualizar'}
+                                >
+                                    {isPreviewMode ? <Edit3 size={14} /> : <Eye size={14} />}
+                                    {isPreviewMode ? 'Editar' : 'Preview'}
+                                </button>
+                            </div>
+
+                            {isPreviewMode ? (
+                                /* Markdown Preview */
+                                <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 min-h-[200px] max-h-[300px] overflow-y-auto">
+                                    {formData.content.trim() ? (
+                                        <MarkdownRenderer content={formData.content} compact />
+                                    ) : (
+                                        <p className="text-slate-500 italic text-sm">Nenhum conteúdo para visualizar...</p>
+                                    )}
+                                </div>
+                            ) : (
+                                /* Editor with Toolbar */
+                                <div className="space-y-2">
+                                    {/* Markdown Toolbar */}
+                                    <div className="flex items-center gap-1 p-1.5 bg-slate-900 rounded-lg border border-slate-700">
+                                        <button
+                                            type="button"
+                                            onClick={() => insertMarkdown('**')}
+                                            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                                            title="Negrito (Ctrl+B)"
+                                        >
+                                            <Bold size={14} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => insertMarkdown('*')}
+                                            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                                            title="Itálico (Ctrl+I)"
+                                        >
+                                            <Italic size={14} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleInsertLink}
+                                            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                                            title="Link (Ctrl+K)"
+                                        >
+                                            <Link2 size={14} />
+                                        </button>
+                                        <div className="w-px h-4 bg-slate-700 mx-0.5" />
+                                        <button
+                                            type="button"
+                                            onClick={() => insertPrefix('# ')}
+                                            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                                            title="Título"
+                                        >
+                                            <Heading size={14} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => insertPrefix('- ')}
+                                            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                                            title="Lista"
+                                        >
+                                            <List size={14} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => insertMarkdown('`')}
+                                            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                                            title="Código inline"
+                                        >
+                                            <Code size={14} />
+                                        </button>
+                                        <span className="ml-auto text-xs text-slate-600">
+                                            {formData.content.length} chars
+                                        </span>
+                                    </div>
+
+                                    {/* Textarea */}
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={formData.content}
+                                        onChange={e => setFormData({ ...formData, content: e.target.value })}
+                                        onPaste={handlePaste}
+                                        onKeyDown={handleTextareaKeyDown}
+                                        rows={8}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-purple-500 outline-none font-mono text-sm resize-none"
+                                        placeholder={`Digite seu prompt aqui...\n\nUse Markdown para formatação:\n- **negrito** ou *itálico*\n- # títulos\n- - listas\n- \`código\``}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* Images */}

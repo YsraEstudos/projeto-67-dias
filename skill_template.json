@@ -1,0 +1,83 @@
+{
+    "id": "uuid-gerado-automaticamente",
+    "name": "Nome da Habilidade",
+    "description": "Descrição opcional da habilidade",
+    "level": "Iniciante",
+    "currentMinutes": 0,
+    "goalMinutes": 6000,
+    "colorTheme": "blue",
+    "createdAt": 1703299200000,
+    "goalType": "TIME",
+    "pomodorosCompleted": 0,
+    "goalPomodoros": 100,
+    "distributionType": "EXPONENTIAL",
+    "exponentialIntensity": 0.7,
+    "excludedDays": [
+        0
+    ],
+    "deadline": "2025-12-31",
+    "resources": [
+        {
+            "id": "uuid-resource-1",
+            "title": "Nome do Recurso",
+            "url": "https://exemplo.com",
+            "type": "VIDEO"
+        }
+    ],
+    "unlockedSections": [
+        "uuid-secao-1"
+    ],
+    "roadmap": [
+        {
+            "id": "uuid-secao-1",
+            "title": "Módulo 1: Fundamentos (TYPE=SECTION)",
+            "type": "SECTION",
+            "isCompleted": false,
+            "subTasks": [
+                {
+                    "id": "uuid-tarefa-1",
+                    "title": "Tarefa Principal 1",
+                    "type": "TASK",
+                    "isCompleted": false,
+                    "subTasks": [
+                        {
+                            "id": "uuid-subtarefa-1",
+                            "title": "Subtarefa 1.1",
+                            "type": "TASK",
+                            "isCompleted": false
+                        },
+                        {
+                            "id": "uuid-subtarefa-2",
+                            "title": "Subtarefa 1.2",
+                            "type": "TASK",
+                            "isCompleted": false
+                        }
+                    ]
+                },
+                {
+                    "id": "uuid-tarefa-2",
+                    "title": "Tarefa Principal 2 (Sem subtarefas)",
+                    "type": "TASK",
+                    "isCompleted": false
+                }
+            ]
+        },
+        {
+            "id": "uuid-secao-2",
+            "title": "Módulo 2: Avançado (Bloqueado inicialmente)",
+            "type": "SECTION",
+            "isCompleted": false,
+            "subTasks": [
+                {
+                    "id": "uuid-tarefa-3",
+                    "title": "Tarefa do Módulo 2",
+                    "type": "TASK",
+                    "isCompleted": false
+                }
+            ]
+        }
+    ],
+    "logs": [],
+    "microAchievements": [],
+    "nextDayContents": []
+}

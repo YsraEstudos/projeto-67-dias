@@ -2,24 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { gameSchema, GameFormData, GameFormInput } from '../../schemas';
-import { X, Clock, Trophy, Trash2, Save, Plus, Check, AlertCircle, PencilLine } from 'lucide-react';
+import { X, Clock, Trophy, Trash2, Save, Plus, Check, AlertCircle, PencilLine, Bookmark } from 'lucide-react';
 import { Game, GameStatus } from '../../types';
-import { useGameActions, useGameReviewActions } from '../../stores';
+import { useGameActions, useGameReviewActions, useGamesStore } from '../../stores';
 
 interface GameDetailsModalProps {
-    game: Game;
+    gameId: string;
     onClose: () => void;
 }
 
-export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ game, onClose }) => {
+export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onClose }) => {
+    // Obtém o game diretamente da store para garantir reatividade
+    const game = useGamesStore(s => s.games.find(g => g.id === gameId));
+
     const { deleteGame, logHours, addMission, toggleMission, deleteMission, updateGame } = useGameActions();
     const { setGameReview, toggleReviewPending } = useGameReviewActions();
     const [activeTab, setActiveTab] = useState<'QUESTS' | 'LOG' | 'DETAILS' | 'REVIEW'>('QUESTS');
-
-    // Review Input
-    const [reviewText, setReviewText] = useState(game.review || '');
-
-    // Mission Input
 
     // Mission Input
     const [newMissionTitle, setNewMissionTitle] = useState('');
@@ -27,7 +25,13 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ game, onClos
     // Hours Input
     const [hoursInput, setHoursInput] = useState('');
 
-    // Form Setup
+    // Image error state
+    const [imgError, setImgError] = useState(false);
+
+    // Review Input - usa valor inicial vazio, será sincronizado via useEffect
+    const [reviewText, setReviewText] = useState('');
+
+    // Form Setup - defaultValues serão atualizados via reset
     const {
         register,
         handleSubmit,
@@ -37,34 +41,41 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ game, onClos
     } = useForm<GameFormInput, any, GameFormData>({
         resolver: zodResolver(gameSchema),
         defaultValues: {
-            title: game.title,
-            platform: game.platform,
-            status: game.status,
-            coverUrl: game.coverUrl || '',
-            totalHoursEstimate: game.totalHoursEstimate,
-            folderId: game.folderId
+            title: '',
+            platform: '',
+            status: 'PLAYING',
+            coverUrl: '',
+            totalHoursEstimate: undefined,
+            folderId: ''
         }
     });
 
-    // Update form when game prop changes
-    useEffect(() => {
-        reset({
-            title: game.title,
-            platform: game.platform,
-            status: game.status,
-            coverUrl: game.coverUrl || '',
-            totalHoursEstimate: game.totalHoursEstimate,
-            folderId: game.folderId
-        });
-    }, [game, reset]);
-
     const watchedCoverUrl = watch('coverUrl');
-    const [imgError, setImgError] = useState(false);
+
+    // Sync form and reviewText when game changes
+    useEffect(() => {
+        if (game) {
+            reset({
+                title: game.title,
+                platform: game.platform,
+                status: game.status,
+                coverUrl: game.coverUrl || '',
+                totalHoursEstimate: game.totalHoursEstimate,
+                folderId: game.folderId
+            });
+            setReviewText(game.review || '');
+        }
+    }, [game, reset]);
 
     // Reset img error when url changes
     useEffect(() => {
         setImgError(false);
     }, [watchedCoverUrl]);
+
+    // Early return se o jogo não existir mais
+    if (!game) {
+        return null;
+    }
 
 
     const handleAddMission = (e: React.FormEvent) => {
@@ -107,17 +118,17 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ game, onClos
             <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col md:flex-row">
 
                 {/* Sidebar / Cover */}
-                <div className="w-full md:w-80 bg-slate-950 p-6 flex flex-col border-b md:border-b-0 md:border-r border-slate-800 shrink-0">
+                <div className="w-full md:w-72 lg:w-80 bg-slate-950 p-4 md:p-6 flex flex-col border-b md:border-b-0 md:border-r border-slate-800 shrink-0 max-h-[40vh] md:max-h-none overflow-hidden md:overflow-visible">
                     {watchedCoverUrl && !imgError ? (
                         <img
                             src={watchedCoverUrl}
                             alt="Game Cover"
                             loading="lazy"
                             onError={() => setImgError(true)}
-                            className="w-full aspect-[3/4] object-cover rounded-xl shadow-lg shadow-purple-900/20 mb-4"
+                            className="w-full max-h-[200px] md:max-h-none md:aspect-[3/4] object-cover rounded-xl shadow-lg shadow-purple-900/20 mb-4"
                         />
                     ) : (
-                        <div className="w-full aspect-[3/4] bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center mb-4 flex-col gap-2 text-slate-700">
+                        <div className="w-full max-h-[200px] md:max-h-none md:aspect-[3/4] bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center mb-4 flex-col gap-2 text-slate-700">
                             <AlertCircle size={32} />
                             <span className="text-xs">Sem capa</span>
                         </div>
@@ -369,22 +380,43 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ game, onClos
 
                         {activeTab === 'REVIEW' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+
+                                {/* Card destacado "Marcar para Resenhar" no topo */}
+                                <button
+                                    onClick={() => toggleReviewPending(game.id)}
+                                    className={`w-full p-4 rounded-xl border transition-all duration-200 flex items-center gap-4 group
+                                        ${game.reviewPending
+                                            ? 'bg-pink-500/10 border-pink-500/30 hover:border-pink-500/50'
+                                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}
+                                >
+                                    <div className={`p-3 rounded-lg transition-colors ${game.reviewPending ? 'bg-pink-500/20' : 'bg-slate-800'}`}>
+                                        <Bookmark
+                                            size={24}
+                                            className={`transition-colors ${game.reviewPending ? 'text-pink-400 fill-pink-400' : 'text-slate-400'}`}
+                                        />
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <div className={`font-semibold ${game.reviewPending ? 'text-pink-300' : 'text-white'}`}>
+                                            Marcar para Resenhar
+                                        </div>
+                                        <div className="text-sm text-slate-500">
+                                            {game.reviewPending
+                                                ? 'Este jogo aparecerá na sua lista de resenhas pendentes'
+                                                : 'Adicione à fila para escrever uma resenha depois'}
+                                        </div>
+                                    </div>
+                                    {/* Toggle Switch Visual */}
+                                    <div className={`w-12 h-6 rounded-full transition-all duration-200 flex items-center ${game.reviewPending ? 'bg-pink-500 justify-end' : 'bg-slate-700 justify-start'}`}>
+                                        <div className="w-5 h-5 bg-white rounded-full mx-0.5 shadow-md transition-all" />
+                                    </div>
+                                </button>
+
+                                {/* Header da seção de resenha */}
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                         <PencilLine className="text-pink-500" size={20} />
                                         Resenha do Jogo
                                     </h3>
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-sm text-slate-400 cursor-pointer select-none flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={!!game.reviewPending}
-                                                onChange={() => toggleReviewPending(game.id)}
-                                                className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-purple-600 focus:ring-purple-500"
-                                            />
-                                            Marcar para Resenhar
-                                        </label>
-                                    </div>
                                 </div>
 
                                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">

@@ -118,7 +118,7 @@ const WorkView: React.FC = () => {
     setIsMetTargetModalOpen(true);
   }, []);
 
-  const handleUpdateGoals = useCallback((newGoals: { weekly: number; ultra: number; anki: number; ncm: number; refactorings: number }) => {
+  const handleUpdateGoals = useCallback((newGoals: { weekly: number; ultra: number; anki: number; ncm: number }) => {
     setGoals(newGoals);
   }, [setGoals]);
 
@@ -127,9 +127,8 @@ const WorkView: React.FC = () => {
     weekly: modalData.goals.weekly,
     ultra: modalData.goals.ultra,
     anki: modalData.goals.anki,
-    ncm: modalData.goals.ncm,
-    refactorings: modalData.goals.refactorings
-  }), [modalData.goals.weekly, modalData.goals.ultra, modalData.goals.anki, modalData.goals.ncm, modalData.goals.refactorings]);
+    ncm: modalData.goals.ncm
+  }), [modalData.goals.weekly, modalData.goals.ultra, modalData.goals.anki, modalData.goals.ncm]);
 
   // Don't render until store is hydrated
   if (isLoading) {

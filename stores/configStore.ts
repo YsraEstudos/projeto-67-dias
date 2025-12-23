@@ -27,6 +27,7 @@ const DEFAULT_CONFIG: ProjectConfig = {
     startDate: new Date().toISOString(),
     userName: '',
     isGuest: false,
+    isProjectStarted: false,
     restartCount: 0,
     offensiveGoals: DEFAULT_OFFENSIVE_GOALS,
     theme: 'default',
@@ -64,7 +65,8 @@ export const useConfigStore = create<ConfigState>()((set, get) => ({
         set({
             config: {
                 ...DEFAULT_CONFIG,
-                startDate: new Date().toISOString()
+                startDate: new Date().toISOString(),
+                isProjectStarted: false
             }
         });
         get()._syncToFirestore();

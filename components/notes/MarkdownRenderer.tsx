@@ -144,8 +144,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
         img: ({ src, alt }: any) => (
             <img
                 src={src}
-                alt={alt || ''}
-                className="max-w-full rounded-lg my-3 border border-slate-700"
+                alt={alt || 'imagem'}
+                loading="lazy"
+                onClick={() => src && window.open(src, '_blank')}
+                className="max-w-full rounded-lg my-3 border border-slate-700 cursor-pointer hover:opacity-90 transition-opacity"
+                title="Clique para ampliar"
             />
         ),
     }), []);

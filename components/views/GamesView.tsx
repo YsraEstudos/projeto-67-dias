@@ -19,7 +19,7 @@ const GameDetailsModal = React.lazy(() =>
 const GamesView: React.FC = () => {
     const games = useGames();
     const folders = useGameFolders();
-    const { createFolder, deleteFolder } = useGameFolderActions();
+    const { createFolder, deleteFolder, updateFolder } = useGameFolderActions();
     const offensiveConfig = useConfigStore(s => s.config.offensiveGoals) || DEFAULT_OFFENSIVE_GOALS;
 
     // Cálculo de progresso de ofensiva para Jogos
@@ -67,7 +67,7 @@ const GamesView: React.FC = () => {
         return games.filter((game) => {
             // Pending Reviews Filter Mode
             if (showPendingReviews) {
-                return game.reviewPending && game.folderId === CENTRAL_FOLDER_ID;
+                return game.reviewPending;
             }
 
             const isInCurrentFolder = currentFolderId
@@ -104,6 +104,24 @@ const GamesView: React.FC = () => {
             deleteFolder(folderId);
         }
     };
+
+    const handleEditFolder = useCallback((e: React.MouseEvent, folderId: string) => {
+        e.stopPropagation();
+        const folder = folders.find(f => f.id === folderId);
+        if (!folder) return;
+
+        const newName = prompt('Novo nome da pasta:', folder.name);
+        if (newName && newName.trim()) {
+            // Mostrar opções de cores disponíveis
+            const colorOptions = Object.keys(FOLDER_COLORS);
+            const colorPrompt = prompt(
+                `Escolha uma cor (${colorOptions.join(', ')}):`,
+                folder.color
+            );
+            const newColor = colorOptions.includes(colorPrompt || '') ? colorPrompt! : folder.color;
+            updateFolder(folderId, newName.trim(), newColor);
+        }
+    }, [folders, updateFolder]);
 
     // Memoized Statistics (Global) - Single pass through array
     const stats = useMemo(() => {
@@ -293,6 +311,7 @@ const GamesView: React.FC = () => {
                                     folder={folder}
                                     games={gamesByFolder[folder.id] || []}
                                     onFolderClick={handleFolderClick}
+                                    onEditFolder={handleEditFolder}
                                     onDeleteFolder={handleDeleteFolder}
                                 />
                             ))}
@@ -324,7 +343,7 @@ const GamesView: React.FC = () => {
                         <div className="text-center py-20 text-slate-500">
                             <PencilLine size={48} className="mx-auto mb-4 opacity-50" />
                             <p className="text-lg">Nenhuma resenha pendente.</p>
-                            <p className="text-sm">Jogos da pasta 67 Days marcados para resenha aparecerão aqui.</p>
+                            <p className="text-sm">Jogos marcados para resenha aparecerão aqui.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -354,7 +373,7 @@ const GamesView: React.FC = () => {
             <Suspense fallback={null}>
                 {selectedGame && (
                     <GameDetailsModal
-                        game={selectedGame}
+                        gameId={selectedGame.id}
                         onClose={() => setSelectedGame(null)}
                     />
                 )}

@@ -17,7 +17,6 @@ interface WorkGoals {
     ultra: number;
     anki: number;
     ncm: number;
-    refactorings: number;
 }
 
 interface MetTargetModalProps {
@@ -52,7 +51,7 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
 
     const [ankiCount, setAnkiCount] = useState(0);
     const [ncmCount, setNcmCount] = useState(0);
-    const [refactoringsCount, setRefactoringsCount] = useState(0);
+    const [tomorrowReady, setTomorrowReady] = useState(false);
 
     // Local state for goals editing
     const [localGoals, setLocalGoals] = useState(goals);
@@ -158,17 +157,16 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
     // Goals with value 0 are considered as "no goal set" and thus always met
     const isAnkiMet = goals.anki === 0 || ankiCount >= goals.anki;
     const isNcmMet = goals.ncm === 0 || ncmCount >= goals.ncm;
-    const isRefactoringsMet = goals.refactorings === 0 || refactoringsCount >= goals.refactorings;
     // Lock only if at least one goal is set AND all set goals are met
-    const hasActiveGoals = goals.anki > 0 || goals.ncm > 0 || goals.refactorings > 0;
-    const isInputLocked = hasActiveGoals && isAnkiMet && isNcmMet && isRefactoringsMet;
+    const hasActiveGoals = goals.anki > 0 || goals.ncm > 0;
+    const isInputLocked = hasActiveGoals && isAnkiMet && isNcmMet;
 
     // --- HANDLERS ---
     const handleSaveSession = useCallback(() => {
-        if (elapsedSeconds === 0 && ankiCount === 0 && ncmCount === 0 && refactoringsCount === 0) return;
+        if (elapsedSeconds === 0 && ankiCount === 0 && ncmCount === 0 && !tomorrowReady) return;
 
-        // Calculate points: 1 pt per min, 2 pts per Anki/NCM, 5 pts per Refactoring
-        const points = Math.floor(elapsedSeconds / 60) + (ankiCount * 2) + (ncmCount * 2) + (refactoringsCount * 5);
+        // Calculate points: 1 pt per min, 2 pts per Anki/NCM, 5 pts if tomorrowReady
+        const points = Math.floor(elapsedSeconds / 60) + (ankiCount * 2) + (ncmCount * 2) + (tomorrowReady ? 5 : 0);
 
         const newSession: MetTargetSession = {
             id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
@@ -176,7 +174,7 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
             durationSeconds: elapsedSeconds,
             ankiCount: ankiCount,
             ncmCount: ncmCount,
-            refactoringsCount: refactoringsCount,
+            tomorrowReady: tomorrowReady,
             points
         };
 
@@ -189,10 +187,10 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
         setTimerFinished(false);
         setAnkiCount(0);
         setNcmCount(0);
-        setRefactoringsCount(0);
+        setTomorrowReady(false);
 
         setActiveTab('HISTORY');
-    }, [elapsedSeconds, ankiCount, ncmCount, refactoringsCount, onSaveSession, initialTimerMinutes]);
+    }, [elapsedSeconds, ankiCount, ncmCount, tomorrowReady, onSaveSession, initialTimerMinutes]);
 
     const handleSaveSettings = useCallback(() => {
         onUpdateGoals(localGoals);
@@ -257,8 +255,8 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
                             setAnkiCount={setAnkiCount}
                             ncmCount={ncmCount}
                             setNcmCount={setNcmCount}
-                            refactoringsCount={refactoringsCount}
-                            setRefactoringsCount={setRefactoringsCount}
+                            tomorrowReady={tomorrowReady}
+                            setTomorrowReady={setTomorrowReady}
                             goals={goals}
                             isInputLocked={isInputLocked}
                             onSave={handleSaveSession}

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Database, Trash2, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target } from 'lucide-react';
+import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target } from 'lucide-react';
 import { useConfigStore } from '../../stores';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSimple } from '../shared/Loading';
@@ -21,7 +21,13 @@ const SettingsView: React.FC = () => {
 
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [showStartConfirmation, setShowStartConfirmation] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  const handleStartProject = () => {
+    setConfig({ isProjectStarted: true });
+    setShowStartConfirmation(false);
+  };
 
   const toggleCategory = (id: string) => {
     setExpandedCategories(prev => {
@@ -35,12 +41,7 @@ const SettingsView: React.FC = () => {
     });
   };
 
-  const handleClearData = () => {
-    if (confirm("Isto limpa apenas o cache local deste navegador. Seus dados no Firestore permanecem, mas você precisará re-sincronizar após o reload. Continuar?")) {
-      localStorage.clear();
-      window.location.reload();
-    }
-  };
+
 
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -114,18 +115,40 @@ const SettingsView: React.FC = () => {
             <div className="p-6 space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Data de Início</label>
-                  <input
-                    type="date"
-                    value={config.startDate ? config.startDate.split('T')[0] : ''}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const newDate = new Date(e.target.value + 'T00:00:00');
-                        setConfig({ startDate: newDate.toISOString() });
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Data de Início
+                    {config.isProjectStarted && (
+                      <span className="ml-2 text-xs font-bold bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded">
+                        🔒 Bloqueado
+                      </span>
+                    )}
+                  </label>
+
+                  {config.isProjectStarted ? (
+                    <div className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300">
+                      {config.startDate
+                        ? new Date(config.startDate).toLocaleDateString('pt-BR')
+                        : '-'}
+                    </div>
+                  ) : (
+                    <input
+                      type="date"
+                      value={config.startDate ? config.startDate.split('T')[0] : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const newDate = new Date(e.target.value + 'T00:00:00');
+                          setConfig({ startDate: newDate.toISOString() });
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  )}
+
+                  {!config.isProjectStarted && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Escolha a data de início antes de iniciar o projeto
+                    </p>
+                  )}
                 </div>
                 <div className="flex-1 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
                   <label className="block text-sm font-medium text-slate-300 mb-2">Data de Término</label>
@@ -138,6 +161,33 @@ const SettingsView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Start Project Button or Status */}
+            {!config.isProjectStarted ? (
+              <div className="p-6 border-t border-slate-700">
+                <button
+                  onClick={() => setShowStartConfirmation(true)}
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2"
+                >
+                  <Flame size={18} />
+                  Iniciar Projeto de 67 Dias
+                </button>
+                <p className="text-xs text-slate-500 mt-2 text-center">
+                  Após iniciar, a data de início ficará bloqueada para evitar alterações acidentais.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 mx-6 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <ShieldCheck size={18} />
+                  <span className="text-sm font-medium">Projeto em andamento!</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Data de início bloqueada. Para alterar, use "Reiniciar Projeto" na seção Dados.
+                </p>
+              </div>
+            )}
+
             {/* Streak Card embedded */}
             <StreakCard />
           </SettingsCategory>
@@ -259,23 +309,6 @@ const SettingsView: React.FC = () => {
                   Opções de Reset
                 </button>
               </div>
-
-              <div className="p-5 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-between">
-                <div className="mb-4">
-                  <h4 className="text-white font-medium flex items-center gap-2 mb-2">
-                    <Trash2 size={18} className="text-red-400" /> Zona de Perigo
-                  </h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Limpar todo o armazenamento local. Isso resetará o aplicativo para o estado inicial.
-                  </p>
-                </div>
-                <button
-                  onClick={handleClearData}
-                  className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/50 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                >
-                  <AlertTriangle size={14} /> Limpar Tudo (Fábrica)
-                </button>
-              </div>
             </div>
           </SettingsCategory>
 
@@ -299,6 +332,49 @@ const SettingsView: React.FC = () => {
             userId={storageScope}
           />
         </React.Suspense>
+      )}
+
+      {/* Start Project Confirmation Modal */}
+      {showStartConfirmation && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-500/20 rounded-full">
+                <Flame size={24} className="text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Iniciar Projeto?</h3>
+            </div>
+
+            <p className="text-slate-300 text-sm mb-4">
+              Ao iniciar, sua data de início será <strong className="text-white">bloqueada</strong> e você
+              começará oficialmente sua jornada de 67 dias.
+            </p>
+
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-300/80">
+                  Para alterar a data após iniciar, você precisará usar "Reiniciar Projeto".
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowStartConfirmation(false)}
+                className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleStartProject}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-bold transition-colors"
+              >
+                Iniciar Agora
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

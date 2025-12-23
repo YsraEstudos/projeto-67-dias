@@ -1,11 +1,12 @@
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useMemo } from 'react';
 import {
     Bot, Plus, X, CheckCircle2, Circle,
-    Layers, Download, Maximize2, ListTodo, Map, Loader2
+    Layers, Download, Maximize2, ListTodo, Map, Loader2, Lock
 } from 'lucide-react';
 import { SkillRoadmapItem, VisualRoadmap, RoadmapViewMode } from '../../types';
 import { VisualRoadmapView } from './VisualRoadmapView';
 import { THEME_VARIANTS, ThemeKey } from './constants';
+import { SectionContextMenu } from './SectionContextMenu';
 
 // Lazy load heavy modals (~72KB combined) - loaded only when opened
 const ImportExportModal = React.lazy(() => import('./ImportExportModal').then(m => ({ default: m.ImportExportModal })));
@@ -23,6 +24,10 @@ interface RoadmapSectionProps {
     onUpdate: (roadmap: SkillRoadmapItem[]) => void;
     onUpdateVisual?: (visualRoadmap: VisualRoadmap) => void;
     onViewModeChange?: (mode: RoadmapViewMode) => void;
+    // Anti-Anxiety: Section visibility
+    unlockedSections?: string[];
+    onUnlockSection?: (sectionId: string) => void;
+    onLockSection?: (sectionId: string) => void;
 }
 
 /**
@@ -39,7 +44,10 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     viewMode = 'tasks',
     onUpdate,
     onUpdateVisual,
-    onViewModeChange
+    onViewModeChange,
+    unlockedSections = [],
+    onUnlockSection,
+    onLockSection
 }) => {
 
     const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
@@ -51,11 +59,49 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     const [newDividerTitle, setNewDividerTitle] = useState('');
     const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
+    // Context menu state for section lock/unlock
+    const [contextMenu, setContextMenu] = useState<{
+        position: { x: number; y: number };
+        sectionId: string;
+        sectionTitle: string;
+        isUnlocked: boolean;
+    } | null>(null);
+
     const theme = (skillColorTheme as ThemeKey) || 'emerald';
     const variants = THEME_VARIANTS[theme];
 
     // Current mode
     const currentMode = viewMode || 'tasks';
+
+    // Calculate which section each item belongs to (for visibility logic)
+    // Returns an object: itemId -> { sectionId, sectionIndex }
+    const itemSectionMap = useMemo(() => {
+        const map: Record<string, { sectionId: string | null; sectionIndex: number }> = {};
+        let currentSectionId: string | null = null;
+        let sectionIndex = 0;
+
+        for (const item of roadmap) {
+            if (item.type === 'SECTION') {
+                // First section before any SECTION divider is index 0
+                if (currentSectionId !== null || sectionIndex === 0) {
+                    sectionIndex++;
+                }
+                currentSectionId = item.id;
+            }
+            map[item.id] = { sectionId: currentSectionId, sectionIndex };
+        }
+        return map;
+    }, [roadmap]);
+
+    // Check if a section is visible (first section always visible, others need to be unlocked)
+    const isSectionVisible = (sectionId: string | null, sectionIndex: number): boolean => {
+        // First section (index 0 or 1 depending on if first item is SECTION) is always visible
+        if (sectionIndex <= 1) return true;
+        // If no sectionId, item is visible
+        if (!sectionId) return true;
+        // Check if section is unlocked
+        return unlockedSections.includes(sectionId);
+    };
 
     // Flatten all tasks including subtasks for progress calculation
     const flattenTasks = (items: SkillRoadmapItem[]): SkillRoadmapItem[] => {
@@ -271,25 +317,62 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                         )}
 
                         {roadmap.map((item) => {
+                            const sectionInfo = itemSectionMap[item.id];
+                            const isVisible = sectionInfo ? isSectionVisible(sectionInfo.sectionId, sectionInfo.sectionIndex) : true;
+
                             if (item.type === 'SECTION') {
+                                const isUnlocked = unlockedSections.includes(item.id);
                                 return (
                                     <div
                                         key={item.id}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, item.id)}
+                                        draggable={isVisible}
+                                        onDragStart={(e) => isVisible && handleDragStart(e, item.id)}
                                         onDragOver={(e) => handleDragOver(e, item.id)}
                                         onDragEnd={handleDragEnd}
-                                        className={`flex items-center gap-4 py-4 group cursor-move ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                                        onContextMenu={(e) => {
+                                            if (sectionInfo && sectionInfo.sectionIndex > 1) {
+                                                e.preventDefault();
+                                                setContextMenu({
+                                                    position: { x: e.clientX, y: e.clientY },
+                                                    sectionId: item.id,
+                                                    sectionTitle: item.title,
+                                                    isUnlocked
+                                                });
+                                            }
+                                        }}
+                                        className={`flex items-center gap-4 py-4 group ${isVisible ? 'cursor-move' : 'cursor-pointer'} ${draggedItemId === item.id ? 'opacity-50' : ''}`}
                                     >
-                                        <div className="h-px bg-slate-700 flex-1"></div>
-                                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">{item.title}</span>
-                                        <div className="h-px bg-slate-700 flex-1 relative">
-                                            <button
-                                                onClick={() => removeItem(item.id)}
-                                                className="absolute right-0 -top-2.5 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 p-1 bg-slate-800 rounded-full"
-                                            >
-                                                <X size={12} />
-                                            </button>
+                                        <div className={`h-px flex-1 ${isVisible ? 'bg-slate-700' : 'bg-slate-800'}`}></div>
+                                        <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
+                                            {!isVisible && <Lock size={12} className="text-amber-500/70" />}
+                                            {item.title}
+                                        </span>
+                                        <div className={`h-px flex-1 relative ${isVisible ? 'bg-slate-700' : 'bg-slate-800'}`}>
+                                            {isVisible && (
+                                                <button
+                                                    onClick={() => removeItem(item.id)}
+                                                    className="absolute right-0 -top-2.5 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 p-1 bg-slate-800 rounded-full"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // For TASK items - apply blur if section is locked
+                            if (!isVisible) {
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="group/item opacity-40 blur-[2px] select-none pointer-events-none"
+                                    >
+                                        <div className="flex items-start gap-3 p-4 rounded-xl border bg-slate-900/50 border-slate-800">
+                                            <Circle size={20} className="text-slate-700 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="text-sm text-slate-600">Conteúdo bloqueado</p>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -446,6 +529,18 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                     />
                 )}
             </Suspense>
+
+            {/* Section Context Menu for lock/unlock */}
+            {contextMenu && (
+                <SectionContextMenu
+                    position={contextMenu.position}
+                    sectionTitle={contextMenu.sectionTitle}
+                    isUnlocked={contextMenu.isUnlocked}
+                    onUnlock={() => onUnlockSection?.(contextMenu.sectionId)}
+                    onLock={() => onLockSection?.(contextMenu.sectionId)}
+                    onClose={() => setContextMenu(null)}
+                />
+            )}
         </div>
     );
 };
