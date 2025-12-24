@@ -171,6 +171,26 @@
     border-color: #555555 !important;
 }
 
+/* AMOLED Theme - Preserve decorative hover elements */
+/* Fix: Elements with pointer-events-none are decorative and should not become opaque black */
+.theme-amoled .pointer-events-none.bg-gradient-to-r,
+.theme-amoled .pointer-events-none.bg-gradient-to-br,
+.theme-amoled .pointer-events-none.bg-gradient-to-b,
+.theme-amoled .pointer-events-none .bg-gradient-to-r,
+.theme-amoled .pointer-events-none .bg-gradient-to-br {
+    --tw-gradient-from: transparent !important;
+    --tw-gradient-to: transparent !important;
+    background: transparent !important;
+}
+
+/* AMOLED Theme - Keep glow/color effects on decorative elements */
+.theme-amoled .pointer-events-none.bg-emerald-500,
+.theme-amoled .pointer-events-none.bg-cyan-500,
+.theme-amoled .pointer-events-none.bg-blue-500,
+.theme-amoled .pointer-events-none.bg-purple-500 {
+    background-color: inherit !important;
+}
+
 /* ===============================================
    PREMIUM ANIMATION KEYFRAMES
    =============================================== */
@@ -873,4 +893,310 @@ html {
     main {
         padding-bottom: calc(24px + env(safe-area-inset-bottom));
     }
+}
+
+/* ===============================================
+   PREMIUM BOOK CARD STYLES
+   =============================================== */
+
+/* Book Card Premium */
+.book-card-premium {
+    background: linear-gradient(180deg, #1e293b 0%, #151b2e 100%);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.book-card-premium::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 60%, rgba(99, 102, 241, 0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.book-card-premium:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(99, 102, 241, 0.1);
+    transform: translateY(-4px);
+}
+
+.book-card-premium:hover::before {
+    opacity: 1;
+}
+
+/* AMOLED override for book cards */
+.theme-amoled .book-card-premium {
+    background: linear-gradient(180deg, #0a0a0a 0%, #050505 100%);
+    border-color: rgba(99, 102, 241, 0.15);
+}
+
+.theme-amoled .book-card-premium:hover {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8),
+        0 0 40px rgba(99, 102, 241, 0.15);
+}
+
+/* Book Cover Overlay for legibility */
+.book-cover-overlay {
+    background: linear-gradient(180deg,
+            transparent 0%,
+            transparent 50%,
+            rgba(0, 0, 0, 0.3) 80%,
+            rgba(0, 0, 0, 0.6) 100%);
+}
+
+/* Book Card Compact Mode (Mobile) */
+.book-card-compact {
+    display: flex;
+    flex-direction: row;
+    height: 100px;
+    padding: 0;
+}
+
+.book-card-compact .book-cover {
+    width: 70px;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.book-card-compact .book-content {
+    flex: 1;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Progress Ring */
+.progress-ring {
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+.progress-ring-bg {
+    stroke: rgba(71, 85, 105, 0.3);
+}
+
+.progress-ring-fill {
+    stroke: currentColor;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+/* ===============================================
+   BOTTOM SHEET MODAL
+   =============================================== */
+
+@keyframes slideUpSheet {
+    from {
+        transform: translateY(100%);
+        opacity: 0.5;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideDownSheet {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+}
+
+.animate-sheet-up {
+    animation: slideUpSheet 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.animate-sheet-down {
+    animation: slideDownSheet 0.25s ease-in forwards;
+}
+
+.bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 90vh;
+    border-radius: 24px 24px 0 0;
+    background: #0f172a;
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    border-bottom: none;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 60;
+    overflow: hidden;
+}
+
+.theme-amoled .bottom-sheet {
+    background: #000000;
+    border-color: #333333;
+}
+
+.bottom-sheet-handle {
+    width: 40px;
+    height: 5px;
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 9999px;
+    margin: 12px auto;
+}
+
+/* ===============================================
+   SWIPE GESTURE SUPPORT
+   =============================================== */
+
+.swipe-container {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+.swipe-content {
+    position: relative;
+    z-index: 2;
+    transition: transform 0.2s ease;
+    background: inherit;
+}
+
+.swipe-actions {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    z-index: 1;
+}
+
+.swipe-actions-left {
+    left: 0;
+    padding-left: 16px;
+}
+
+.swipe-actions-right {
+    right: 0;
+    padding-right: 16px;
+}
+
+.swipe-action-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.swipe-action-complete {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.swipe-action-pause {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.swipe-action-delete {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+
+/* Touch Target for Book Actions */
+.touch-target-book {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Stepper Mobile Enhancement */
+.stepper-mobile {
+    display: flex;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.stepper-mobile button {
+    min-width: 48px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+.stepper-mobile button:active {
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.stepper-mobile input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    min-width: 60px;
+}
+
+/* ===============================================
+   BOOK STATUS BADGES PREMIUM
+   =============================================== */
+
+.book-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: scaleIn 0.2s ease-out;
+}
+
+.book-status-reading {
+    background: rgba(99, 102, 241, 0.9);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+.book-status-paused {
+    background: rgba(249, 115, 22, 0.9);
+    color: white;
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+}
+
+.book-status-completed {
+    background: rgba(16, 185, 129, 0.9);
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.book-status-toread {
+    background: rgba(71, 85, 105, 0.9);
+    color: #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }

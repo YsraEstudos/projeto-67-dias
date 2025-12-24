@@ -89,18 +89,21 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
         setShowMenu(false);
     };
 
-    // Get pinned tags labels
-    const pinnedTagLabels = (note.pinnedToTags || []).map(tagId => {
-        const tag = tagMap[tagId];
-        return tag ? tag.label : tagId;
-    }).filter(Boolean);
+    // Get pinned tags labels - memoized for performance
+    const pinnedTagLabels = React.useMemo(() =>
+        (note.pinnedToTags || []).map(tagId => {
+            const tag = tagMap[tagId];
+            return tag ? tag.label : tagId;
+        }).filter(Boolean),
+        [note.pinnedToTags, tagMap]
+    );
 
     return (
         <div
             ref={cardRef}
             onClick={() => onClick(note)}
             onContextMenu={handleContextMenu}
-            className={`relative group cursor-pointer rounded-xl border-2 ${colorScheme.border} ${colorScheme.bg} ${colorScheme.hover} hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-in fade-in slide-in-from-bottom-2`}
+            className={`relative group cursor-pointer rounded-xl border-2 ${colorScheme.border} ${colorScheme.bg} ${colorScheme.hover} hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-in fade-in slide-in-from-bottom-2 aspect-square md:aspect-auto overflow-hidden flex flex-col`}
         >
             {/* Top Color Bar */}
             <div className={`h-1.5 w-full ${colorScheme.text.replace('text-', 'bg-')}`} />
@@ -151,11 +154,11 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                 </>
             )}
 
-            <div className="p-5">
+            <div className="p-3 md:p-5 flex-1 flex flex-col min-h-0">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-bold text-white truncate">{note.title || 'Sem título'}</h3>
+                        <h3 className="text-sm md:text-lg font-bold text-white truncate">{note.title || 'Sem título'}</h3>
                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                             <span className="shrink-0">
                                 {new Date(note.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
@@ -178,7 +181,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                 </div>
 
                 {/* Content Preview - Lightweight */}
-                <div className="text-sm text-slate-300 line-clamp-3 leading-relaxed mb-4 overflow-hidden h-14">
+                <div className="text-xs md:text-sm text-slate-300 line-clamp-2 md:line-clamp-3 leading-relaxed mb-2 md:mb-4 overflow-hidden flex-1">
                     {note.content ? (
                         stripMarkdown(note.content)
                     ) : (
@@ -188,7 +191,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
 
                 {/* Tags */}
                 {note.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-auto">
+                    <div className="hidden md:flex flex-wrap gap-1.5 mt-auto">
                         {note.tags.slice(0, 3).map((tagId, idx) => {
                             // Resolve tag using map
                             const tag = tagMap[tagId];

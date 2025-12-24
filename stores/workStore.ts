@@ -168,17 +168,17 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 studySubjects: [],
                 studySchedules: [],
                 currentCount: 0,
-                goal: 4,
+                goal: trackingSlice.goal,
                 preBreakCount: 0,
-                startTime: '08:00',
-                endTime: '22:00',
-                breakTime: '12:00',
-                paceMode: '10m',
+                startTime: trackingSlice.startTime,
+                endTime: trackingSlice.endTime,
+                breakTime: trackingSlice.breakTime,
+                paceMode: trackingSlice.paceMode,
                 isLoading: true,
                 _initialized: false,
             });
         },
-    };
+    } satisfies WorkState;
 };
 
 export const useWorkStore = create<WorkState>()(createSyncedStore);

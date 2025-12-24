@@ -35,7 +35,7 @@ describe('NoteEditor', () => {
     const mockHandlers = {
         onSave: vi.fn(),
         onClose: vi.fn(),
-        onCreateTag: vi.fn((label: string) => ({ id: `new-${label}`, label, color: 'bg-slate-500', createdAt: Date.now() })),
+        onCreateTag: vi.fn((label: string) => ({ id: `new-${label}`, label, color: 'bg-slate-500', createdAt: Date.now() } as Tag)),
     };
 
     beforeEach(() => {

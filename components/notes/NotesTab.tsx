@@ -63,7 +63,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     const allTags = useMemo(() => {
         const tagSet = new Set<string>();
         notes.forEach(note => note.tags.forEach(tagStr => {
-            const smartTag = tags.find(t => t.id === tagStr);
+            const smartTag = tagMap[tagStr];
             if (smartTag) {
                 tagSet.add(smartTag.label);
             } else {
@@ -72,20 +72,20 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         }));
         tags.forEach(tag => tagSet.add(tag.label));
         return Array.from(tagSet).sort();
-    }, [notes, tags]);
+    }, [notes, tags, tagMap]);
 
     // Tag counts
     const tagCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         notes.forEach(note => {
             note.tags.forEach(tagStr => {
-                const smartTag = tags.find(t => t.id === tagStr);
+                const smartTag = tagMap[tagStr];
                 const resolvedTag = smartTag ? smartTag.label : tagStr;
                 counts[resolvedTag] = (counts[resolvedTag] || 0) + 1;
             });
         });
         return counts;
-    }, [notes, tags]);
+    }, [notes, tagMap]);
 
     const resolveTagToLabel = (tagStr: string): string => {
         const smartTag = tagMap[tagStr];
@@ -362,7 +362,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
 
                                     <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
                                         {notesInTag.map(note => (
-                                            <div key={note.id} className="flex-shrink-0 w-72">
+                                            <div key={note.id} className="flex-shrink-0 w-40 md:w-72">
                                                 <NoteCard
                                                     note={note}
                                                     onClick={setEditingNote}
@@ -407,7 +407,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                     {!showPinnedOnly && pinnedTagKeys.length > 0 && !searchTerm && selectedTags.length === 0 && (
                         <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Todas as Notas</h3>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
                         {filteredNotes.slice(0, visibleCount).map((note) => (
                             <NoteCard
                                 key={note.id}

@@ -3,6 +3,7 @@
  * Handles roadmap and visual roadmap operations
  */
 import { SkillsSet, SkillsGet, SkillRoadmapItem, VisualRoadmap, RoadmapViewMode } from './types';
+import { normalizeRoadmap } from './roadmapValidator';
 
 export interface RoadmapActions {
     setRoadmap: (skillId: string, roadmap: SkillRoadmapItem[]) => void;
@@ -13,8 +14,11 @@ export interface RoadmapActions {
 
 export const createRoadmapActions = (set: SkillsSet, get: SkillsGet): RoadmapActions => ({
     setRoadmap: (skillId, roadmap) => {
+        const safeRoadmap = normalizeRoadmap(roadmap);
+        if (!safeRoadmap) return;
+
         set((state) => ({
-            skills: state.skills.map(skill => skill.id === skillId ? { ...skill, roadmap } : skill)
+            skills: state.skills.map(skill => skill.id === skillId ? { ...skill, roadmap: safeRoadmap } : skill)
         }));
         get()._syncToFirestore();
     },

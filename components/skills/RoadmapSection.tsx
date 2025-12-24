@@ -12,7 +12,7 @@ import { SectionContextMenu } from './SectionContextMenu';
 const ImportExportModal = React.lazy(() => import('./ImportExportModal').then(m => ({ default: m.ImportExportModal })));
 
 const FullRoadmapEditor = React.lazy(() => import('./FullRoadmapEditor').then(m => ({ default: m.FullRoadmapEditor })));
-const VisualRoadmapEditor = React.lazy(() => import('./VisualRoadmapEditor'));
+const VisualRoadmapEditor = React.lazy(() => import('./VisualRoadmapEditor').then(m => ({ default: m.VisualRoadmapEditor })));
 
 interface RoadmapSectionProps {
     roadmap: SkillRoadmapItem[];

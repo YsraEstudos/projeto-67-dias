@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { GraduationCap, Plus } from 'lucide-react';
+import { GraduationCap, Plus, Calendar } from 'lucide-react';
 import { Skill, Prompt, PromptCategory } from '../../types';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { usePromptsStore } from '../../stores/promptsStore';
@@ -12,6 +12,7 @@ import { INITIAL_SKILLS } from '../skills/mockData';
 import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
 import { calculateSkillProgress } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
+import { WeeklyAgenda } from '../skills/agenda';
 
 const SkillsView: React.FC = () => {
   // Zustand stores
@@ -32,6 +33,7 @@ const SkillsView: React.FC = () => {
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [dailyPlanSkill, setDailyPlanSkill] = useState<Skill | null>(null);
+  const [activeTab, setActiveTab] = useState<'skills' | 'agenda'>('skills');
   const initializationRef = React.useRef(false);
 
   // Initialize with default skills if empty AND not yet initialized
@@ -128,23 +130,50 @@ const SkillsView: React.FC = () => {
 
   return (
     <div className="animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <GraduationCap className="text-emerald-400" /> Skill Tree
+            <GraduationCap className="text-emerald-400" /> Habilidades
           </h2>
           <p className="text-slate-400 text-sm mt-1">Gerencie seu aprendizado e desenvolvimento.</p>
         </div>
+        {activeTab === 'skills' && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/20 font-medium transition-all hover:scale-105"
+          >
+            <Plus size={18} /> Nova Habilidade
+          </button>
+        )}
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-2 mb-6 border-b border-slate-700 pb-3">
         <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/20 font-medium transition-all hover:scale-105"
+          onClick={() => setActiveTab('skills')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'skills'
+            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
+            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
         >
-          <Plus size={18} /> Nova Habilidade
+          <GraduationCap size={18} />
+          Skill Tree
+        </button>
+        <button
+          onClick={() => setActiveTab('agenda')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'agenda'
+            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+        >
+          <Calendar size={18} />
+          Agenda Semanal
         </button>
       </div>
 
       {/* Barra de Ofensiva de Skills */}
-      {showSkillsOffensiveBar && (
+      {showSkillsOffensiveBar && activeTab === 'skills' && (
         <div className="mb-6">
           <ModuleOffensiveBar
             progress={skillsProgress}
@@ -155,68 +184,76 @@ const SkillsView: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {activeSkills.map(skill => (
-          <SkillCard
-            key={skill.id}
-            skill={skill}
-            onClick={() => setActiveSkillId(skill.id)}
-            onAddSession={(mins) => addLog(skill.id, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins })}
-            onToggleDistribution={handleToggleDistribution}
-            onViewDailyPlan={handleViewDailyPlan}
-          />
-        ))}
+      {/* Tab Content */}
+      {activeTab === 'agenda' ? (
+        <WeeklyAgenda />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeSkills.map(skill => (
+              <SkillCard
+                key={skill.id}
+                skill={skill}
+                onClick={() => setActiveSkillId(skill.id)}
+                onAddSession={(mins) => addLog(skill.id, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins })}
+                onToggleDistribution={handleToggleDistribution}
+                onViewDailyPlan={handleViewDailyPlan}
+              />
+            ))}
 
-        {skills.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
-            <GraduationCap size={48} className="text-slate-700 mb-4" />
-            <p className="text-slate-500">Você ainda não está rastreando nenhuma habilidade.</p>
-            <button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-emerald-400 hover:underline">Começar agora</button>
+            {skills.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
+                <GraduationCap size={48} className="text-slate-700 mb-4" />
+                <p className="text-slate-500">Você ainda não está rastreando nenhuma habilidade.</p>
+                <button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-emerald-400 hover:underline">Começar agora</button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* History Section */}
-      {completedSkills.length > 0 && (
-        <div className="mt-12 border-t border-slate-800 pt-8">
-          <button
-            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors mb-6 group w-full"
-          >
-            <div className={`p-2 rounded-lg bg-yellow-500/10 text-yellow-500 transition-transform duration-300 ${isHistoryOpen ? 'rotate-0' : '-rotate-90'}`}>
-              <GraduationCap size={20} />
-            </div>
-            <div className="text-left">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                Habilidades Dominadas
-                <span className="text-xs font-normal bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
-                  {completedSkills.length}
-                </span>
-              </h3>
-              <p className="text-sm text-slate-500 group-hover:text-slate-400">
-                {isHistoryOpen ? 'Clique para ocultar o histórico' : 'Clique para ver suas conquistas'}
-              </p>
-            </div>
-          </button>
+          {/* History Section */}
+          {completedSkills.length > 0 && (
+            <div className="mt-12 border-t border-slate-800 pt-8">
+              <button
+                onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors mb-6 group w-full"
+              >
+                <div className={`p-2 rounded-lg bg-yellow-500/10 text-yellow-500 transition-transform duration-300 ${isHistoryOpen ? 'rotate-0' : '-rotate-90'}`}>
+                  <GraduationCap size={20} />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    Habilidades Dominadas
+                    <span className="text-xs font-normal bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
+                      {completedSkills.length}
+                    </span>
+                  </h3>
+                  <p className="text-sm text-slate-500 group-hover:text-slate-400">
+                    {isHistoryOpen ? 'Clique para ocultar o histórico' : 'Clique para ver suas conquistas'}
+                  </p>
+                </div>
+              </button>
 
-          {isHistoryOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-top-4 duration-300">
-              {completedSkills.map(skill => (
-                <SkillCard
-                  key={skill.id}
-                  skill={skill}
-                  onClick={() => setActiveSkillId(skill.id)}
-                  onAddSession={(mins) => addLog(skill.id, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins })}
-                  onToggleDistribution={handleToggleDistribution}
-                  onViewDailyPlan={handleViewDailyPlan}
-                  isCompact
-                />
-              ))}
+              {isHistoryOpen && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-top-4 duration-300">
+                  {completedSkills.map(skill => (
+                    <SkillCard
+                      key={skill.id}
+                      skill={skill}
+                      onClick={() => setActiveSkillId(skill.id)}
+                      onAddSession={(mins) => addLog(skill.id, { id: Date.now().toString(), date: new Date().toISOString(), minutes: mins })}
+                      onToggleDistribution={handleToggleDistribution}
+                      onViewDailyPlan={handleViewDailyPlan}
+                      isCompact
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
+      {/* Modals need to be outside the tab conditional for skills tab access */}
       {isCreateModalOpen && (
         <CreateSkillModal onClose={() => setIsCreateModalOpen(false)} onCreate={handleCreateSkill} />
       )}
@@ -233,4 +270,3 @@ const SkillsView: React.FC = () => {
 };
 
 export default SkillsView;
-

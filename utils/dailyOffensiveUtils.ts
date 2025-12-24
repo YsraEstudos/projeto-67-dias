@@ -29,17 +29,25 @@ export function calculateSkillProgress(skills: Skill[], focusSkills?: FocusSkill
     const today = new Date().toISOString().split('T')[0];
 
     // Se tiver skills em foco configuradas, usar lógica ponderada
+    // MAS só se pelo menos uma focusSkill ainda existir no array de skills
     if (focusSkills && focusSkills.length > 0) {
-        return calculateWeightedFocusSkills(skills, focusSkills, today);
+        const validFocusSkills = focusSkills.filter(f => skills.some(s => s.id === f.skillId));
+        if (validFocusSkills.length > 0) {
+            return calculateWeightedFocusSkills(skills, validFocusSkills, today);
+        }
+        // Se todos os focusSkills são órfãos, cair para a lógica padrão
     }
 
-    // Fallback: Lógica antiga (média simples)
-    const activeSkills = skills.filter(s => s.goalMinutes > 0);
+    // Fallback: Considerar skills que têm meta OU que tiveram atividade hoje
+    const activeSkills = skills.filter(s =>
+        s.goalMinutes > 0 ||
+        (s.logs && s.logs.some(l => l.date.split('T')[0] === today))
+    );
     if (activeSkills.length === 0) return 0;
 
     let totalProgress = 0;
     for (const skill of activeSkills) {
-        const todayMinutes = skill.logs
+        const todayMinutes = (skill.logs || [])
             .filter(l => l.date.split('T')[0] === today)
             .reduce((acc, l) => acc + l.minutes, 0);
 
@@ -48,6 +56,7 @@ export function calculateSkillProgress(skills: Skill[], focusSkills?: FocusSkill
             dailyGoal = Math.ceil(skill.goalMinutes / 67);
             if (dailyGoal < 15) dailyGoal = 15;
         } else {
+            // Meta padrão de 30 minutos para skills sem meta definida
             dailyGoal = 30;
         }
 

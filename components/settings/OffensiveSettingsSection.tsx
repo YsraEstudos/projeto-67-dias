@@ -1,110 +1,101 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useConfigStore, useSkillsStore } from '../../stores';
-import { Weight, Crosshair, Gamepad2, BookOpen, GraduationCap, Flame, ToggleLeft } from 'lucide-react';
+import { Weight, Crosshair, Gamepad2, BookOpen, GraduationCap, Flame, ToggleLeft, Check, Plus } from 'lucide-react';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
-import { FocusSkill } from '../../types';
+import { FocusSkill, OffensiveGoalsConfig } from '../../types';
+import { FocusSkillsCarousel } from './FocusSkillsCarousel';
 
 export const OffensiveSettingsSection: React.FC = () => {
     const { config, setConfig } = useConfigStore();
     const { skills } = useSkillsStore();
     const offensiveConfig = config.offensiveGoals || DEFAULT_OFFENSIVE_GOALS;
 
-    // Estado local para form
-    const [minPercentage, setMinPercentage] = useState(offensiveConfig.minimumPercentage);
-    const [weights, setWeights] = useState(offensiveConfig.categoryWeights);
-    const [gameGoal, setGameGoal] = useState(offensiveConfig.dailyGameHoursGoal);
-    const [focusSkills, setFocusSkills] = useState<FocusSkill[]>(offensiveConfig.focusSkills || []);
-    const [enabledModules, setEnabledModules] = useState(offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true });
-
-    // Sincroniza estado local quando o config é atualizado (ex: após hidratação do Firestore)
-    useEffect(() => {
-        setMinPercentage(offensiveConfig.minimumPercentage);
-        setWeights(offensiveConfig.categoryWeights);
-        setGameGoal(offensiveConfig.dailyGameHoursGoal);
-        setFocusSkills(offensiveConfig.focusSkills || []);
-        setEnabledModules(offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true });
-    }, [offensiveConfig]);
-
-    // Handlers
-    const handleSave = () => {
-        // Validação: pesos devem somar 100
-        const totalWeight = weights.skills + weights.reading + weights.games;
-        if (totalWeight !== 100) {
-            alert(`A soma dos pesos das categorias deve ser 100%. Atual: ${totalWeight}%`);
-            return;
-        }
-
-        // Validação: pesos das focus skills devem somar 100 se houver alguma selecionada
-        if (focusSkills.length > 0) {
-            const totalSkillWeight = focusSkills.reduce((acc, s) => acc + s.weight, 0);
-            if (totalSkillWeight !== 100) {
-                alert(`A soma dos pesos das Skills em Foco deve ser 100%. Atual: ${totalSkillWeight}%`);
-                return;
-            }
-        }
-
+    // Helper function to update config immediately (auto-save)
+    const updateConfig = (updates: Partial<OffensiveGoalsConfig>) => {
         setConfig({
             offensiveGoals: {
-                minimumPercentage: minPercentage,
-                enabledModules: enabledModules,
-                categoryWeights: weights,
-                dailyGameHoursGoal: gameGoal,
-                focusSkills: focusSkills
+                ...offensiveConfig,
+                ...updates
             }
         });
     };
 
-    const toggleFocusSkill = (skillId: string) => {
-        const exists = focusSkills.find(s => s.skillId === skillId);
+    // Toggle a focus skill on/off
+    const toggleFocusSkill = useCallback((skillId: string) => {
+        const currentFocusSkills = offensiveConfig.focusSkills || [];
+        const exists = currentFocusSkills.find(s => s.skillId === skillId);
+
         if (exists) {
-            setFocusSkills(prev => prev.filter(s => s.skillId !== skillId));
+            updateConfig({
+                focusSkills: currentFocusSkills.filter(s => s.skillId !== skillId)
+            });
         } else {
-            // Adiciona com peso padrão (distribuição igualitária inicial)
-            const remaining = 100 - focusSkills.reduce((acc, s) => acc + s.weight, 0);
+            // Add with remaining weight or default
+            const remaining = 100 - currentFocusSkills.reduce((acc, s) => acc + s.weight, 0);
             const newWeight = Math.max(0, remaining);
-            setFocusSkills(prev => [...prev, { skillId, weight: newWeight }]);
+            updateConfig({
+                focusSkills: [...currentFocusSkills, { skillId, weight: newWeight }]
+            });
         }
-    };
+    }, [offensiveConfig.focusSkills, updateConfig]);
 
-    const updateFocusWeight = (skillId: string, weight: number) => {
-        setFocusSkills(prev => prev.map(s => s.skillId === skillId ? { ...s, weight } : s));
-    };
+    // Update individual focus skill weight
+    const updateFocusWeight = useCallback((skillId: string, weight: number) => {
+        const currentFocusSkills = offensiveConfig.focusSkills || [];
+        updateConfig({
+            focusSkills: currentFocusSkills.map(s =>
+                s.skillId === skillId ? { ...s, weight } : s
+            )
+        });
+    }, [offensiveConfig.focusSkills, updateConfig]);
 
-    // Atualiza peso de uma categoria mantendo a soma sempre em 100%
+    // Update category weight, keeping the sum at 100%
     const updateCategoryWeight = (category: 'skills' | 'reading' | 'games', newValue: number) => {
+        const currentWeights = offensiveConfig.categoryWeights;
         const clampedValue = Math.min(100, Math.max(0, newValue));
         const remaining = 100 - clampedValue;
 
-        // Pega os outros dois campos
         const otherKeys = (['skills', 'reading', 'games'] as const).filter(k => k !== category);
-        const otherSum = weights[otherKeys[0]] + weights[otherKeys[1]];
+        const otherSum = currentWeights[otherKeys[0]] + currentWeights[otherKeys[1]];
 
-        let newWeights = { ...weights, [category]: clampedValue };
+        let newWeights = { ...currentWeights, [category]: clampedValue };
 
         if (remaining === 0) {
-            // Se o novo valor é 100%, os outros vão para 0
             newWeights[otherKeys[0]] = 0;
             newWeights[otherKeys[1]] = 0;
         } else if (otherSum === 0) {
-            // Se os outros estão em 0, distribui igualmente entre eles
             newWeights[otherKeys[0]] = Math.round(remaining / 2);
             newWeights[otherKeys[1]] = remaining - Math.round(remaining / 2);
         } else {
-            // Distribui proporcionalmente entre os outros
-            const ratio0 = weights[otherKeys[0]] / otherSum;
-            const ratio1 = weights[otherKeys[1]] / otherSum;
+            const ratio0 = currentWeights[otherKeys[0]] / otherSum;
+            const ratio1 = currentWeights[otherKeys[1]] / otherSum;
             newWeights[otherKeys[0]] = Math.round(remaining * ratio0);
             newWeights[otherKeys[1]] = remaining - newWeights[otherKeys[0]];
         }
 
-        setWeights(newWeights);
+        updateConfig({ categoryWeights: newWeights });
     };
 
-    // Memoized to prevent recalculation on every render
-    const activeSkillsList = useMemo(() =>
-        skills.filter(s => !s.visualRoadmap?.nodes),
-        [skills]
-    );
+    // Toggle enabled module
+    const toggleModule = (module: 'skills' | 'reading' | 'games') => {
+        const currentModules = offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true };
+        updateConfig({
+            enabledModules: {
+                ...currentModules,
+                [module]: !currentModules[module]
+            }
+        });
+    };
+
+    // Use skills directly (no useMemo needed for identity return)
+    const activeSkillsList = skills;
+
+    // Computed values
+    const weights = offensiveConfig.categoryWeights;
+    const enabledModules = offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true };
+    const focusSkills = offensiveConfig.focusSkills || [];
+    const minPercentage = offensiveConfig.minimumPercentage;
+    const gameGoal = offensiveConfig.dailyGameHoursGoal;
 
     const totalWeight = weights.skills + weights.reading + weights.games;
     const isWeightValid = totalWeight === 100;
@@ -112,16 +103,20 @@ export const OffensiveSettingsSection: React.FC = () => {
     const totalFocusWeight = focusSkills.reduce((acc, s) => acc + s.weight, 0);
     const isFocusWeightValid = focusSkills.length === 0 || totalFocusWeight === 100;
 
+    // Memoized available skills (eliminates duplicate O(n×m) filter in JSX)
+    const availableSkills = useMemo(() =>
+        activeSkillsList.filter(skill => !focusSkills.some(f => f.skillId === skill.id)),
+        [activeSkillsList, focusSkills]
+    );
+
     return (
         <div className="divide-y divide-slate-700">
-            {/* Save Button Bar */}
+            {/* Auto-save indicator */}
             <div className="p-4 bg-slate-800/50 flex items-center justify-end">
-                <button
-                    onClick={handleSave}
-                    className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold transition-colors"
-                >
-                    Salvar Alterações
-                </button>
+                <div className="flex items-center gap-2 text-xs text-emerald-400">
+                    <Check size={14} />
+                    <span>Alterações salvas automaticamente</span>
+                </div>
             </div>
 
             <div className="p-6 space-y-8">
@@ -138,7 +133,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                         min="1"
                         max="100"
                         value={minPercentage}
-                        onChange={(e) => setMinPercentage(Number(e.target.value))}
+                        onChange={(e) => updateConfig({ minimumPercentage: Number(e.target.value) })}
                         className="w-full accent-orange-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                     />
                     <p className="text-xs text-slate-500">
@@ -160,7 +155,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                         {/* Skills Toggle */}
                         <button
                             type="button"
-                            onClick={() => setEnabledModules(prev => ({ ...prev, skills: !prev.skills }))}
+                            onClick={() => toggleModule('skills')}
                             className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.skills
                                 ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
                                 : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
@@ -179,7 +174,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                         {/* Reading Toggle */}
                         <button
                             type="button"
-                            onClick={() => setEnabledModules(prev => ({ ...prev, reading: !prev.reading }))}
+                            onClick={() => toggleModule('reading')}
                             className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.reading
                                 ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
                                 : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
@@ -198,7 +193,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                         {/* Games Toggle */}
                         <button
                             type="button"
-                            onClick={() => setEnabledModules(prev => ({ ...prev, games: !prev.games }))}
+                            onClick={() => toggleModule('games')}
                             className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.games
                                 ? 'bg-purple-500/10 border-purple-500/50 text-purple-400'
                                 : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
@@ -289,7 +284,7 @@ export const OffensiveSettingsSection: React.FC = () => {
 
                 <div className="h-px bg-slate-700/50" />
 
-                {/* 3. Meta de Jogos */}
+                {/* 4. Meta de Jogos */}
                 <div className="space-y-4">
                     <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
                         <Gamepad2 size={16} className="text-purple-400" /> Meta Diária de Jogos
@@ -300,7 +295,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                             step="0.5"
                             min="0.5"
                             value={gameGoal}
-                            onChange={(e) => setGameGoal(Number(e.target.value))}
+                            onChange={(e) => updateConfig({ dailyGameHoursGoal: Number(e.target.value) })}
                             className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 w-24 text-white font-mono focus:border-purple-500 outline-none"
                         />
                         <span className="text-sm text-slate-400">horas por dia para atingir 100%</span>
@@ -309,7 +304,7 @@ export const OffensiveSettingsSection: React.FC = () => {
 
                 <div className="h-px bg-slate-700/50" />
 
-                {/* 4. Skills em Foco */}
+                {/* 5. Skills em Foco */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
@@ -324,46 +319,44 @@ export const OffensiveSettingsSection: React.FC = () => {
                         Selecione quais skills farão parte da sua ofensiva. Se nenhuma for selecionada, todas contam igualmente.
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                        {activeSkillsList.map(skill => {
-                            const isSelected = focusSkills.some(s => s.skillId === skill.id);
-                            const skillConfig = focusSkills.find(s => s.skillId === skill.id);
+                    {activeSkillsList.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500">
+                            <GraduationCap size={32} className="mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">Nenhuma skill criada ainda</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Carousel for selected skills */}
+                            {focusSkills.length > 0 && (
+                                <FocusSkillsCarousel
+                                    skills={activeSkillsList}
+                                    focusSkills={focusSkills}
+                                    onToggleFocusSkill={toggleFocusSkill}
+                                    onUpdateWeight={updateFocusWeight}
+                                    totalFocusWeight={totalFocusWeight}
+                                />
+                            )}
 
-                            return (
-                                <div
-                                    key={skill.id}
-                                    className={`p-3 rounded-xl border transition-all ${isSelected
-                                        ? 'bg-cyan-500/10 border-cyan-500/30'
-                                        : 'bg-slate-900/30 border-slate-800 opacity-70'
-                                        }`}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={() => toggleFocusSkill(skill.id)}
-                                            className="mt-1 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-offset-0 focus:ring-0"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-white truncate">{skill.name}</div>
-                                            {isSelected && (
-                                                <div className="mt-2 flex items-center gap-2">
-                                                    <span className="text-xs text-cyan-400 w-12">Peso: {skillConfig?.weight}%</span>
-                                                    <input
-                                                        type="range"
-                                                        min="1" max="100"
-                                                        value={skillConfig?.weight || 0}
-                                                        onChange={(e) => updateFocusWeight(skill.id, Number(e.target.value))}
-                                                        className="flex-1 accent-cyan-500 h-1 bg-slate-700/50 rounded-lg appearance-none cursor-pointer"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                            {/* Add Skills Section */}
+                            <details className="group">
+                                <summary className="flex items-center gap-2 cursor-pointer text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
+                                    <Plus size={16} />
+                                    <span>Adicionar skill ao foco ({availableSkills.length} disponíveis)</span>
+                                </summary>
+                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                    {availableSkills.map(skill => (
+                                        <button
+                                            key={skill.id}
+                                            onClick={() => toggleFocusSkill(skill.id)}
+                                            className="p-3 rounded-xl border border-slate-700 bg-slate-900/30 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all text-left"
+                                        >
+                                            <span className="text-sm font-medium text-slate-300">{skill.name}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                            );
-                        })}
-                    </div>
+                            </details>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

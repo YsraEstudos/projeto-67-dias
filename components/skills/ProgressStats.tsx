@@ -148,6 +148,17 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
         }
     );
 
+    // Editor para corrigir horas estudadas manualmente
+    const hoursEditor = useEditableField(
+        (skill.currentMinutes / 60).toFixed(1),
+        (newValue) => {
+            const value = parseFloat(newValue);
+            if (!isNaN(value) && value >= 0) {
+                updateSkill(skill.id, { currentMinutes: Math.round(value * 60) });
+            }
+        }
+    );
+
     return (
         <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-slate-700">
@@ -197,9 +208,31 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                     </>
                 ) : (
                     <>
-                        <div className="text-5xl font-bold text-white font-mono">
-                            {(skill.currentMinutes / 60).toFixed(1)}<span className="text-xl text-slate-500">h</span>
-                        </div>
+                        {hoursEditor.isEditing ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <input
+                                    ref={hoursEditor.inputRef}
+                                    type="number"
+                                    min="0"
+                                    step="0.1"
+                                    value={hoursEditor.editedValue}
+                                    onChange={e => hoursEditor.setEditedValue(e.target.value)}
+                                    onBlur={hoursEditor.save}
+                                    onKeyDown={hoursEditor.handleKeyDown}
+                                    className={`w-24 text-center text-4xl font-bold font-mono text-white bg-slate-900 border ${variants.border} rounded-xl px-3 py-2 outline-none`}
+                                />
+                                <span className="text-xl text-slate-500">h</span>
+                            </div>
+                        ) : (
+                            <div
+                                className="text-5xl font-bold text-white font-mono flex items-center justify-center group cursor-pointer hover:text-slate-300 transition-colors"
+                                onClick={hoursEditor.startEditing}
+                                title="Clique para corrigir o valor"
+                            >
+                                {(skill.currentMinutes / 60).toFixed(1)}<span className="text-xl text-slate-500">h</span>
+                                <Edit2 size={16} className={`ml-2 opacity-0 group-hover:opacity-100 transition-opacity ${variants.text}`} />
+                            </div>
+                        )}
                         {goalEditor.isEditing ? (
                             <div className="flex items-center justify-center gap-2 mt-1">
                                 <span className="text-sm text-slate-400">de</span>

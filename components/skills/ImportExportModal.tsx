@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Download, Layers, CheckCircle2, FileText } from 'lucide-react';
 import { Skill, SkillRoadmapItem } from '../../types';
+import { normalizeRoadmap, MAX_ROADMAP_BYTES } from '../../stores/skills/roadmapValidator';
 
 interface ImportExportModalProps {
     skill: Skill;
@@ -56,27 +57,24 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
     };
 
     const processFile = (file: File) => {
+        if (file.size > MAX_ROADMAP_BYTES) {
+            setImportStatus('ERROR');
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const json = JSON.parse(e.target?.result as string);
-
-                // Case 1: Direct Roadmap Array
-                if (Array.isArray(json)) {
-                    onImport(json);
-                    setImportStatus('SUCCESS');
-                    setTimeout(onClose, 1500);
-                }
-                // Case 2: Full Skill Object (extract roadmap)
-                else if (typeof json === 'object' && json !== null && Array.isArray((json as any).roadmap)) {
-                    onImport((json as any).roadmap);
-                    setImportStatus('SUCCESS');
-                    setTimeout(onClose, 1500);
-                }
-                else {
+                const parsed = JSON.parse(e.target?.result as string);
+                const normalized = normalizeRoadmap(parsed);
+                if (!normalized) {
                     setImportStatus('ERROR');
+                    return;
                 }
-            } catch (err) {
+                onImport(normalized);
+                setImportStatus('SUCCESS');
+                setTimeout(onClose, 1500);
+            } catch {
                 setImportStatus('ERROR');
             }
         };

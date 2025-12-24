@@ -62,6 +62,9 @@ export { useGamesStore } from './gamesStore';
 // Streak Store - Daily streak tracking
 export { useStreakStore } from './streakStore';
 
+// Weekly Agenda Store - Weekly skill planning
+export { useWeeklyAgendaStore } from './weeklyAgendaStore';
+
 // Optimized Selectors - Pre-built hooks with useShallow for common patterns
 export {
     // Habits selectors
@@ -113,6 +116,7 @@ import { useWaterStore } from './waterStore';
 import { useStreakStore } from './streakStore';
 import { useTimerStore } from './timerStore';
 import { useSiteCategoriesStore } from './siteCategoriesStore';
+import { useWeeklyAgendaStore } from './weeklyAgendaStore';
 
 /**
  * Clears all stores to initial state.
@@ -138,5 +142,6 @@ export const clearAllStores = () => {
     useStreakStore.getState()._reset();
     useTimerStore.getState()._reset();
     useSiteCategoriesStore.getState()._reset();
+    useWeeklyAgendaStore.getState()._reset();
     console.log('[clearAllStores] All stores reset for user switch');
 };

@@ -93,12 +93,20 @@ describe('WorkView - Met Target Feature', () => {
         vi.clearAllMocks();
     });
 
+    const renderWorkView = async () => {
+        await act(async () => {
+            render(<WorkView />);
+        });
+    };
+
     it('opens the Met Target modal when button is clicked', async () => {
-        render(<WorkView />);
+        await renderWorkView();
 
         // Find the button specifically by its role to avoid matching the modal title
         const metTargetButton = screen.getByRole('button', { name: /Metas Extras/i });
-        fireEvent.click(metTargetButton);
+        await act(async () => {
+            fireEvent.click(metTargetButton);
+        });
 
         // Verify the modal opened (now instant due to mock)
         await waitFor(() => {
@@ -108,8 +116,10 @@ describe('WorkView - Met Target Feature', () => {
     });
 
     it('starts and pauses the timer', async () => {
-        render(<WorkView />);
-        fireEvent.click(screen.getByText('Metas Extras'));
+        await renderWorkView();
+        await act(async () => {
+            fireEvent.click(screen.getByText('Metas Extras'));
+        });
 
         await waitFor(() => {
             expect(screen.getByTestId('met-target-modal')).toBeInTheDocument();
@@ -121,8 +131,10 @@ describe('WorkView - Met Target Feature', () => {
     });
 
     it('updates weekly progress', async () => {
-        render(<WorkView />);
-        fireEvent.click(screen.getByText('Metas Extras'));
+        await renderWorkView();
+        await act(async () => {
+            fireEvent.click(screen.getByText('Metas Extras'));
+        });
 
         await waitFor(() => {
             expect(screen.getByTestId('met-target-modal')).toBeInTheDocument();
@@ -137,8 +149,10 @@ describe('WorkView - Met Target Feature', () => {
     });
 
     it('displays Anki and NCM counters', async () => {
-        render(<WorkView />);
-        fireEvent.click(screen.getByText('Metas Extras'));
+        await renderWorkView();
+        await act(async () => {
+            fireEvent.click(screen.getByText('Metas Extras'));
+        });
 
         // Look for text using partial regex match
         await waitFor(() => {
@@ -148,8 +162,10 @@ describe('WorkView - Met Target Feature', () => {
     });
 
     it('saves a session and shows it in history', async () => {
-        render(<WorkView />);
-        fireEvent.click(screen.getByText('Metas Extras'));
+        await renderWorkView();
+        await act(async () => {
+            fireEvent.click(screen.getByText('Metas Extras'));
+        });
 
         await waitFor(() => {
             expect(screen.getByTestId('met-target-modal')).toBeInTheDocument();
@@ -163,8 +179,10 @@ describe('WorkView - Met Target Feature', () => {
     });
 
     it('increments Anki counter when clicking up button', async () => {
-        render(<WorkView />);
-        fireEvent.click(screen.getByText('Metas Extras'));
+        await renderWorkView();
+        await act(async () => {
+            fireEvent.click(screen.getByText('Metas Extras'));
+        });
 
         await waitFor(() => {
             expect(screen.getByTestId('met-target-modal')).toBeInTheDocument();

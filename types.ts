@@ -336,6 +336,9 @@ export interface Skill {
   // Anti-Anxiety: Seções desbloqueadas no roadmap
   // Por padrão, apenas primeira seção é visível; demais precisam ser desbloqueadas via clique direito
   unlockedSections?: string[];  // IDs das seções (SECTION) desbloqueadas
+
+  // Weekly Agenda: Meta diária configurável (permanente)
+  dailyGoalMinutes?: number;  // Meta diária padrão em minutos
 }
 
 // --- PROMPTS MODULE INTERFACES ---
@@ -702,4 +705,52 @@ export interface StreakData {
   streakStartDate: string | null; // Data início do streak atual
   lastStreakLostDate: string | null; // Última vez que perdeu streak
   createdAt: number;              // Timestamp de criação
+}
+
+// --- WEEKLY AGENDA INTERFACES ---
+
+// Log de tempo para atividade extra da agenda
+export interface AgendaActivityLog {
+  id: string;
+  date: string;        // YYYY-MM-DD
+  minutes: number;
+}
+
+// Atividade extra na agenda (não é skill)
+export interface AgendaActivity {
+  id: string;
+  title: string;
+  dailyGoalMinutes: number;      // Meta para esta atividade
+  color: string;                  // Cor do card (ex: 'blue', 'rose')
+  notes?: string;                 // Comentários do usuário
+  logs: AgendaActivityLog[];      // Histórico de tempo
+  createdAt: number;
+}
+
+// Configuração de metas para um dia da semana
+export interface DayOfWeekPlan {
+  dayOfWeek: number;              // 0-6 (dom-sáb)
+  skillGoals: {                   // Metas por skill
+    skillId: string;
+    targetMinutes: number;
+  }[];
+  activityGoals: {                // Metas por atividade extra
+    activityId: string;
+    targetMinutes: number;
+  }[];
+}
+
+// Override para dia específico (ex: feriado, imprevistos)
+export interface DayOverride {
+  date: string;                   // YYYY-MM-DD
+  reason?: string;                // "Feriado", "Disponibilidade extra"
+  skillGoals: { skillId: string; targetMinutes: number }[];
+  activityGoals: { activityId: string; targetMinutes: number }[];
+}
+
+// Dados persistidos da Agenda Semanal
+export interface WeeklyAgendaData {
+  weeklyPlan: DayOfWeekPlan[];    // 7 dias padrão (pode ter menos se não configurado)
+  overrides: DayOverride[];       // Ajustes pontuais
+  activities: AgendaActivity[];   // Atividades extras (não são skills)
 }

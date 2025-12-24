@@ -20,12 +20,29 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
     'text-yellow-500': 'hover:shadow-yellow-500/20',
     'text-emerald-400': 'hover:shadow-emerald-400/20',
     'text-purple-500': 'hover:shadow-purple-500/20',
+    'text-purple-400': 'hover:shadow-purple-400/20',
     'text-teal-500': 'hover:shadow-teal-500/20',
     'text-cyan-400': 'hover:shadow-cyan-400/20',
     'text-slate-400': 'hover:shadow-slate-400/20',
   };
 
+  // Tailwind purge-safe background colors matching the text accents
+  const bgMap: Record<string, string> = {
+    'text-orange-500': 'bg-orange-500',
+    'text-orange-400': 'bg-orange-400',
+    'text-pink-500': 'bg-pink-500',
+    'text-indigo-400': 'bg-indigo-400',
+    'text-yellow-500': 'bg-yellow-500',
+    'text-emerald-400': 'bg-emerald-400',
+    'text-purple-500': 'bg-purple-500',
+    'text-purple-400': 'bg-purple-400',
+    'text-teal-500': 'bg-teal-500',
+    'text-cyan-400': 'bg-cyan-400',
+    'text-slate-400': 'bg-slate-400',
+  };
+
   const glowClass = glowMap[color] || 'hover:shadow-cyan-500/20';
+  const accentBgClass = bgMap[color] || 'bg-cyan-500';
 
   return (
     <div
@@ -33,7 +50,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
       className={`
         group relative overflow-hidden
         bg-gradient-to-br from-slate-800/80 to-slate-900/80 
-        hover:from-slate-800 hover:to-slate-850
+        hover:from-slate-800/90 hover:to-slate-900/90
         border border-slate-700/50 hover:border-slate-600/80 
         rounded-2xl p-6 cursor-pointer 
         transition-all duration-500 ease-out 
@@ -52,7 +69,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
       </div>
 
       {/* Background gradient glow */}
-      <div className={`absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-30 transition-all duration-700 blur-xl pointer-events-none ${color.replace('text-', 'bg-')}`} />
+      <div className={`absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-30 transition-all duration-700 blur-xl pointer-events-none ${accentBgClass}`} />
 
       {/* Content */}
       <div className="relative z-10 flex items-start justify-between">
@@ -60,7 +77,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
           {/* Icon container with premium effects */}
           <div className={`relative p-3 rounded-xl bg-slate-900/70 ${color} bg-opacity-20 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3`}>
             {/* Icon glow ring */}
-            <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 ${color.replace('text-', 'bg-')} blur-md`} />
+            <div className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 ${accentBgClass} blur-md`} />
             <Icon size={28} className={`relative z-10 ${color} transition-transform duration-300 group-hover:scale-105`} />
           </div>
           <div>
@@ -88,7 +105,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
       </div>
 
       {/* Corner accent */}
-      <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full opacity-0 group-hover:opacity-20 transition-all duration-700 blur-2xl ${color.replace('text-', 'bg-')}`} />
+      <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full opacity-0 group-hover:opacity-20 transition-all duration-700 blur-2xl ${accentBgClass}`} />
     </div>
   );
 });

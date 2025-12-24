@@ -14,15 +14,6 @@ const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
 const LinkModal = React.lazy(() => import('../links/LinkModal'));
 const SiteCategoryModal = React.lazy(() => import('../links/SiteCategoryModal'));
 
-// --- MOCK DATA (deprecated - data comes from store now) ---
-const _INITIAL_LINKS: LinkItem[] = [
-   { id: '1', title: 'Meu Portfolio', url: 'https://github.com', categoryId: 'personal', clickCount: 12, order: 0, promptIds: [] },
-   { id: '2', title: 'Projeto React', url: 'https://react.dev', categoryId: 'personal', clickCount: 5, order: 1, promptIds: [] },
-   { id: '3', title: 'Google', url: 'https://google.com', categoryId: 'general', clickCount: 42, order: 0, promptIds: [] },
-   { id: '4', title: 'YouTube', url: 'https://youtube.com', categoryId: 'general', clickCount: 150, order: 1, promptIds: [] },
-   { id: '5', title: 'ChatGPT', url: 'https://chat.openai.com', categoryId: 'general', clickCount: 89, order: 2, promptIds: [] },
-];
-
 const formatUrl = (url: string) => {
    if (!url) return '';
    if (!/^https?:\/\//i.test(url)) {

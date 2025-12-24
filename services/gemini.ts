@@ -15,6 +15,15 @@ const resolveApiKey = (): string | undefined => {
 };
 
 const getClient = (): GoogleGenAI => {
+    // In tests, return a lightweight stub to avoid real API calls
+    if (typeof process !== 'undefined' && (process.env.VITEST || process.env.NODE_ENV === 'test')) {
+        return {
+            models: {
+                generateContent: async () => ({ text: 'mock-response', candidates: [] })
+            }
+        } as unknown as GoogleGenAI;
+    }
+
     if (!client) {
         const apiKey = resolveApiKey();
         if (!apiKey) {

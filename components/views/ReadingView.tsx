@@ -73,6 +73,15 @@ const ReadingView: React.FC = () => {
     if (bookId) moveBookToFolder(bookId, folderId);
   }, [moveBookToFolder]);
 
+  // Handler que converte delta -> valor absoluto para o store
+  const handleUpdateProgress = useCallback((id: string, delta: number) => {
+    const book = books.find(b => b.id === id);
+    if (book) {
+      const newProgress = Math.max(0, Math.min(book.total, book.current + delta));
+      updateProgress(id, newProgress);
+    }
+  }, [books, updateProgress]);
+
   // Folder Logic
   const handleCreateFolder = useCallback(() => {
     const name = prompt("Nome da nova pasta:");
@@ -206,7 +215,7 @@ const ReadingView: React.FC = () => {
             viewMode={viewMode}
             onDragStart={handleDragStart}
             onDropOnStatus={handleDropOnStatus}
-            onUpdateProgress={updateProgress}
+            onUpdateProgress={handleUpdateProgress}
             onUpdateStatus={setBookStatus}
             onEdit={setEditingBook}
             onDelete={removeBook}
@@ -226,7 +235,7 @@ const ReadingView: React.FC = () => {
             onDeleteFolder={handleDeleteFolder}
             onDragStart={handleDragStart}
             onDropOnFolder={handleDropOnFolder}
-            onUpdateProgress={updateProgress}
+            onUpdateProgress={handleUpdateProgress}
             onUpdateStatus={setBookStatus}
             onEdit={setEditingBook}
             onDelete={removeBook}
