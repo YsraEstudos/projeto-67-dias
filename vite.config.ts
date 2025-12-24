@@ -15,10 +15,11 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      basicSsl(),
+      basicSsl(), // Ativado para testes em rede (HTTPS necessário para PWA)
       VitePWA({
         registerType: 'autoUpdate',
         manifest: {
+          id: '/',
           name: 'Projeto 67 Dias',
           short_name: '67 Dias',
           description: 'Sua jornada de 67 dias de desenvolvimento pessoal',
@@ -28,8 +29,26 @@ export default defineConfig(({ mode }) => {
           orientation: 'portrait',
           start_url: '/',
           icons: [
-            { src: '/pwa-icon-192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+            // Browser detectou 1024x1024, então declaramos isso para passar na validação
+            { src: '/pwa-icon-192.png', sizes: '192x192 1024x1024', type: 'image/png', purpose: 'any' },
+            { src: '/pwa-icon-512.png', sizes: '512x512 1024x1024', type: 'image/png', purpose: 'any' },
+            { src: '/pwa-icon-512.png', sizes: '512x512 1024x1024', type: 'image/png', purpose: 'maskable' }
+          ],
+          screenshots: [
+            {
+              src: '/screenshot-wide.png',
+              sizes: '1584x784', // Ajustado para corresponder à captura real
+              type: 'image/png',
+              form_factor: 'wide',
+              label: 'Dashboard do Projeto 67 Dias'
+            },
+            {
+              src: '/screenshot-mobile.png',
+              sizes: '625x939', // Ajustado para corresponder à captura real
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'Visão mobile do app'
+            }
           ]
         },
         workbox: {
