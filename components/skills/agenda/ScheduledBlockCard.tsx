@@ -55,7 +55,7 @@ const formatDuration = (minutes: number): string => {
     return `${hours}h${mins}`;
 };
 
-export const ScheduledBlockCard: React.FC<ScheduledBlockCardProps> = ({
+export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
     block,
     title,
     color,
@@ -69,6 +69,8 @@ export const ScheduledBlockCard: React.FC<ScheduledBlockCardProps> = ({
     });
 
     const colors = COLOR_MAP[color] || COLOR_MAP.emerald;
+
+    // Memoize these calculations if needed, but they are simple enough
     const timeRange = formatTimeRange(block.startHour, block.startMinute, block.durationMinutes);
     const duration = formatDuration(block.durationMinutes);
 
@@ -86,7 +88,7 @@ export const ScheduledBlockCard: React.FC<ScheduledBlockCardProps> = ({
                 ${colors.bg} ${colors.border} border rounded-lg 
                 cursor-pointer transition-all overflow-hidden
                 hover:shadow-lg hover:scale-[1.02] z-10
-                ${isDragging ? 'opacity-50 shadow-2xl scale-105 z-50' : ''}
+                ${isDragging ? 'opacity-0 shadow-2xl scale-105 z-50' : ''}
             `}
             onClick={(e) => {
                 e.stopPropagation();
@@ -135,6 +137,8 @@ export const ScheduledBlockCard: React.FC<ScheduledBlockCardProps> = ({
             <div className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize bg-gradient-to-t from-black/20 to-transparent" />
         </div>
     );
-};
+});
+
+ScheduledBlockCard.displayName = 'ScheduledBlockCard';
 
 export default ScheduledBlockCard;

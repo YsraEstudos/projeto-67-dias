@@ -33,14 +33,14 @@ interface SidePanelProps {
 }
 
 // Draggable item component
-const DraggableItem: React.FC<{
+const DraggableItem = React.memo<{
     id: string;
     type: 'skill' | 'activity' | 'event';
     title: string;
     color: string;
     subtitle?: string;
     icon?: React.ReactNode;
-}> = ({ id, type, title, color, subtitle, icon }) => {
+}>(({ id, type, title, color, subtitle, icon }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `draggable-${type}-${id}`,
         data: { type, referenceId: id }
@@ -62,7 +62,7 @@ const DraggableItem: React.FC<{
                 flex items-center gap-2 p-2 rounded-lg border cursor-grab active:cursor-grabbing
                 ${colorClasses}
                 transition-all hover:scale-[1.02] hover:shadow-lg
-                ${isDragging ? 'opacity-50 scale-105 shadow-2xl z-50' : ''}
+                ${isDragging ? 'opacity-0 scale-105 shadow-2xl z-50' : ''}
             `}
         >
             <GripVertical size={14} className="text-slate-500 flex-shrink-0" />
@@ -75,7 +75,9 @@ const DraggableItem: React.FC<{
             </div>
         </div>
     );
-};
+});
+
+DraggableItem.displayName = 'DraggableItem';
 
 // Section header component
 const SectionHeader: React.FC<{

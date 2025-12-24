@@ -11,7 +11,17 @@
  * - Event creation
  */
 import React, { useState, useMemo, useCallback } from 'react';
-import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core';
+import {
+    DndContext,
+    DragEndEvent,
+    DragStartEvent,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragOverlay,
+    pointerWithin,
+    defaultDropAnimationSideEffects
+} from '@dnd-kit/core';
 import { Calendar, ChevronLeft, ChevronRight, BarChart3, Plus } from 'lucide-react';
 import { useSkillsStore } from '../../../stores/skillsStore';
 import { useWeeklyAgendaStore } from '../../../stores/weeklyAgendaStore';
@@ -21,6 +31,8 @@ import { SidePanel } from './SidePanel';
 import { BlockEditModal } from './BlockEditModal';
 import { EventModal } from './EventModal';
 import { ActivityModal } from './ActivityModal';
+import { ScheduledBlockCard } from './ScheduledBlockCard';
+import { GripVertical, Clock, Target } from 'lucide-react';
 import {
     getWeekDates,
     formatMinutes,
@@ -48,6 +60,19 @@ export const WeeklyAgenda: React.FC = () => {
     const [selectedBlock, setSelectedBlock] = useState<ScheduledBlock | null>(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [showActivityModal, setShowActivityModal] = useState<string | boolean>(false);
+
+    // DnD Active Item State
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const [activeData, setActiveData] = useState<any>(null);
+
+    // Setup Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Avoid dragging on accidental clicks
+            },
+        })
+    );
 
     // Calculate week dates with offset  
     const baseDate = useMemo(() => {
@@ -143,8 +168,18 @@ export const WeeklyAgenda: React.FC = () => {
         });
     }, [skillsMap, activitiesMap, eventsMap, scheduleBlock]);
 
+    // Handle DnD drag start
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        const { active } = event;
+        setActiveId(active.id as string);
+        setActiveData(active.data.current);
+    }, []);
+
     // Handle DnD drag end
     const handleDragEnd = useCallback((event: DragEndEvent) => {
+        setActiveId(null);
+        setActiveData(null);
+
         const { active, over } = event;
         if (!over) return;
 
@@ -153,7 +188,8 @@ export const WeeklyAgenda: React.FC = () => {
 
         // Parse slot ID: slot-YYYY-MM-DD-HH
         const parts = overId.split('-');
-        const hour = parseInt(parts.pop()!);
+        const hourOrPart = parts.pop()!;
+        const hour = parseInt(hourOrPart);
         const date = parts.slice(1).join('-');
 
         const activeData = active.data.current;
@@ -188,7 +224,12 @@ export const WeeklyAgenda: React.FC = () => {
     }, [weekDates]);
 
     return (
-        <DndContext onDragEnd={handleDragEnd} collisionDetection={pointerWithin}>
+        <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            collisionDetection={pointerWithin}
+        >
             <div className="space-y-4 animate-in fade-in duration-500">
                 {/* Header with week navigation */}
                 <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
@@ -320,6 +361,45 @@ export const WeeklyAgenda: React.FC = () => {
                         onClose={() => setShowActivityModal(false)}
                     />
                 )}
+
+                {/* Drag Overlay for smooth preview */}
+                <DragOverlay dropAnimation={{
+                    sideEffects: defaultDropAnimationSideEffects({
+                        styles: {
+                            active: {
+                                opacity: '0.5',
+                            },
+                        },
+                    }),
+                }}>
+                    {activeId && activeData ? (
+                        activeData.isBlock ? (
+                            <div className="w-full h-full opacity-80 scale-105 pointer-events-none">
+                                <ScheduledBlockCard
+                                    block={scheduledBlocks.find(b => b.id === activeId)!}
+                                    {...getBlockDisplayInfo(scheduledBlocks.find(b => b.id === activeId)!)}
+                                    // Use minimal props for overlay
+                                    onClick={() => { }}
+                                    onDelete={() => { }}
+                                />
+                            </div>
+                        ) : (
+                            <div className={`
+                                flex items-center gap-2 p-3 rounded-lg border bg-slate-800 border-slate-600 
+                                text-white shadow-2xl scale-110 opacity-90 pointer-events-none w-64
+                            `}>
+                                <GripVertical size={14} className="text-slate-500" />
+                                {activeData.type === 'skill' && <Target size={16} className="text-emerald-400" />}
+                                {activeData.type === 'activity' && <Clock size={16} className="text-blue-400" />}
+                                <div className="text-sm font-medium truncate">
+                                    {activeData.type === 'skill' ? skillsMap.get(activeData.referenceId)?.name :
+                                        activeData.type === 'activity' ? activitiesMap.get(activeData.referenceId)?.title :
+                                            eventsMap.get(activeData.referenceId)?.title || 'Novo Item'}
+                                </div>
+                            </div>
+                        )
+                    ) : null}
+                </DragOverlay>
             </div>
         </DndContext>
     );

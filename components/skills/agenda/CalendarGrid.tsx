@@ -5,7 +5,7 @@
  * Shows 7 days (Sun-Sat) x time slots (6h-23h)
  */
 import React, { useMemo, useCallback } from 'react';
-import { useDroppable, useDraggable, DndContext, DragEndEvent, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import { useDroppable, DragEndEvent } from '@dnd-kit/core';
 import { ScheduledBlock, Skill, AgendaActivity, CalendarEvent } from '../../../types';
 import { ScheduledBlockCard } from './ScheduledBlockCard';
 
@@ -27,12 +27,12 @@ interface CalendarGridProps {
 }
 
 // Droppable time slot cell
-const TimeSlotCell: React.FC<{
+const TimeSlotCell = React.memo<{
     date: string;
     hour: number;
     isToday: boolean;
     onClick: () => void;
-}> = ({ date, hour, isToday, onClick }) => {
+}>(({ date, hour, isToday, onClick }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: `slot-${date}-${hour}`,
         data: { date, hour }
@@ -50,21 +50,25 @@ const TimeSlotCell: React.FC<{
             `}
         />
     );
-};
+});
+
+TimeSlotCell.displayName = 'TimeSlotCell';
 
 // Hour label on left side
-const HourLabel: React.FC<{ hour: number }> = ({ hour }) => (
+const HourLabel = React.memo<{ hour: number }>(({ hour }) => (
     <div className="w-14 h-[60px] flex items-start justify-end pr-2 pt-1 text-[10px] text-slate-500 font-mono border-b border-slate-700/30">
         {hour.toString().padStart(2, '0')}:00
     </div>
-);
+));
+
+HourLabel.displayName = 'HourLabel';
 
 // Day header
-const DayHeader: React.FC<{
+const DayHeader = React.memo<{
     dayName: string;
     date: string;
     isToday: boolean;
-}> = ({ dayName, date, isToday }) => {
+}>(({ dayName, date, isToday }) => {
     const dayNumber = new Date(date + 'T12:00:00').getDate();
 
     return (
@@ -81,7 +85,9 @@ const DayHeader: React.FC<{
             </div>
         </div>
     );
-};
+});
+
+DayHeader.displayName = 'DayHeader';
 
 export const CalendarGrid: React.FC<CalendarGridProps> = ({
     weekDates,
@@ -174,79 +180,77 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     }, [onBlockDrop, onBlockMove]);
 
     return (
-        <DndContext onDragEnd={handleDragEnd} collisionDetection={pointerWithin}>
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
-                {/* Header row with day names */}
-                <div className="flex">
-                    <div className="w-14 bg-slate-900 border-b border-r border-slate-700" />
-                    {weekDates.map((date, idx) => (
-                        <div key={date} className="flex-1 min-w-[100px]">
-                            <DayHeader
-                                dayName={DAY_NAMES[idx]}
-                                date={date}
-                                isToday={date === today}
-                            />
-                        </div>
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+            {/* Header row with day names */}
+            <div className="flex">
+                <div className="w-14 bg-slate-900 border-b border-r border-slate-700" />
+                {weekDates.map((date, idx) => (
+                    <div key={date} className="flex-1 min-w-[100px]">
+                        <DayHeader
+                            dayName={DAY_NAMES[idx]}
+                            date={date}
+                            isToday={date === today}
+                        />
+                    </div>
+                ))}
+            </div>
+
+            {/* Time grid */}
+            <div className="flex overflow-y-auto max-h-[600px]">
+                {/* Hour labels column */}
+                <div className="w-14 flex-shrink-0 bg-slate-900/50">
+                    {HOURS.map(hour => (
+                        <HourLabel key={hour} hour={hour} />
                     ))}
                 </div>
 
-                {/* Time grid */}
-                <div className="flex overflow-y-auto max-h-[600px]">
-                    {/* Hour labels column */}
-                    <div className="w-14 flex-shrink-0 bg-slate-900/50">
-                        {HOURS.map(hour => (
-                            <HourLabel key={hour} hour={hour} />
-                        ))}
-                    </div>
+                {/* Days columns */}
+                {weekDates.map((date) => {
+                    const dateBlocks = blocksByDate.get(date) || [];
+                    const isToday = date === today;
 
-                    {/* Days columns */}
-                    {weekDates.map((date) => {
-                        const dateBlocks = blocksByDate.get(date) || [];
-                        const isToday = date === today;
+                    return (
+                        <div key={date} className="flex-1 min-w-[100px] relative">
+                            {/* Time slots */}
+                            {HOURS.map(hour => (
+                                <TimeSlotCell
+                                    key={`${date}-${hour}`}
+                                    date={date}
+                                    hour={hour}
+                                    isToday={isToday}
+                                    onClick={() => onEmptySlotClick(date, hour)}
+                                />
+                            ))}
 
-                        return (
-                            <div key={date} className="flex-1 min-w-[100px] relative">
-                                {/* Time slots */}
-                                {HOURS.map(hour => (
-                                    <TimeSlotCell
-                                        key={`${date}-${hour}`}
-                                        date={date}
-                                        hour={hour}
-                                        isToday={isToday}
-                                        onClick={() => onEmptySlotClick(date, hour)}
+                            {/* Scheduled blocks (positioned absolutely) */}
+                            {dateBlocks.map(block => {
+                                const { title, color } = getBlockInfo(block);
+                                const topOffset = (block.startHour - 6) * HOUR_HEIGHT + (block.startMinute / 60) * HOUR_HEIGHT;
+                                const height = (block.durationMinutes / 60) * HOUR_HEIGHT;
+
+                                return (
+                                    <ScheduledBlockCard
+                                        key={block.id}
+                                        block={block}
+                                        title={title}
+                                        color={color}
+                                        style={{
+                                            position: 'absolute',
+                                            top: `${topOffset}px`,
+                                            left: '2px',
+                                            right: '2px',
+                                            height: `${Math.max(height - 2, 20)}px`
+                                        }}
+                                        onClick={() => onBlockClick(block)}
+                                        onDelete={() => onBlockDelete(block.id)}
                                     />
-                                ))}
-
-                                {/* Scheduled blocks (positioned absolutely) */}
-                                {dateBlocks.map(block => {
-                                    const { title, color } = getBlockInfo(block);
-                                    const topOffset = (block.startHour - 6) * HOUR_HEIGHT + (block.startMinute / 60) * HOUR_HEIGHT;
-                                    const height = (block.durationMinutes / 60) * HOUR_HEIGHT;
-
-                                    return (
-                                        <ScheduledBlockCard
-                                            key={block.id}
-                                            block={block}
-                                            title={title}
-                                            color={color}
-                                            style={{
-                                                position: 'absolute',
-                                                top: `${topOffset}px`,
-                                                left: '2px',
-                                                right: '2px',
-                                                height: `${Math.max(height - 2, 20)}px`
-                                            }}
-                                            onClick={() => onBlockClick(block)}
-                                            onDelete={() => onBlockDelete(block.id)}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        );
-                    })}
-                </div>
+                                );
+                            })}
+                        </div>
+                    );
+                })}
             </div>
-        </DndContext>
+        </div>
     );
 };
 
