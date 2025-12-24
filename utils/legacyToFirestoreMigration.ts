@@ -135,6 +135,19 @@ export async function runLocalStorageToFirestoreMigration(): Promise<void> {
         return;
     }
 
+    // Double-check in Firestore to prevent re-migration if LocalStorage was cleared
+    try {
+        const migrationDocRef = doc(db, 'users', userId, 'meta', 'migration_status');
+        const migrationDoc = await getDoc(migrationDocRef);
+        if (migrationDoc.exists() && migrationDoc.data()?.version >= MIGRATION_VERSION) {
+            console.log('[FirestoreMigration] Already completed (confirmed in Firestore)');
+            markMigrationComplete(userId); // Sync local flag
+            return;
+        }
+    } catch (err) {
+        console.warn('[FirestoreMigration] Could not check Firestore migration status:', err);
+    }
+
     console.log('[FirestoreMigration] Starting LocalStorage → Firestore migration...');
 
     let migratedCount = 0;
@@ -144,7 +157,14 @@ export async function runLocalStorageToFirestoreMigration(): Promise<void> {
         if (migrated) migratedCount++;
     }
 
+    // Mark migration complete in both LocalStorage and Firestore
     markMigrationComplete(userId);
+    try {
+        const migrationDocRef = doc(db, 'users', userId, 'meta', 'migration_status');
+        await setDoc(migrationDocRef, { version: MIGRATION_VERSION, completedAt: Date.now() });
+    } catch (err) {
+        console.warn('[FirestoreMigration] Could not save migration status to Firestore:', err);
+    }
 
     if (migratedCount > 0) {
         console.log(`[FirestoreMigration] ✅ Complete. Migrated ${migratedCount} stores.`);

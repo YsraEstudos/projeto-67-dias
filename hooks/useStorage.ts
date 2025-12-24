@@ -157,15 +157,11 @@ export function useStorage<T>(
                         const localUpdatedAt = localUpdatedAtRef.current || 0;
 
                         if (remoteUpdatedAt <= localUpdatedAt) {
-                            if (remoteUpdatedAt < localUpdatedAt && userId) {
-                                const localValue = getLocalStorageValue(userId);
-                                const localTimestamp = localUpdatedAtRef.current || Date.now();
-                                setDoc(docRef, {
-                                    value: localValue,
-                                    updatedAt: localTimestamp
-                                }).catch(err => {
-                                    console.error('Erro ao sincronizar dado local mais recente:', err);
-                                });
+                            // FIX: Removed automatic write-back that was causing sync loops
+                            // Previously this would call setDoc() when local was newer,
+                            // which triggered another snapshot, creating an infinite loop
+                            if (remoteUpdatedAt < localUpdatedAt) {
+                                console.warn(`[useStorage] Conflict detected in "${key}": local is newer. Keeping local value.`);
                             }
                             return;
                         }

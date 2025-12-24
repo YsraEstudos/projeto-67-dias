@@ -20,7 +20,15 @@ type PendingWrite = {
 };
 
 const writeTimeouts = new Map<string, PendingWrite>();
-const WRITE_DEBOUNCE_MS = 300;
+
+// Increased from 300ms to 1500ms to reduce Firestore writes significantly
+// This prevents excessive billing from rapid user interactions
+const WRITE_DEBOUNCE_MS = 1500;
+
+// Rate limiter to prevent billing spikes (max 60 writes per minute globally)
+const MAX_WRITES_PER_MINUTE = 60;
+let writeCountLastMinute = 0;
+let lastWriteResetTime = Date.now();
 
 /**
  * Recursively remove undefined values from an object
@@ -89,6 +97,22 @@ export const getCurrentUserId = (): string | null => {
  */
 const performWrite = async (payload: PendingWrite['payload']) => {
     // Note: pendingWriteCount already incremented in writeToFirestore
+
+    // Rate limiter check - prevents billing spikes
+    const now = Date.now();
+    if (now - lastWriteResetTime > 60000) {
+        // Reset counter every minute
+        writeCountLastMinute = 0;
+        lastWriteResetTime = now;
+    }
+
+    if (writeCountLastMinute >= MAX_WRITES_PER_MINUTE) {
+        console.warn(`[Firestore] Rate limit reached (${MAX_WRITES_PER_MINUTE}/min). Rescheduling write for ${payload.collectionKey}`);
+        // Reschedule for 5 seconds later
+        setTimeout(() => performWrite(payload), 5000);
+        return;
+    }
+    writeCountLastMinute++;
 
     try {
         const { collectionKey, data, userId } = payload;
