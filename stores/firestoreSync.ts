@@ -8,6 +8,7 @@
  */
 import { doc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db, auth } from '../services/firebase';
+import { incrementWrites, incrementReads, isQuotaExceeded, notifyQuotaListeners } from '../utils/firestoreQuota';
 
 // Debounce writes to avoid excessive Firestore calls during rapid typing
 type PendingWrite = {
@@ -98,6 +99,14 @@ export const getCurrentUserId = (): string | null => {
 const performWrite = async (payload: PendingWrite['payload']) => {
     // Note: pendingWriteCount already incremented in writeToFirestore
 
+    // Daily quota check - prevents exceeding 20k operations/day
+    if (isQuotaExceeded()) {
+        console.warn('[Firestore] Daily quota exceeded (20k ops). Write blocked.');
+        pendingWriteCount--;
+        notifyPendingListeners();
+        return;
+    }
+
     // Rate limiter check - prevents billing spikes
     const now = Date.now();
     if (now - lastWriteResetTime > 60000) {
@@ -121,6 +130,9 @@ const performWrite = async (payload: PendingWrite['payload']) => {
             value: data,
             updatedAt: Date.now()
         });
+        // Track successful write for quota monitoring
+        incrementWrites();
+        notifyQuotaListeners();
     } catch (error) {
         console.warn(`[Firestore] Write for ${payload.collectionKey} will be retried when online:`, error);
     } finally {
@@ -179,6 +191,10 @@ export const subscribeToDocument = <T>(
     return onSnapshot(
         docRef,
         (snapshot) => {
+            // Track read for quota monitoring
+            incrementReads();
+            notifyQuotaListeners();
+
             if (snapshot.exists()) {
                 const docData = snapshot.data();
                 onData(docData.value as T);

@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target, Smartphone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target, Smartphone, HardDrive, Image } from 'lucide-react';
 import { useConfigStore } from '../../stores';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSimple } from '../shared/Loading';
@@ -10,6 +10,8 @@ import { OffensiveSettingsSection } from '../settings/OffensiveSettingsSection';
 import { ThemeSettingsSection } from '../settings/ThemeSettingsSection';
 import { PWASettingsSection } from '../settings/PWASettingsSection';
 import { SettingsCategory } from '../settings/SettingsCategory';
+import { getUsageStats, subscribeToQuotaChanges, getDailyLimit } from '../../utils/firestoreQuota';
+import { MAX_IMAGE_SIZE } from '../../utils/imageUtils';
 
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
 const ResetProjectModal = React.lazy(() => import('../modals/ResetProjectModal'));
@@ -24,6 +26,15 @@ const SettingsView: React.FC = () => {
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [showStartConfirmation, setShowStartConfirmation] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [quotaStats, setQuotaStats] = useState(getUsageStats());
+
+  // Subscribe to quota changes for real-time updates
+  useEffect(() => {
+    const unsubscribe = subscribeToQuotaChanges(() => {
+      setQuotaStats(getUsageStats());
+    });
+    return unsubscribe;
+  }, []);
 
   const handleStartProject = () => {
     setConfig({ isProjectStarted: true });
@@ -228,6 +239,70 @@ const SettingsView: React.FC = () => {
                 </div>
                 <span className="text-lg font-bold bg-orange-500/10 text-orange-400 px-3 py-1.5 rounded-lg border border-orange-500/20 min-w-[3rem] text-center">
                   {config.restartCount ?? 0}
+                </span>
+              </div>
+
+              {/* Firestore Usage Quota */}
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <HardDrive className={`${quotaStats.isWarning ? 'text-amber-400' : quotaStats.isExceeded ? 'text-red-400' : 'text-cyan-400'}`} size={20} />
+                    <div>
+                      <span className="text-slate-300 font-medium">Uso do Firestore Hoje</span>
+                      <p className="text-xs text-slate-500">
+                        {quotaStats.total.toLocaleString('pt-BR')} de {getDailyLimit().toLocaleString('pt-BR')} operações
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-sm font-bold px-2 py-1 rounded ${quotaStats.isExceeded
+                      ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                      : quotaStats.isWarning
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                    }`}>
+                    {quotaStats.percentage.toFixed(1)}%
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 rounded-full ${quotaStats.isExceeded
+                        ? 'bg-red-500'
+                        : quotaStats.isWarning
+                          ? 'bg-amber-500'
+                          : 'bg-cyan-500'
+                      }`}
+                    style={{ width: `${Math.min(quotaStats.percentage, 100)}%` }}
+                  />
+                </div>
+
+                {/* Warning/Critical Alert */}
+                {quotaStats.isWarning && (
+                  <div className={`p-3 rounded-lg ${quotaStats.isExceeded ? 'bg-red-500/10 border border-red-500/20' : 'bg-amber-500/10 border border-amber-500/20'}`}>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle size={16} className={quotaStats.isExceeded ? 'text-red-400 mt-0.5' : 'text-amber-400 mt-0.5'} />
+                      <p className={`text-xs ${quotaStats.isExceeded ? 'text-red-300' : 'text-amber-300'}`}>
+                        {quotaStats.isExceeded
+                          ? 'Limite diário atingido! A sincronização está pausada até amanhã.'
+                          : 'Atenção: Uso elevado. Evite sincronizações desnecessárias para não exceder o limite.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Image Size Limit Info */}
+              <div className="flex justify-between items-center p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                <div className="flex items-center gap-3">
+                  <Image className="text-purple-400" size={20} />
+                  <div>
+                    <span className="text-slate-300 font-medium">Limite de Upload de Imagens</span>
+                    <p className="text-xs text-slate-500">Tamanho máximo por arquivo em notas</p>
+                  </div>
+                </div>
+                <span className="text-sm font-bold bg-purple-500/10 text-purple-400 px-2 py-1 rounded border border-purple-500/20">
+                  {(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(0)}MB
                 </span>
               </div>
             </div>

@@ -748,9 +748,39 @@ export interface DayOverride {
   activityGoals: { activityId: string; targetMinutes: number }[];
 }
 
+// --- CALENDAR STYLE AGENDA (Google Calendar) ---
+
+// Bloco agendado no calendário
+export interface ScheduledBlock {
+  id: string;
+  date: string;              // YYYY-MM-DD
+  startHour: number;         // 0-23 (ex: 14)
+  startMinute: number;       // 0-59 (ex: 30 = 14:30)
+  durationMinutes: number;   // duração em minutos
+
+  // Tipo de item (mutual exclusive)
+  type: 'skill' | 'activity' | 'event';
+  referenceId: string;       // ID da skill, activity ou event
+
+  notes?: string;
+  color?: string;            // Override de cor
+}
+
+// Evento customizado (não vinculado a skill/activity existente)
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  color: string;
+  defaultDurationMinutes: number;
+  createdAt: number;
+}
+
 // Dados persistidos da Agenda Semanal
 export interface WeeklyAgendaData {
-  weeklyPlan: DayOfWeekPlan[];    // 7 dias padrão (pode ter menos se não configurado)
-  overrides: DayOverride[];       // Ajustes pontuais
-  activities: AgendaActivity[];   // Atividades extras (não são skills)
+  weeklyPlan: DayOfWeekPlan[];      // 7 dias padrão (pode ter menos se não configurado)
+  overrides: DayOverride[];          // Ajustes pontuais
+  activities: AgendaActivity[];      // Atividades extras (não são skills)
+  events: CalendarEvent[];           // Eventos customizados
+  scheduledBlocks: ScheduledBlock[]; // Blocos agendados no calendário
 }

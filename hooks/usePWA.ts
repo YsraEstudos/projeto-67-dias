@@ -15,6 +15,18 @@ interface BeforeInstallPromptEvent extends Event {
     prompt(): Promise<void>;
 }
 
+// Captura global do evento ANTES do React montar
+// Isso garante que não perdemos o evento se ele disparar cedo demais
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
+        console.log('[PWA] Global: beforeinstallprompt captured early');
+        e.preventDefault();
+        globalDeferredPrompt = e as BeforeInstallPromptEvent;
+    });
+}
+
 interface UsePWAReturn {
     /** Whether the app can be installed (browser supports it and not installed) */
     isInstallable: boolean;
@@ -29,12 +41,13 @@ interface UsePWAReturn {
 }
 
 export const usePWA = (): UsePWAReturn => {
-    const [isInstallable, setIsInstallable] = useState(false);
+    // Inicializa com o valor global se já foi capturado
+    const [isInstallable, setIsInstallable] = useState(globalDeferredPrompt !== null);
     const [isInstalled, setIsInstalled] = useState(false);
     const [isOnline, setIsOnline] = useState(
         typeof navigator !== 'undefined' ? navigator.onLine : true
     );
-    const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+    const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(globalDeferredPrompt);
 
     // Check if running in standalone mode (installed PWA)
     useEffect(() => {
@@ -62,6 +75,7 @@ export const usePWA = (): UsePWAReturn => {
         if (typeof window === 'undefined') return;
 
         const handleBeforeInstallPrompt = (e: Event) => {
+            console.log('[PWA] beforeinstallprompt event received');
             // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
             // Store the event for later use

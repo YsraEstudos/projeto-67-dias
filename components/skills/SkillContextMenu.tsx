@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { BarChart3, Calendar, X } from 'lucide-react';
+import { BarChart3, Calendar, X, History } from 'lucide-react';
 import { Skill } from '../../types';
 
 interface SkillContextMenuProps {
@@ -10,6 +10,7 @@ interface SkillContextMenuProps {
     onClose: () => void;
     onToggleDistribution: () => void;
     onViewDailyPlan: () => void;
+    onViewHistory?: () => void;
 }
 
 /**
@@ -22,14 +23,16 @@ export const SkillContextMenu: React.FC<SkillContextMenuProps> = ({
     skill,
     onClose,
     onToggleDistribution,
-    onViewDailyPlan
+    onViewDailyPlan,
+    onViewHistory
 }) => {
     const isExponential = skill.distributionType === 'EXPONENTIAL';
     const hasDeadline = !!skill.deadline;
+    const hasLogs = skill.logs && skill.logs.length > 0;
 
     // Adjust position to stay within viewport
     const menuLeft = Math.min(x, window.innerWidth - 260);
-    const menuTop = Math.min(y, window.innerHeight - 220);
+    const menuTop = Math.min(y, window.innerHeight - 280);
 
     const menuContent = (
         <>
@@ -75,6 +78,28 @@ export const SkillContextMenu: React.FC<SkillContextMenuProps> = ({
 
                 {/* Menu Items */}
                 <div className="p-2">
+                    {/* View History */}
+                    {onViewHistory && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onViewHistory();
+                                onClose();
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-3 hover:bg-slate-700 rounded-lg transition-colors text-left mb-1"
+                        >
+                            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                                <History size={18} />
+                            </div>
+                            <div className="flex-1">
+                                <div className="text-sm font-bold text-white">📊 Ver Histórico</div>
+                                <div className="text-xs text-slate-400">
+                                    {hasLogs ? `${skill.logs.length} sessões` : 'Nenhuma sessão'}
+                                </div>
+                            </div>
+                        </button>
+                    )}
+
                     {/* Toggle Distribution Type */}
                     <button
                         onClick={(e) => {

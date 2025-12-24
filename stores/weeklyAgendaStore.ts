@@ -5,9 +5,19 @@
  * - Default day plans (per day of week)
  * - Day overrides (for specific dates)
  * - Extra activities (non-skill items)
+ * - Calendar events (custom events)
+ * - Scheduled blocks (Google Calendar style)
  */
 import { create } from 'zustand';
-import { AgendaActivity, AgendaActivityLog, DayOfWeekPlan, DayOverride, WeeklyAgendaData } from '../types';
+import {
+    AgendaActivity,
+    AgendaActivityLog,
+    DayOfWeekPlan,
+    DayOverride,
+    WeeklyAgendaData,
+    CalendarEvent,
+    ScheduledBlock
+} from '../types';
 import { writeToFirestore } from './firestoreSync';
 
 const STORE_KEY = 'p67_weekly_agenda';
@@ -19,7 +29,9 @@ const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9
 const initialState: WeeklyAgendaData = {
     weeklyPlan: [],
     overrides: [],
-    activities: []
+    activities: [],
+    events: [],
+    scheduledBlocks: []
 };
 
 interface WeeklyAgendaState extends WeeklyAgendaData {
@@ -43,6 +55,19 @@ interface WeeklyAgendaState extends WeeklyAgendaData {
     logActivityTime: (activityId: string, minutes: number, date?: string) => void;
     getActivityProgress: (activityId: string, date: string) => number;
 
+    // Calendar Event Actions
+    addEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt'>) => string;
+    updateEvent: (id: string, updates: Partial<Omit<CalendarEvent, 'id' | 'createdAt'>>) => void;
+    deleteEvent: (id: string) => void;
+
+    // Scheduled Block Actions (Google Calendar style)
+    scheduleBlock: (block: Omit<ScheduledBlock, 'id'>) => string;
+    updateBlock: (id: string, updates: Partial<Omit<ScheduledBlock, 'id'>>) => void;
+    deleteBlock: (id: string) => void;
+    moveBlock: (blockId: string, newDate: string, newStartHour: number, newStartMinute: number) => void;
+    resizeBlock: (blockId: string, newDurationMinutes: number) => void;
+    getBlocksForDate: (date: string) => ScheduledBlock[];
+
     // Internal Methods
     _syncToFirestore: () => void;
     _hydrateFromFirestore: (data: WeeklyAgendaData | null) => void;
@@ -54,6 +79,8 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
     weeklyPlan: [],
     overrides: [],
     activities: [],
+    events: [],
+    scheduledBlocks: [],
     isLoading: true,
     _initialized: false,
 
@@ -147,7 +174,7 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
     deleteActivity: (id) => {
         set((state) => ({
             activities: state.activities.filter(a => a.id !== id),
-            // Also remove from all plans and overrides
+            // Also remove from all plans, overrides, and scheduled blocks
             weeklyPlan: state.weeklyPlan.map(p => ({
                 ...p,
                 activityGoals: p.activityGoals.filter(g => g.activityId !== id)
@@ -155,7 +182,10 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
             overrides: state.overrides.map(o => ({
                 ...o,
                 activityGoals: o.activityGoals.filter(g => g.activityId !== id)
-            }))
+            })),
+            scheduledBlocks: state.scheduledBlocks.filter(b =>
+                !(b.type === 'activity' && b.referenceId === id)
+            )
         }));
         get()._syncToFirestore();
     },
@@ -197,14 +227,111 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
         return log?.minutes || 0;
     },
 
+    // Calendar Event Actions
+    addEvent: (eventData) => {
+        const id = generateId();
+        const event: CalendarEvent = {
+            id,
+            title: eventData.title,
+            description: eventData.description,
+            color: eventData.color,
+            defaultDurationMinutes: eventData.defaultDurationMinutes,
+            createdAt: Date.now()
+        };
+
+        set((state) => ({
+            events: [...state.events, event]
+        }));
+        get()._syncToFirestore();
+        return id;
+    },
+
+    updateEvent: (id, updates) => {
+        set((state) => ({
+            events: state.events.map(e =>
+                e.id === id ? { ...e, ...updates } : e
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    deleteEvent: (id) => {
+        set((state) => ({
+            events: state.events.filter(e => e.id !== id),
+            // Also remove scheduled blocks referencing this event
+            scheduledBlocks: state.scheduledBlocks.filter(b =>
+                !(b.type === 'event' && b.referenceId === id)
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    // Scheduled Block Actions
+    scheduleBlock: (blockData) => {
+        const id = generateId();
+        const block: ScheduledBlock = {
+            id,
+            ...blockData
+        };
+
+        set((state) => ({
+            scheduledBlocks: [...state.scheduledBlocks, block]
+        }));
+        get()._syncToFirestore();
+        return id;
+    },
+
+    updateBlock: (id, updates) => {
+        set((state) => ({
+            scheduledBlocks: state.scheduledBlocks.map(b =>
+                b.id === id ? { ...b, ...updates } : b
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    deleteBlock: (id) => {
+        set((state) => ({
+            scheduledBlocks: state.scheduledBlocks.filter(b => b.id !== id)
+        }));
+        get()._syncToFirestore();
+    },
+
+    moveBlock: (blockId, newDate, newStartHour, newStartMinute) => {
+        set((state) => ({
+            scheduledBlocks: state.scheduledBlocks.map(b =>
+                b.id === blockId
+                    ? { ...b, date: newDate, startHour: newStartHour, startMinute: newStartMinute }
+                    : b
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    resizeBlock: (blockId, newDurationMinutes) => {
+        set((state) => ({
+            scheduledBlocks: state.scheduledBlocks.map(b =>
+                b.id === blockId
+                    ? { ...b, durationMinutes: Math.max(15, newDurationMinutes) } // Min 15 min
+                    : b
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
+    getBlocksForDate: (date) => {
+        return get().scheduledBlocks.filter(b => b.date === date);
+    },
+
     // Internal Methods
     _syncToFirestore: () => {
-        const { weeklyPlan, overrides, activities, _initialized } = get();
+        const { weeklyPlan, overrides, activities, events, scheduledBlocks, _initialized } = get();
         if (_initialized) {
+            const data = { weeklyPlan, overrides, activities, events, scheduledBlocks };
             if (typeof requestIdleCallback !== 'undefined') {
-                requestIdleCallback(() => writeToFirestore(STORE_KEY, { weeklyPlan, overrides, activities }), { timeout: 2000 });
+                requestIdleCallback(() => writeToFirestore(STORE_KEY, data), { timeout: 2000 });
             } else {
-                setTimeout(() => writeToFirestore(STORE_KEY, { weeklyPlan, overrides, activities }), 100);
+                setTimeout(() => writeToFirestore(STORE_KEY, data), 100);
             }
         }
     },
@@ -215,6 +342,8 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
                 weeklyPlan: data.weeklyPlan || [],
                 overrides: data.overrides || [],
                 activities: data.activities || [],
+                events: data.events || [],
+                scheduledBlocks: data.scheduledBlocks || [],
                 isLoading: false,
                 _initialized: true
             });

@@ -7,3 +7,9 @@ export { ActivityCard } from './ActivityCard';
 export { DayPlanModal } from './DayPlanModal';
 export { TomorrowModal } from './TomorrowModal';
 export { ActivityModal } from './ActivityModal';
+export { CalendarGrid } from './CalendarGrid';
+export { ScheduledBlockCard } from './ScheduledBlockCard';
+export { SidePanel } from './SidePanel';
+export { BlockEditModal } from './BlockEditModal';
+export { EventModal } from './EventModal';
+

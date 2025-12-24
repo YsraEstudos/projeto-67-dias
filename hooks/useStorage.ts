@@ -12,6 +12,7 @@ import {
     writeLocalMeta,
     parseTimestamp
 } from '../utils/storageUtils';
+import { incrementWrites, incrementReads, isQuotaExceeded, notifyQuotaListeners } from '../utils/firestoreQuota';
 
 export {
     getStorageKeyForUser,
@@ -149,6 +150,10 @@ export function useStorage<T>(
         const unsubscribe = onSnapshot(
             docRef,
             (docSnap) => {
+                // Track read for quota monitoring
+                incrementReads();
+                notifyQuotaListeners();
+
                 try {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -169,12 +174,15 @@ export function useStorage<T>(
                         setStoredValue(firestoreValue);
                         saveToLocalStorage(firestoreValue, userId, remoteUpdatedAt);
                     } else {
-                        if (!isInitializingRef.current) {
+                        if (!isInitializingRef.current && !isQuotaExceeded()) {
                             const localValue = getLocalStorageValue(userId);
                             const localTimestamp = localUpdatedAtRef.current || Date.now();
                             setDoc(docRef, {
                                 value: localValue,
                                 updatedAt: localTimestamp
+                            }).then(() => {
+                                incrementWrites();
+                                notifyQuotaListeners();
                             }).catch(err => {
                                 console.error('Erro ao criar documento inicial:', err);
                             });
@@ -197,6 +205,13 @@ export function useStorage<T>(
     const flushWrite = useCallback(() => {
         if (!pendingWriteRef.current || !userId || !useFirebase || !firebaseSupported) return;
 
+        // Check quota before writing
+        if (isQuotaExceeded()) {
+            console.warn('[useStorage] Daily quota exceeded. Write blocked.');
+            pendingWriteRef.current = null;
+            return;
+        }
+
         const { value, updatedAt } = pendingWriteRef.current;
 
         // Clear pending state immediately
@@ -210,6 +225,9 @@ export function useStorage<T>(
         setDoc(docRef, {
             value,
             updatedAt
+        }).then(() => {
+            incrementWrites();
+            notifyQuotaListeners();
         }).catch(err => {
             console.error(`Erro ao salvar (flush) no Firestore (key: "${key}"):`, err);
         });

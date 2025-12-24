@@ -2,7 +2,6 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import basicSsl from '@vitejs/plugin-basic-ssl';
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
@@ -11,13 +10,16 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      host: '0.0.0.0',
+      host: 'localhost', // Localhost para PWA funcionar via HTTP
     },
     plugins: [
       react(),
-      basicSsl(), // Ativado para testes em rede (HTTPS necessário para PWA)
+      // PWA requer HTTPS válido (produção) ou localhost (dev)
       VitePWA({
         registerType: 'autoUpdate',
+        devOptions: {
+          enabled: true, // Habilita PWA em modo dev (injecta manifest e SW)
+        },
         manifest: {
           id: '/',
           name: 'Projeto 67 Dias',
