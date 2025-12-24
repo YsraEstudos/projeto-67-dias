@@ -43,8 +43,8 @@ export const PWASettingsSection: React.FC = () => {
         <div className="p-6 space-y-6">
             {/* Online/Offline Status */}
             <div className={`flex items-center gap-3 p-4 rounded-xl border ${isOnline
-                    ? 'bg-emerald-500/10 border-emerald-500/30'
-                    : 'bg-amber-500/10 border-amber-500/30'
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-amber-500/10 border-amber-500/30'
                 }`}>
                 {isOnline ? (
                     <>
@@ -154,6 +154,16 @@ export const PWASettingsSection: React.FC = () => {
                     </div>
                 </div>
             )}
+            {/* Debug Info (Temporary) */}
+            <div className="mt-8 p-4 bg-gray-900 rounded-lg text-xs font-mono text-gray-400">
+                <p className="font-bold text-gray-300 mb-2">Debug PWA Status:</p>
+                <p>isInstallable: {String(isInstallable)}</p>
+                <p>isInstalled: {String(isInstalled)}</p>
+                <p>isSupported: {String(isSupported)}</p>
+                <p>isOnline: {String(isOnline)}</p>
+                <p>Secure Context: {typeof window !== 'undefined' ? String(window.isSecureContext) : '?'}</p>
+                <p>SW Controller: {typeof navigator !== 'undefined' && navigator.serviceWorker?.controller ? 'Active' : 'None'}</p>
+            </div>
         </div>
     );
 };

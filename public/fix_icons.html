@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <img id="source" src="/pwa-icon-512.png" style="display:none;" />
+    <div id="output">Processing...</div>
+    <script>
+        window.onload = function () {
+            const img = document.getElementById('source');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const sizes = [512, 192];
+            const results = {};
+
+            sizes.forEach(size => {
+                canvas.width = size;
+                canvas.height = size;
+                ctx.drawImage(img, 0, 0, size, size);
+                results[size] = canvas.toDataURL('image/png');
+            });
+
+            // Output as JSON for easy parsing
+            document.getElementById('output').textContent = JSON.stringify(results);
+        };
+    </script>
+</body>
+
+</html>

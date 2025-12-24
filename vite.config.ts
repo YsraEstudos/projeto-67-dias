@@ -29,10 +29,9 @@ export default defineConfig(({ mode }) => {
           orientation: 'portrait',
           start_url: '/',
           icons: [
-            // Browser detectou 1024x1024, então declaramos isso para passar na validação
-            { src: '/pwa-icon-192.png', sizes: '192x192 1024x1024', type: 'image/png', purpose: 'any' },
-            { src: '/pwa-icon-512.png', sizes: '512x512 1024x1024', type: 'image/png', purpose: 'any' },
-            { src: '/pwa-icon-512.png', sizes: '512x512 1024x1024', type: 'image/png', purpose: 'maskable' }
+            { src: '/pwa-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ],
           screenshots: [
             {
@@ -52,6 +51,8 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          clientsClaim: true,
+          skipWaiting: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           navigateFallback: '/index.html',
           runtimeCaching: [
