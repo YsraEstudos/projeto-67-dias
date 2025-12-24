@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target } from 'lucide-react';
+import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target, Smartphone } from 'lucide-react';
 import { useConfigStore } from '../../stores';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSimple } from '../shared/Loading';
@@ -8,6 +8,7 @@ import { StreakCard } from '../settings/StreakCard';
 import { DataManagementSection } from '../settings/DataManagementSection';
 import { OffensiveSettingsSection } from '../settings/OffensiveSettingsSection';
 import { ThemeSettingsSection } from '../settings/ThemeSettingsSection';
+import { PWASettingsSection } from '../settings/PWASettingsSection';
 import { SettingsCategory } from '../settings/SettingsCategory';
 
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
@@ -243,6 +244,19 @@ const SettingsView: React.FC = () => {
             onToggle={() => toggleCategory('appearance')}
           >
             <ThemeSettingsSection />
+          </SettingsCategory>
+
+          {/* PWA INSTALLATION CATEGORY */}
+          <SettingsCategory
+            id="pwa"
+            title="Instalação"
+            description="Baixe o app no seu dispositivo"
+            icon={<Smartphone size={22} className="text-green-400" />}
+            iconBgColor="bg-green-500/20"
+            isExpanded={expandedCategories.has('pwa')}
+            onToggle={() => toggleCategory('pwa')}
+          >
+            <PWASettingsSection />
           </SettingsCategory>
 
           {/* OFFENSIVE CATEGORY */}

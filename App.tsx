@@ -28,6 +28,7 @@ import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStor
 import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
+import { ConflictModal } from './components/modals/ConflictModal';
 
 // Services
 import { calculateCurrentDay, getDaysUntilStart } from './services/weeklySnapshot';
@@ -615,6 +616,9 @@ const App: React.FC = () => {
           versão 1.0
         </span>
       </footer>
+
+      {/* Conflict Resolution Modal (PWA offline sync) */}
+      <ConflictModal />
 
     </div>
   );
