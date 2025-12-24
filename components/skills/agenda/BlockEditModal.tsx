@@ -77,7 +77,7 @@ export const BlockEditModal: React.FC<BlockEditModalProps> = ({
             onClick={onClose}
         >
             <div
-                className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl animate-in slide-in-from-bottom-4"
+                className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md md:max-w-md max-h-[100vh] md:max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom-4"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -153,8 +153,8 @@ export const BlockEditModal: React.FC<BlockEditModalProps> = ({
                                     key={preset.value}
                                     onClick={() => setDuration(preset.value)}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${duration === preset.value
-                                            ? 'bg-emerald-600 text-white'
-                                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                                         }`}
                                 >
                                     {preset.label}

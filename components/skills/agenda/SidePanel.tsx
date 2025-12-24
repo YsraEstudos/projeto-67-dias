@@ -30,6 +30,7 @@ interface SidePanelProps {
     activities: AgendaActivity[];
     events: CalendarEvent[];
     onAddEvent: () => void;
+    isCompact?: boolean;
 }
 
 // Draggable item component
@@ -106,7 +107,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     skills,
     activities,
     events,
-    onAddEvent
+    onAddEvent,
+    isCompact = false
 }) => {
     const [openSections, setOpenSections] = useState({
         skills: true,
@@ -134,11 +136,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     };
 
     return (
-        <div className="w-64 bg-slate-800/50 rounded-xl border border-slate-700 p-3 flex-shrink-0 overflow-y-auto max-h-[calc(100vh-200px)]">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Layers size={12} />
-                Arraste para agendar
-            </div>
+        <div className={`${isCompact
+                ? 'w-full bg-transparent p-2'
+                : 'w-64 bg-slate-800/50 rounded-xl border border-slate-700 p-3 flex-shrink-0 overflow-y-auto max-h-[calc(100vh-200px)]'
+            }`}>
+            {!isCompact && (
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Layers size={12} />
+                    Arraste para agendar
+                </div>
+            )}
 
             {/* Skills Section */}
             <div className="mb-4">

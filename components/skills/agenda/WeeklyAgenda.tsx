@@ -10,7 +10,7 @@
  * - Block editing (time, duration, notes)
  * - Event creation
  */
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
     DndContext,
     DragEndEvent,
@@ -22,7 +22,7 @@ import {
     pointerWithin,
     defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
-import { Calendar, ChevronLeft, ChevronRight, BarChart3, Plus } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, BarChart3, Plus, Layers, X } from 'lucide-react';
 import { useSkillsStore } from '../../../stores/skillsStore';
 import { useWeeklyAgendaStore } from '../../../stores/weeklyAgendaStore';
 import { ScheduledBlock } from '../../../types';
@@ -39,6 +39,21 @@ import {
 } from '../../../utils/weeklyAgendaUtils';
 
 const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const DAY_NAMES_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+// Hook to detect mobile viewport
+const useIsMobile = () => {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+};
 
 export const WeeklyAgenda: React.FC = () => {
     const { skills } = useSkillsStore();
@@ -60,6 +75,12 @@ export const WeeklyAgenda: React.FC = () => {
     const [selectedBlock, setSelectedBlock] = useState<ScheduledBlock | null>(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [showActivityModal, setShowActivityModal] = useState<string | boolean>(false);
+
+    // Mobile-specific state
+    const isMobile = useIsMobile();
+    const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
+    const [showSidePanel, setShowSidePanel] = useState(false);
+    const [selectedDayIndex, setSelectedDayIndex] = useState(() => new Date().getDay());
 
     // DnD Active Item State
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -232,75 +253,179 @@ export const WeeklyAgenda: React.FC = () => {
         >
             <div className="space-y-4 animate-in fade-in duration-500">
                 {/* Header with week navigation */}
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-slate-800/50 rounded-xl p-3 md:p-4 border border-slate-700">
+                    <div className="flex items-center justify-between mb-3 md:mb-4">
                         <button
                             onClick={() => setWeekOffset(o => o - 1)}
-                            className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
                         >
                             <ChevronLeft size={20} />
                         </button>
 
-                        <div className="text-center">
-                            <div className="text-lg font-bold text-white">
+                        <div className="text-center flex-1">
+                            <div className="text-base md:text-lg font-bold text-white">
                                 {weekOffset === 0 ? 'Esta Semana' :
                                     weekOffset === 1 ? 'Próxima Semana' :
                                         weekOffset === -1 ? 'Semana Passada' :
                                             `Semana ${weekOffset > 0 ? '+' : ''}${weekOffset}`}
                             </div>
-                            <div className="text-sm text-slate-500">{weekRangeLabel}</div>
+                            <div className="text-xs md:text-sm text-slate-500">{weekRangeLabel}</div>
                         </div>
 
                         <button
                             onClick={() => setWeekOffset(o => o + 1)}
-                            className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
+                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
                         >
                             <ChevronRight size={20} />
                         </button>
                     </div>
 
-                    {/* Quick stats */}
-                    <div className="flex items-center justify-center gap-6 text-sm">
-                        <div className="flex items-center gap-2 text-slate-400">
-                            <BarChart3 size={16} className="text-emerald-400" />
-                            <span className="font-medium text-white">{formatMinutes(weekStats.totalMinutes)}</span>
-                            <span>agendado</span>
+                    {/* Mobile: View mode toggle and day selector */}
+                    {isMobile && (
+                        <div className="mb-3 space-y-3">
+                            {/* View toggle */}
+                            <div className="flex rounded-lg bg-slate-900/50 p-1">
+                                <button
+                                    onClick={() => setViewMode('week')}
+                                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${viewMode === 'week'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'text-slate-400 hover:text-white'
+                                        }`}
+                                >
+                                    Semana
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('day')}
+                                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${viewMode === 'day'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'text-slate-400 hover:text-white'
+                                        }`}
+                                >
+                                    Dia
+                                </button>
+                            </div>
+
+                            {/* Day selector (only in day view) */}
+                            {viewMode === 'day' && (
+                                <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+                                    {weekDates.map((date, idx) => {
+                                        const dayDate = new Date(date + 'T12:00:00');
+                                        const isToday = date === new Date().toISOString().split('T')[0];
+                                        const isSelected = idx === selectedDayIndex;
+
+                                        return (
+                                            <button
+                                                key={date}
+                                                onClick={() => setSelectedDayIndex(idx)}
+                                                className={`flex-1 min-w-[44px] py-2 px-1 rounded-lg text-center transition-colors ${isSelected
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : isToday
+                                                        ? 'bg-blue-600/30 text-blue-400'
+                                                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                                                    }`}
+                                            >
+                                                <div className="text-[10px] uppercase">{DAY_NAMES_SHORT[idx]}</div>
+                                                <div className="text-sm font-bold">{dayDate.getDate()}</div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                        <div className="flex items-center gap-2 text-slate-400">
-                            <Calendar size={16} className="text-blue-400" />
+                    )}
+
+                    {/* Quick stats */}
+                    <div className="flex items-center justify-center gap-4 md:gap-6 text-xs md:text-sm">
+                        <div className="flex items-center gap-1.5 md:gap-2 text-slate-400">
+                            <BarChart3 size={14} className="text-emerald-400" />
+                            <span className="font-medium text-white">{formatMinutes(weekStats.totalMinutes)}</span>
+                            <span className="hidden sm:inline">agendado</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 md:gap-2 text-slate-400">
+                            <Calendar size={14} className="text-blue-400" />
                             <span className="font-medium text-white">{weekStats.blockCount}</span>
-                            <span>blocos</span>
+                            <span className="hidden sm:inline">blocos</span>
                         </div>
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex justify-center gap-2 mt-4">
+                    <div className="flex justify-center gap-2 mt-3 md:mt-4">
                         <button
                             onClick={() => setShowActivityModal(true)}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-medium flex items-center gap-2 transition-colors"
+                            className="px-3 md:px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition-colors"
                         >
                             <Plus size={16} />
-                            Nova Atividade
+                            <span className="hidden sm:inline">Nova </span>Atividade
                         </button>
                         <button
                             onClick={() => setShowEventModal(true)}
-                            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-medium flex items-center gap-2 transition-colors"
+                            className="px-3 md:px-4 py-2 min-h-[44px] bg-purple-600 hover:bg-purple-500 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition-colors"
                         >
                             <Plus size={16} />
-                            Novo Evento
+                            <span className="hidden sm:inline">Novo </span>Evento
                         </button>
                     </div>
                 </div>
 
                 {/* Main content: SidePanel + CalendarGrid */}
-                <div className="flex gap-4">
-                    <SidePanel
-                        skills={skills}
-                        activities={activities}
-                        events={events}
-                        onAddEvent={() => setShowEventModal(true)}
-                    />
+                <div className="flex flex-col md:flex-row gap-4 relative">
+                    {/* Desktop: SidePanel inline */}
+                    <div className="hidden md:block">
+                        <SidePanel
+                            skills={skills}
+                            activities={activities}
+                            events={events}
+                            onAddEvent={() => setShowEventModal(true)}
+                        />
+                    </div>
 
+                    {/* Mobile: SidePanel as overlay/bottom sheet */}
+                    {isMobile && showSidePanel && (
+                        <>
+                            {/* Backdrop */}
+                            <div
+                                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+                                onClick={() => setShowSidePanel(false)}
+                            />
+                            {/* Bottom Sheet */}
+                            <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300">
+                                <div className="bg-slate-800 rounded-t-2xl border-t border-slate-700 max-h-[70vh] overflow-hidden">
+                                    {/* Handle bar */}
+                                    <div className="flex justify-center py-2">
+                                        <div className="w-10 h-1 bg-slate-600 rounded-full" />
+                                    </div>
+                                    {/* Header with close button */}
+                                    <div className="flex items-center justify-between px-4 pb-2">
+                                        <div className="flex items-center gap-2 text-slate-400">
+                                            <Layers size={16} />
+                                            <span className="text-sm font-medium">Arraste para agendar</span>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowSidePanel(false)}
+                                            className="p-2 hover:bg-slate-700 rounded-lg text-slate-400"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    {/* SidePanel content */}
+                                    <div className="overflow-y-auto max-h-[calc(70vh-60px)] px-2 pb-4">
+                                        <SidePanel
+                                            skills={skills}
+                                            activities={activities}
+                                            events={events}
+                                            onAddEvent={() => {
+                                                setShowSidePanel(false);
+                                                setShowEventModal(true);
+                                            }}
+                                            isCompact
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Calendar Grid */}
                     <div className="flex-1 min-w-0">
                         <CalendarGrid
                             weekDates={weekDates}
@@ -313,8 +438,20 @@ export const WeeklyAgenda: React.FC = () => {
                             onBlockClick={handleBlockClick}
                             onBlockDelete={deleteBlock}
                             onEmptySlotClick={handleEmptySlotClick}
+                            selectedDayIndex={isMobile && viewMode === 'day' ? selectedDayIndex : undefined}
+                            isMobile={isMobile}
                         />
                     </div>
+
+                    {/* Mobile FAB to open SidePanel */}
+                    {isMobile && !showSidePanel && (
+                        <button
+                            onClick={() => setShowSidePanel(true)}
+                            className="fixed bottom-4 right-4 z-30 w-14 h-14 bg-emerald-600 hover:bg-emerald-500 rounded-full shadow-lg flex items-center justify-center text-white transition-all active:scale-95"
+                        >
+                            <Layers size={24} />
+                        </button>
+                    )}
                 </div>
 
                 {/* Empty state */}

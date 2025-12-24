@@ -24,6 +24,8 @@ interface CalendarGridProps {
     onBlockClick: (block: ScheduledBlock) => void;
     onBlockDelete: (blockId: string) => void;
     onEmptySlotClick: (date: string, hour: number) => void;
+    selectedDayIndex?: number;
+    isMobile?: boolean;
 }
 
 // Droppable time slot cell
@@ -99,9 +101,16 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     onBlockMove,
     onBlockClick,
     onBlockDelete,
-    onEmptySlotClick
+    onEmptySlotClick,
+    selectedDayIndex,
+    isMobile = false
 }) => {
     const today = new Date().toISOString().split('T')[0];
+
+    // Filter dates for single day view on mobile
+    const displayDates = selectedDayIndex !== undefined
+        ? [weekDates[selectedDayIndex]]
+        : weekDates;
 
     // Create lookup maps for O(1) access
     const skillsMap = useMemo(() => {
@@ -183,34 +192,37 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
             {/* Header row with day names */}
             <div className="flex">
-                <div className="w-14 bg-slate-900 border-b border-r border-slate-700" />
-                {weekDates.map((date, idx) => (
-                    <div key={date} className="flex-1 min-w-[100px]">
-                        <DayHeader
-                            dayName={DAY_NAMES[idx]}
-                            date={date}
-                            isToday={date === today}
-                        />
-                    </div>
-                ))}
+                <div className={`${isMobile ? 'w-10' : 'w-14'} bg-slate-900 border-b border-r border-slate-700`} />
+                {displayDates.map((date, idx) => {
+                    const originalIdx = selectedDayIndex !== undefined ? selectedDayIndex : idx;
+                    return (
+                        <div key={date} className={`flex-1 ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                            <DayHeader
+                                dayName={DAY_NAMES[originalIdx]}
+                                date={date}
+                                isToday={date === today}
+                            />
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Time grid */}
-            <div className="flex overflow-y-auto max-h-[600px]">
+            <div className={`flex overflow-y-auto overflow-x-auto ${isMobile ? 'max-h-[500px] snap-x snap-mandatory' : 'max-h-[600px]'}`}>
                 {/* Hour labels column */}
-                <div className="w-14 flex-shrink-0 bg-slate-900/50">
+                <div className={`${isMobile ? 'w-10' : 'w-14'} flex-shrink-0 bg-slate-900/50`}>
                     {HOURS.map(hour => (
                         <HourLabel key={hour} hour={hour} />
                     ))}
                 </div>
 
                 {/* Days columns */}
-                {weekDates.map((date) => {
+                {displayDates.map((date) => {
                     const dateBlocks = blocksByDate.get(date) || [];
                     const isToday = date === today;
 
                     return (
-                        <div key={date} className="flex-1 min-w-[100px] relative">
+                        <div key={date} className={`flex-1 ${isMobile ? 'min-w-[60px] snap-start' : 'min-w-[100px]'} relative`}>
                             {/* Time slots */}
                             {HOURS.map(hour => (
                                 <TimeSlotCell
