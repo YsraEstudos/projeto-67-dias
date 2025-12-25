@@ -15,7 +15,10 @@ import {
     isDateAfter,
     DAY_NAMES_PT,
     DAY_NAMES_SHORT_PT,
-    getDayNamePT
+    getDayNamePT,
+    getStartOfDay,
+    formatDateISO,
+    daysDiff
 } from './dateUtils';
 
 /**
@@ -114,6 +117,50 @@ export const getActivityMinutesForDate = (activity: AgendaActivity, date: string
     return activity.logs
         .filter(log => log.date === date)
         .reduce((sum, log) => sum + log.minutes, 0);
+};
+
+/**
+ * Calculate statistics for an activity or skill, including debt
+ */
+export const calculateActivityStats = (
+    item: Skill | AgendaActivity,
+    type: 'skill' | 'activity'
+): { dailyGoal: number; todayDone: number; totalDebt: number } => {
+    const today = getTodayISO();
+    const dailyGoal = item.dailyGoalMinutes || 0;
+
+    // Get today's completion
+    let todayDone = 0;
+    if (type === 'skill') {
+        todayDone = getSkillMinutesForDate(item as Skill, today);
+    } else {
+        todayDone = getActivityMinutesForDate(item as AgendaActivity, today);
+    }
+
+    // Calculate total debt
+    // Start from creation date
+    const createdAt = (item as any).createdAt || Date.now();
+    const startDate = formatDateISO(getStartOfDay(createdAt));
+
+    // Days elapsed including today
+    const daysElapsed = Math.max(1, daysDiff(startDate, today) + 1);
+
+    const totalGoal = daysElapsed * dailyGoal;
+
+    let totalDone = 0;
+    if (type === 'skill') {
+        totalDone = (item as Skill).logs?.reduce((acc, log) => acc + log.minutes, 0) || 0;
+    } else {
+        totalDone = (item as AgendaActivity).logs?.reduce((acc, log) => acc + log.minutes, 0) || 0;
+    }
+
+    const totalDebt = Math.max(0, totalGoal - totalDone);
+
+    return {
+        dailyGoal,
+        todayDone,
+        totalDebt
+    };
 };
 
 /**

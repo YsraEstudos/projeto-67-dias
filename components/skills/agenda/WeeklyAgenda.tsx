@@ -26,9 +26,10 @@ import {
 } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { Calendar, ChevronLeft, ChevronRight, BarChart3, Plus, Layers, X } from 'lucide-react';
+import { ActivityLogModal } from './ActivityLogModal';
 import { useSkillsStore } from '../../../stores/skillsStore';
 import { useWeeklyAgendaStore } from '../../../stores/weeklyAgendaStore';
-import { ScheduledBlock } from '../../../types';
+import { ScheduledBlock, Skill, AgendaActivity, SkillLog } from '../../../types';
 import { CalendarGrid } from './CalendarGrid';
 import { SidePanel } from './SidePanel';
 import { BlockEditModal } from './BlockEditModal';
@@ -39,6 +40,7 @@ import { GripVertical, Clock, Target } from 'lucide-react';
 import {
     getWeekDates,
     formatMinutes,
+    getTodayDate,
 } from '../../../utils/weeklyAgendaUtils';
 
 const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -71,23 +73,8 @@ const useIsMobile = () => {
 };
 
 export const WeeklyAgenda: React.FC = () => {
-    const { skills } = useSkillsStore();
-    const {
-        activities,
-        events,
-        scheduledBlocks,
-        scheduleBlock,
-        updateBlock,
-        deleteBlock,
-        moveBlock,
-        addEvent,
-        updateEvent,
-        deleteEvent
-    } = useWeeklyAgendaStore();
-
     // UI State
     const [weekOffset, setWeekOffset] = useState(0);
-    const [selectedBlock, setSelectedBlock] = useState<ScheduledBlock | null>(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [showActivityModal, setShowActivityModal] = useState<string | boolean>(false);
 
@@ -96,6 +83,29 @@ export const WeeklyAgenda: React.FC = () => {
     const [viewMode, setViewMode] = useState<'week' | 'day'>('week'); // Default to week view
     const [showSidePanel, setShowSidePanel] = useState(false);
     const [selectedDayIndex, setSelectedDayIndex] = useState(() => new Date().getDay());
+
+    // Logging & Editing state
+    const [selectedBlock, setSelectedBlock] = useState<ScheduledBlock | null>(null);
+    const [loggingBlock, setLoggingBlock] = useState<{ block: ScheduledBlock; item: Skill | AgendaActivity; type: 'skill' | 'activity' } | null>(null);
+
+    // Stores
+    const {
+        skills,
+        addLog
+    } = useSkillsStore();
+
+    const {
+        scheduledBlocks,
+        activities,
+        events,
+        logActivityTime,
+        addEvent,
+        scheduleBlock,
+        updateBlock,
+        deleteBlock,
+        moveBlock,
+        resizeBlock
+    } = useWeeklyAgendaStore();
 
     // DnD Active Item State
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -232,7 +242,6 @@ export const WeeklyAgenda: React.FC = () => {
     // Panel slides away automatically via CSS when activeId is set
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
-        console.log('[DragStart] Active ID:', active.id, 'Data:', active.data.current);
         setActiveId(active.id as string);
         setActiveData(active.data.current);
         // Trigger haptic feedback on mobile
@@ -243,61 +252,70 @@ export const WeeklyAgenda: React.FC = () => {
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event;
 
-        console.log('[DragEnd] Active:', active?.id, 'Over:', over?.id);
-        console.log('[DragEnd] Active data:', active?.data?.current);
-        console.log('[DragEnd] Over data:', over?.data?.current);
-
         setActiveId(null);
         setActiveData(null);
 
-        // Close side panel after drop on mobile
-        if (isMobile && showSidePanel) {
-            setShowSidePanel(false);
-        }
-
         if (!over) {
-            console.log('[DragEnd] No drop target (over is null)');
             return;
         }
 
         const overId = over.id as string;
-        console.log('[DragEnd] Over ID:', overId);
 
-        if (!overId.startsWith('slot-')) {
-            console.log('[DragEnd] Not a valid slot target');
-            return;
-        }
+        if (overId.startsWith('slot-')) {
+            const parts = overId.split('-'); // format: slot-YYYY-MM-DD-HH
+            const date = `${parts[1]}-${parts[2]}-${parts[3]}`;
+            const hour = parseInt(parts[4]);
 
-        // Parse slot ID: slot-YYYY-MM-DD-HH
-        const parts = overId.split('-');
-        const hourOrPart = parts.pop()!;
-        const hour = parseInt(hourOrPart);
-        const date = parts.slice(1).join('-');
-
-        console.log('[DragEnd] Parsed - Date:', date, 'Hour:', hour);
-
-        const activeData = active.data.current;
-
-        // Trigger haptic feedback on successful drop
-        triggerHaptic('medium');
-
-        if (activeData?.isBlock) {
-            // Moving existing block
-            console.log('[DragEnd] Moving block:', active.id, 'to', date, hour);
-            moveBlock(active.id as string, date, hour, 0);
-        } else if (activeData?.type && activeData?.referenceId) {
-            // Dropping new item from sidebar
-            console.log('[DragEnd] Creating new block:', activeData.type, activeData.referenceId, date, hour);
-            handleBlockDrop(activeData.type, activeData.referenceId, date, hour, 0);
-        } else {
-            console.log('[DragEnd] Unknown active data format:', activeData);
+            if (active.id.toString().startsWith('block-')) {
+                const blockId = active.id.toString().replace('block-', '');
+                moveBlock(blockId, date, hour, 0);
+            } else if (activeData) {
+                handleBlockDrop(activeData.type, activeData.referenceId, date, hour, 0);
+            }
         }
     }, [moveBlock, handleBlockDrop, isMobile, showSidePanel]);
 
-    // Handle block click (open edit modal)
+    // Handle block click - opens specialized log modal for skills/activities
     const handleBlockClick = useCallback((block: ScheduledBlock) => {
+        if (block.type === 'skill') {
+            const skill = skills.find(s => s.id === block.referenceId);
+            if (skill) {
+                setLoggingBlock({ block, item: skill, type: 'skill' });
+                return;
+            }
+        } else if (block.type === 'activity') {
+            const activity = activities.find(a => a.id === block.referenceId);
+            if (activity) {
+                setLoggingBlock({ block, item: activity, type: 'activity' });
+                return;
+            }
+        }
+
+        // Default to edit modal for events or if item not found
         setSelectedBlock(block);
-    }, []);
+    }, [skills, activities]);
+
+    const handleLogActivity = useCallback((minutes: number) => {
+        if (!loggingBlock) return;
+
+        const { item, type } = loggingBlock;
+        const today = getTodayDate();
+
+        if (type === 'skill') {
+            const log: SkillLog = {
+                id: `${Date.now()}`,
+                date: today,
+                minutes,
+                notes: `Registrado via Agenda (${loggingBlock.block.startHour}:${loggingBlock.block.startMinute.toString().padStart(2, '0')})`
+            };
+            addLog(item.id, log);
+        } else {
+            logActivityTime(item.id, minutes, today);
+        }
+
+        triggerHaptic('medium');
+        setLoggingBlock(null);
+    }, [loggingBlock, addLog, logActivityTime]);
 
     // Handle item tap for tap-to-place (mobile alternative to drag)
     const handleItemTap = useCallback((type: 'skill' | 'activity' | 'event', referenceId: string) => {
@@ -580,6 +598,20 @@ export const WeeklyAgenda: React.FC = () => {
                 )}
 
                 {/* Modals */}
+                {loggingBlock && (
+                    <ActivityLogModal
+                        block={loggingBlock.block}
+                        item={loggingBlock.item}
+                        type={loggingBlock.type}
+                        onClose={() => setLoggingBlock(null)}
+                        onLogTime={handleLogActivity}
+                        onEditBlock={() => {
+                            setSelectedBlock(loggingBlock.block);
+                            setLoggingBlock(null);
+                        }}
+                    />
+                )}
+
                 {selectedBlock && (
                     <BlockEditModal
                         block={selectedBlock}
