@@ -11,7 +11,8 @@ import { ScheduledBlockCard } from './ScheduledBlockCard';
 
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6h to 23h
 const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const HOUR_HEIGHT = 80; // pixels per hour - increased for better readability
+const HOUR_HEIGHT = 80; // pixels per hour - desktop
+const HOUR_HEIGHT_MOBILE = 100; // larger touch targets for mobile
 
 interface CalendarGridProps {
     weekDates: string[];
@@ -36,18 +37,22 @@ const TimeSlotCell = React.memo<{
     isToday: boolean;
     onClick: () => void;
     tapToPlaceMode?: boolean;
-}>(({ date, hour, isToday, onClick, tapToPlaceMode }) => {
+    isMobile?: boolean;
+}>(({ date, hour, isToday, onClick, tapToPlaceMode, isMobile }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: `slot-${date}-${hour}`,
         data: { date, hour }
     });
 
+    const slotHeight = isMobile ? HOUR_HEIGHT_MOBILE : HOUR_HEIGHT;
+
     return (
         <div
             ref={setNodeRef}
             onClick={onClick}
+            style={{ height: `${slotHeight}px` }}
             className={`
-                h-[80px] border-b border-r border-slate-700/50 relative
+                border-b border-r border-slate-700/50 relative
                 transition-all cursor-pointer
                 ${isOver ? 'bg-emerald-500/30 border-emerald-400 border-2 ring-2 ring-emerald-400/50 ring-inset drop-zone-active' : ''}
                 ${isToday && !isOver ? 'bg-blue-900/10' : ''}
@@ -75,12 +80,18 @@ const TimeSlotCell = React.memo<{
 
 TimeSlotCell.displayName = 'TimeSlotCell';
 
-// Hour label on left side
-const HourLabel = React.memo<{ hour: number }>(({ hour }) => (
-    <div className="w-14 h-[80px] flex items-start justify-end pr-2 pt-1 text-[11px] text-slate-500 font-mono border-b border-slate-700/30">
-        {hour.toString().padStart(2, '0')}:00
-    </div>
-));
+// Hour label on left side - height matches slot height
+const HourLabel = React.memo<{ hour: number; isMobile?: boolean }>(({ hour, isMobile }) => {
+    const slotHeight = isMobile ? HOUR_HEIGHT_MOBILE : HOUR_HEIGHT;
+    return (
+        <div
+            style={{ height: `${slotHeight}px` }}
+            className="w-14 flex items-start justify-end pr-2 pt-1 text-[11px] text-slate-500 font-mono border-b border-slate-700/30"
+        >
+            {hour.toString().padStart(2, '0')}:00
+        </div>
+    );
+});
 
 HourLabel.displayName = 'HourLabel';
 
@@ -216,7 +227,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 {displayDates.map((date, idx) => {
                     const originalIdx = selectedDayIndex !== undefined ? selectedDayIndex : idx;
                     return (
-                        <div key={date} className={`flex-1 ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                        <div key={date} className={`flex-1 ${isMobile ? 'min-w-full' : 'min-w-[100px]'}`}>
                             <DayHeader
                                 dayName={DAY_NAMES[originalIdx]}
                                 date={date}
@@ -228,11 +239,11 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             </div>
 
             {/* Time grid */}
-            <div className={`flex overflow-y-auto overflow-x-auto ${isMobile ? 'max-h-[500px] snap-x snap-mandatory' : 'max-h-[600px]'}`}>
+            <div className={`flex overflow-y-auto overflow-x-auto ${isMobile ? 'max-h-[65vh]' : 'max-h-[600px]'}`}>
                 {/* Hour labels column */}
                 <div className={`${isMobile ? 'w-10' : 'w-14'} flex-shrink-0 bg-slate-900/50`}>
                     {HOURS.map(hour => (
-                        <HourLabel key={hour} hour={hour} />
+                        <HourLabel key={hour} hour={hour} isMobile={isMobile} />
                     ))}
                 </div>
 
@@ -242,8 +253,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     const isToday = date === today;
 
                     return (
-                        <div key={date} className={`flex-1 ${isMobile ? 'min-w-[60px] snap-start' : 'min-w-[100px]'} relative`}>
-                            {/* Time slots */}
+                        <div key={date} className={`flex-1 ${isMobile ? 'min-w-full' : 'min-w-[100px]'} relative`}>
                             {HOURS.map(hour => (
                                 <TimeSlotCell
                                     key={`${date}-${hour}`}
@@ -252,14 +262,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                     isToday={isToday}
                                     onClick={() => onEmptySlotClick(date, hour)}
                                     tapToPlaceMode={tapToPlaceMode}
+                                    isMobile={isMobile}
                                 />
                             ))}
 
-                            {/* Scheduled blocks (positioned absolutely) */}
                             {dateBlocks.map(block => {
                                 const { title, color } = getBlockInfo(block);
-                                const topOffset = (block.startHour - 6) * HOUR_HEIGHT + (block.startMinute / 60) * HOUR_HEIGHT;
-                                const height = (block.durationMinutes / 60) * HOUR_HEIGHT;
+                                const hourHeight = isMobile ? HOUR_HEIGHT_MOBILE : HOUR_HEIGHT;
+                                const topOffset = (block.startHour - 6) * hourHeight + (block.startMinute / 60) * hourHeight;
+                                const height = (block.durationMinutes / 60) * hourHeight;
 
 
                                 return (

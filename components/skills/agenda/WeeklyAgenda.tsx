@@ -93,7 +93,7 @@ export const WeeklyAgenda: React.FC = () => {
 
     // Mobile-specific state
     const isMobile = useIsMobile();
-    const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
+    const [viewMode, setViewMode] = useState<'week' | 'day'>('day'); // Start in day view for better mobile UX
     const [showSidePanel, setShowSidePanel] = useState(false);
     const [selectedDayIndex, setSelectedDayIndex] = useState(() => new Date().getDay());
 
