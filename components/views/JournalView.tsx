@@ -4,6 +4,9 @@ import {
     Smile, Meh, Frown, CloudRain, Zap, Quote
 } from 'lucide-react';
 import { useJournalStore, JournalEntry } from '../../stores/journalStore';
+import { useTabStore } from '../../stores/tabStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useNavigationHistory } from '../../hooks/useNavigationHistory';
 import { useStreakTracking } from '../../hooks/useStreakTracking';
 
 import { Mood, MOOD_CONFIG } from '../../types';
@@ -65,9 +68,39 @@ const MoodSelector: React.FC<{ current: Mood; onSelect: (m: Mood) => void }> = (
 };
 
 const JournalView: React.FC = () => {
+    // Tab Store Integration
+    const { activeTabId, tabs, updateTabState } = useTabStore(useShallow(state => ({
+        activeTabId: state.activeTabId,
+        tabs: state.tabs,
+        updateTabState: state.updateTabState
+    })));
+
+    // Navigation History for browser back button
+    const { pushNavigation } = useNavigationHistory();
+
+    const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+    const tabSelectedId = activeTab?.state?.selectedEntryId as string | undefined;
+
     // Zustand store
     const { entries, addEntry, updateEntry: storeUpdateEntry, deleteEntry: storeDeleteEntry, isLoading } = useJournalStore();
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    // Local state fallback
+    const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
+
+    // Resolved Selected ID
+    const selectedId = activeTabId ? tabSelectedId || null : localSelectedId;
+
+    const setSelectedId = (id: string | null) => {
+        if (activeTabId) {
+            updateTabState(activeTabId, { selectedEntryId: id });
+            // Push to browser history when selecting entry
+            if (id) {
+                pushNavigation({ tabId: activeTabId, subView: 'entry', itemId: id });
+            }
+        } else {
+            setLocalSelectedId(id);
+        }
+    };
 
     // Streak Tracking
     const { trackActivity } = useStreakTracking();

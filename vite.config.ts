@@ -88,6 +88,9 @@ export default defineConfig(({ mode }) => {
             'firebase-core': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'charts': ['recharts'],
             'markdown': ['react-markdown', 'remark-gfm'],
+            'date-utils': ['date-fns'],
+            'roadmap': ['dagre', 'react-zoom-pan-pinch'],
+            'validation': ['zod'],
           }
         }
       },

@@ -33,6 +33,7 @@ interface SidePanelProps {
     onItemTap?: (type: 'skill' | 'activity' | 'event', referenceId: string) => void;
     selectedItemId?: string;
     isCompact?: boolean;
+    collapsedByDrag?: boolean;
 }
 
 // Draggable item component with tap support for mobile
@@ -168,13 +169,22 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     onAddEvent,
     onItemTap,
     selectedItemId,
-    isCompact = false
+    isCompact = false,
+    collapsedByDrag = false
 }) => {
     const [openSections, setOpenSections] = useState({
         skills: true,
         activities: true,
         events: true
     });
+
+    // Effective open state - collapses all sections when drag is active (mobile)
+    const effectiveOpenSections = useMemo(() => {
+        if (collapsedByDrag) {
+            return { skills: false, activities: false, events: false };
+        }
+        return openSections;
+    }, [openSections, collapsedByDrag]);
 
     const toggleSection = (section: keyof typeof openSections) => {
         setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -213,10 +223,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     title="Skills"
                     icon={<Target size={16} className="text-emerald-400" />}
                     count={activeSkills.length}
-                    isOpen={openSections.skills}
+                    isOpen={effectiveOpenSections.skills}
                     onToggle={() => toggleSection('skills')}
                 />
-                {openSections.skills && (
+                {effectiveOpenSections.skills && (
                     <div className="space-y-2 mt-2 pl-2">
                         {activeSkills.length === 0 ? (
                             <div className="text-xs text-slate-500 italic p-2">
@@ -247,10 +257,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     title="Atividades"
                     icon={<Clock size={16} className="text-blue-400" />}
                     count={activities.length}
-                    isOpen={openSections.activities}
+                    isOpen={effectiveOpenSections.activities}
                     onToggle={() => toggleSection('activities')}
                 />
-                {openSections.activities && (
+                {effectiveOpenSections.activities && (
                     <div className="space-y-2 mt-2 pl-2">
                         {activities.length === 0 ? (
                             <div className="text-xs text-slate-500 italic p-2">
@@ -281,10 +291,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                     title="Eventos"
                     icon={<Calendar size={16} className="text-purple-400" />}
                     count={events.length}
-                    isOpen={openSections.events}
+                    isOpen={effectiveOpenSections.events}
                     onToggle={() => toggleSection('events')}
                 />
-                {openSections.events && (
+                {effectiveOpenSections.events && (
                     <div className="space-y-2 mt-2 pl-2">
                         {events.map(event => (
                             <DraggableItem

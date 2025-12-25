@@ -91,6 +91,7 @@ export interface DashboardCardProps {
   stats?: string;
   notificationCount?: number;
   onClick: (view: ViewState) => void;
+  onAuxClick?: (view: ViewState) => void;
 }
 
 export interface Task {

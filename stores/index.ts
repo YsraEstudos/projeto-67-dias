@@ -65,6 +65,9 @@ export { useStreakStore } from './streakStore';
 // Weekly Agenda Store - Weekly skill planning
 export { useWeeklyAgendaStore } from './weeklyAgendaStore';
 
+// Tab Store - Multi-tab navigation
+export { useTabStore } from './tabStore';
+
 // Optimized Selectors - Pre-built hooks with useShallow for common patterns
 export {
     // Habits selectors
@@ -117,6 +120,7 @@ import { useStreakStore } from './streakStore';
 import { useTimerStore } from './timerStore';
 import { useSiteCategoriesStore } from './siteCategoriesStore';
 import { useWeeklyAgendaStore } from './weeklyAgendaStore';
+import { useTabStore } from './tabStore';
 
 /**
  * Clears all stores to initial state.
@@ -143,5 +147,6 @@ export const clearAllStores = () => {
     useTimerStore.getState()._reset();
     useSiteCategoriesStore.getState()._reset();
     useWeeklyAgendaStore.getState()._reset();
+    useTabStore.setState({ tabs: [], activeTabId: null }); // Reset tabs on logout
     console.log('[clearAllStores] All stores reset for user switch');
 };

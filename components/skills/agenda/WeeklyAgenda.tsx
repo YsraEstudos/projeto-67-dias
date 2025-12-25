@@ -235,7 +235,12 @@ export const WeeklyAgenda: React.FC = () => {
         setActiveData(active.data.current);
         // Trigger haptic feedback on mobile
         triggerHaptic('light');
-    }, []);
+
+        // Mobile: Close the side panel to reveal the calendar for drop
+        if (isMobile && showSidePanel) {
+            setShowSidePanel(false);
+        }
+    }, [isMobile, showSidePanel]);
 
     // Handle DnD drag end - with haptic on successful drop
     const handleDragEnd = useCallback((event: DragEndEvent) => {

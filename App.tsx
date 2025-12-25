@@ -29,6 +29,9 @@ import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync'
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
 import { ConflictModal } from './components/modals/ConflictModal';
+import { TabBar } from './components/shared/TabBar';
+import { useTabStore } from './stores/tabStore';
+import { useNavigationHistory } from './hooks/useNavigationHistory';
 
 // Services
 import { calculateCurrentDay, getDaysUntilStart } from './services/weeklySnapshot';
@@ -87,6 +90,10 @@ const App: React.FC = () => {
   const setActiveView = useUIStore((state) => state.setActiveView);
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const setMenuOpen = useUIStore((state) => state.setMenuOpen);
+
+  // --- TAB STATE (Multi-tab navigation) ---
+  const { tabs, activeTabId, addTab, setActiveTab, updateTabState, closeTab } = useTabStore();
+  const { pushNavigation } = useNavigationHistory();
 
   // Track if data has finished syncing from cloud
   const [isDataReady, setIsDataReady] = useState(false);
@@ -314,6 +321,86 @@ const App: React.FC = () => {
     }
   };
 
+  // --- VIEW LABEL HELPER ---
+  const getViewLabel = useCallback((view: ViewState): string => {
+    const labels: Record<ViewState, string> = {
+      [ViewState.DASHBOARD]: 'Dashboard',
+      [ViewState.WORK]: 'Trabalho',
+      [ViewState.SUNDAY]: 'Ajeitar Rápido',
+      [ViewState.LINKS]: 'Meus Links',
+      [ViewState.READING]: 'Leitura',
+      [ViewState.SKILLS]: 'Habilidades',
+      [ViewState.HABITS]: 'Hábitos & Tarefas',
+      [ViewState.JOURNAL]: 'Diário',
+      [ViewState.PROGRESS]: 'Progresso',
+      [ViewState.REST]: 'Descansos',
+      [ViewState.TOOLS]: 'Ferramentas',
+      [ViewState.SETTINGS]: 'Configurações',
+      [ViewState.GAMES]: 'Jogos',
+    };
+    return labels[view] || view;
+  }, []);
+
+  // --- CARD CLICK HANDLERS ---
+  const handleCardClick = useCallback((view: ViewState) => {
+    // Find if there's already a tab with this view
+    const existingTab = tabs.find(t => t.view === view);
+
+    if (existingTab) {
+      // Tab exists, just activate it
+      setActiveTab(existingTab.id);
+      setActiveView(view);
+    } else if (tabs.length === 0) {
+      // No tabs open yet, use simple navigation (without creating tabs)
+      setActiveView(view);
+      pushNavigation({ view });
+    } else {
+      // Has tabs, create a new one
+      addTab(view, getViewLabel(view));
+      setActiveView(view);
+      pushNavigation({ view });
+    }
+  }, [tabs, setActiveTab, setActiveView, addTab, pushNavigation, getViewLabel]);
+
+  const handleCardMiddleClick = useCallback((view: ViewState) => {
+    // Always create a new tab
+    addTab(view, getViewLabel(view));
+    setActiveView(view);
+    pushNavigation({ view });
+  }, [addTab, setActiveView, pushNavigation, getViewLabel]);
+
+  // --- Back button handler (contextual) ---
+  const handleBack = useCallback(() => {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+
+    if (activeTab) {
+      // Check if there's internal state (editor open, etc.)
+      const hasInternalState = activeTab.state?.activeNoteId ||
+        activeTab.state?.selectedEntryId ||
+        activeTab.state?.isCreating;
+
+      if (hasInternalState) {
+        // Clear internal state (go back to list view within module)
+        updateTabState(activeTabId!, {
+          activeNoteId: null,
+          selectedEntryId: null,
+          isCreating: false
+        });
+        // Also go back in browser history
+        history.back();
+      } else {
+        // No internal state: close the tab
+        closeTab(activeTabId!);
+        // Browser back
+        history.back();
+      }
+    } else {
+      // No tabs: just go to dashboard
+      setActiveView(ViewState.DASHBOARD);
+      history.back();
+    }
+  }, [tabs, activeTabId, updateTabState, closeTab, setActiveView]);
+
   // --- Configuration Data ---
   // Work data is now from Zustand store (already declared above)
 
@@ -416,7 +503,8 @@ const App: React.FC = () => {
               <Card
                 key={card.id}
                 {...card}
-                onClick={setActiveView}
+                onClick={handleCardClick}
+                onAuxClick={handleCardMiddleClick}
               />
             ))}
           </div>
@@ -491,6 +579,8 @@ const App: React.FC = () => {
 
       {/* Top Navigation / Header */}
       <header className="sticky top-0 z-50 glass-strong border-b border-slate-800/50 transition-all duration-300">
+        {/* Tab Bar (only shown when tabs exist) */}
+        <TabBar />
 
 
         <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 sm:h-20 flex items-center justify-between">
@@ -498,7 +588,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4 w-20">
             {activeView !== ViewState.DASHBOARD && (
               <button
-                onClick={() => setActiveView(ViewState.DASHBOARD)}
+                onClick={handleBack}
                 className="p-2.5 sm:p-2 -ml-2 hover:bg-slate-800/80 rounded-full transition-all text-slate-400 hover:text-white group hover:scale-105 active:bg-slate-700 touch-manipulation"
                 aria-label="Voltar"
               >

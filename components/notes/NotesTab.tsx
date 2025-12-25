@@ -3,6 +3,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { Plus, Search, StickyNote, Pin, ChevronRight } from 'lucide-react';
 import { Note, Tag } from '../../types';
 import { useNotesStore } from '../../stores/notesStore';
+import { useTabStore } from '../../stores/tabStore';
+import { useNavigationHistory } from '../../hooks/useNavigationHistory';
 import { NoteCard } from './NoteCard';
 import { NoteEditor } from './NoteEditor';
 import { TagFilter } from './TagFilter';
@@ -16,7 +18,53 @@ interface NotesTabProps {
 }
 
 export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => {
-    // Zustand store
+    // Tab Store Integration
+    const { activeTabId, tabs, updateTabState } = useTabStore(useShallow(state => ({
+        activeTabId: state.activeTabId,
+        tabs: state.tabs,
+        updateTabState: state.updateTabState
+    })));
+
+    // Navigation History for browser back button
+    const { pushNavigation } = useNavigationHistory();
+
+    const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+
+    // Read state from tab (or fallback to local if no tab open - e.g. standalone view)
+    const activeNoteId = activeTab?.state?.activeNoteId as string | undefined;
+    const isCreatingState = activeTab?.state?.isCreating as boolean | undefined;
+
+    // Local state fallbacks (for backward compatibility if not running inside tab system)
+    const [localEditingId, setLocalEditingId] = useState<string | null>(null);
+    const [localIsCreating, setLocalIsCreating] = useState(false);
+
+    // Helpers to update state
+    const setEditingNoteId = useCallback((id: string | null) => {
+        if (activeTabId) {
+            updateTabState(activeTabId, { activeNoteId: id, isCreating: false });
+            // Push to browser history when opening editor
+            if (id) {
+                pushNavigation({ tabId: activeTabId, subView: 'editor', itemId: id });
+            }
+        } else {
+            setLocalEditingId(id);
+            setLocalIsCreating(false);
+        }
+    }, [activeTabId, updateTabState, pushNavigation]);
+
+    const setIsCreating = useCallback((creating: boolean) => {
+        if (activeTabId) {
+            updateTabState(activeTabId, { isCreating: creating, activeNoteId: null });
+            // Push to browser history when creating
+            if (creating) {
+                pushNavigation({ tabId: activeTabId, subView: 'create' });
+            }
+        } else {
+            setLocalIsCreating(creating);
+            setLocalEditingId(null);
+        }
+    }, [activeTabId, updateTabState, pushNavigation]);
+
     // Zustand store
     const { notes, tags } = useNotesStore(useShallow(state => ({
         notes: state.notes,
@@ -47,8 +95,16 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     })));
 
 
-    const [editingNote, setEditingNote] = useState<Note | null>(null);
-    const [isCreating, setIsCreating] = useState(false);
+
+    // Resolve current editing state
+    const editingNoteId = activeTabId ? activeNoteId : localEditingId;
+    const isCreating = activeTabId ? !!isCreatingState : localIsCreating;
+
+    // Find note object
+    const editingNote = useMemo(() =>
+        editingNoteId ? notes.find(n => n.id === editingNoteId) || null : null
+        , [notes, editingNoteId]);
+
     const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -225,11 +281,12 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     }, [notes, updateNote]);
 
 
-    const openCreateModal = useCallback(() => setIsCreating(true), []);
+
+    const openCreateModal = useCallback(() => setIsCreating(true), [setIsCreating]);
     const closeEditor = useCallback(() => {
         setIsCreating(false);
-        setEditingNote(null);
-    }, []);
+        setEditingNoteId(null);
+    }, [setIsCreating, setEditingNoteId]);
 
     if (isAuthLoading) {
         return (
@@ -365,7 +422,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                             <div key={note.id} className="flex-shrink-0 w-40 md:w-72">
                                                 <NoteCard
                                                     note={note}
-                                                    onClick={setEditingNote}
+                                                    onClick={(n) => setEditingNoteId(n.id)}
                                                     onDelete={handleDeleteNote}
                                                     onDuplicate={handleDuplicateNote}
                                                     onTogglePin={handleTogglePin}
@@ -412,7 +469,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                             <NoteCard
                                 key={note.id}
                                 note={note}
-                                onClick={setEditingNote}
+                                onClick={(n) => setEditingNoteId(n.id)}
                                 onDelete={handleDeleteNote}
                                 onDuplicate={handleDuplicateNote}
                                 onTogglePin={handleTogglePin}

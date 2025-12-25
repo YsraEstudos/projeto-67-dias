@@ -10,6 +10,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
   color,
   stats,
   onClick,
+  onAuxClick,
 }) => {
   // Map color classes to glow colors
   const glowMap: Record<string, string> = {
@@ -47,6 +48,12 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
   return (
     <div
       onClick={() => onClick(id)}
+      onAuxClick={(e) => {
+        if (e.button === 1 && onAuxClick) {
+          e.preventDefault();
+          onAuxClick(id);
+        }
+      }}
       className={`
         group relative overflow-hidden
         bg-gradient-to-br from-slate-800/80 to-slate-900/80 
