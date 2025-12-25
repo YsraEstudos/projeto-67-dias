@@ -229,6 +229,7 @@ export const WeeklyAgenda: React.FC = () => {
     }, [skillsMap, activitiesMap, eventsMap, scheduleBlock]);
 
     // Handle DnD drag start - with haptic feedback
+    // Panel slides away automatically via CSS when activeId is set
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
         console.log('[DragStart] Active ID:', active.id, 'Data:', active.data.current);
@@ -236,12 +237,6 @@ export const WeeklyAgenda: React.FC = () => {
         setActiveData(active.data.current);
         // Trigger haptic feedback on mobile
         triggerHaptic('light');
-
-        // Mobile: Close the side panel after a tiny delay to reveal the calendar
-        // The delay ensures the drag context is fully established before UI changes
-        setTimeout(() => {
-            setShowSidePanel(false);
-        }, 50);
     }, []);
 
     // Handle DnD drag end - with haptic on successful drop
@@ -478,15 +473,18 @@ export const WeeklyAgenda: React.FC = () => {
                     </div>
 
                     {/* Mobile: SidePanel as overlay/bottom sheet */}
-                    {isMobile && showSidePanel && (
+                    {/* Always render when on mobile to keep DraggableItems mounted during drag */}
+                    {isMobile && (
                         <>
-                            {/* Backdrop */}
+                            {/* Backdrop - only visible when panel is open and not dragging */}
                             <div
-                                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+                                className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-200 ${showSidePanel && !activeId ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                                    }`}
                                 onClick={() => setShowSidePanel(false)}
                             />
-                            {/* Bottom Sheet - more compact for mobile */}
-                            <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300">
+                            {/* Bottom Sheet - slides down when closed or dragging */}
+                            <div className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${showSidePanel && !activeId ? 'translate-y-0' : 'translate-y-full'
+                                }`}>
                                 <div className="bg-slate-800 rounded-t-2xl border-t border-slate-700 max-h-[50vh] overflow-hidden">
                                     {/* Handle bar */}
                                     <div className="flex justify-center py-2">
