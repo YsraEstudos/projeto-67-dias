@@ -93,7 +93,7 @@ export const WeeklyAgenda: React.FC = () => {
 
     // Mobile-specific state
     const isMobile = useIsMobile();
-    const [viewMode, setViewMode] = useState<'week' | 'day'>('day'); // Start in day view for better mobile UX
+    const [viewMode, setViewMode] = useState<'week' | 'day'>('week'); // Default to week view
     const [showSidePanel, setShowSidePanel] = useState(false);
     const [selectedDayIndex, setSelectedDayIndex] = useState(() => new Date().getDay());
 
@@ -231,33 +231,55 @@ export const WeeklyAgenda: React.FC = () => {
     // Handle DnD drag start - with haptic feedback
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
+        console.log('[DragStart] Active ID:', active.id, 'Data:', active.data.current);
         setActiveId(active.id as string);
         setActiveData(active.data.current);
         // Trigger haptic feedback on mobile
         triggerHaptic('light');
 
-        // Mobile: Close the side panel to reveal the calendar for drop
-        if (isMobile && showSidePanel) {
+        // Mobile: Close the side panel after a tiny delay to reveal the calendar
+        // The delay ensures the drag context is fully established before UI changes
+        setTimeout(() => {
             setShowSidePanel(false);
-        }
-    }, [isMobile, showSidePanel]);
+        }, 50);
+    }, []);
 
     // Handle DnD drag end - with haptic on successful drop
     const handleDragEnd = useCallback((event: DragEndEvent) => {
+        const { active, over } = event;
+
+        console.log('[DragEnd] Active:', active?.id, 'Over:', over?.id);
+        console.log('[DragEnd] Active data:', active?.data?.current);
+        console.log('[DragEnd] Over data:', over?.data?.current);
+
         setActiveId(null);
         setActiveData(null);
 
-        const { active, over } = event;
-        if (!over) return;
+        // Close side panel after drop on mobile
+        if (isMobile && showSidePanel) {
+            setShowSidePanel(false);
+        }
+
+        if (!over) {
+            console.log('[DragEnd] No drop target (over is null)');
+            return;
+        }
 
         const overId = over.id as string;
-        if (!overId.startsWith('slot-')) return;
+        console.log('[DragEnd] Over ID:', overId);
+
+        if (!overId.startsWith('slot-')) {
+            console.log('[DragEnd] Not a valid slot target');
+            return;
+        }
 
         // Parse slot ID: slot-YYYY-MM-DD-HH
         const parts = overId.split('-');
         const hourOrPart = parts.pop()!;
         const hour = parseInt(hourOrPart);
         const date = parts.slice(1).join('-');
+
+        console.log('[DragEnd] Parsed - Date:', date, 'Hour:', hour);
 
         const activeData = active.data.current;
 
@@ -266,12 +288,16 @@ export const WeeklyAgenda: React.FC = () => {
 
         if (activeData?.isBlock) {
             // Moving existing block
+            console.log('[DragEnd] Moving block:', active.id, 'to', date, hour);
             moveBlock(active.id as string, date, hour, 0);
         } else if (activeData?.type && activeData?.referenceId) {
             // Dropping new item from sidebar
+            console.log('[DragEnd] Creating new block:', activeData.type, activeData.referenceId, date, hour);
             handleBlockDrop(activeData.type, activeData.referenceId, date, hour, 0);
+        } else {
+            console.log('[DragEnd] Unknown active data format:', activeData);
         }
-    }, [moveBlock, handleBlockDrop]);
+    }, [moveBlock, handleBlockDrop, isMobile, showSidePanel]);
 
     // Handle block click (open edit modal)
     const handleBlockClick = useCallback((block: ScheduledBlock) => {
@@ -280,6 +306,7 @@ export const WeeklyAgenda: React.FC = () => {
 
     // Handle item tap for tap-to-place (mobile alternative to drag)
     const handleItemTap = useCallback((type: 'skill' | 'activity' | 'event', referenceId: string) => {
+        console.log('[TapToPlace] Item tapped:', type, referenceId);
         setTapToPlaceItem({ type, referenceId });
         setShowSidePanel(false); // Close panel to show calendar
     }, []);
@@ -291,8 +318,10 @@ export const WeeklyAgenda: React.FC = () => {
 
     // Handle empty slot click - supports tap-to-place
     const handleEmptySlotClick = useCallback((date: string, hour: number) => {
+        console.log('[SlotClick] Date:', date, 'Hour:', hour, 'TapToPlaceItem:', tapToPlaceItem);
         if (tapToPlaceItem) {
             // In tap-to-place mode: schedule the item
+            console.log('[SlotClick] Creating block via tap-to-place:', tapToPlaceItem);
             handleBlockDrop(tapToPlaceItem.type, tapToPlaceItem.referenceId, date, hour, 0);
             setTapToPlaceItem(null);
         } else {

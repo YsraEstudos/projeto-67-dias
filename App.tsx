@@ -350,6 +350,7 @@ const App: React.FC = () => {
       // Tab exists, just activate it
       setActiveTab(existingTab.id);
       setActiveView(view);
+      pushNavigation({ view, tabId: existingTab.id });
     } else if (tabs.length === 0) {
       // No tabs open yet, use simple navigation (without creating tabs)
       setActiveView(view);
@@ -386,20 +387,33 @@ const App: React.FC = () => {
           selectedEntryId: null,
           isCreating: false
         });
-        // Also go back in browser history
-        history.back();
+        // Go back in browser history (will trigger popstate)
+        if (history.length > 1) {
+          history.back();
+        }
       } else {
         // No internal state: close the tab
         closeTab(activeTabId!);
-        // Browser back
-        history.back();
+        // Go to dashboard if this was the last tab
+        if (tabs.length <= 1) {
+          setActiveView(ViewState.DASHBOARD);
+        }
+        // Go back in browser history
+        if (history.length > 1) {
+          history.back();
+        }
       }
     } else {
       // No tabs: just go to dashboard
-      setActiveView(ViewState.DASHBOARD);
-      history.back();
+      if (activeView !== ViewState.DASHBOARD) {
+        setActiveView(ViewState.DASHBOARD);
+        if (history.length > 1) {
+          history.back();
+        }
+      }
+      // If already on dashboard, don't navigate (prevents closing PWA)
     }
-  }, [tabs, activeTabId, updateTabState, closeTab, setActiveView]);
+  }, [tabs, activeTabId, activeView, updateTabState, closeTab, setActiveView]);
 
   // --- Configuration Data ---
   // Work data is now from Zustand store (already declared above)
