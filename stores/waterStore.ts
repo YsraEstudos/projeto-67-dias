@@ -3,6 +3,7 @@
  */
 import { create } from 'zustand';
 import { writeToFirestore } from './firestoreSync';
+import { getTodayISO } from '../utils/dateUtils';
 
 const STORE_KEY = 'p67_water_store';
 
@@ -59,7 +60,7 @@ interface WaterState {
 }
 
 export const useWaterStore = create<WaterState>()((set, get) => ({
-    today: new Date().toISOString().split('T')[0],
+    today: getTodayISO(),
     currentAmount: 0,
     dailyGoal: 2500,
     history: {},
@@ -174,7 +175,7 @@ export const useWaterStore = create<WaterState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data) {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getTodayISO();
             const currentLog = data.history?.[today];
             set({
                 dailyGoal: data.dailyGoal || 2500,
@@ -192,7 +193,7 @@ export const useWaterStore = create<WaterState>()((set, get) => ({
 
     _reset: () => {
         set({
-            today: new Date().toISOString().split('T')[0],
+            today: getTodayISO(),
             currentAmount: 0,
             dailyGoal: 2500,
             history: {},

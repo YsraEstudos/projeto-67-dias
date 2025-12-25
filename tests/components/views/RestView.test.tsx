@@ -16,11 +16,6 @@ vi.mock('../../../hooks/useStorage', () => ({
     removeNamespacedStorage: vi.fn(),
 }));
 
-// Mock Gemini
-vi.mock('../../../services/gemini', () => ({
-    getGeminiModel: vi.fn()
-}));
-
 describe('RestView - Next 2 Hours Mode', () => {
     beforeEach(() => {
         vi.clearAllMocks();

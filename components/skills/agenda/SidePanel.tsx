@@ -4,7 +4,7 @@
  * Left sidebar with draggable items (skills, activities, events)
  * that can be dropped onto the calendar grid
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Plus, GripVertical, Clock, Target, Calendar, Layers } from 'lucide-react';
@@ -30,10 +30,13 @@ interface SidePanelProps {
     activities: AgendaActivity[];
     events: CalendarEvent[];
     onAddEvent: () => void;
+    onItemTap?: (type: 'skill' | 'activity' | 'event', referenceId: string) => void;
+    selectedItemId?: string;
     isCompact?: boolean;
 }
 
-// Draggable item component
+// Draggable item component with tap support for mobile
+// Uses pointer events to separate drag from click
 const DraggableItem = React.memo<{
     id: string;
     type: 'skill' | 'activity' | 'event';
@@ -41,7 +44,9 @@ const DraggableItem = React.memo<{
     color: string;
     subtitle?: string;
     icon?: React.ReactNode;
-}>(({ id, type, title, color, subtitle, icon }) => {
+    onTap?: () => void;
+    isSelected?: boolean;
+}>(({ id, type, title, color, subtitle, icon, onTap, isSelected }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `draggable-${type}-${id}`,
         data: { type, referenceId: id }
@@ -49,31 +54,84 @@ const DraggableItem = React.memo<{
 
     const colorClasses = COLOR_MAP[color] || COLOR_MAP.emerald;
 
-    const style = transform ? {
-        transform: CSS.Translate.toString(transform),
-    } : undefined;
+    // Track if drag started to prevent false clicks
+    const dragStartedRef = useRef(false);
+    const pointerStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+    const style: React.CSSProperties = {
+        ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+    };
+
+    // Custom pointer handlers that work WITH dnd-kit listeners
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        dragStartedRef.current = false;
+        pointerStartPosRef.current = { x: e.clientX, y: e.clientY };
+        // Call dnd-kit's onPointerDown if it exists
+        listeners?.onPointerDown?.(e as any);
+    }, [listeners]);
+
+    const handlePointerMove = useCallback((e: React.PointerEvent) => {
+        if (pointerStartPosRef.current) {
+            const dx = Math.abs(e.clientX - pointerStartPosRef.current.x);
+            const dy = Math.abs(e.clientY - pointerStartPosRef.current.y);
+            // If moved more than 5px, consider it a drag
+            if (dx > 5 || dy > 5) {
+                dragStartedRef.current = true;
+            }
+        }
+    }, []);
+
+    const handlePointerUp = useCallback((e: React.PointerEvent) => {
+        // Only trigger tap if:
+        // 1. We didn't start a drag
+        // 2. We're not currently dragging
+        // 3. We have a tap handler
+        if (!dragStartedRef.current && !isDragging && onTap) {
+            e.stopPropagation();
+            e.preventDefault();
+            onTap();
+        }
+        pointerStartPosRef.current = null;
+        dragStartedRef.current = false;
+    }, [isDragging, onTap]);
+
+    // Merge listeners with our custom handlers
+    const mergedListeners = {
+        ...listeners,
+        onPointerDown: handlePointerDown,
+        onPointerMove: handlePointerMove,
+        onPointerUp: handlePointerUp,
+    };
 
     return (
         <div
             ref={setNodeRef}
             style={style}
             {...attributes}
-            {...listeners}
+            {...mergedListeners}
             className={`
-                flex items-center gap-2 p-2 rounded-lg border cursor-grab active:cursor-grabbing
+                flex items-center gap-3 p-3 min-h-[56px] rounded-lg border cursor-grab active:cursor-grabbing
                 ${colorClasses}
-                transition-all hover:scale-[1.02] hover:shadow-lg
-                ${isDragging ? 'opacity-0 scale-105 shadow-2xl z-50' : ''}
+                transition-all hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-white/20
+                ${isDragging ? 'drag-ghost' : ''}
+                ${isSelected ? 'ring-2 ring-emerald-400 scale-[1.03] animate-pulse' : ''}
+                touch-action-none select-none
             `}
         >
-            <GripVertical size={14} className="text-slate-500 flex-shrink-0" />
+            <GripVertical size={16} className="text-slate-400 flex-shrink-0" />
             {icon && <div className="flex-shrink-0">{icon}</div>}
             <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{title}</div>
                 {subtitle && (
-                    <div className="text-[10px] text-slate-500 truncate">{subtitle}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{subtitle}</div>
                 )}
             </div>
+            {isSelected && (
+                <div className="flex-shrink-0 w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+            )}
         </div>
     );
 });
@@ -108,6 +166,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     activities,
     events,
     onAddEvent,
+    onItemTap,
+    selectedItemId,
     isCompact = false
 }) => {
     const [openSections, setOpenSections] = useState({
@@ -137,8 +197,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
     return (
         <div className={`${isCompact
-                ? 'w-full bg-transparent p-2'
-                : 'w-64 bg-slate-800/50 rounded-xl border border-slate-700 p-3 flex-shrink-0 overflow-y-auto max-h-[calc(100vh-200px)]'
+            ? 'w-full bg-transparent p-2'
+            : 'w-64 bg-slate-800/50 rounded-xl border border-slate-700 p-3 flex-shrink-0 overflow-y-auto max-h-[calc(100vh-200px)]'
             }`}>
             {!isCompact && (
                 <div className="text-xs text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -172,6 +232,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                                     color={skill.colorTheme || 'emerald'}
                                     subtitle={skill.dailyGoalMinutes ? formatGoal(skill.dailyGoalMinutes) : undefined}
                                     icon={<Target size={14} />}
+                                    onTap={onItemTap ? () => onItemTap('skill', skill.id) : undefined}
+                                    isSelected={selectedItemId === skill.id}
                                 />
                             ))
                         )}
@@ -204,6 +266,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                                     color={activity.color || 'blue'}
                                     subtitle={formatGoal(activity.dailyGoalMinutes)}
                                     icon={<Clock size={14} />}
+                                    onTap={onItemTap ? () => onItemTap('activity', activity.id) : undefined}
+                                    isSelected={selectedItemId === activity.id}
                                 />
                             ))
                         )}
@@ -231,6 +295,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({
                                 color={event.color || 'purple'}
                                 subtitle={`${Math.floor(event.defaultDurationMinutes / 60)}h padrão`}
                                 icon={<Calendar size={14} />}
+                                onTap={onItemTap ? () => onItemTap('event', event.id) : undefined}
+                                isSelected={selectedItemId === event.id}
                             />
                         ))}
 

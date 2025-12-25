@@ -6,12 +6,14 @@ interface MarkdownRendererProps {
     content: string;
     className?: string;
     compact?: boolean;
+    editable?: boolean;
 }
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
     content,
     className = '',
-    compact = false
+    compact = false,
+    editable = false
 }) => {
     const components = useMemo(() => ({
         h1: ({ children }: any) => (

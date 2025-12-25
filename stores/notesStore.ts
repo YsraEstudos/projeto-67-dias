@@ -2,6 +2,7 @@
  * Notes Store - Notes and tags with Firestore-first persistence
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { Note, Tag, NoteColor } from '../types';
 import { writeToFirestore, getCurrentUserId } from './firestoreSync';
 import { readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
@@ -77,7 +78,7 @@ const writeLocalBackup = (data: { notes: Note[]; tags: Tag[] }) => {
     }
 };
 
-export const useNotesStore = create<NotesState>()((set, get) => ({
+export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     notes: [],
     tags: [],
     isLoading: true,
@@ -85,129 +86,134 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
 
     // Note Actions
     setNotes: (notes) => {
-        set({ notes: deduplicateById(notes) });
+        set((state) => { state.notes = deduplicateById(notes); });
         get()._syncToFirestore();
     },
 
     addNote: (note) => {
         console.log('[notesStore] addNote:', note.id, note.title);
-        set((state) => ({
-            notes: [...state.notes, note]
-        }));
+        set((state) => { state.notes.push(note); });
         get()._syncToFirestore();
     },
 
     updateNote: (id, updates) => {
-        set((state) => ({
-            notes: state.notes.map(n =>
-                n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n
-            )
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === id);
+            if (note) {
+                Object.assign(note, updates);
+                note.updatedAt = Date.now();
+            }
+        });
         get()._syncToFirestore();
     },
 
     deleteNote: (id) => {
-        set((state) => ({
-            notes: state.notes.filter(n => n.id !== id)
-        }));
+        set((state) => {
+            const idx = state.notes.findIndex(n => n.id === id);
+            if (idx !== -1) state.notes.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     togglePinNote: (id) => {
-        set((state) => ({
-            notes: state.notes.map(n =>
-                n.id === id ? { ...n, isPinned: !n.isPinned } : n
-            )
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === id);
+            if (note) note.isPinned = !note.isPinned;
+        });
         get()._syncToFirestore();
     },
 
     pinNoteToTag: (noteId, tagId) => {
-        set((state) => ({
-            notes: state.notes.map(n => {
-                if (n.id !== noteId) return n;
-                const pinnedToTags = n.pinnedToTags || [];
-                if (pinnedToTags.includes(tagId)) return n;
-                return { ...n, pinnedToTags: [...pinnedToTags, tagId] };
-            })
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === noteId);
+            if (!note) return;
+            if (!note.pinnedToTags) note.pinnedToTags = [];
+            if (!note.pinnedToTags.includes(tagId)) {
+                note.pinnedToTags.push(tagId);
+            }
+        });
         get()._syncToFirestore();
     },
 
     unpinNoteFromTag: (noteId, tagId) => {
-        set((state) => ({
-            notes: state.notes.map(n => {
-                if (n.id !== noteId) return n;
-                return {
-                    ...n,
-                    pinnedToTags: (n.pinnedToTags || []).filter(t => t !== tagId)
-                };
-            })
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === noteId);
+            if (!note || !note.pinnedToTags) return;
+            const idx = note.pinnedToTags.indexOf(tagId);
+            if (idx !== -1) note.pinnedToTags.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     setNoteColor: (id, color) => {
-        set((state) => ({
-            notes: state.notes.map(n => n.id === id ? { ...n, color } : n)
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === id);
+            if (note) note.color = color;
+        });
         get()._syncToFirestore();
     },
 
     addTagToNote: (noteId, tagId) => {
-        set((state) => ({
-            notes: state.notes.map(n => {
-                if (n.id !== noteId) return n;
-                if (n.tags.includes(tagId)) return n;
-                return { ...n, tags: [...n.tags, tagId] };
-            })
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === noteId);
+            if (!note) return;
+            if (!note.tags.includes(tagId)) {
+                note.tags.push(tagId);
+            }
+        });
         get()._syncToFirestore();
     },
 
     removeTagFromNote: (noteId, tagId) => {
-        set((state) => ({
-            notes: state.notes.map(n => {
-                if (n.id !== noteId) return n;
-                return { ...n, tags: n.tags.filter(t => t !== tagId) };
-            })
-        }));
+        set((state) => {
+            const note = state.notes.find(n => n.id === noteId);
+            if (!note) return;
+            const idx = note.tags.indexOf(tagId);
+            if (idx !== -1) note.tags.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     // Tag Actions
     setTags: (tags) => {
-        set({ tags: deduplicateById(tags) });
+        set((state) => { state.tags = deduplicateById(tags); });
         get()._syncToFirestore();
     },
 
     addTag: (tag) => {
-        set((state) => ({
-            tags: [...state.tags, tag]
-        }));
+        set((state) => { state.tags.push(tag); });
         get()._syncToFirestore();
     },
 
     updateTag: (id, updates) => {
-        set((state) => ({
-            tags: state.tags.map(t => t.id === id ? { ...t, ...updates } : t)
-        }));
+        set((state) => {
+            const tag = state.tags.find(t => t.id === id);
+            if (tag) Object.assign(tag, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteTag: (id) => {
-        set((state) => ({
-            tags: state.tags.filter(t => t.id !== id),
-            notes: state.notes.map(n => ({
-                ...n,
-                tags: n.tags.filter(t => t !== id),
-                pinnedToTags: (n.pinnedToTags || []).filter(t => t !== id)
-            }))
-        }));
+        set((state) => {
+            // Remove tag from tags list
+            const tagIdx = state.tags.findIndex(t => t.id === id);
+            if (tagIdx !== -1) state.tags.splice(tagIdx, 1);
+
+            // Remove tag references from all notes
+            for (const note of state.notes) {
+                const tagRefIdx = note.tags.indexOf(id);
+                if (tagRefIdx !== -1) note.tags.splice(tagRefIdx, 1);
+
+                if (note.pinnedToTags) {
+                    const pinnedIdx = note.pinnedToTags.indexOf(id);
+                    if (pinnedIdx !== -1) note.pinnedToTags.splice(pinnedIdx, 1);
+                }
+            }
+        });
         get()._syncToFirestore();
     },
 
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
         const { notes, tags, _initialized } = get();
@@ -234,7 +240,10 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
         const { notes: localNotes, tags: localTags, _initialized } = get();
 
         if (!fallback) {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
             return;
         }
 
@@ -283,28 +292,29 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
                 }
             });
 
-            set({
-                notes: deduplicateById(mergedNotes),
-                tags: deduplicateById(mergedTags),
-                isLoading: false
+            set((state) => {
+                state.notes = deduplicateById(mergedNotes);
+                state.tags = deduplicateById(mergedTags);
+                state.isLoading = false;
             });
         } else {
             // Primeira hidratação: usar dados remotos diretamente
-            set({
-                notes: deduplicateById(remoteNotes),
-                tags: deduplicateById(remoteTags),
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.notes = deduplicateById(remoteNotes);
+                state.tags = deduplicateById(remoteTags);
+                state.isLoading = false;
+                state._initialized = true;
             });
         }
     },
 
     _reset: () => {
-        set({
-            notes: [],
-            tags: [],
-            isLoading: true,
-            _initialized: false
+        set((state) => {
+            state.notes = [];
+            state.tags = [];
+            state.isLoading = true;
+            state._initialized = false;
         });
     }
-}));
+})));
+

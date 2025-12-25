@@ -27,6 +27,7 @@ import { DATA_CATEGORIES, DataCategory } from '../../constants/dataCategories';
 import { readNamespacedStorage, writeNamespacedStorage, removeNamespacedStorage } from '../../hooks/useStorage';
 import { doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { backupSchema, safeParse } from '../../schemas';
 
 const ICON_MAP: Record<string, any> = {
     Settings,
@@ -158,17 +159,19 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
 
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
+            const parsed = JSON.parse(text);
+            const result = safeParse(backupSchema, parsed);
 
-            if (typeof data !== 'object' || !data) {
-                throw new Error('Invalid JSON');
+            if (result.success === false) {
+                alert(`Erro de validação: ${result.error}`);
+                return;
             }
 
-            setImportData(data);
+            setImportData(result.data);
             setImportFile(file);
             setMode('IMPORT_SELECT');
             // Auto-select all available keys in the file
-            const keysInFile = DATA_CATEGORIES.filter(c => Object.prototype.hasOwnProperty.call(data, c.key)).map(c => c.key);
+            const keysInFile = DATA_CATEGORIES.filter(c => Object.prototype.hasOwnProperty.call(result.data, c.key)).map(c => c.key);
             setSelectedKeys(keysInFile);
 
         } catch (error) {

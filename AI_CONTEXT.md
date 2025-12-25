@@ -14,12 +14,12 @@ Este documento serve como a **"memória central"** e guia de regras para Agentes
 6. [Hooks Customizados](#6-hooks-customizados)
 7. [Serviços e Integrações](#7-serviços-e-integrações)
 8. [Padrões de Código por Módulo](#8-padrões-de-código-por-módulo)
-9. [Integração com Gemini AI](#9-integração-com-gemini-ai)
-10. [Configuração de Ambiente](#10-configuração-de-variáveis-de-ambiente)
-11. [Testes](#11-testes)
-12. [Deploy e Produção](#12-deploy-e-produção)
-13. [Checklist para Nova Funcionalidade](#13-checklist-para-nova-funcionalidade)
-14. [Armadilhas Comuns](#14-armadilhas-comuns-e-como-evitar)
+9. [Configuração de Ambiente](#9-configuração-de-variáveis-de-ambiente)
+10. [Testes](#10-testes)
+11. [Deploy e Produção](#11-deploy-e-produção)
+12. [Checklist para Nova Funcionalidade](#12-checklist-para-nova-funcionalidade)
+13. [Armadilhas Comuns](#13-armadilhas-comuns-e-como-evitar)
+14. [Schemas e Validação Zod](#14-schemas-e-validação-zod)
 15. [Referências Úteis](#15-referências-úteis)
 
 ---
@@ -29,8 +29,8 @@ Este documento serve como a **"memória central"** e guia de regras para Agentes
 O **Projeto 67 Dias** é um dashboard de produtividade pessoal com foco em:
 - 📊 Rastreamento de metas e hábitos
 - 📚 Gerenciamento de leitura
-- 🎯 Skills e aprendizado com roadmaps IA
-- 📝 Diário pessoal com insights IA
+- 🎯 Skills e aprendizado com roadmaps visuais
+- 📝 Diário pessoal
 - ⏱️ Timer e ferramentas de produtividade
 - 🔗 Central de links e prompts
 
@@ -47,9 +47,9 @@ O **Projeto 67 Dias** é um dashboard de produtividade pessoal com foco em:
 | Layout | dagre | ^0.8.5 |
 | Autenticação | Firebase Auth | ^12.6.0 |
 | Banco de Dados | Firebase Firestore | ^12.6.0 |
-| IA Generativa | Google Gemini | @google/genai ^1.30.0 |
 | Testes | Vitest + RTL | ^4.0.13 |
 | Tipagem | TypeScript | ~5.8.2 |
+| Validação | Zod | ^4.2.1 |
 
 ---
 
@@ -432,10 +432,10 @@ interface Note {
   content: string;
   color: NoteColor;
   tags: string[];
+  isPinned: boolean;
+  pinnedToTags: string[];  // IDs das tags onde a nota está fixada
   createdAt: number;
   updatedAt: number;
-  aiProcessed?: boolean;
-  aiSummary?: string;
 }
 
 // Sunday Reset (SundayView)
@@ -664,39 +664,6 @@ export const useStore = create<StoreState>()((set, get) => ({
 }));
 ```
 
-### Gemini API (`services/gemini.ts`)
-
-```typescript
-import { getGeminiModel } from '@/services/gemini';
-
-// Uso
-const models = getGeminiModel();
-const response = await models.generateContent({
-  model: "gemini-2.5-flash",
-  contents: "Sua mensagem aqui",
-  config: {
-    responseMimeType: "application/json",
-    responseSchema: { /* schema do retorno */ }
-  }
-});
-
-const data = JSON.parse(response.text);
-```
-
-**Modo Thinking:** Para respostas mais elaboradas, usar `generateWithThinking`:
-
-```typescript
-import { generateWithThinking } from '@/services/gemini';
-
-const { text, thoughts } = await generateWithThinking(
-  "Prompt complexo aqui",
-  responseSchema,
-  1024 // thinking budget
-);
-```
-
-**Fallback:** Lança erro claro se API key não configurada.
-
 ### Weekly Snapshot (`services/weeklySnapshot.ts`)
 
 Serviço para captura e análise de snapshots semanais da jornada de 67 dias.
@@ -777,7 +744,6 @@ const useWorkDataPersistence = () => {
 - Lista de atividades por tipo (DAILY/WEEKLY/ONCE)
 - Planejador "Próximas 2 Horas" com 4 slots
 - Drag and drop para reordenar
-- IA para gerar rotinas de exercícios
 - Navegador de datas
 
 **Storage Keys:**
@@ -786,7 +752,6 @@ const useWorkDataPersistence = () => {
 
 **Modais:**
 - `NextTwoHoursModal` - Seleção de atividades para os próximos 2h
-- `AIRestAssistantModal` - Geração de exercícios com Gemini
 
 ### HabitsView - Hábitos e Tarefas
 
@@ -795,7 +760,6 @@ const useWorkDataPersistence = () => {
 - Tarefas: categorias, datas, lembretes, auto-archive
 - Hábitos: sub-hábitos, histórico por data
 - **Hábitos Negativos**: Lógica reversa (marcar = falha/vermelho, não marcar = sucesso/verde)
-- IA para planejar tarefas automaticamente (Gemini)
 
 **Storage Keys:**
 - `p67_tasks` - Tarefas organizacionais
@@ -804,7 +768,6 @@ const useWorkDataPersistence = () => {
 **Modais:**
 - `TaskModal` - Criar/editar tarefa
 - `HabitModal` - Criar hábito com sub-hábitos
-- `AITaskAssistantModal` - Planejamento com IA
 
 ### SkillsView - Skill Tree
 
@@ -813,7 +776,6 @@ const useWorkDataPersistence = () => {
 - Detail view com roadmap interativo
 - Drag and drop no roadmap
 - Seções/divisórias no roadmap
-- IA para gerar passos do roadmap
 - Import/Export de roadmaps (Markdown/JSON)
 - Cofre de recursos (links de estudo)
 
@@ -831,21 +793,9 @@ const useWorkDataPersistence = () => {
 - Lista de entradas na sidebar esquerda
 - Editor de texto livre
 - Seletor de mood (5 opções com emoji)
-- IA para insight estoico + citação filosófica
+- Citação inspiracional exibida na interface
 
 **Storage Key:** `p67_journal`
-
-**Schema do Gemini:**
-```typescript
-responseSchema: {
-  type: Type.OBJECT,
-  properties: {
-    sentiment: { type: Type.STRING },  // Tag de emoção em PT
-    advice: { type: Type.STRING },     // Conselho estoico
-    quote: { type: Type.STRING },      // Citação de filósofo
-  }
-}
-```
 
 ### LinksView - Central de Links
 
@@ -1207,6 +1157,70 @@ import { OrganizeTask } from '../../types'; // de dentro de skills/
 
 ---
 
+## 14. Schemas e Validação Zod
+
+O projeto usa **Zod v4** para validação de dados em formulários e importação de arquivos.
+
+### Localização
+```
+schemas/
+└── index.ts    # Todos os schemas e utilitários
+```
+
+### Schemas Disponíveis
+
+| Schema | Uso | Arquivo que usa |
+|--------|-----|-----------------|
+| `gameSchema` | Formulário de Game | `AddGameModal.tsx`, `GameDetailsModal.tsx` |
+| `skillSchema` | Formulário de Skill | `CreateSkillModal.tsx` |
+| `visualRoadmapSchema` | Importação de roadmap visual | `VisualRoadmapEditor.tsx` |
+| `backupSchema` | Importação de backup JSON | `DataManagementModal.tsx` |
+
+### Utilitários de Validação
+
+```typescript
+import { safeParse, parseJsonSafe, visualRoadmapSchema } from '../schemas';
+
+// safeParse - Validação segura sem exceção
+const result = safeParse(visualRoadmapSchema, parsedJson);
+if (result.success === true) {
+    setNodes(result.data.nodes);  // Tipado corretamente
+} else {
+    alert(`Erro: ${result.error}`);  // Mensagem formatada
+}
+
+// parseJsonSafe - JSON.parse + validação em uma linha
+const data = parseJsonSafe(schema, jsonString);  // T | null
+```
+
+### Como Usar em Formulários (react-hook-form)
+
+```typescript
+import { zodResolver } from '@hookform/resolvers/zod';
+import { gameSchema, GameFormData } from '../schemas';
+
+const { register, handleSubmit, formState: { errors } } = useForm<GameFormData>({
+    resolver: zodResolver(gameSchema),
+});
+```
+
+### Criando Novos Schemas
+
+```typescript
+// schemas/index.ts
+export const minhaEntidadeSchema = z.object({
+    id: z.string().min(1),
+    nome: z.string().min(1, 'Nome obrigatório'),
+    valor: z.number().positive('Valor deve ser positivo'),
+    dataCriacao: z.string().datetime().optional(),
+});
+
+// Inferir tipo automaticamente
+export type MinhaEntidade = z.infer<typeof minhaEntidadeSchema>;
+```
+
+---
+
 ## 15. Referências Úteis
 
 | Recurso | URL |
@@ -1214,13 +1228,13 @@ import { OrganizeTask } from '../../types'; // de dentro de skills/
 | Vite Env Variables | https://vitejs.dev/guide/env-and-mode.html |
 | Firebase Docs | https://firebase.google.com/docs |
 | Firestore Rules | https://firebase.google.com/docs/firestore/security/get-started |
-| Gemini API | https://ai.google.dev/tutorials/get_started_web |
 | Tailwind CSS | https://tailwindcss.com/docs |
 | Lucide Icons | https://lucide.dev/icons/ |
 | Recharts | https://recharts.org/en-US/api |
 | Vitest | https://vitest.dev/ |
+| Zod Docs | https://zod.dev/ |
 
 ---
 
-**Última Atualização**: 2025-12-08  
+**Última Atualização**: 2025-12-25  
 **Versão do Documento**: 4.0

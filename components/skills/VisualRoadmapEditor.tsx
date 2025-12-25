@@ -9,6 +9,7 @@ import { VISUAL_NODE_STYLES, THEME_VARIANTS, ThemeKey, VisualNodeStyleKey } from
 import { getLayoutedElements } from './layoutUtils';
 import { VisualNode } from './VisualNode';
 import { VisualConnection } from './VisualConnection';
+import { visualRoadmapSchema, safeParse } from '../../schemas';
 
 interface VisualRoadmapEditorProps {
     skillName: string;
@@ -242,12 +243,16 @@ export const VisualRoadmapEditor: React.FC<VisualRoadmapEditorProps> = ({
 
     const importJSON = () => {
         try {
-            const data = JSON.parse(importText) as VisualRoadmap;
-            if (data.nodes && Array.isArray(data.nodes)) {
-                setNodes(data.nodes);
-                setConnections(data.connections || []);
+            const parsed = JSON.parse(importText);
+            const result = safeParse(visualRoadmapSchema, parsed);
+
+            if (result.success === true) {
+                setNodes(result.data.nodes);
+                setConnections(result.data.connections);
                 setShowImportModal(false);
                 setImportText('');
+            } else {
+                alert(`Erro de validação: ${result.error}`);
             }
         } catch (err) {
             alert('JSON inválido. Verifique o formato.');

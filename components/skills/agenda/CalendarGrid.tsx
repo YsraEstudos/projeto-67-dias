@@ -11,7 +11,7 @@ import { ScheduledBlockCard } from './ScheduledBlockCard';
 
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6h to 23h
 const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const HOUR_HEIGHT = 60; // pixels per hour
+const HOUR_HEIGHT = 80; // pixels per hour - increased for better readability
 
 interface CalendarGridProps {
     weekDates: string[];
@@ -26,15 +26,17 @@ interface CalendarGridProps {
     onEmptySlotClick: (date: string, hour: number) => void;
     selectedDayIndex?: number;
     isMobile?: boolean;
+    tapToPlaceMode?: boolean;
 }
 
-// Droppable time slot cell
+// Droppable time slot cell with enhanced visual feedback
 const TimeSlotCell = React.memo<{
     date: string;
     hour: number;
     isToday: boolean;
     onClick: () => void;
-}>(({ date, hour, isToday, onClick }) => {
+    tapToPlaceMode?: boolean;
+}>(({ date, hour, isToday, onClick, tapToPlaceMode }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: `slot-${date}-${hour}`,
         data: { date, hour }
@@ -45,12 +47,29 @@ const TimeSlotCell = React.memo<{
             ref={setNodeRef}
             onClick={onClick}
             className={`
-                h-[60px] border-b border-r border-slate-700/50 
-                hover:bg-slate-700/30 transition-colors cursor-pointer
-                ${isOver ? 'bg-emerald-500/20 border-emerald-500/50' : ''}
-                ${isToday ? 'bg-blue-900/10' : ''}
+                h-[80px] border-b border-r border-slate-700/50 relative
+                transition-all cursor-pointer
+                ${isOver ? 'bg-emerald-500/30 border-emerald-400 border-2 ring-2 ring-emerald-400/50 ring-inset drop-zone-active' : ''}
+                ${isToday && !isOver ? 'bg-blue-900/10' : ''}
+                ${tapToPlaceMode && !isOver ? 'bg-emerald-500/5 hover:bg-emerald-500/20 border-dashed border-emerald-500/30' : ''}
+                ${!tapToPlaceMode && !isOver ? 'hover:bg-slate-700/30' : ''}
             `}
-        />
+        >
+            {isOver && (
+                <div className="absolute inset-0 flex items-center justify-center animate-in fade-in duration-150">
+                    <span className="text-emerald-400 text-xs font-medium bg-slate-900/90 px-3 py-1.5 rounded-lg shadow-lg">
+                        Soltar aqui
+                    </span>
+                </div>
+            )}
+            {tapToPlaceMode && !isOver && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity">
+                    <span className="text-emerald-400/70 text-[10px] font-medium">
+                        Toque
+                    </span>
+                </div>
+            )}
+        </div>
     );
 });
 
@@ -58,7 +77,7 @@ TimeSlotCell.displayName = 'TimeSlotCell';
 
 // Hour label on left side
 const HourLabel = React.memo<{ hour: number }>(({ hour }) => (
-    <div className="w-14 h-[60px] flex items-start justify-end pr-2 pt-1 text-[10px] text-slate-500 font-mono border-b border-slate-700/30">
+    <div className="w-14 h-[80px] flex items-start justify-end pr-2 pt-1 text-[11px] text-slate-500 font-mono border-b border-slate-700/30">
         {hour.toString().padStart(2, '0')}:00
     </div>
 ));
@@ -103,7 +122,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     onBlockDelete,
     onEmptySlotClick,
     selectedDayIndex,
-    isMobile = false
+    isMobile = false,
+    tapToPlaceMode = false
 }) => {
     const today = new Date().toISOString().split('T')[0];
 
@@ -231,6 +251,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                     hour={hour}
                                     isToday={isToday}
                                     onClick={() => onEmptySlotClick(date, hour)}
+                                    tapToPlaceMode={tapToPlaceMode}
                                 />
                             ))}
 
@@ -239,6 +260,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                 const { title, color } = getBlockInfo(block);
                                 const topOffset = (block.startHour - 6) * HOUR_HEIGHT + (block.startMinute / 60) * HOUR_HEIGHT;
                                 const height = (block.durationMinutes / 60) * HOUR_HEIGHT;
+
 
                                 return (
                                     <ScheduledBlockCard
@@ -255,6 +277,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                         }}
                                         onClick={() => onBlockClick(block)}
                                         onDelete={() => onBlockDelete(block.id)}
+                                        isMobile={isMobile}
                                     />
                                 );
                             })}

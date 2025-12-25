@@ -11,24 +11,27 @@ export interface SectionVisibilityActions {
 
 export const createSectionVisibilityActions = (set: SkillsSet, get: SkillsGet): SectionVisibilityActions => ({
     unlockSection: (skillId, sectionId) => {
-        set((state) => ({
-            skills: state.skills.map(s => {
-                if (s.id !== skillId) return s;
-                const current = s.unlockedSections || [];
-                if (current.includes(sectionId)) return s;
-                return { ...s, unlockedSections: [...current, sectionId] };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                if (!skill.unlockedSections) skill.unlockedSections = [];
+                if (!skill.unlockedSections.includes(sectionId)) {
+                    skill.unlockedSections.push(sectionId);
+                }
+            }
+        });
         get()._syncToFirestore();
     },
 
     lockSection: (skillId, sectionId) => {
-        set((state) => ({
-            skills: state.skills.map(s => {
-                if (s.id !== skillId) return s;
-                return { ...s, unlockedSections: (s.unlockedSections || []).filter(id => id !== sectionId) };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.unlockedSections) {
+                const idx = skill.unlockedSections.indexOf(sectionId);
+                if (idx !== -1) skill.unlockedSections.splice(idx, 1);
+            }
+        });
         get()._syncToFirestore();
     }
 });
+

@@ -13,43 +13,44 @@ export interface DistributionActions {
 
 export const createDistributionActions = (set: SkillsSet, get: SkillsGet): DistributionActions => ({
     setDistributionType: (skillId, type) => {
-        set((state) => ({
-            skills: state.skills.map(s =>
-                s.id === skillId ? { ...s, distributionType: type } : s
-            )
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.distributionType = type;
+        });
         get()._syncToFirestore();
     },
 
     setExponentialIntensity: (skillId, intensity) => {
-        set((state) => ({
-            skills: state.skills.map(s =>
-                s.id === skillId ? { ...s, exponentialIntensity: Math.max(0, Math.min(1, intensity)) } : s
-            )
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.exponentialIntensity = Math.max(0, Math.min(1, intensity));
+        });
         get()._syncToFirestore();
     },
 
     toggleExcludedDay: (skillId, dayOfWeek) => {
-        set((state) => ({
-            skills: state.skills.map(s => {
-                if (s.id !== skillId) return s;
-                const currentDays = s.excludedDays || [];
-                const newDays = currentDays.includes(dayOfWeek)
-                    ? currentDays.filter(d => d !== dayOfWeek)
-                    : [...currentDays, dayOfWeek].sort();
-                return { ...s, excludedDays: newDays };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                if (!skill.excludedDays) skill.excludedDays = [];
+                const idx = skill.excludedDays.indexOf(dayOfWeek);
+                if (idx >= 0) {
+                    skill.excludedDays.splice(idx, 1);
+                } else {
+                    skill.excludedDays.push(dayOfWeek);
+                    skill.excludedDays.sort((a, b) => a - b);
+                }
+            }
+        });
         get()._syncToFirestore();
     },
 
     setExcludedDays: (skillId, days) => {
-        set((state) => ({
-            skills: state.skills.map(s =>
-                s.id === skillId ? { ...s, excludedDays: days.sort() } : s
-            )
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.excludedDays = [...days].sort((a, b) => a - b);
+        });
         get()._syncToFirestore();
     }
 });
+

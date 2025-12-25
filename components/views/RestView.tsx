@@ -6,11 +6,8 @@ import { useRestStore } from '../../stores';
 import { RestActivity } from '../../types';
 import RestActivityItem from './RestActivityItem';
 import RestActivityInput from './RestActivityInput';
-import { Sparkles } from 'lucide-react';
-
 
 // Lazy load modals
-const AIRestAssistantModal = React.lazy(() => import('./modals/AIRestAssistantModal'));
 const NextTwoHoursModal = React.lazy(() => import('./modals/NextTwoHoursModal'));
 const EditRestActivityModal = React.lazy(() => import('./modals/EditRestActivityModal'));
 
@@ -29,7 +26,6 @@ const RestView: React.FC = () => {
     const setNextTwoHoursIds = useRestStore(state => state.setNextTwoHoursIds);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [isAIModalOpen, setIsAIModalOpen] = useState(false);
     const [isNext2hModalOpen, setIsNext2hModalOpen] = useState(false);
     const [isManualInputOpen, setIsManualInputOpen] = useState(false);
     // Removed local input state
@@ -58,26 +54,6 @@ const RestView: React.FC = () => {
     }, [activities, nextTwoHoursIds]);
 
     // --- HANDLERS (Memoized) ---
-    const handleAddGeneratedItems = useCallback((items: { title: string, type: 'DAILY' | 'ONCE' | 'WEEKLY' }[]) => {
-        // We need the current activities length, which is a dependency.
-        // To avoid stale closures if we used a callback with strict deps, we rely on the prop or store.
-        // However, since we need `activities.length` for ordering, we can calculate it inside or accept it as dependency.
-        // `activities` length changes often, so this callback will refresh often. That's acceptable.
-
-        const baseOrder = activities.length;
-        const newActivities: RestActivity[] = items.map((item, idx) => ({
-            id: Date.now().toString() + idx,
-            title: item.title,
-            isCompleted: false,
-            type: item.type,
-            order: baseOrder + idx,
-            daysOfWeek: item.type === 'WEEKLY' ? [selectedDate.getDay()] : undefined,
-            specificDate: item.type === 'ONCE' ? selectedDate.toISOString().split('T')[0] : undefined,
-        }));
-
-        addActivities(newActivities);
-        setIsAIModalOpen(false);
-    }, [activities.length, selectedDate, addActivities]);
 
 
     const toggleComplete = useCallback((id: string) => {
@@ -257,7 +233,7 @@ const RestView: React.FC = () => {
                     <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
                         <Calendar size={48} className="text-slate-700 mb-4" />
                         <div className="text-slate-500 font-medium">Nenhum descanso planejado para hoje.</div>
-                        <div className="text-sm text-slate-600 mt-1">Use o assistente IA no canto para adicionar treinos ou pausas.</div>
+                        <div className="text-sm text-slate-600 mt-1">Use o botão acima para adicionar descansos.</div>
                     </div>
                 ) : (
                     filteredActivities.map((activity, index) => (
@@ -275,24 +251,8 @@ const RestView: React.FC = () => {
                 )}
             </div>
 
-            {/* FLOATING AI BUTTON */}
-            <button
-                onClick={() => setIsAIModalOpen(true)}
-                className="fixed bottom-8 right-8 z-40 group flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-white rounded-full shadow-lg shadow-cyan-500/30 hover:scale-110 transition-all duration-300 hover:shadow-cyan-500/50 border border-white/10"
-                title="IA Fitness & Descanso"
-            >
-                <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
-                <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-hover:opacity-100 duration-1000"></div>
-            </button>
-
             {/* MODALS (Lazy Loaded with Suspense) */}
             <Suspense fallback={null}>
-                {isAIModalOpen && (
-                    <AIRestAssistantModal
-                        onClose={() => setIsAIModalOpen(false)}
-                        onApply={handleAddGeneratedItems}
-                    />
-                )}
                 {editingActivity && (
                     <EditRestActivityModal
                         activity={editingActivity}

@@ -2,8 +2,10 @@
  * Rest Store - Rest activities with Firestore-first persistence
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { RestActivity, RestActivityLink } from '../types';
 import { writeToFirestore } from './firestoreSync';
+import { addDaysToDate, formatDateISO } from '../utils/dateUtils';
 
 const STORE_KEY = 'p67_rest_store';
 
@@ -45,111 +47,112 @@ interface RestState {
     _reset: () => void;
 }
 
-export const useRestStore = create<RestState>()((set, get) => ({
+export const useRestStore = create<RestState>()(immer((set, get) => ({
     activities: [],
     nextTwoHoursIds: [],
     isLoading: true,
     _initialized: false,
 
     setActivities: (activities) => {
-        set({ activities: deduplicateById(activities) });
+        set((state) => { state.activities = deduplicateById(activities); });
         get()._syncToFirestore();
     },
 
     addActivity: (activity) => {
-        set((state) => ({ activities: [...state.activities, activity] }));
+        set((state) => { state.activities.push(activity); });
         get()._syncToFirestore();
     },
 
     addActivities: (activities) => {
-        set((state) => ({ activities: [...state.activities, ...activities] }));
+        set((state) => { state.activities.push(...activities); });
         get()._syncToFirestore();
     },
 
     updateActivity: (id, updates) => {
-        set((state) => ({
-            activities: state.activities.map(a => a.id === id ? { ...a, ...updates } : a)
-        }));
+        set((state) => {
+            const activity = state.activities.find(a => a.id === id);
+            if (activity) Object.assign(activity, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteActivity: (id) => {
-        set((state) => ({
-            activities: state.activities.filter(a => a.id !== id),
-            nextTwoHoursIds: state.nextTwoHoursIds.filter(i => i !== id)
-        }));
+        set((state) => {
+            const idx = state.activities.findIndex(a => a.id === id);
+            if (idx !== -1) state.activities.splice(idx, 1);
+
+            const nextIdx = state.nextTwoHoursIds.indexOf(id);
+            if (nextIdx !== -1) state.nextTwoHoursIds.splice(nextIdx, 1);
+        });
         get()._syncToFirestore();
     },
 
     toggleActivityComplete: (id) => {
-        set((state) => ({
-            activities: state.activities.map(a =>
-                a.id === id ? { ...a, isCompleted: !a.isCompleted } : a
-            )
-        }));
+        set((state) => {
+            const activity = state.activities.find(a => a.id === id);
+            if (activity) activity.isCompleted = !activity.isCompleted;
+        });
         get()._syncToFirestore();
     },
 
     reorderActivities: (activities) => {
-        set({ activities });
+        set((state) => { state.activities = activities; });
         get()._syncToFirestore();
     },
 
     addLink: (activityId, link) => {
-        set((state) => ({
-            activities: state.activities.map(a => {
-                if (a.id !== activityId) return a;
-                return { ...a, links: [...(a.links || []), link] };
-            })
-        }));
+        set((state) => {
+            const activity = state.activities.find(a => a.id === activityId);
+            if (!activity) return;
+            if (!activity.links) activity.links = [];
+            activity.links.push(link);
+        });
         get()._syncToFirestore();
     },
 
     updateLink: (activityId, linkId, updates) => {
-        set((state) => ({
-            activities: state.activities.map(a => {
-                if (a.id !== activityId) return a;
-                return {
-                    ...a,
-                    links: (a.links || []).map(l => l.id === linkId ? { ...l, ...updates } : l)
-                };
-            })
-        }));
+        set((state) => {
+            const activity = state.activities.find(a => a.id === activityId);
+            if (!activity?.links) return;
+            const link = activity.links.find(l => l.id === linkId);
+            if (link) Object.assign(link, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteLink: (activityId, linkId) => {
-        set((state) => ({
-            activities: state.activities.map(a => {
-                if (a.id !== activityId) return a;
-                return { ...a, links: (a.links || []).filter(l => l.id !== linkId) };
-            })
-        }));
+        set((state) => {
+            const activity = state.activities.find(a => a.id === activityId);
+            if (!activity?.links) return;
+            const idx = activity.links.findIndex(l => l.id === linkId);
+            if (idx !== -1) activity.links.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     setNextTwoHoursIds: (ids) => {
-        set({ nextTwoHoursIds: ids });
+        set((state) => { state.nextTwoHoursIds = ids; });
         get()._syncToFirestore();
     },
 
     addToNextTwoHours: (id) => {
-        set((state) => ({
-            nextTwoHoursIds: state.nextTwoHoursIds.includes(id)
-                ? state.nextTwoHoursIds
-                : [...state.nextTwoHoursIds, id]
-        }));
+        set((state) => {
+            if (!state.nextTwoHoursIds.includes(id)) {
+                state.nextTwoHoursIds.push(id);
+            }
+        });
         get()._syncToFirestore();
     },
 
     removeFromNextTwoHours: (id) => {
-        set((state) => ({
-            nextTwoHoursIds: state.nextTwoHoursIds.filter(i => i !== id)
-        }));
+        set((state) => {
+            const idx = state.nextTwoHoursIds.indexOf(id);
+            if (idx !== -1) state.nextTwoHoursIds.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
         const { activities, nextTwoHoursIds, _initialized } = get();
@@ -162,26 +165,34 @@ export const useRestStore = create<RestState>()((set, get) => ({
         if (data) {
             // Clean up old ONCE activities
             let activities = deduplicateById(data.activities || []);
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const thresholdDate = thirtyDaysAgo.toISOString().split('T')[0];
+            const thirtyDaysAgo = addDaysToDate(new Date(), -30);
+            const thresholdDate = formatDateISO(thirtyDaysAgo);
             activities = activities.filter(a => {
                 if (a.type !== 'ONCE') return true;
                 return (a.specificDate || '') >= thresholdDate;
             });
 
-            set({
-                activities,
-                nextTwoHoursIds: [...new Set(data.nextTwoHoursIds || [])],
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.activities = activities;
+                state.nextTwoHoursIds = [...new Set(data.nextTwoHoursIds || [])];
+                state.isLoading = false;
+                state._initialized = true;
             });
         } else {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
         }
     },
 
     _reset: () => {
-        set({ activities: [], nextTwoHoursIds: [], isLoading: true, _initialized: false });
+        set((state) => {
+            state.activities = [];
+            state.nextTwoHoursIds = [];
+            state.isLoading = true;
+            state._initialized = false;
+        });
     }
-}));
+})));
+

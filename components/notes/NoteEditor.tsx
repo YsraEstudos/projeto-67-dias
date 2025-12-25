@@ -1,7 +1,8 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { X, Eye, Edit3, Pin, Save, ChevronDown, ChevronUp, Bold, Italic, Link2, List, Code, Heading, ImagePlus, Loader2 } from 'lucide-react';
+import { X, Eye, Pin, Save, ChevronDown, ChevronUp, Bold, Italic, Link2, List, Code, Heading, ImagePlus, Loader2, FileCode } from 'lucide-react';
 import { Note, NoteColor, Tag } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { EditableMarkdown } from './EditableMarkdown';
 import { generateUUID } from '../../utils/uuid';
 import { htmlToMarkdown, wrapSelection, insertLink, autoPair, insertAtCursor } from '../../utils/markdownUtils';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
@@ -51,8 +52,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
     const [isPinned, setIsPinned] = useState(note?.isPinned || false);
     const [pinnedToTags, setPinnedToTags] = useState<string[]>(note?.pinnedToTags || []);
 
-    // Fullscreen editing state
-    const [isEditing, setIsEditing] = useState(!note); // New notes start in edit mode
+    // View mode: 'formatted' (WYSIWYG) or 'source' (raw markdown)
+    // Mobile defaults to source mode for better compatibility
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window);
+    const [viewMode, setViewMode] = useState<'formatted' | 'source'>(
+        !note ? 'source' : (isMobile ? 'source' : 'formatted')
+    );
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -79,12 +84,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
         currentValue: { title, content, color, tags, isPinned, pinnedToTags },
     });
 
-    // Auto-focus when entering edit mode
+    // Auto-focus when entering source mode
     useEffect(() => {
-        if (isEditing && titleInputRef.current) {
+        if (viewMode === 'source' && titleInputRef.current) {
             titleInputRef.current.focus();
         }
-    }, [isEditing]);
+    }, [viewMode]);
 
     // Lock body scroll when fullscreen editor is open
     useEffect(() => {
@@ -103,12 +108,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
         }
     };
 
-    // Handle Escape key to exit editing or close
+    // Handle Escape key to toggle mode or close
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                if (isEditing && note) {
-                    setIsEditing(false);
+                if (viewMode === 'source' && note) {
+                    setViewMode('formatted');
                 } else {
                     handleClose();
                 }
@@ -121,7 +126,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isEditing, hasChanges]);
+    }, [viewMode, hasChanges]);
 
     /**
      * Handles image upload from file input
@@ -335,8 +340,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
             pinnedToTags: isPinned ? pinnedToTags : [],
             createdAt: note?.createdAt || Date.now(),
             updatedAt: Date.now(),
-            aiProcessed: note?.aiProcessed,
-            aiSummary: note?.aiSummary,
         };
         onSave(savedNote);
         onClose();
@@ -436,15 +439,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
             <div className="fixed inset-0 z-50 bg-slate-950 animate-in fade-in duration-300 flex flex-col overflow-hidden">
                 {/* Floating Action Bar - Top Right */}
                 <div className="fixed top-6 right-6 z-50 flex items-center gap-1 bg-slate-800/80 backdrop-blur-md rounded-xl p-1.5 border border-slate-700/50 shadow-2xl transition-opacity duration-300">
-                    {/* Edit/View Toggle */}
+                    {/* Source/Formatted Toggle */}
                     <button
-                        onClick={() => setIsEditing(!isEditing)}
-                        className={`p-2.5 rounded-lg transition-all ${isEditing
+                        onClick={() => setViewMode(viewMode === 'formatted' ? 'source' : 'formatted')}
+                        className={`p-2.5 rounded-lg transition-all ${viewMode === 'source'
                             ? 'bg-purple-600 text-white'
                             : 'hover:bg-slate-700 text-slate-300 hover:text-white'}`}
-                        title={isEditing ? 'Visualizar' : 'Editar nota'}
+                        title={viewMode === 'source' ? 'Ver formatado' : 'Ver código fonte (Source)'}
                     >
-                        {isEditing ? <Eye size={18} /> : <Edit3 size={18} />}
+                        {viewMode === 'source' ? <Eye size={18} /> : <FileCode size={18} />}
                     </button>
 
                     {/* Pin Toggle */}
@@ -522,28 +525,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
                         {/* Color Accent Bar */}
                         <div className={`w-24 h-1.5 rounded-full mb-8 ${colorAccent.bar} transition-colors`} />
 
-                        {/* Title - Editable or Display */}
-                        {isEditing ? (
-                            <input
-                                ref={titleInputRef}
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                placeholder="Título da nota..."
-                                className="text-4xl font-bold text-white bg-transparent border-none outline-none w-full mb-8 leading-tight placeholder:text-slate-600"
-                            />
-                        ) : (
-                            <h1
-                                onClick={() => setIsEditing(true)}
-                                className="text-4xl font-bold text-white mb-8 leading-tight cursor-text hover:text-slate-200 transition-colors"
-                            >
-                                {title || 'Sem título'}
-                            </h1>
-                        )}
+                        {/* Title - Always editable */}
+                        <input
+                            ref={titleInputRef}
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Título da nota..."
+                            className="text-4xl font-bold text-white bg-transparent border-none outline-none w-full mb-8 leading-tight placeholder:text-slate-600"
+                        />
 
                         {/* Content Area */}
-                        {isEditing ? (
+                        {viewMode === 'source' ? (
                             <div className="space-y-4">
-                                {/* Markdown Toolbar */}
+                                {/* Markdown Toolbar for Source Mode */}
                                 <div className="flex items-center gap-1 p-2 bg-slate-900/50 rounded-xl border border-slate-800 sticky top-0 z-10">
                                     <button
                                         onClick={() => insertMarkdown('**')}
@@ -624,7 +618,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
                                     </span>
                                 </div>
 
-                                {/* Textarea */}
+                                {/* Textarea for Source Mode */}
                                 <textarea
                                     ref={textareaRef}
                                     value={content}
@@ -632,19 +626,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
                                     onPaste={handlePaste}
                                     onKeyDown={handleTextareaKeyDown}
                                     placeholder="Comece a escrever sua nota... Use Markdown para formatação!"
-                                    className="w-full min-h-[60vh] bg-transparent text-white text-lg leading-relaxed resize-none outline-none placeholder:text-slate-600 font-sans"
+                                    className="w-full min-h-[60vh] bg-transparent text-white text-lg leading-relaxed resize-none outline-none placeholder:text-slate-600 font-mono"
                                 />
                             </div>
                         ) : (
-                            <div
-                                onClick={() => setIsEditing(true)}
-                                className="prose prose-invert prose-lg max-w-none cursor-text hover:bg-slate-900/20 rounded-xl -mx-4 px-4 py-2 transition-colors"
-                            >
-                                {content.trim() ? (
-                                    <MarkdownRenderer content={content} />
-                                ) : (
-                                    <p className="text-slate-500 italic text-lg">Clique para editar esta nota...</p>
-                                )}
+                            /* Formatted Mode - WYSIWYG with EditableMarkdown */
+                            <div className="min-h-[60vh]">
+                                <EditableMarkdown
+                                    content={content}
+                                    onChange={setContent}
+                                    placeholder="Comece a escrever sua nota..."
+                                    className="prose prose-invert prose-lg max-w-none"
+                                />
                             </div>
                         )}
 

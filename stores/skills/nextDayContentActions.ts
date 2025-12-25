@@ -15,9 +15,9 @@ export interface NextDayContentActions {
 
 export const createNextDayContentActions = (set: SkillsSet, get: SkillsGet): NextDayContentActions => ({
     addNextDayContent: (skillId, title, url, notes) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
                 const newContent: NextDayContent = {
                     id: generateUUID(),
                     title,
@@ -26,60 +26,54 @@ export const createNextDayContentActions = (set: SkillsSet, get: SkillsGet): Nex
                     isCompleted: false,
                     createdAt: Date.now()
                 };
-                return { ...skill, nextDayContents: [...(skill.nextDayContents || []), newContent] };
-            })
-        }));
+                if (!skill.nextDayContents) skill.nextDayContents = [];
+                skill.nextDayContents.push(newContent);
+            }
+        });
         get()._syncToFirestore();
     },
 
     toggleNextDayContent: (skillId, contentId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return {
-                    ...skill,
-                    nextDayContents: skill.nextDayContents?.map(c =>
-                        c.id === contentId ? { ...c, isCompleted: !c.isCompleted } : c
-                    )
-                };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.nextDayContents) {
+                const content = skill.nextDayContents.find(c => c.id === contentId);
+                if (content) content.isCompleted = !content.isCompleted;
+            }
+        });
         get()._syncToFirestore();
     },
 
     updateNextDayContent: (skillId, contentId, updates) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return {
-                    ...skill,
-                    nextDayContents: skill.nextDayContents?.map(c =>
-                        c.id === contentId ? { ...c, ...updates } : c
-                    )
-                };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.nextDayContents) {
+                const content = skill.nextDayContents.find(c => c.id === contentId);
+                if (content) Object.assign(content, updates);
+            }
+        });
         get()._syncToFirestore();
     },
 
     deleteNextDayContent: (skillId, contentId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return { ...skill, nextDayContents: skill.nextDayContents?.filter(c => c.id !== contentId) };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.nextDayContents) {
+                const idx = skill.nextDayContents.findIndex(c => c.id === contentId);
+                if (idx !== -1) skill.nextDayContents.splice(idx, 1);
+            }
+        });
         get()._syncToFirestore();
     },
 
     clearCompletedNextDayContents: (skillId) => {
-        set((state) => ({
-            skills: state.skills.map(s =>
-                s.id === skillId
-                    ? { ...s, nextDayContents: (s.nextDayContents || []).filter(c => !c.isCompleted) }
-                    : s
-            )
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.nextDayContents) {
+                skill.nextDayContents = skill.nextDayContents.filter(c => !c.isCompleted);
+            }
+        });
         get()._syncToFirestore();
     }
 });
+

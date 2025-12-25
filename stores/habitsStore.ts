@@ -8,6 +8,7 @@
  * - No more LocalStorage cache - Firestore SDK handles offline via IndexedDB
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { Habit, OrganizeTask, HabitLog } from '../types';
 import { writeToFirestore } from './firestoreSync';
 
@@ -57,7 +58,7 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     });
 };
 
-export const useHabitsStore = create<HabitsState>()((set, get) => ({
+export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
     habits: [],
     tasks: [],
     isLoading: true,
@@ -65,176 +66,141 @@ export const useHabitsStore = create<HabitsState>()((set, get) => ({
 
     // Habit Actions
     setHabits: (habits) => {
-        set({ habits: deduplicateById(habits) });
+        set((state) => { state.habits = deduplicateById(habits); });
         get()._syncToFirestore();
     },
 
     addHabit: (habit) => {
-        set((state) => ({
-            habits: [...state.habits, habit]
-        }));
+        set((state) => { state.habits.push(habit); });
         get()._syncToFirestore();
     },
 
     updateHabit: (id, updates) => {
-        set((state) => ({
-            habits: state.habits.map(h => h.id === id ? { ...h, ...updates } : h)
-        }));
+        set((state) => {
+            const habit = state.habits.find(h => h.id === id);
+            if (habit) Object.assign(habit, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteHabit: (id) => {
-        set((state) => ({
-            habits: state.habits.filter(h => h.id !== id)
-        }));
+        set((state) => {
+            const idx = state.habits.findIndex(h => h.id === id);
+            if (idx !== -1) state.habits.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     archiveHabit: (id) => {
-        set((state) => ({
-            habits: state.habits.map(h => h.id === id ? { ...h, archived: true } : h)
-        }));
+        set((state) => {
+            const habit = state.habits.find(h => h.id === id);
+            if (habit) habit.archived = true;
+        });
         get()._syncToFirestore();
     },
 
     toggleHabitCompletion: (habitId, date, subHabitId) => {
-        set((state) => ({
-            habits: state.habits.map(habit => {
-                if (habit.id !== habitId) return habit;
+        set((state) => {
+            const habit = state.habits.find(h => h.id === habitId);
+            if (!habit) return;
 
-                const currentLog: HabitLog = habit.history[date] || {
-                    completed: false,
-                    subHabitsCompleted: []
-                };
+            if (!habit.history[date]) {
+                habit.history[date] = { completed: false, subHabitsCompleted: [] };
+            }
+            const log = habit.history[date];
 
-                if (subHabitId) {
-                    // Toggle sub-habit
-                    const subCompleted = currentLog.subHabitsCompleted.includes(subHabitId)
-                        ? currentLog.subHabitsCompleted.filter(id => id !== subHabitId)
-                        : [...currentLog.subHabitsCompleted, subHabitId];
-
-                    // Check if all sub-habits are completed
-                    const allSubsCompleted = habit.subHabits.length > 0 &&
-                        habit.subHabits.every(s => subCompleted.includes(s.id));
-
-                    return {
-                        ...habit,
-                        history: {
-                            ...habit.history,
-                            [date]: {
-                                ...currentLog,
-                                subHabitsCompleted: subCompleted,
-                                completed: allSubsCompleted
-                            }
-                        }
-                    };
+            if (subHabitId) {
+                // Toggle sub-habit
+                const idx = log.subHabitsCompleted.indexOf(subHabitId);
+                if (idx >= 0) {
+                    log.subHabitsCompleted.splice(idx, 1);
                 } else {
-                    // Toggle main habit
-                    return {
-                        ...habit,
-                        history: {
-                            ...habit.history,
-                            [date]: {
-                                ...currentLog,
-                                completed: !currentLog.completed
-                            }
-                        }
-                    };
+                    log.subHabitsCompleted.push(subHabitId);
                 }
-            })
-        }));
+                // Check if all sub-habits are completed
+                log.completed = habit.subHabits.length > 0 &&
+                    habit.subHabits.every(s => log.subHabitsCompleted.includes(s.id));
+            } else {
+                // Toggle main habit
+                log.completed = !log.completed;
+            }
+        });
         get()._syncToFirestore();
     },
 
     logHabitValue: (habitId, date, value) => {
-        set((state) => ({
-            habits: state.habits.map(habit => {
-                if (habit.id !== habitId) return habit;
+        set((state) => {
+            const habit = state.habits.find(h => h.id === habitId);
+            if (!habit) return;
 
-                const currentLog: HabitLog = habit.history[date] || {
-                    completed: false,
-                    subHabitsCompleted: []
-                };
+            if (!habit.history[date]) {
+                habit.history[date] = { completed: false, subHabitsCompleted: [] };
+            }
+            const log = habit.history[date];
+            log.value = value;
 
-                // Determine if completed based on goal type
-                let completed = false;
-                if (habit.goalType === 'MAX_TIME' && habit.targetValue) {
-                    completed = value <= habit.targetValue;
-                } else if (habit.goalType === 'MIN_TIME' && habit.targetValue) {
-                    completed = value >= habit.targetValue;
-                }
-
-                return {
-                    ...habit,
-                    history: {
-                        ...habit.history,
-                        [date]: {
-                            ...currentLog,
-                            value,
-                            completed
-                        }
-                    }
-                };
-            })
-        }));
+            // Determine if completed based on goal type
+            if (habit.goalType === 'MAX_TIME' && habit.targetValue) {
+                log.completed = value <= habit.targetValue;
+            } else if (habit.goalType === 'MIN_TIME' && habit.targetValue) {
+                log.completed = value >= habit.targetValue;
+            }
+        });
         get()._syncToFirestore();
     },
 
     // Task Actions
     setTasks: (tasks) => {
-        set({ tasks: deduplicateById(tasks) });
+        set((state) => { state.tasks = deduplicateById(tasks); });
         get()._syncToFirestore();
     },
 
     addTask: (task) => {
-        set((state) => ({
-            tasks: [...state.tasks, task]
-        }));
+        set((state) => { state.tasks.push(task); });
         get()._syncToFirestore();
     },
 
     updateTask: (id, updates) => {
-        set((state) => ({
-            tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
-        }));
+        set((state) => {
+            const task = state.tasks.find(t => t.id === id);
+            if (task) Object.assign(task, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteTask: (id) => {
-        set((state) => ({
-            tasks: state.tasks.filter(t => t.id !== id)
-        }));
+        set((state) => {
+            const idx = state.tasks.findIndex(t => t.id === id);
+            if (idx !== -1) state.tasks.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     toggleTaskComplete: (id) => {
-        set((state) => ({
-            tasks: state.tasks.map(t =>
-                t.id === id ? { ...t, isCompleted: !t.isCompleted } : t
-            )
-        }));
+        set((state) => {
+            const task = state.tasks.find(t => t.id === id);
+            if (task) task.isCompleted = !task.isCompleted;
+        });
         get()._syncToFirestore();
     },
 
     archiveTask: (id) => {
-        set((state) => ({
-            tasks: state.tasks.map(t =>
-                t.id === id ? { ...t, isArchived: true } : t
-            )
-        }));
+        set((state) => {
+            const task = state.tasks.find(t => t.id === id);
+            if (task) task.isArchived = true;
+        });
         get()._syncToFirestore();
     },
 
     restoreTask: (id) => {
-        set((state) => ({
-            tasks: state.tasks.map(t =>
-                t.id === id ? { ...t, isArchived: false } : t
-            )
-        }));
+        set((state) => {
+            const task = state.tasks.find(t => t.id === id);
+            if (task) task.isArchived = false;
+        });
         get()._syncToFirestore();
     },
 
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     // Internal: Sync current state to Firestore
     _syncToFirestore: () => {
@@ -248,28 +214,28 @@ export const useHabitsStore = create<HabitsState>()((set, get) => ({
     // Internal: Hydrate from Firestore data (called by App.tsx subscription)
     _hydrateFromFirestore: (data) => {
         if (data) {
-            set({
-                habits: deduplicateById(data.habits || []),
-                tasks: deduplicateById(data.tasks || []),
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.habits = deduplicateById(data.habits || []);
+                state.tasks = deduplicateById(data.tasks || []);
+                state.isLoading = false;
+                state._initialized = true;
             });
         } else {
             // No cloud data - first time user or empty
-            set({
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
             });
         }
     },
 
     // Internal: Reset store (for user switch)
     _reset: () => {
-        set({
-            habits: [],
-            tasks: [],
-            isLoading: true,
-            _initialized: false
+        set((state) => {
+            state.habits = [];
+            state.tasks = [];
+            state.isLoading = true;
+            state._initialized = false;
         });
     }
-}));
+})));

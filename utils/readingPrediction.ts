@@ -5,6 +5,17 @@
  * Supports exponential distribution across phases (same as Skills).
  */
 import { Book } from '../types';
+import {
+    getStartOfDay,
+    parseDate,
+    daysDiff,
+    addDaysToDate,
+    formatDateISO,
+    getDayOfWeek,
+    formatDateBR,
+    getTodayISO,
+    DAY_NAMES_PT
+} from './dateUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERFACES
@@ -51,7 +62,7 @@ export interface ReadingDailyPlan {
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const DAY_NAMES = DAY_NAMES_PT;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BASIC PREDICTION
@@ -68,14 +79,9 @@ export function calculateReadingDailyRequirement(book: Book): ReadingDailyPredic
     if (!book.deadline) return null;
 
     // Calculate remaining days
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const deadline = new Date(book.deadline);
-    deadline.setHours(0, 0, 0, 0);
-
-    const diffMs = deadline.getTime() - today.getTime();
-    const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const today = getStartOfDay(new Date());
+    const deadline = getStartOfDay(parseDate(book.deadline));
+    const remainingDays = daysDiff(today, deadline);
 
     // Deadline has passed
     if (remainingDays <= 0) {
@@ -148,14 +154,9 @@ export function getExponentialFactor(dayIndex: number, totalDays: number, intens
 export function calculateReadingDailyPlan(book: Book): ReadingDailyPlan | null {
     if (!book.deadline) return null;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const deadline = new Date(book.deadline);
-    deadline.setHours(0, 0, 0, 0);
-
-    const diffMs = deadline.getTime() - today.getTime();
-    const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const today = getStartOfDay(new Date());
+    const deadline = getStartOfDay(parseDate(book.deadline));
+    const totalDays = daysDiff(today, deadline);
 
     if (totalDays <= 0) {
         return {
@@ -196,9 +197,8 @@ export function calculateReadingDailyPlan(book: Book): ReadingDailyPlan | null {
     // Primeiro passo: contar dias úteis
     let effectiveDaysCount = 0;
     for (let i = 0; i < totalDays; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dayOfWeek = date.getDay();
+        const date = addDaysToDate(today, i);
+        const dayOfWeek = getDayOfWeek(date);
         if (!excludedDays.includes(dayOfWeek)) {
             effectiveDaysCount++;
         }
@@ -222,9 +222,8 @@ export function calculateReadingDailyPlan(book: Book): ReadingDailyPlan | null {
     let factorSum = 0;
 
     for (let i = 0; i < totalDays; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dayOfWeek = date.getDay();
+        const date = addDaysToDate(today, i);
+        const dayOfWeek = getDayOfWeek(date);
 
         if (excludedDays.includes(dayOfWeek)) {
             factors.push(0);
@@ -243,10 +242,8 @@ export function calculateReadingDailyPlan(book: Book): ReadingDailyPlan | null {
     const avgPagesPerDay = remainingPages / effectiveDaysCount;
 
     for (let i = 0; i < totalDays; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dayOfWeek = date.getDay();
-        const dateStr = date.toISOString().split('T')[0];
+        const date = addDaysToDate(today, i);
+        const dayOfWeek = getDayOfWeek(date);
         const isExcluded = excludedDays.includes(dayOfWeek);
 
         let pages = 0;
@@ -260,14 +257,14 @@ export function calculateReadingDailyPlan(book: Book): ReadingDailyPlan | null {
         cumulative += pages;
 
         items.push({
-            date: dateStr,
+            date: formatDateISO(date),
             dayOfWeek,
             dayOfWeekName: DAY_NAMES[dayOfWeek],
             pages,
             isExcluded,
             cumulativePages: cumulative,
             percentOfAverage,
-            formattedDate: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+            formattedDate: formatDateBR(date, 'dd MMM')
         });
     }
 
@@ -354,7 +351,7 @@ function calculatePhases(items: ReadingDailyPlanItem[], effectiveDays: number, a
  */
 export function getTodayPlan(dailyPlan: ReadingDailyPlan | null): ReadingDailyPlanItem | null {
     if (!dailyPlan || dailyPlan.isExpired || dailyPlan.items.length === 0) return null;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayISO();
     return dailyPlan.items.find(item => item.date === today) || dailyPlan.items[0];
 }
 
@@ -363,7 +360,7 @@ export function getTodayPlan(dailyPlan: ReadingDailyPlan | null): ReadingDailyPl
  */
 export function getCurrentPhase(dailyPlan: ReadingDailyPlan | null, todayPlan: ReadingDailyPlanItem | null): ReadingPhaseSummary | null {
     if (!dailyPlan || dailyPlan.phases.length === 0 || !todayPlan) return null;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayISO();
     const todayIndex = dailyPlan.items.filter(i => !i.isExcluded).findIndex(i => i.date === today);
     if (todayIndex === -1) return dailyPlan.phases[0];
 

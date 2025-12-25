@@ -16,12 +16,15 @@ import {
     DragEndEvent,
     DragStartEvent,
     PointerSensor,
+    TouchSensor,
+    MouseSensor,
     useSensor,
     useSensors,
     DragOverlay,
     pointerWithin,
-    defaultDropAnimationSideEffects
+    defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
+import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { Calendar, ChevronLeft, ChevronRight, BarChart3, Plus, Layers, X } from 'lucide-react';
 import { useSkillsStore } from '../../../stores/skillsStore';
 import { useWeeklyAgendaStore } from '../../../stores/weeklyAgendaStore';
@@ -40,6 +43,18 @@ import {
 
 const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const DAY_NAMES_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+// Haptic feedback helper for mobile devices
+const triggerHaptic = (pattern: 'light' | 'medium' | 'heavy' = 'light') => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        const durations = { light: 10, medium: 25, heavy: 50 };
+        try {
+            navigator.vibrate(durations[pattern]);
+        } catch {
+            // Silently fail if vibration not supported
+        }
+    }
+};
 
 // Hook to detect mobile viewport
 const useIsMobile = () => {
@@ -86,14 +101,38 @@ export const WeeklyAgenda: React.FC = () => {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [activeData, setActiveData] = useState<any>(null);
 
-    // Setup Sensors
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8, // Avoid dragging on accidental clicks
-            },
-        })
-    );
+    // Tap-to-place state for mobile (alternative to drag-and-drop)
+    const [tapToPlaceItem, setTapToPlaceItem] = useState<{
+        type: 'skill' | 'activity' | 'event';
+        referenceId: string;
+    } | null>(null);
+
+    // Setup Sensors - Optimized for responsive drag-and-drop
+    // MouseSensor for desktop with low activation distance
+    const mouseSensor = useSensor(MouseSensor, {
+        activationConstraint: {
+            distance: 5, // Start drag after 5px movement
+        },
+    });
+
+    // PointerSensor as fallback with slightly higher threshold
+    const pointerSensor = useSensor(PointerSensor, {
+        activationConstraint: {
+            distance: 8,
+        },
+    });
+
+    // TouchSensor for mobile - Small delay to differentiate from scroll
+    // 150ms is fast enough to feel responsive but prevents accidental drags
+    const touchSensor = useSensor(TouchSensor, {
+        activationConstraint: {
+            delay: 150, // Small delay to differentiate from scroll
+            tolerance: 8, // Allow 8px movement during delay period
+        },
+    });
+
+    // Combine sensors - order matters! Touch first for mobile
+    const sensors = useSensors(touchSensor, mouseSensor, pointerSensor);
 
     // Calculate week dates with offset  
     const baseDate = useMemo(() => {
@@ -189,14 +228,16 @@ export const WeeklyAgenda: React.FC = () => {
         });
     }, [skillsMap, activitiesMap, eventsMap, scheduleBlock]);
 
-    // Handle DnD drag start
+    // Handle DnD drag start - with haptic feedback
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
         setActiveId(active.id as string);
         setActiveData(active.data.current);
+        // Trigger haptic feedback on mobile
+        triggerHaptic('light');
     }, []);
 
-    // Handle DnD drag end
+    // Handle DnD drag end - with haptic on successful drop
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         setActiveId(null);
         setActiveData(null);
@@ -215,6 +256,9 @@ export const WeeklyAgenda: React.FC = () => {
 
         const activeData = active.data.current;
 
+        // Trigger haptic feedback on successful drop
+        triggerHaptic('medium');
+
         if (activeData?.isBlock) {
             // Moving existing block
             moveBlock(active.id as string, date, hour, 0);
@@ -229,11 +273,28 @@ export const WeeklyAgenda: React.FC = () => {
         setSelectedBlock(block);
     }, []);
 
-    // Handle empty slot click (quick add)
-    const handleEmptySlotClick = useCallback((date: string, hour: number) => {
-        // Could show a quick-add popover here
-        console.log('Empty slot clicked:', date, hour);
+    // Handle item tap for tap-to-place (mobile alternative to drag)
+    const handleItemTap = useCallback((type: 'skill' | 'activity' | 'event', referenceId: string) => {
+        setTapToPlaceItem({ type, referenceId });
+        setShowSidePanel(false); // Close panel to show calendar
     }, []);
+
+    // Cancel tap-to-place mode
+    const cancelTapToPlace = useCallback(() => {
+        setTapToPlaceItem(null);
+    }, []);
+
+    // Handle empty slot click - supports tap-to-place
+    const handleEmptySlotClick = useCallback((date: string, hour: number) => {
+        if (tapToPlaceItem) {
+            // In tap-to-place mode: schedule the item
+            handleBlockDrop(tapToPlaceItem.type, tapToPlaceItem.referenceId, date, hour, 0);
+            setTapToPlaceItem(null);
+        } else {
+            // Regular click - could show quick-add popover
+            console.log('Empty slot clicked:', date, hour);
+        }
+    }, [tapToPlaceItem, handleBlockDrop]);
 
     // Format week range for display
     const weekRangeLabel = useMemo(() => {
@@ -250,6 +311,7 @@ export const WeeklyAgenda: React.FC = () => {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             collisionDetection={pointerWithin}
+            modifiers={[restrictToWindowEdges]}
         >
             <div className="space-y-4 animate-in fade-in duration-500">
                 {/* Header with week navigation */}
@@ -376,6 +438,8 @@ export const WeeklyAgenda: React.FC = () => {
                             activities={activities}
                             events={events}
                             onAddEvent={() => setShowEventModal(true)}
+                            onItemTap={handleItemTap}
+                            selectedItemId={tapToPlaceItem?.referenceId}
                         />
                     </div>
 
@@ -387,9 +451,9 @@ export const WeeklyAgenda: React.FC = () => {
                                 className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
                                 onClick={() => setShowSidePanel(false)}
                             />
-                            {/* Bottom Sheet */}
+                            {/* Bottom Sheet - more compact for mobile */}
                             <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300">
-                                <div className="bg-slate-800 rounded-t-2xl border-t border-slate-700 max-h-[70vh] overflow-hidden">
+                                <div className="bg-slate-800 rounded-t-2xl border-t border-slate-700 max-h-[50vh] overflow-hidden">
                                     {/* Handle bar */}
                                     <div className="flex justify-center py-2">
                                         <div className="w-10 h-1 bg-slate-600 rounded-full" />
@@ -398,7 +462,7 @@ export const WeeklyAgenda: React.FC = () => {
                                     <div className="flex items-center justify-between px-4 pb-2">
                                         <div className="flex items-center gap-2 text-slate-400">
                                             <Layers size={16} />
-                                            <span className="text-sm font-medium">Arraste para agendar</span>
+                                            <span className="text-sm font-medium">Toque para selecionar</span>
                                         </div>
                                         <button
                                             onClick={() => setShowSidePanel(false)}
@@ -408,7 +472,7 @@ export const WeeklyAgenda: React.FC = () => {
                                         </button>
                                     </div>
                                     {/* SidePanel content */}
-                                    <div className="overflow-y-auto max-h-[calc(70vh-60px)] px-2 pb-4">
+                                    <div className="overflow-y-auto max-h-[calc(50vh-60px)] px-2 pb-4">
                                         <SidePanel
                                             skills={skills}
                                             activities={activities}
@@ -417,6 +481,8 @@ export const WeeklyAgenda: React.FC = () => {
                                                 setShowSidePanel(false);
                                                 setShowEventModal(true);
                                             }}
+                                            onItemTap={handleItemTap}
+                                            selectedItemId={tapToPlaceItem?.referenceId}
                                             isCompact
                                         />
                                     </div>
@@ -427,6 +493,21 @@ export const WeeklyAgenda: React.FC = () => {
 
                     {/* Calendar Grid */}
                     <div className="flex-1 min-w-0">
+                        {/* Tap-to-place mode indicator */}
+                        {tapToPlaceItem && (
+                            <div className="mb-3 p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-lg flex items-center justify-between animate-in fade-in duration-200">
+                                <div className="flex items-center gap-2 text-emerald-400">
+                                    <Target size={16} />
+                                    <span className="text-sm font-medium">Toque em um horário para agendar</span>
+                                </div>
+                                <button
+                                    onClick={cancelTapToPlace}
+                                    className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        )}
                         <CalendarGrid
                             weekDates={weekDates}
                             scheduledBlocks={scheduledBlocks}
@@ -440,6 +521,7 @@ export const WeeklyAgenda: React.FC = () => {
                             onEmptySlotClick={handleEmptySlotClick}
                             selectedDayIndex={isMobile && viewMode === 'day' ? selectedDayIndex : undefined}
                             isMobile={isMobile}
+                            tapToPlaceMode={!!tapToPlaceItem}
                         />
                     </div>
 
@@ -499,12 +581,14 @@ export const WeeklyAgenda: React.FC = () => {
                     />
                 )}
 
-                {/* Drag Overlay for smooth preview */}
+                {/* Drag Overlay for smooth preview - with optimized drop animation */}
                 <DragOverlay dropAnimation={{
+                    duration: 200,
+                    easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)', // Bounce effect
                     sideEffects: defaultDropAnimationSideEffects({
                         styles: {
                             active: {
-                                opacity: '0.5',
+                                opacity: '0.9',
                             },
                         },
                     }),
@@ -522,16 +606,20 @@ export const WeeklyAgenda: React.FC = () => {
                             </div>
                         ) : (
                             <div className={`
-                                flex items-center gap-2 p-3 rounded-lg border bg-slate-800 border-slate-600 
-                                text-white shadow-2xl scale-110 opacity-90 pointer-events-none w-64
+                                flex items-center gap-3 p-4 rounded-xl border-2 bg-slate-800/95 backdrop-blur-sm
+                                border-emerald-400 text-white shadow-2xl shadow-emerald-500/30
+                                pointer-events-none w-72 drag-overlay-item
                             `}>
-                                <GripVertical size={14} className="text-slate-500" />
-                                {activeData.type === 'skill' && <Target size={16} className="text-emerald-400" />}
-                                {activeData.type === 'activity' && <Clock size={16} className="text-blue-400" />}
-                                <div className="text-sm font-medium truncate">
-                                    {activeData.type === 'skill' ? skillsMap.get(activeData.referenceId)?.name :
-                                        activeData.type === 'activity' ? activitiesMap.get(activeData.referenceId)?.title :
-                                            eventsMap.get(activeData.referenceId)?.title || 'Novo Item'}
+                                <GripVertical size={16} className="text-emerald-400" />
+                                {activeData.type === 'skill' && <Target size={18} className="text-emerald-400" />}
+                                {activeData.type === 'activity' && <Clock size={18} className="text-blue-400" />}
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold truncate">
+                                        {activeData.type === 'skill' ? skillsMap.get(activeData.referenceId)?.name :
+                                            activeData.type === 'activity' ? activitiesMap.get(activeData.referenceId)?.title :
+                                                eventsMap.get(activeData.referenceId)?.title || 'Novo Item'}
+                                    </div>
+                                    <div className="text-[10px] text-emerald-400/80">Arraste para a agenda</div>
                                 </div>
                             </div>
                         )

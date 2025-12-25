@@ -1,8 +1,9 @@
 /**
  * Skills Store - Skills with Firestore-first persistence
- * Refactored to use modular action slices
+ * Refactored to use modular action slices with Immer middleware
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { Skill, SkillLog, SkillResource, SkillRoadmapItem, VisualRoadmap, RoadmapViewMode, MicroAchievement, NextDayContent } from '../types';
 import { writeToFirestore } from './firestoreSync';
 
@@ -59,7 +60,7 @@ interface SkillsState extends SkillsBaseState,
     DistributionActions,
     SectionVisibilityActions { }
 
-export const useSkillsStore = create<SkillsState>()((set, get) => ({
+export const useSkillsStore = create<SkillsState>()(immer((set, get) => ({
     // Initial state
     skills: [],
     hasInitialized: false,
@@ -68,51 +69,57 @@ export const useSkillsStore = create<SkillsState>()((set, get) => ({
 
     // Base CRUD actions
     setSkills: (skills) => {
-        set({ skills: deduplicateById(skills) });
+        set((state) => { state.skills = deduplicateById(skills); });
         get()._syncToFirestore();
     },
 
     markInitialized: () => {
-        set({ hasInitialized: true });
+        set((state) => { state.hasInitialized = true; });
         get()._syncToFirestore();
     },
 
     addSkill: (skill) => {
-        set((state) => ({ skills: [...state.skills, skill] }));
+        set((state) => { state.skills.push(skill); });
         get()._syncToFirestore();
     },
 
     updateSkill: (id, updates) => {
-        set((state) => ({
-            skills: state.skills.map(s => s.id === id ? { ...s, ...updates } : s)
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === id);
+            if (skill) Object.assign(skill, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteSkill: (id) => {
         set((state) => {
             const skill = state.skills.find(s => s.id === id);
-            if (skill?.name === 'Inglês Avançado') return state;
-            return { skills: state.skills.filter(s => s.id !== id) };
+            if (skill?.name === 'Inglês Avançado') return;
+            const idx = state.skills.findIndex(s => s.id === id);
+            if (idx !== -1) state.skills.splice(idx, 1);
         });
         get()._syncToFirestore();
     },
 
     completeSkill: (skillId) => {
-        set((state) => ({
-            skills: state.skills.map(s =>
-                s.id === skillId ? { ...s, isCompleted: true, completedAt: Date.now() } : s
-            )
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                skill.isCompleted = true;
+                skill.completedAt = Date.now();
+            }
+        });
         get()._syncToFirestore();
     },
 
     uncompleteSkill: (skillId) => {
-        set((state) => ({
-            skills: state.skills.map(s =>
-                s.id === skillId ? { ...s, isCompleted: false, completedAt: undefined } : s
-            )
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                skill.isCompleted = false;
+                skill.completedAt = undefined;
+            }
+        });
         get()._syncToFirestore();
     },
 
@@ -127,7 +134,7 @@ export const useSkillsStore = create<SkillsState>()((set, get) => ({
     ...createSectionVisibilityActions(set as any, get as any),
 
     // Internal methods
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
         const { skills, hasInitialized, _initialized } = get();
@@ -158,18 +165,26 @@ export const useSkillsStore = create<SkillsState>()((set, get) => ({
                 skills = [...otherSkills, bestEnglishSkill];
             }
 
-            set({
-                skills,
-                hasInitialized: data.hasInitialized || false,
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.skills = skills;
+                state.hasInitialized = data.hasInitialized || false;
+                state.isLoading = false;
+                state._initialized = true;
             });
         } else {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
         }
     },
 
     _reset: () => {
-        set({ skills: [], hasInitialized: false, isLoading: true, _initialized: false });
+        set((state) => {
+            state.skills = [];
+            state.hasInitialized = false;
+            state.isLoading = true;
+            state._initialized = false;
+        });
     }
-}));
+})));

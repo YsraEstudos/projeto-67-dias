@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, MoreVertical, Trash2, Copy, Download, Pin } from 'lucide-react';
+import { MoreVertical, Trash2, Copy, Download, Pin } from 'lucide-react';
 import { Note, Tag } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { sanitizeFilename } from '../../utils/sanitizeFilename';
@@ -171,13 +171,6 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                             )}
                         </div>
                     </div>
-
-                    {/* AI Badge */}
-                    {note.aiProcessed && (
-                        <div className="flex-shrink-0 p-1.5 bg-purple-500/10 rounded-lg border border-purple-500/20" title="Processada por IA">
-                            <Sparkles size={14} className="text-purple-400" />
-                        </div>
-                    )}
                 </div>
 
                 {/* Content Preview - Lightweight */}

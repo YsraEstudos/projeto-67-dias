@@ -16,6 +16,13 @@ import {
     Game,
     CENTRAL_FOLDER_ID
 } from '../types';
+import {
+    parseDate,
+    getStartOfDay,
+    daysDiff,
+    addDaysToDate,
+    formatDateISO
+} from '../utils/dateUtils';
 
 // --- CONFIGURAÇÕES DA JORNADA ---
 
@@ -64,15 +71,14 @@ export const SCORING_CONFIG = {
  * Normaliza as datas para meia-noite local para evitar bugs de timezone
  */
 export function calculateCurrentWeek(startDate: string): number {
-    const start = new Date(startDate);
+    const start = parseDate(startDate);
     const now = new Date();
 
     // Normalize both dates to midnight (local time)
-    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startMidnight = getStartOfDay(start);
+    const nowMidnight = getStartOfDay(now);
 
-    const diffTime = nowMidnight.getTime() - startMidnight.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = daysDiff(startMidnight, nowMidnight);
 
     return Math.min(
         JOURNEY_CONFIG.TOTAL_WEEKS,
@@ -86,15 +92,14 @@ export function calculateCurrentWeek(startDate: string): number {
  * Normaliza as datas para meia-noite local para evitar bugs de timezone
  */
 export function calculateCurrentDay(startDate: string): number {
-    const start = new Date(startDate);
+    const start = parseDate(startDate);
     const now = new Date();
 
     // Normalize both dates to midnight (local time) for day comparison
-    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startMidnight = getStartOfDay(start);
+    const nowMidnight = getStartOfDay(now);
 
-    const diffTime = nowMidnight.getTime() - startMidnight.getTime();
-    const dayDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const dayDiff = daysDiff(startMidnight, nowMidnight);
 
     // Se startDate está no futuro, retorna 0 (jornada não iniciada)
     if (dayDiff < 0) {
@@ -110,14 +115,13 @@ export function calculateCurrentDay(startDate: string): number {
  * Retorna 0 se já começou ou se é hoje
  */
 export function getDaysUntilStart(startDate: string): number {
-    const start = new Date(startDate);
+    const start = parseDate(startDate);
     const now = new Date();
 
-    const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startMidnight = getStartOfDay(start);
+    const nowMidnight = getStartOfDay(now);
 
-    const diffTime = startMidnight.getTime() - nowMidnight.getTime();
-    const dayDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const dayDiff = daysDiff(nowMidnight, startMidnight);
 
     return Math.max(0, dayDiff);
 }
@@ -126,24 +130,13 @@ export function getDaysUntilStart(startDate: string): number {
  * Retorna as datas de início e fim de uma semana específica
  */
 export function getWeekDateRange(startDate: string, weekNumber: number): { startDate: string; endDate: string } {
-    const start = new Date(startDate);
-    const weekStart = new Date(start);
-    weekStart.setDate(weekStart.getDate() + (weekNumber - 1) * JOURNEY_CONFIG.DAYS_PER_WEEK);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-
-    // Helper to format as YYYY-MM-DD using local time
-    const toLocalDateString = (date: Date): string => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    };
+    const start = parseDate(startDate);
+    const weekStart = addDaysToDate(start, (weekNumber - 1) * JOURNEY_CONFIG.DAYS_PER_WEEK);
+    const weekEnd = addDaysToDate(weekStart, 6);
 
     return {
-        startDate: toLocalDateString(weekStart),
-        endDate: toLocalDateString(weekEnd)
+        startDate: formatDateISO(weekStart),
+        endDate: formatDateISO(weekEnd)
     };
 }
 
@@ -189,17 +182,20 @@ export function captureWeeklyMetrics(
 
     // Games: zerados na semana
     // Nota: Usamos updatedAt como proxy para data de completion se não houver um campo específico
+    const weekStartTime = parseDate(weekStart).getTime();
+    const weekEndTime = parseDate(weekEnd).getTime();
+
     const gamesCompleted = centralGames.filter(g =>
         g.status === 'COMPLETED' &&
-        g.updatedAt >= new Date(weekStart).getTime() &&
-        g.updatedAt <= new Date(weekEnd).getTime()
+        g.updatedAt >= weekStartTime &&
+        g.updatedAt <= weekEndTime
     ).length;
 
     // Games: resenhas feitas na semana
     const gamesReviewed = centralGames.filter(g =>
         g.review && !g.reviewPending &&
-        g.updatedAt >= new Date(weekStart).getTime() &&
-        g.updatedAt <= new Date(weekEnd).getTime()
+        g.updatedAt >= weekStartTime &&
+        g.updatedAt <= weekEndTime
     ).length;
 
     // Hábitos: calcular consistência da semana
@@ -208,9 +204,8 @@ export function captureWeeklyMetrics(
 
     const activeHabits = habits.filter(h => !h.archived);
     for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + i);
-        const dateKey = d.toISOString().split('T')[0];
+        const d = addDaysToDate(parseDate(weekStart), i);
+        const dateKey = formatDateISO(d);
 
         activeHabits.forEach(habit => {
             habitsTotal++;

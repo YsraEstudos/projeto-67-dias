@@ -12,39 +12,33 @@ export interface PomodoroActions {
 
 export const createPomodoroActions = (set: SkillsSet, get: SkillsGet): PomodoroActions => ({
     addPomodoro: (skillId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return {
-                    ...skill,
-                    pomodorosCompleted: (skill.pomodorosCompleted || 0) + 1,
-                    currentMinutes: skill.currentMinutes + 25,
-                    logs: [...skill.logs, {
-                        id: generateUUID(),
-                        date: new Date().toISOString(),
-                        minutes: 25,
-                        notes: '🍅 Pomodoro completado'
-                    }]
-                };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                skill.pomodorosCompleted = (skill.pomodorosCompleted || 0) + 1;
+                skill.currentMinutes += 25;
+                skill.logs.push({
+                    id: generateUUID(),
+                    date: new Date().toISOString(),
+                    minutes: 25,
+                    notes: '🍅 Pomodoro completado'
+                });
+            }
+        });
         get()._syncToFirestore();
     },
 
     setPomodorosCompleted: (skillId, count) => {
         const validCount = Math.max(0, count);
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                // Recalculate currentMinutes based on pomodoro difference
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
                 const minutesDiff = (validCount - (skill.pomodorosCompleted || 0)) * 25;
-                return {
-                    ...skill,
-                    pomodorosCompleted: validCount,
-                    currentMinutes: Math.max(0, skill.currentMinutes + minutesDiff),
-                };
-            })
-        }));
+                skill.pomodorosCompleted = validCount;
+                skill.currentMinutes = Math.max(0, skill.currentMinutes + minutesDiff);
+            }
+        });
         get()._syncToFirestore();
     }
 });
+

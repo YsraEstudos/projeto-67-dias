@@ -1,10 +1,9 @@
 import React, { Suspense } from 'react';
-import { Search, RotateCcw, Archive, LayoutList, Sparkles } from 'lucide-react';
+import { Search, RotateCcw, Archive, LayoutList } from 'lucide-react';
 import { useTasksManager } from './hooks/useTasksManager';
 import { TaskItem } from '../../habits/TaskItem';
 
 const TaskModal = React.lazy(() => import('../../habits/TaskModal'));
-const AITaskAssistantModal = React.lazy(() => import('../../../components/modals/AITaskAssistantModal'));
 
 interface TasksPanelProps {
     manager: ReturnType<typeof useTasksManager>;
@@ -35,11 +34,7 @@ export const TasksPanel: React.FC<TasksPanelProps> = ({ manager }) => {
         setIsModalOpen,
         editingTask,
         setEditingTask,
-        handleSaveTask,
-
-        isAIModalOpen,
-        setIsAIModalOpen,
-        handleAIGeneratedTasks
+        handleSaveTask
     } = manager;
 
     return (
@@ -98,16 +93,6 @@ export const TasksPanel: React.FC<TasksPanelProps> = ({ manager }) => {
                 ))}
             </div>
 
-            {/* FLOATING AI BUTTON (For Tasks only) */}
-            <button
-                onClick={() => setIsAIModalOpen(true)}
-                className="fixed bottom-8 right-8 z-40 group flex items-center justify-center w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 text-white rounded-full shadow-lg shadow-indigo-500/30 hover:scale-110 transition-all duration-300 hover:shadow-indigo-500/50 border border-white/10"
-                title="Planejador IA"
-            >
-                <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
-                <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-0 group-hover:opacity-100 duration-1000"></div>
-            </button>
-
 
             {/* TASK MODAL */}
             {isModalOpen && (
@@ -121,15 +106,6 @@ export const TasksPanel: React.FC<TasksPanelProps> = ({ manager }) => {
                 </Suspense>
             )}
 
-            {/* AI ASSISTANT MODAL */}
-            {isAIModalOpen && (
-                <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div></div>}>
-                    <AITaskAssistantModal
-                        onClose={() => setIsAIModalOpen(false)}
-                        onApply={handleAIGeneratedTasks}
-                    />
-                </Suspense>
-            )}
         </div>
     );
 };

@@ -8,6 +8,7 @@
  * - TrackingSlice: Daily tracking, time config, pace mode
  */
 import { create, StateCreator } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { writeToFirestore } from './firestoreSync';
 
 // Import slices
@@ -141,44 +142,47 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
 
         _hydrateFromFirestore: (data) => {
             if (data) {
-                set({
-                    ...(data.history !== undefined && { history: data.history }),
-                    ...(data.goals !== undefined && { goals: data.goals }),
-                    ...(data.studySubjects !== undefined && { studySubjects: data.studySubjects }),
-                    ...(data.studySchedules !== undefined && { studySchedules: data.studySchedules }),
-                    ...(data.currentCount !== undefined && { currentCount: data.currentCount }),
-                    ...(data.goal !== undefined && { goal: data.goal }),
-                    ...(data.preBreakCount !== undefined && { preBreakCount: data.preBreakCount }),
-                    ...(data.startTime !== undefined && { startTime: data.startTime }),
-                    ...(data.endTime !== undefined && { endTime: data.endTime }),
-                    ...(data.breakTime !== undefined && { breakTime: data.breakTime }),
-                    ...(data.paceMode !== undefined && { paceMode: data.paceMode }),
-                    isLoading: false,
-                    _initialized: true,
+                set((state) => {
+                    if (data.history !== undefined) state.history = data.history;
+                    if (data.goals !== undefined) state.goals = data.goals;
+                    if (data.studySubjects !== undefined) state.studySubjects = data.studySubjects;
+                    if (data.studySchedules !== undefined) state.studySchedules = data.studySchedules;
+                    if (data.currentCount !== undefined) state.currentCount = data.currentCount;
+                    if (data.goal !== undefined) state.goal = data.goal;
+                    if (data.preBreakCount !== undefined) state.preBreakCount = data.preBreakCount;
+                    if (data.startTime !== undefined) state.startTime = data.startTime;
+                    if (data.endTime !== undefined) state.endTime = data.endTime;
+                    if (data.breakTime !== undefined) state.breakTime = data.breakTime;
+                    if (data.paceMode !== undefined) state.paceMode = data.paceMode;
+                    state.isLoading = false;
+                    state._initialized = true;
                 });
             } else {
-                set({ isLoading: false, _initialized: true });
+                set((state) => {
+                    state.isLoading = false;
+                    state._initialized = true;
+                });
             }
         },
 
         _reset: () => {
-            set({
-                history: [],
-                goals: goalsSlice.goals,
-                studySubjects: [],
-                studySchedules: [],
-                currentCount: 0,
-                goal: trackingSlice.goal,
-                preBreakCount: 0,
-                startTime: trackingSlice.startTime,
-                endTime: trackingSlice.endTime,
-                breakTime: trackingSlice.breakTime,
-                paceMode: trackingSlice.paceMode,
-                isLoading: true,
-                _initialized: false,
+            set((state) => {
+                state.history = [];
+                state.goals = goalsSlice.goals;
+                state.studySubjects = [];
+                state.studySchedules = [];
+                state.currentCount = 0;
+                state.goal = trackingSlice.goal;
+                state.preBreakCount = 0;
+                state.startTime = trackingSlice.startTime;
+                state.endTime = trackingSlice.endTime;
+                state.breakTime = trackingSlice.breakTime;
+                state.paceMode = trackingSlice.paceMode;
+                state.isLoading = true;
+                state._initialized = false;
             });
         },
     } satisfies WorkState;
 };
 
-export const useWorkStore = create<WorkState>()(createSyncedStore);
+export const useWorkStore = create<WorkState>()(immer(createSyncedStore));

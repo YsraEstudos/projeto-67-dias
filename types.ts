@@ -440,8 +440,6 @@ export interface Note {
   pinnedToTags: string[];  // IDs das tags onde a nota está fixada
   createdAt: number;
   updatedAt: number;
-  aiProcessed?: boolean; // If improved by AI
-  aiSummary?: string;    // AI-generated summary
 }
 
 export interface NoteFilter {
@@ -451,11 +449,6 @@ export interface NoteFilter {
   sortBy: 'recent' | 'oldest' | 'alphabetical' | 'color';
 }
 
-export interface AIAssistantAction {
-  type: 'summarize' | 'expand' | 'improve' | 'suggest-tags';
-  loading: boolean;
-  result?: string;
-}
 
 // --- WEEKLY PROGRESS REVIEW SYSTEM ---
 
@@ -490,7 +483,6 @@ export interface WeeklyEvolution {
   trend: 'UP' | 'DOWN' | 'STABLE';
 }
 
-// Snapshot semanal - captura estado de uma semana específica
 export interface WeeklySnapshot {
   id: string;
   weekNumber: number;           // 1-10 (67 dias = ~10 semanas)
@@ -500,14 +492,6 @@ export interface WeeklySnapshot {
 
   metrics: WeeklyMetrics;
   evolution?: WeeklyEvolution;
-
-  // Insights da IA
-  aiInsights?: {
-    summary: string;
-    strengths: string[];
-    improvements: string[];
-    weeklyQuote: string;
-  };
 
   // Status de confirmação
   status: 'PENDING' | 'CONFIRMED' | 'SKIPPED';
@@ -524,7 +508,6 @@ export interface ImprovementPoint {
   isAddressed: boolean;
 }
 
-// Resumo final da jornada
 export interface FinalJourneySummary {
   generatedAt: number;
   totalDays: number;
@@ -544,15 +527,6 @@ export interface FinalJourneySummary {
   evolutionCurve: number[];     // Score semanal 0-100
   bestWeek: number;
   challengingWeek: number;
-
-  // Insights finais da IA
-  aiReflection?: {
-    overallAnalysis: string;
-    topAchievements: string[];
-    growthAreas: string[];
-    personalMessage: string;
-    philosophicalReflection: string;
-  };
 }
 
 // Dados completos de revisão da jornada

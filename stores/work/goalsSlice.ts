@@ -34,13 +34,16 @@ export const createGoalsSlice: StateCreator<
 > = (set) => ({
     goals: DEFAULT_GOALS,
 
-    setGoals: (updates) => set((state) => ({
-        goals: { ...state.goals, ...updates }
-    })),
+    setGoals: (updates) => set((state) => {
+        Object.assign(state.goals, updates);
+    }),
 
-    updateGoal: (key, value) => set((state) => ({
-        goals: { ...state.goals, [key]: value }
-    })),
+    updateGoal: (key, value) => set((state) => {
+        state.goals[key] = value;
+    }),
 
-    resetGoals: () => set({ goals: DEFAULT_GOALS }),
+    resetGoals: () => set((state) => {
+        state.goals = { ...DEFAULT_GOALS };
+    }),
 });
+

@@ -1,24 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
     Book, Calendar, Plus, Trash2,
-    Smile, Meh, Frown, CloudRain, Zap,
-    Sparkles, Quote
+    Smile, Meh, Frown, CloudRain, Zap, Quote
 } from 'lucide-react';
-import { Type } from "@google/genai";
-import { getGeminiModel } from '../../services/gemini';
 import { useJournalStore, JournalEntry } from '../../stores/journalStore';
 import { useStreakTracking } from '../../hooks/useStreakTracking';
 
 import { Mood, MOOD_CONFIG } from '../../types';
 
-// Extended entry for UI with AI analysis
-interface UIJournalEntry extends JournalEntry {
-    aiAnalysis?: {
-        sentiment: string;
-        advice: string;
-        quote: string;
-    };
-}
+// Extended entry for UI
+type UIJournalEntry = JournalEntry;
 
 // --- MOCK DATA ---
 const INITIAL_ENTRIES: UIJournalEntry[] = [
@@ -77,7 +68,6 @@ const JournalView: React.FC = () => {
     // Zustand store
     const { entries, addEntry, updateEntry: storeUpdateEntry, deleteEntry: storeDeleteEntry, isLoading } = useJournalStore();
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [isAiLoading, setIsAiLoading] = useState(false);
 
     // Streak Tracking
     const { trackActivity } = useStreakTracking();
@@ -135,49 +125,6 @@ const JournalView: React.FC = () => {
         }
     };
 
-
-    const handleGenerateInsight = async () => {
-        if (!activeEntry || !activeEntry.content.trim()) return;
-
-        setIsAiLoading(true);
-        try {
-            const models = getGeminiModel();
-            const response = await models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Analyze this journal entry based on Stoic philosophy and psychology.
-            
-            Entry: "${activeEntry.content}"
-            Current Mood: ${activeEntry.mood}
-            
-            Return a JSON object with:
-            1. "sentiment": A 1-2 word tag describing the underlying emotion (in Portuguese).
-            2. "advice": A concise, actionable, and empathetic advice (max 2 sentences, in Portuguese).
-            3. "quote": A relevant quote from a philosopher (Marcus Aurelius, Seneca, Epictetus, etc) or famous thinker (in Portuguese).`,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            sentiment: { type: Type.STRING },
-                            advice: { type: Type.STRING },
-                            quote: { type: Type.STRING },
-                        }
-                    }
-                }
-            });
-
-            if (response.text) {
-                const data = JSON.parse(response.text);
-                handleUpdateEntry(activeEntry.id, { aiAnalysis: data });
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Erro ao gerar insight. Tente novamente.");
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
-
     // Format Date Helper
     const formatDate = (iso: string) => {
         return new Date(iso).toLocaleDateString('pt-BR', {
@@ -196,7 +143,7 @@ const JournalView: React.FC = () => {
                     </h3>
                     <button
                         onClick={createNewEntry}
-                        className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors shadow-lg shadow-purple-900/20"
+                        className="p-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors border border-violet-500/20 shadow-lg shadow-violet-500/20"
                         title="Nova Entrada"
                     >
                         <Plus size={18} />
@@ -222,18 +169,12 @@ const JournalView: React.FC = () => {
                                 <span className="text-xs font-bold text-slate-400">
                                     {new Date(entry.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
                                 </span>
-                                {(entry as UIJournalEntry).aiAnalysis && <Sparkles size={12} className="text-purple-400" />}
                             </div>
                             <div className="text-sm text-slate-200 font-medium truncate pr-6">
                                 {entry.content || 'Nova entrada...'}
                             </div>
                             <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
                                 <span className="truncate max-w-[100px]">{new Date(entry.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                                {(entry as UIJournalEntry).aiAnalysis?.sentiment && (
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-900 text-purple-300 border border-purple-500/20">
-                                        {(entry as UIJournalEntry).aiAnalysis!.sentiment}
-                                    </span>
-                                )}
                             </div>
 
                             {/* Mood Indicator Dot */}
@@ -278,51 +219,16 @@ const JournalView: React.FC = () => {
                         className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 text-slate-200 resize-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 text-lg leading-relaxed scrollbar-thin placeholder:text-slate-600"
                     />
 
-                    {/* AI INSIGHT CARD or BUTTON */}
-                    {activeEntry.aiAnalysis ? (
-                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-purple-500/30 relative overflow-hidden animate-in slide-in-from-bottom-4">
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <Sparkles size={120} className="text-purple-500" />
-                            </div>
-
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="p-1.5 bg-purple-500/20 rounded-lg">
-                                        <Sparkles size={16} className="text-purple-400" />
-                                    </div>
-                                    <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Insight do Dia</span>
-                                    <span className="text-xs bg-slate-950 text-slate-400 px-2 py-0.5 rounded-full border border-slate-800">
-                                        {activeEntry.aiAnalysis.sentiment}
-                                    </span>
-                                </div>
-
-                                <p className="text-slate-300 mb-4 text-sm leading-relaxed">
-                                    "{activeEntry.aiAnalysis.advice}"
-                                </p>
-
-                                <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex gap-3">
-                                    <Quote size={24} className="text-slate-600 shrink-0" />
-                                    <div>
-                                        <p className="text-slate-400 italic text-sm font-serif">"{activeEntry.aiAnalysis.quote}"</p>
-                                    </div>
-                                </div>
+                    {/* INSPIRATIONAL QUOTE */}
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 relative overflow-hidden">
+                        <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex gap-3">
+                            <Quote size={24} className="text-slate-600 shrink-0" />
+                            <div>
+                                <p className="text-slate-400 italic text-sm font-serif">"A excelência não é um ato, mas um hábito."</p>
+                                <p className="text-xs text-slate-500 mt-2">— Aristóteles</p>
                             </div>
                         </div>
-                    ) : (
-                        <div className="flex justify-end">
-                            <button
-                                onClick={handleGenerateInsight}
-                                disabled={isAiLoading || !activeEntry.content.length}
-                                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02]"
-                            >
-                                {isAiLoading ? (
-                                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Analisando...</span>
-                                ) : (
-                                    <><Sparkles size={18} /> Gerar Insight com IA</>
-                                )}
-                            </button>
-                        </div>
-                    )}
+                    </div>
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center bg-slate-800/30 rounded-2xl border border-slate-700/50 text-slate-500">

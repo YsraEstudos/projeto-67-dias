@@ -33,13 +33,16 @@ vi.mock('../../../components/skills/FullRoadmapEditor', () => ({
     )
 }));
 
+const MockVisualRoadmapEditor = ({ onClose, onSave }: any) => (
+    <div data-testid="visual-roadmap-editor">
+        <button onClick={onClose}>Close Visual Editor</button>
+        <button onClick={() => onSave({ nodes: [], connections: [] })}>Save Visual Roadmap</button>
+    </div>
+);
+
 vi.mock('../../../components/skills/VisualRoadmapEditor', () => ({
-    default: ({ onClose, onSave }: any) => (
-        <div data-testid="visual-roadmap-editor">
-            <button onClick={onClose}>Close Visual Editor</button>
-            <button onClick={() => onSave({ nodes: [], connections: [] })}>Save Visual Roadmap</button>
-        </div>
-    )
+    VisualRoadmapEditor: MockVisualRoadmapEditor,
+    default: MockVisualRoadmapEditor
 }));
 
 vi.mock('../../../components/skills/VisualRoadmapView', () => ({

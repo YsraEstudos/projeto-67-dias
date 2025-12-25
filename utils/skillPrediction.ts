@@ -4,6 +4,16 @@
  * Calculates daily requirements to complete a skill by its deadline.
  */
 import { Skill } from '../types';
+import {
+    getStartOfDay,
+    parseDate,
+    daysDiff,
+    addDaysToDate,
+    formatDateISO,
+    getDayOfWeek,
+    formatDateBR,
+    DAY_NAMES_PT
+} from './dateUtils';
 
 export interface DailyPrediction {
     remainingDays: number;
@@ -23,14 +33,9 @@ export function calculateDailyRequirement(skill: Skill): DailyPrediction | null 
     if (!skill.deadline) return null;
 
     // Calculate remaining days
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const deadline = new Date(skill.deadline);
-    deadline.setHours(0, 0, 0, 0);
-
-    const diffMs = deadline.getTime() - today.getTime();
-    const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const today = getStartOfDay(new Date());
+    const deadline = getStartOfDay(parseDate(skill.deadline));
+    const remainingDays = daysDiff(today, deadline);
 
     // Deadline has passed
     if (remainingDays <= 0) {
@@ -90,7 +95,7 @@ export function calculateDailyRequirement(skill: Skill): DailyPrediction | null 
 // EXPONENTIAL DISTRIBUTION SYSTEM
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const DAY_NAMES = DAY_NAMES_PT;
 
 export interface DailyPlanItem {
     date: string;              // YYYY-MM-DD
@@ -159,14 +164,9 @@ export function getExponentialFactor(dayIndex: number, totalDays: number, intens
 export function calculateDailyPlan(skill: Skill): DailyPlan | null {
     if (!skill.deadline) return null;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const deadline = new Date(skill.deadline);
-    deadline.setHours(0, 0, 0, 0);
-
-    const diffMs = deadline.getTime() - today.getTime();
-    const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const today = getStartOfDay(new Date());
+    const deadline = getStartOfDay(parseDate(skill.deadline));
+    const totalDays = daysDiff(today, deadline);
 
     if (totalDays <= 0) {
         return {
@@ -216,9 +216,8 @@ export function calculateDailyPlan(skill: Skill): DailyPlan | null {
     // Primeiro passo: contar dias úteis
     let effectiveDaysCount = 0;
     for (let i = 0; i < totalDays; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dayOfWeek = date.getDay();
+        const date = addDaysToDate(today, i);
+        const dayOfWeek = getDayOfWeek(date);
         if (!excludedDays.includes(dayOfWeek)) {
             effectiveDaysCount++;
         }
@@ -242,9 +241,8 @@ export function calculateDailyPlan(skill: Skill): DailyPlan | null {
     let factorSum = 0;
 
     for (let i = 0; i < totalDays; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dayOfWeek = date.getDay();
+        const date = addDaysToDate(today, i);
+        const dayOfWeek = getDayOfWeek(date);
 
         if (excludedDays.includes(dayOfWeek)) {
             factors.push(0);
@@ -263,10 +261,8 @@ export function calculateDailyPlan(skill: Skill): DailyPlan | null {
     const avgMinutesPerDay = remainingMinutes / effectiveDaysCount;
 
     for (let i = 0; i < totalDays; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dayOfWeek = date.getDay();
-        const dateStr = date.toISOString().split('T')[0];
+        const date = addDaysToDate(today, i);
+        const dayOfWeek = getDayOfWeek(date);
         const isExcluded = excludedDays.includes(dayOfWeek);
 
         let minutes = 0;
@@ -280,14 +276,14 @@ export function calculateDailyPlan(skill: Skill): DailyPlan | null {
         cumulative += minutes;
 
         items.push({
-            date: dateStr,
+            date: formatDateISO(date),
             dayOfWeek,
             dayOfWeekName: DAY_NAMES[dayOfWeek],
             minutes,
             isExcluded,
             cumulativeMinutes: cumulative,
             percentOfAverage,
-            formattedDate: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+            formattedDate: formatDateBR(date, 'dd MMM')
         });
     }
 

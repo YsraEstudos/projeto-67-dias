@@ -2,6 +2,7 @@
  * Config Store - Project configuration with Firestore-first persistence
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { ProjectConfig, OffensiveGoalsConfig } from '../types';
 import { writeToFirestore } from './firestoreSync';
 
@@ -85,15 +86,15 @@ interface ConfigState {
     _reset: () => void;
 }
 
-export const useConfigStore = create<ConfigState>()((set, get) => ({
+export const useConfigStore = create<ConfigState>()(immer((set, get) => ({
     config: DEFAULT_CONFIG,
     isLoading: true,
     _initialized: false,
 
     setConfig: (updates) => {
-        set((state) => ({
-            config: sanitizeConfig(updates, state.config)
-        }));
+        set((state) => {
+            state.config = sanitizeConfig(updates, state.config);
+        });
         get()._syncToFirestore();
     },
 
@@ -102,11 +103,11 @@ export const useConfigStore = create<ConfigState>()((set, get) => ({
             startDate: new Date().toISOString(),
             isProjectStarted: false
         }, DEFAULT_CONFIG);
-        set({ config: nextConfig });
+        set((state) => { state.config = nextConfig; });
         get()._syncToFirestore();
     },
 
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
         const { config, _initialized } = get();
@@ -117,21 +118,25 @@ export const useConfigStore = create<ConfigState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data?.config) {
-            set({
-                config: sanitizeConfig(data.config, DEFAULT_CONFIG),
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.config = sanitizeConfig(data.config, DEFAULT_CONFIG);
+                state.isLoading = false;
+                state._initialized = true;
             });
         } else {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
         }
     },
 
     _reset: () => {
-        set({
-            config: DEFAULT_CONFIG,
-            isLoading: true,
-            _initialized: false
+        set((state) => {
+            state.config = DEFAULT_CONFIG;
+            state.isLoading = true;
+            state._initialized = false;
         });
     }
-}));
+})));
+

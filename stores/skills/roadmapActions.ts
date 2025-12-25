@@ -17,47 +17,51 @@ export const createRoadmapActions = (set: SkillsSet, get: SkillsGet): RoadmapAct
         const safeRoadmap = normalizeRoadmap(roadmap);
         if (!safeRoadmap) return;
 
-        set((state) => ({
-            skills: state.skills.map(skill => skill.id === skillId ? { ...skill, roadmap: safeRoadmap } : skill)
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.roadmap = safeRoadmap;
+        });
         get()._syncToFirestore();
     },
 
     toggleRoadmapItem: (skillId, itemId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (!skill) return;
 
-                // Recursive function to toggle item in nested subtasks
-                const toggleItem = (items: SkillRoadmapItem[]): SkillRoadmapItem[] => {
-                    return items.map(item => {
-                        if (item.id === itemId) {
-                            return { ...item, isCompleted: !item.isCompleted };
-                        }
-                        if (item.subTasks) {
-                            return { ...item, subTasks: toggleItem(item.subTasks) };
-                        }
-                        return item;
-                    });
-                };
+            // Recursive function to toggle item in nested subtasks
+            const toggleItem = (items: SkillRoadmapItem[]): boolean => {
+                for (const item of items) {
+                    if (item.id === itemId) {
+                        item.isCompleted = !item.isCompleted;
+                        return true;
+                    }
+                    if (item.subTasks && toggleItem(item.subTasks)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
 
-                return { ...skill, roadmap: toggleItem(skill.roadmap) };
-            })
-        }));
+            toggleItem(skill.roadmap);
+        });
         get()._syncToFirestore();
     },
 
     setVisualRoadmap: (skillId, visualRoadmap) => {
-        set((state) => ({
-            skills: state.skills.map(skill => skill.id === skillId ? { ...skill, visualRoadmap } : skill)
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.visualRoadmap = visualRoadmap;
+        });
         get()._syncToFirestore();
     },
 
     setRoadmapViewMode: (skillId, mode) => {
-        set((state) => ({
-            skills: state.skills.map(skill => skill.id === skillId ? { ...skill, roadmapViewMode: mode } : skill)
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.roadmapViewMode = mode;
+        });
         get()._syncToFirestore();
     }
 });
+

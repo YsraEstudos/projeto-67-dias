@@ -2,6 +2,7 @@
  * Types for Skills Store Slices
  * Shared types used across all skill action slices
  */
+import type { Draft } from 'immer';
 import { Skill, SkillLog, SkillResource, SkillRoadmapItem, VisualRoadmap, RoadmapViewMode, MicroAchievement, NextDayContent } from '../../types';
 
 /**
@@ -24,10 +25,11 @@ export interface SkillsInternals {
 }
 
 /**
- * Type for Zustand's set function
+ * Type for Zustand's set function with Immer middleware
+ * Accepts a function that mutates the draft state directly
  */
 export type SkillsSet = (
-    partial: Partial<SkillsStateBase> | ((state: SkillsStateBase) => Partial<SkillsStateBase>)
+    fn: (state: Draft<SkillsStateBase>) => void
 ) => void;
 
 /**

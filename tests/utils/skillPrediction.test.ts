@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateDailyRequirement } from '../../utils/skillPrediction';
 import { Skill } from '../../types';
+import { formatDateISO, addDaysToDate } from '../../utils/dateUtils';
 
 // Helper to create a minimal skill for testing
 const createMockSkill = (overrides: Partial<Skill> = {}): Skill => ({
@@ -25,9 +26,7 @@ const createMockSkill = (overrides: Partial<Skill> = {}): Skill => ({
 
 // Helper to get a date N days from now in YYYY-MM-DD format
 const getFutureDate = (daysFromNow: number): string => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysFromNow);
-    return date.toISOString().split('T')[0];
+    return formatDateISO(addDaysToDate(new Date(), daysFromNow));
 };
 
 describe('calculateDailyRequirement', () => {

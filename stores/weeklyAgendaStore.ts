@@ -9,6 +9,7 @@
  * - Scheduled blocks (Google Calendar style)
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import {
     AgendaActivity,
     AgendaActivityLog,
@@ -19,6 +20,7 @@ import {
     ScheduledBlock
 } from '../types';
 import { writeToFirestore } from './firestoreSync';
+import { getTodayISO } from '../utils/dateUtils';
 
 const STORE_KEY = 'p67_weekly_agenda';
 
@@ -74,7 +76,7 @@ interface WeeklyAgendaState extends WeeklyAgendaData {
     _reset: () => void;
 }
 
-export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
+export const useWeeklyAgendaStore = create<WeeklyAgendaState>()(immer((set, get) => ({
     // Initial state
     weeklyPlan: [],
     overrides: [],
@@ -91,11 +93,9 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
             const newPlan: DayOfWeekPlan = { dayOfWeek, skillGoals, activityGoals };
 
             if (existingIndex >= 0) {
-                const updated = [...state.weeklyPlan];
-                updated[existingIndex] = newPlan;
-                return { weeklyPlan: updated };
+                state.weeklyPlan[existingIndex] = newPlan;
             } else {
-                return { weeklyPlan: [...state.weeklyPlan, newPlan] };
+                state.weeklyPlan.push(newPlan);
             }
         });
         get()._syncToFirestore();
@@ -107,34 +107,35 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
 
     // Override Actions
     addOverride: (overrideData) => {
-        const override: DayOverride = {
-            date: overrideData.date,
-            reason: overrideData.reason,
-            skillGoals: overrideData.skillGoals || [],
-            activityGoals: overrideData.activityGoals || []
-        };
-
         set((state) => {
             // Remove existing override for same date
-            const filtered = state.overrides.filter(o => o.date !== override.date);
-            return { overrides: [...filtered, override] };
+            const existingIdx = state.overrides.findIndex(o => o.date === overrideData.date);
+            if (existingIdx !== -1) state.overrides.splice(existingIdx, 1);
+
+            const override: DayOverride = {
+                date: overrideData.date,
+                reason: overrideData.reason,
+                skillGoals: overrideData.skillGoals || [],
+                activityGoals: overrideData.activityGoals || []
+            };
+            state.overrides.push(override);
         });
         get()._syncToFirestore();
     },
 
     updateOverride: (date, updates) => {
-        set((state) => ({
-            overrides: state.overrides.map(o =>
-                o.date === date ? { ...o, ...updates } : o
-            )
-        }));
+        set((state) => {
+            const override = state.overrides.find(o => o.date === date);
+            if (override) Object.assign(override, updates);
+        });
         get()._syncToFirestore();
     },
 
     removeOverride: (date) => {
-        set((state) => ({
-            overrides: state.overrides.filter(o => o.date !== date)
-        }));
+        set((state) => {
+            const idx = state.overrides.findIndex(o => o.date === date);
+            if (idx !== -1) state.overrides.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
@@ -145,77 +146,73 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
     // Activity Actions
     addActivity: (activityData) => {
         const id = generateId();
-        const activity: AgendaActivity = {
-            id,
-            title: activityData.title,
-            dailyGoalMinutes: activityData.dailyGoalMinutes,
-            color: activityData.color,
-            notes: activityData.notes,
-            logs: [],
-            createdAt: Date.now()
-        };
-
-        set((state) => ({
-            activities: [...state.activities, activity]
-        }));
+        set((state) => {
+            const activity: AgendaActivity = {
+                id,
+                title: activityData.title,
+                dailyGoalMinutes: activityData.dailyGoalMinutes,
+                color: activityData.color,
+                notes: activityData.notes,
+                logs: [],
+                createdAt: Date.now()
+            };
+            state.activities.push(activity);
+        });
         get()._syncToFirestore();
         return id;
     },
 
     updateActivity: (id, updates) => {
-        set((state) => ({
-            activities: state.activities.map(a =>
-                a.id === id ? { ...a, ...updates } : a
-            )
-        }));
+        set((state) => {
+            const activity = state.activities.find(a => a.id === id);
+            if (activity) Object.assign(activity, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteActivity: (id) => {
-        set((state) => ({
-            activities: state.activities.filter(a => a.id !== id),
-            // Also remove from all plans, overrides, and scheduled blocks
-            weeklyPlan: state.weeklyPlan.map(p => ({
-                ...p,
-                activityGoals: p.activityGoals.filter(g => g.activityId !== id)
-            })),
-            overrides: state.overrides.map(o => ({
-                ...o,
-                activityGoals: o.activityGoals.filter(g => g.activityId !== id)
-            })),
-            scheduledBlocks: state.scheduledBlocks.filter(b =>
-                !(b.type === 'activity' && b.referenceId === id)
-            )
-        }));
+        set((state) => {
+            // Remove activity
+            const activityIdx = state.activities.findIndex(a => a.id === id);
+            if (activityIdx !== -1) state.activities.splice(activityIdx, 1);
+
+            // Remove from weekly plans
+            for (const plan of state.weeklyPlan) {
+                const goalIdx = plan.activityGoals.findIndex(g => g.activityId === id);
+                if (goalIdx !== -1) plan.activityGoals.splice(goalIdx, 1);
+            }
+
+            // Remove from overrides
+            for (const override of state.overrides) {
+                const goalIdx = override.activityGoals.findIndex(g => g.activityId === id);
+                if (goalIdx !== -1) override.activityGoals.splice(goalIdx, 1);
+            }
+
+            // Remove scheduled blocks referencing this activity
+            for (let i = state.scheduledBlocks.length - 1; i >= 0; i--) {
+                const block = state.scheduledBlocks[i];
+                if (block.type === 'activity' && block.referenceId === id) {
+                    state.scheduledBlocks.splice(i, 1);
+                }
+            }
+        });
         get()._syncToFirestore();
     },
 
     logActivityTime: (activityId, minutes, date) => {
-        const logDate = date || new Date().toISOString().split('T')[0];
-        const logId = generateId();
+        const logDate = date || getTodayISO();
+        set((state) => {
+            const activity = state.activities.find(a => a.id === activityId);
+            if (!activity) return;
 
-        set((state) => ({
-            activities: state.activities.map(a => {
-                if (a.id !== activityId) return a;
-
-                // Check if log for this date already exists
-                const existingLogIndex = a.logs.findIndex(l => l.date === logDate);
-
-                if (existingLogIndex >= 0) {
-                    // Update existing log
-                    const updatedLogs = [...a.logs];
-                    updatedLogs[existingLogIndex] = {
-                        ...updatedLogs[existingLogIndex],
-                        minutes: updatedLogs[existingLogIndex].minutes + minutes
-                    };
-                    return { ...a, logs: updatedLogs };
-                } else {
-                    // Add new log
-                    const newLog: AgendaActivityLog = { id: logId, date: logDate, minutes };
-                    return { ...a, logs: [...a.logs, newLog] };
-                }
-            })
-        }));
+            const existingLog = activity.logs.find(l => l.date === logDate);
+            if (existingLog) {
+                existingLog.minutes += minutes;
+            } else {
+                const newLog: AgendaActivityLog = { id: generateId(), date: logDate, minutes };
+                activity.logs.push(newLog);
+            }
+        });
         get()._syncToFirestore();
     },
 
@@ -230,92 +227,92 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
     // Calendar Event Actions
     addEvent: (eventData) => {
         const id = generateId();
-        const event: CalendarEvent = {
-            id,
-            title: eventData.title,
-            description: eventData.description,
-            color: eventData.color,
-            defaultDurationMinutes: eventData.defaultDurationMinutes,
-            createdAt: Date.now()
-        };
-
-        set((state) => ({
-            events: [...state.events, event]
-        }));
+        set((state) => {
+            const event: CalendarEvent = {
+                id,
+                title: eventData.title,
+                description: eventData.description,
+                color: eventData.color,
+                defaultDurationMinutes: eventData.defaultDurationMinutes,
+                createdAt: Date.now()
+            };
+            state.events.push(event);
+        });
         get()._syncToFirestore();
         return id;
     },
 
     updateEvent: (id, updates) => {
-        set((state) => ({
-            events: state.events.map(e =>
-                e.id === id ? { ...e, ...updates } : e
-            )
-        }));
+        set((state) => {
+            const event = state.events.find(e => e.id === id);
+            if (event) Object.assign(event, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteEvent: (id) => {
-        set((state) => ({
-            events: state.events.filter(e => e.id !== id),
-            // Also remove scheduled blocks referencing this event
-            scheduledBlocks: state.scheduledBlocks.filter(b =>
-                !(b.type === 'event' && b.referenceId === id)
-            )
-        }));
+        set((state) => {
+            // Remove event
+            const eventIdx = state.events.findIndex(e => e.id === id);
+            if (eventIdx !== -1) state.events.splice(eventIdx, 1);
+
+            // Remove scheduled blocks referencing this event
+            for (let i = state.scheduledBlocks.length - 1; i >= 0; i--) {
+                const block = state.scheduledBlocks[i];
+                if (block.type === 'event' && block.referenceId === id) {
+                    state.scheduledBlocks.splice(i, 1);
+                }
+            }
+        });
         get()._syncToFirestore();
     },
 
     // Scheduled Block Actions
     scheduleBlock: (blockData) => {
         const id = generateId();
-        const block: ScheduledBlock = {
-            id,
-            ...blockData
-        };
-
-        set((state) => ({
-            scheduledBlocks: [...state.scheduledBlocks, block]
-        }));
+        set((state) => {
+            const block: ScheduledBlock = { id, ...blockData };
+            state.scheduledBlocks.push(block);
+        });
         get()._syncToFirestore();
         return id;
     },
 
     updateBlock: (id, updates) => {
-        set((state) => ({
-            scheduledBlocks: state.scheduledBlocks.map(b =>
-                b.id === id ? { ...b, ...updates } : b
-            )
-        }));
+        set((state) => {
+            const block = state.scheduledBlocks.find(b => b.id === id);
+            if (block) Object.assign(block, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteBlock: (id) => {
-        set((state) => ({
-            scheduledBlocks: state.scheduledBlocks.filter(b => b.id !== id)
-        }));
+        set((state) => {
+            const idx = state.scheduledBlocks.findIndex(b => b.id === id);
+            if (idx !== -1) state.scheduledBlocks.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     moveBlock: (blockId, newDate, newStartHour, newStartMinute) => {
-        set((state) => ({
-            scheduledBlocks: state.scheduledBlocks.map(b =>
-                b.id === blockId
-                    ? { ...b, date: newDate, startHour: newStartHour, startMinute: newStartMinute }
-                    : b
-            )
-        }));
+        set((state) => {
+            const block = state.scheduledBlocks.find(b => b.id === blockId);
+            if (block) {
+                block.date = newDate;
+                block.startHour = newStartHour;
+                block.startMinute = newStartMinute;
+            }
+        });
         get()._syncToFirestore();
     },
 
     resizeBlock: (blockId, newDurationMinutes) => {
-        set((state) => ({
-            scheduledBlocks: state.scheduledBlocks.map(b =>
-                b.id === blockId
-                    ? { ...b, durationMinutes: Math.max(15, newDurationMinutes) } // Min 15 min
-                    : b
-            )
-        }));
+        set((state) => {
+            const block = state.scheduledBlocks.find(b => b.id === blockId);
+            if (block) {
+                block.durationMinutes = Math.max(15, newDurationMinutes); // Min 15 min
+            }
+        });
         get()._syncToFirestore();
     },
 
@@ -338,21 +335,27 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data) {
-            set({
-                weeklyPlan: data.weeklyPlan || [],
-                overrides: data.overrides || [],
-                activities: data.activities || [],
-                events: data.events || [],
-                scheduledBlocks: data.scheduledBlocks || [],
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.weeklyPlan = data.weeklyPlan || [];
+                state.overrides = data.overrides || [];
+                state.activities = data.activities || [];
+                state.events = data.events || [];
+                state.scheduledBlocks = data.scheduledBlocks || [];
+                state.isLoading = false;
+                state._initialized = true;
             });
         } else {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
         }
     },
 
     _reset: () => {
-        set({ ...initialState, isLoading: true, _initialized: false });
+        set((state) => {
+            Object.assign(state, { ...initialState, isLoading: true, _initialized: false });
+        });
     }
-}));
+})));
+

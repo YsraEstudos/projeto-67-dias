@@ -12,35 +12,33 @@ export interface ResourceActions {
 
 export const createResourceActions = (set: SkillsSet, get: SkillsGet): ResourceActions => ({
     addResource: (skillId, resource) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return { ...skill, resources: [...skill.resources, resource] };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) skill.resources.push(resource);
+        });
         get()._syncToFirestore();
     },
 
     updateResource: (skillId, resourceId, updates) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return {
-                    ...skill,
-                    resources: skill.resources.map(r => r.id === resourceId ? { ...r, ...updates } : r)
-                };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                const resource = skill.resources.find(r => r.id === resourceId);
+                if (resource) Object.assign(resource, updates);
+            }
+        });
         get()._syncToFirestore();
     },
 
     deleteResource: (skillId, resourceId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return { ...skill, resources: skill.resources.filter(r => r.id !== resourceId) };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                const idx = skill.resources.findIndex(r => r.id === resourceId);
+                if (idx !== -1) skill.resources.splice(idx, 1);
+            }
+        });
         get()._syncToFirestore();
     }
 });
+

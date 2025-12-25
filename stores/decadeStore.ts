@@ -3,6 +3,7 @@
  * Persistence: Firestore-first (similar a reviewStore e configStore)
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { DecadeProgress, CycleSnapshot, JourneyReviewData } from '../types';
 import { writeToFirestore } from './firestoreSync';
 import { createCycleSnapshot } from '../services/decadeCycle';
@@ -44,7 +45,7 @@ interface DecadeState {
     _reset: () => void;
 }
 
-export const useDecadeStore = create<DecadeState>()((set, get) => ({
+export const useDecadeStore = create<DecadeState>()(immer((set, get) => ({
     decadeData: DEFAULT_DECADE_PROGRESS,
     isLoading: true,
     _initialized: false,
@@ -130,4 +131,5 @@ export const useDecadeStore = create<DecadeState>()((set, get) => ({
             _initialized: false
         });
     }
-}));
+})));
+

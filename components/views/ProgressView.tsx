@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
     Award, BookOpen, GraduationCap, Flame, CheckCircle2,
     Calendar, TrendingUp, BrainCircuit, LayoutGrid,
-    Clock, Activity, Trophy, Sparkles, Camera
+    Clock, Activity, Trophy, Camera
 } from 'lucide-react';
 // Zustand stores
 import { useHabitsStore } from '../../stores/habitsStore';
@@ -556,10 +556,6 @@ const ProgressView: React.FC = () => {
                         {reviewData.finalSummary ? (
                             <FinalJourneySummaryComponent
                                 summary={reviewData.finalSummary}
-                                onGenerateAIReflection={() => {
-                                    // TODO: Integrate with Gemini AI
-                                    console.log('Generate AI reflection');
-                                }}
                             />
                         ) : (
                             <div className="bg-slate-800 rounded-2xl p-12 border border-slate-700 text-center">
@@ -576,7 +572,7 @@ const ProgressView: React.FC = () => {
                                         onClick={handleGenerateFinalSummary}
                                         className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white rounded-xl font-bold flex items-center gap-2 mx-auto transition-colors hover:scale-105"
                                     >
-                                        <Sparkles size={18} />
+                                        <Trophy size={18} />
                                         Gerar Resumo Final
                                     </button>
                                 )}

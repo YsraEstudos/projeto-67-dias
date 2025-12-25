@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircle2, Circle, Plus, Trash2, Play, Pause, RotateCcw, 
+import {
+  CheckCircle2, Circle, Plus, Trash2, Play, Pause, RotateCcw,
   BookOpen, Calculator, Ruler, Wind, Clock, Coffee
 } from 'lucide-react';
 import { Task, Book } from '../types';
@@ -86,13 +86,13 @@ export const RestView: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center">
       <div className="flex gap-4 mb-8">
-        <button 
+        <button
           onClick={() => { setMode('break'); setSeconds(300); setIsActive(false); }}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${mode === 'break' ? 'bg-teal-500 text-white' : 'bg-slate-800 text-slate-400'}`}
         >
           Pausa Curta (5m)
         </button>
-        <button 
+        <button
           onClick={() => { setMode('breath'); setSeconds(60); setIsActive(false); }}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${mode === 'breath' ? 'bg-teal-500 text-white' : 'bg-slate-800 text-slate-400'}`}
         >
@@ -103,7 +103,7 @@ export const RestView: React.FC = () => {
       <div className="relative mb-12">
         {/* Animated Ring */}
         {isActive && mode === 'breath' && (
-           <div className="absolute inset-0 rounded-full bg-teal-500/20 animate-ping scale-150"></div>
+          <div className="absolute inset-0 rounded-full bg-teal-500/20 animate-ping scale-150"></div>
         )}
         <div className="w-64 h-64 rounded-full border-8 border-slate-700 flex items-center justify-center bg-slate-800/50 relative z-10">
           <span className="text-6xl font-bold text-teal-400 font-mono">{formatTime(seconds)}</span>
@@ -127,10 +127,83 @@ export const RestView: React.FC = () => {
 };
 
 // --- TOOLS ---
+
+// Safe math expression parser (replaces dangerous eval())
+const safeEvaluate = (expression: string): number => {
+  // Remove whitespace
+  const expr = expression.replace(/\s+/g, '');
+
+  // Only allow numbers and basic operators
+  if (!/^[\d+\-*/().]+$/.test(expr)) {
+    throw new Error('Invalid expression');
+  }
+
+  // Tokenize
+  const tokens: (number | string)[] = [];
+  let numBuffer = '';
+
+  for (const char of expr) {
+    if (/\d|\./.test(char)) {
+      numBuffer += char;
+    } else {
+      if (numBuffer) {
+        tokens.push(parseFloat(numBuffer));
+        numBuffer = '';
+      }
+      tokens.push(char);
+    }
+  }
+  if (numBuffer) tokens.push(parseFloat(numBuffer));
+
+  // Simple recursive descent parser for + - * /
+  let pos = 0;
+
+  const parseNumber = (): number => {
+    const token = tokens[pos];
+    if (typeof token === 'number') {
+      pos++;
+      return token;
+    }
+    throw new Error('Expected number');
+  };
+
+  const parseFactor = (): number => {
+    if (tokens[pos] === '(') {
+      pos++; // skip '('
+      const result = parseExpression();
+      pos++; // skip ')'
+      return result;
+    }
+    return parseNumber();
+  };
+
+  const parseTerm = (): number => {
+    let result = parseFactor();
+    while (tokens[pos] === '*' || tokens[pos] === '/') {
+      const op = tokens[pos++];
+      const right = parseFactor();
+      result = op === '*' ? result * right : result / right;
+    }
+    return result;
+  };
+
+  const parseExpression = (): number => {
+    let result = parseTerm();
+    while (tokens[pos] === '+' || tokens[pos] === '-') {
+      const op = tokens[pos++];
+      const right = parseTerm();
+      result = op === '+' ? result + right : result - right;
+    }
+    return result;
+  };
+
+  return parseExpression();
+};
+
 export const ToolsView: React.FC = () => {
   const [tool, setTool] = useState<'calc' | 'convert'>('calc');
   const [calcDisplay, setCalcDisplay] = useState('');
-  
+
   // Conversion state
   const [convValue, setConvValue] = useState('');
   const [convResult, setConvResult] = useState<string | null>(null);
@@ -139,8 +212,9 @@ export const ToolsView: React.FC = () => {
     if (val === 'C') setCalcDisplay('');
     else if (val === '=') {
       try {
-        // eslint-disable-next-line no-eval
-        setCalcDisplay(eval(calcDisplay).toString());
+        // SAFE: Using custom parser instead of eval()
+        const result = safeEvaluate(calcDisplay);
+        setCalcDisplay(result.toString());
       } catch {
         setCalcDisplay('Erro');
       }
@@ -160,14 +234,14 @@ export const ToolsView: React.FC = () => {
     <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
       {/* Sidebar */}
       <div className="flex md:flex-col gap-2 md:w-48">
-        <button 
-          onClick={() => setTool('calc')} 
+        <button
+          onClick={() => setTool('calc')}
           className={`flex items-center gap-3 p-4 rounded-xl text-left transition-colors ${tool === 'calc' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
         >
           <Calculator size={20} /> Calculadora
         </button>
-        <button 
-          onClick={() => setTool('convert')} 
+        <button
+          onClick={() => setTool('convert')}
           className={`flex items-center gap-3 p-4 rounded-xl text-left transition-colors ${tool === 'convert' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
         >
           <Ruler size={20} /> Conversor
@@ -182,8 +256,8 @@ export const ToolsView: React.FC = () => {
               {calcDisplay || '0'}
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {['7','8','9','/','4','5','6','*','1','2','3','-','C','0','=','+'].map(btn => (
-                <button 
+              {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', 'C', '0', '=', '+'].map(btn => (
+                <button
                   key={btn}
                   onClick={() => handleCalc(btn)}
                   className={`p-4 rounded-lg font-bold text-lg transition-colors ${btn === '=' ? 'bg-indigo-600 hover:bg-indigo-500 text-white col-span-1' : btn === 'C' ? 'bg-red-900/50 text-red-200 hover:bg-red-900' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}
@@ -198,8 +272,8 @@ export const ToolsView: React.FC = () => {
             <h3 className="text-xl font-semibold mb-4 text-indigo-400">Conversor de Peso</h3>
             <div className="flex flex-col gap-2">
               <label className="text-sm text-slate-400">Kilogramas (kg)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={convValue}
                 onChange={e => setConvValue(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
@@ -254,48 +328,48 @@ export const ReadingView: React.FC = () => (
 
 // --- PROGRESS ---
 export const ProgressView: React.FC = () => {
-    const data = [
-        { name: 'Sem 1', score: 65 },
-        { name: 'Sem 2', score: 59 },
-        { name: 'Sem 3', score: 80 },
-        { name: 'Sem 4', score: 81 },
-        { name: 'Sem 5', score: 76 },
-        { name: 'Sem 6', score: 90 },
-    ];
+  const data = [
+    { name: 'Sem 1', score: 65 },
+    { name: 'Sem 2', score: 59 },
+    { name: 'Sem 3', score: 80 },
+    { name: 'Sem 4', score: 81 },
+    { name: 'Sem 5', score: 76 },
+    { name: 'Sem 6', score: 90 },
+  ];
 
-    return (
-        <div className="h-full flex flex-col">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <div className="text-slate-400 text-sm">Dias Completos</div>
-                    <div className="text-3xl font-bold text-teal-400">43 <span className="text-lg text-slate-500">/ 67</span></div>
-                </div>
-                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <div className="text-slate-400 text-sm">Consistência</div>
-                    <div className="text-3xl font-bold text-teal-400">92%</div>
-                </div>
-                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <div className="text-slate-400 text-sm">Focus Score</div>
-                    <div className="text-3xl font-bold text-teal-400">A+</div>
-                </div>
-            </div>
-            <div className="flex-1 min-h-[300px] bg-slate-800 p-6 rounded-xl border border-slate-700">
-                <h3 className="text-lg font-semibold mb-6 text-slate-300">Desempenho Semanal</h3>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                        <XAxis dataKey="name" stroke="#94a3b8" />
-                        <YAxis stroke="#94a3b8" />
-                        <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }} 
-                            cursor={{fill: '#334155', opacity: 0.4}}
-                        />
-                        <Bar dataKey="score" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+  return (
+    <div className="h-full flex flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+          <div className="text-slate-400 text-sm">Dias Completos</div>
+          <div className="text-3xl font-bold text-teal-400">43 <span className="text-lg text-slate-500">/ 67</span></div>
         </div>
-    )
+        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+          <div className="text-slate-400 text-sm">Consistência</div>
+          <div className="text-3xl font-bold text-teal-400">92%</div>
+        </div>
+        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+          <div className="text-slate-400 text-sm">Focus Score</div>
+          <div className="text-3xl font-bold text-teal-400">A+</div>
+        </div>
+      </div>
+      <div className="flex-1 min-h-[300px] bg-slate-800 p-6 rounded-xl border border-slate-700">
+        <h3 className="text-lg font-semibold mb-6 text-slate-300">Desempenho Semanal</h3>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+            <XAxis dataKey="name" stroke="#94a3b8" />
+            <YAxis stroke="#94a3b8" />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
+              cursor={{ fill: '#334155', opacity: 0.4 }}
+            />
+            <Bar dataKey="score" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
 }
 
 // --- GENERIC PLACEHOLDER ---

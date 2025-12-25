@@ -17,7 +17,6 @@ import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 // Lazy Modals
 const BookDetailsModal = React.lazy(() => import('../reading/modals/BookDetailsModal'));
 const AddBookModal = React.lazy(() => import('../reading/modals/AddBookModal'));
-const AIAddBookModal = React.lazy(() => import('../reading/modals/AIAddBookModal'));
 const EditBookModal = React.lazy(() => import('../reading/modals/EditBookModal'));
 const MoveBookModal = React.lazy(() => import('../reading/modals/MoveBookModal'));
 const ReadingDailyPlanModal = React.lazy(() => import('../reading/ReadingDailyPlanModal'));
@@ -51,7 +50,6 @@ const ReadingView: React.FC = () => {
   // Modals State
   const [selectedBook, setSelectedBook] = useState<IBook | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<IBook | null>(null);
   const [movingBook, setMovingBook] = useState<IBook | null>(null);
   const [planningBook, setPlanningBook] = useState<IBook | null>(null);
@@ -152,9 +150,6 @@ const ReadingView: React.FC = () => {
           </button>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setIsAIModalOpen(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-colors shadow-lg shadow-purple-900/20 flex items-center gap-2">
-            ✨ IA
-          </button>
           <button onClick={() => setIsAddModalOpen(true)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-colors shadow-lg shadow-indigo-900/20 flex items-center gap-2">
             <Plus size={20} /> Novo Livro
           </button>
@@ -173,13 +168,6 @@ const ReadingView: React.FC = () => {
         {isAddModalOpen && (
           <AddBookModal
             onClose={() => setIsAddModalOpen(false)}
-            onAdd={addBook}
-            currentFolderId={currentFolderId}
-          />
-        )}
-        {isAIModalOpen && (
-          <AIAddBookModal
-            onClose={() => setIsAIModalOpen(false)}
             onAdd={addBook}
             currentFolderId={currentFolderId}
           />

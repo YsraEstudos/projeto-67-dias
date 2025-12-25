@@ -4,10 +4,19 @@
  * Functions for calculating progress, getting effective plans, and date handling.
  */
 import { Skill, AgendaActivity, DayOfWeekPlan, DayOverride } from '../types';
-
-// Day names in Portuguese
-const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-const DAY_NAMES_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+import {
+    getTodayISO,
+    getTomorrowISO,
+    getDayOfWeek as getDayOfWeekUtil,
+    getWeekDatesFromMonday,
+    formatDateBR,
+    isToday as isTodayUtil,
+    isDateBefore,
+    isDateAfter,
+    DAY_NAMES_PT,
+    DAY_NAMES_SHORT_PT,
+    getDayNamePT
+} from './dateUtils';
 
 /**
  * Format minutes to human readable string
@@ -22,55 +31,28 @@ export const formatMinutes = (minutes: number): string => {
 /**
  * Get today's date in YYYY-MM-DD format
  */
-export const getTodayDate = (): string => {
-    return new Date().toISOString().split('T')[0];
-};
+export const getTodayDate = (): string => getTodayISO();
 
 /**
  * Get tomorrow's date in YYYY-MM-DD format
  */
-export const getTomorrowDate = (): string => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-};
+export const getTomorrowDate = (): string => getTomorrowISO();
 
 /**
  * Get the day of week (0-6) from a date string
  */
-export const getDayOfWeek = (dateStr: string): number => {
-    return new Date(dateStr + 'T12:00:00').getDay();
-};
+export const getDayOfWeek = (dateStr: string): number => getDayOfWeekUtil(dateStr);
 
 /**
  * Get day name in Portuguese
  */
-export const getDayName = (dayOfWeek: number, short = false): string => {
-    return short ? DAY_NAMES_SHORT[dayOfWeek] : DAY_NAMES[dayOfWeek];
-};
+export const getDayName = (dayOfWeek: number, short = false): string => getDayNamePT(dayOfWeek, short);
 
 /**
  * Get array of 7 dates for a week (Monday to Sunday)
  * @param baseDate - Reference date, defaults to today
  */
-export const getWeekDates = (baseDate?: string): string[] => {
-    const date = baseDate ? new Date(baseDate + 'T12:00:00') : new Date();
-    const currentDay = date.getDay();
-
-    // Calculate Monday of the current week (Monday = 1)
-    const diff = currentDay === 0 ? -6 : 1 - currentDay;
-    const monday = new Date(date);
-    monday.setDate(date.getDate() + diff);
-
-    const dates: string[] = [];
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        dates.push(d.toISOString().split('T')[0]);
-    }
-
-    return dates;
-};
+export const getWeekDates = (baseDate?: string): string[] => getWeekDatesFromMonday(baseDate);
 
 /**
  * Get the effective plan for a specific date.
@@ -241,28 +223,19 @@ export const calculateWeekProgress = (
 /**
  * Format a date string to localized display
  */
-export const formatDateDisplay = (dateStr: string): string => {
-    const date = new Date(dateStr + 'T12:00:00');
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-};
+export const formatDateDisplay = (dateStr: string): string => formatDateBR(dateStr, 'dd MMM');
 
 /**
  * Check if a date is today
  */
-export const isToday = (dateStr: string): boolean => {
-    return dateStr === getTodayDate();
-};
+export const isToday = (dateStr: string): boolean => isTodayUtil(dateStr);
 
 /**
  * Check if a date is in the past
  */
-export const isPastDate = (dateStr: string): boolean => {
-    return dateStr < getTodayDate();
-};
+export const isPastDate = (dateStr: string): boolean => isDateBefore(dateStr, getTodayISO());
 
 /**
  * Check if a date is in the future
  */
-export const isFutureDate = (dateStr: string): boolean => {
-    return dateStr > getTodayDate();
-};
+export const isFutureDate = (dateStr: string): boolean => isDateAfter(dateStr, getTodayISO());

@@ -32,6 +32,7 @@ interface ScheduledBlockCardProps {
     style?: React.CSSProperties;
     onClick: () => void;
     onDelete: () => void;
+    isMobile?: boolean;
 }
 
 // Format time range (e.g., "14:00 - 16:00")
@@ -61,7 +62,8 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
     color,
     style,
     onClick,
-    onDelete
+    onDelete,
+    isMobile = false
 }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: block.id,
@@ -74,20 +76,28 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
     const timeRange = formatTimeRange(block.startHour, block.startMinute, block.durationMinutes);
     const duration = formatDuration(block.durationMinutes);
 
-    const transformStyle = transform ? {
-        transform: CSS.Translate.toString(transform),
-    } : undefined;
+    // Combined transform style with proper touch handling
+    const combinedStyle: React.CSSProperties = {
+        ...style,
+        ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+    };
 
     const isCompact = block.durationMinutes <= 30;
 
     return (
         <div
             ref={setNodeRef}
-            style={{ ...style, ...transformStyle }}
+            style={combinedStyle}
+            {...attributes}
+            {...listeners}
             className={`
                 ${colors.bg} ${colors.border} border rounded-lg 
-                cursor-pointer transition-all overflow-hidden
-                hover:shadow-lg hover:scale-[1.02] z-10
+                cursor-grab active:cursor-grabbing transition-all overflow-hidden z-10
+                touch-action-none select-none
+                ${!isMobile ? 'hover:shadow-lg hover:scale-[1.02]' : ''}
                 ${isDragging ? 'opacity-0 shadow-2xl scale-105 z-50' : ''}
             `}
             onClick={(e) => {
@@ -95,29 +105,29 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
                 onClick();
             }}
         >
-            {/* Drag handle */}
+            {/* Visual drag indicator */}
             <div
-                {...attributes}
-                {...listeners}
-                className="absolute top-0 left-0 right-0 h-4 flex items-center justify-center cursor-grab active:cursor-grabbing bg-black/10 rounded-t-lg"
+                className={`absolute top-0 left-0 right-0 ${isMobile ? 'h-10' : 'h-6'} flex items-center justify-center bg-black/20 hover:bg-black/30 rounded-t-lg transition-colors pointer-events-none`}
             >
-                <GripVertical size={12} className="text-slate-400" />
+                <GripVertical size={isMobile ? 18 : 14} className="text-slate-300" />
             </div>
 
-            {/* Delete button */}
+            {/* Delete button - larger touch target on mobile */}
             <button
                 onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     onDelete();
                 }}
-                className="absolute top-0 right-0 p-1 hover:bg-red-500/30 rounded-tr-lg rounded-bl-lg transition-colors"
+                onPointerDown={(e) => e.stopPropagation()}
+                className={`absolute top-0 right-0 z-20 ${isMobile ? 'min-w-[44px] min-h-[44px] p-3' : 'p-1'} hover:bg-red-500/30 rounded-tr-lg rounded-bl-lg transition-colors flex items-center justify-center`}
             >
-                <X size={12} className="text-slate-400 hover:text-red-400" />
+                <X size={isMobile ? 16 : 12} className="text-slate-400 hover:text-red-400" />
             </button>
 
-            {/* Content */}
-            <div className={`px-2 ${isCompact ? 'pt-4 pb-1' : 'pt-5 pb-2'}`}>
-                <div className={`font-medium ${colors.text} ${isCompact ? 'text-xs' : 'text-sm'} truncate`}>
+            {/* Content - adjusted padding for mobile */}
+            <div className={`px-3 ${isCompact ? (isMobile ? 'pt-10 pb-1' : 'pt-6 pb-1') : (isMobile ? 'pt-11 pb-2' : 'pt-7 pb-2')}`}>
+                <div className={`font-medium ${colors.text} ${isCompact ? 'text-xs' : 'text-sm'} ${isMobile ? 'line-clamp-2' : 'truncate'}`}>
                     {title}
                 </div>
 
@@ -133,8 +143,8 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
                 )}
             </div>
 
-            {/* Resize handle */}
-            <div className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize bg-gradient-to-t from-black/20 to-transparent" />
+            {/* Resize handle - larger on mobile */}
+            <div className={`absolute bottom-0 left-0 right-0 ${isMobile ? 'h-4' : 'h-2'} cursor-ns-resize bg-gradient-to-t from-black/20 to-transparent`} />
         </div>
     );
 });

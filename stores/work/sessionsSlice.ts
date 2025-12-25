@@ -30,17 +30,22 @@ export const createSessionsSlice: StateCreator<
 > = (set) => ({
     history: [],
 
-    addSession: (session) => set((state) => ({
-        history: [...state.history, session]
-    })),
+    addSession: (session) => set((state) => {
+        state.history.push(session);
+    }),
 
-    updateSession: (id, updates) => set((state) => ({
-        history: state.history.map(s => s.id === id ? { ...s, ...updates } : s)
-    })),
+    updateSession: (id, updates) => set((state) => {
+        const session = state.history.find(s => s.id === id);
+        if (session) Object.assign(session, updates);
+    }),
 
-    deleteSession: (id) => set((state) => ({
-        history: state.history.filter(s => s.id !== id)
-    })),
+    deleteSession: (id) => set((state) => {
+        const idx = state.history.findIndex(s => s.id === id);
+        if (idx !== -1) state.history.splice(idx, 1);
+    }),
 
-    clearHistory: () => set({ history: [] }),
+    clearHistory: () => set((state) => {
+        state.history = [];
+    }),
 });
+

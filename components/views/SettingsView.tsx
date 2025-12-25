@@ -179,7 +179,7 @@ const SettingsView: React.FC = () => {
               <div className="p-6 border-t border-slate-700">
                 <button
                   onClick={() => setShowStartConfirmation(true)}
-                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 border border-violet-500/20 flex items-center justify-center gap-2 group"
                 >
                   <Flame size={18} />
                   Iniciar Projeto de 67 Dias
@@ -215,18 +215,6 @@ const SettingsView: React.FC = () => {
             onToggle={() => toggleCategory('system')}
           >
             <div className="p-6 space-y-4">
-              <div className="flex justify-between items-center p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-                <div className="flex items-center gap-3">
-                  <ShieldCheck className="text-emerald-400" size={20} />
-                  <span className="text-slate-300 font-medium">Google Gemini AI</span>
-                </div>
-                <span className="text-xs font-bold bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">
-                  ATIVO (ENV VAR)
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 px-1">
-                A inteligência artificial está configurada via variáveis de ambiente seguras. Nenhuma ação é necessária.
-              </p>
 
               {/* Contador de Reinícios */}
               <div className="flex justify-between items-center p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
@@ -255,10 +243,10 @@ const SettingsView: React.FC = () => {
                     </div>
                   </div>
                   <span className={`text-sm font-bold px-2 py-1 rounded ${quotaStats.isExceeded
-                      ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                      : quotaStats.isWarning
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : quotaStats.isWarning
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                     }`}>
                     {quotaStats.percentage.toFixed(1)}%
                   </span>
@@ -268,10 +256,10 @@ const SettingsView: React.FC = () => {
                 <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 rounded-full ${quotaStats.isExceeded
-                        ? 'bg-red-500'
-                        : quotaStats.isWarning
-                          ? 'bg-amber-500'
-                          : 'bg-cyan-500'
+                      ? 'bg-red-500'
+                      : quotaStats.isWarning
+                        ? 'bg-amber-500'
+                        : 'bg-cyan-500'
                       }`}
                     style={{ width: `${Math.min(quotaStats.percentage, 100)}%` }}
                   />
@@ -457,7 +445,7 @@ const SettingsView: React.FC = () => {
               </button>
               <button
                 onClick={handleStartProject}
-                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-bold transition-colors"
+                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-bold transition-colors border border-violet-500/20 shadow-lg shadow-violet-500/20"
               >
                 Iniciar Agora
               </button>

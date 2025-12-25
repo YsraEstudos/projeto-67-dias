@@ -11,35 +11,29 @@ export interface LogActions {
 
 export const createLogActions = (set: SkillsSet, get: SkillsGet): LogActions => ({
     addLog: (skillId, log) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return {
-                    ...skill,
-                    logs: [...skill.logs, log],
-                    currentMinutes: skill.currentMinutes + log.minutes
-                };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
+                skill.logs.push(log);
+                skill.currentMinutes += log.minutes;
+            }
+        });
         get()._syncToFirestore();
     },
 
     deleteLog: (skillId, logId) => {
         set((state) => {
             const skill = state.skills.find(s => s.id === skillId);
-            if (skill?.name === 'Inglês Avançado') return state;
-            return {
-                skills: state.skills.map(skill => {
-                    if (skill.id !== skillId) return skill;
-                    const log = skill.logs.find(l => l.id === logId);
-                    return {
-                        ...skill,
-                        logs: skill.logs.filter(l => l.id !== logId),
-                        currentMinutes: log ? skill.currentMinutes - log.minutes : skill.currentMinutes
-                    };
-                })
-            };
+            if (!skill || skill.name === 'Inglês Avançado') return;
+
+            const logIdx = skill.logs.findIndex(l => l.id === logId);
+            if (logIdx !== -1) {
+                const log = skill.logs[logIdx];
+                skill.currentMinutes -= log.minutes;
+                skill.logs.splice(logIdx, 1);
+            }
         });
         get()._syncToFirestore();
     }
 });
+

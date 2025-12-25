@@ -10,6 +10,7 @@ import {
     getCurrentPhase
 } from '../../utils/readingPrediction';
 import { Book } from '../../types';
+import { getTodayISO, formatDateISO, addDaysToDate } from '../../utils/dateUtils';
 
 // Helper to create a minimal book for testing
 const createMockBook = (overrides: Partial<Book> = {}): Book => ({
@@ -30,9 +31,7 @@ const createMockBook = (overrides: Partial<Book> = {}): Book => ({
 
 // Helper to get a date N days from now in YYYY-MM-DD format
 const getFutureDate = (daysFromNow: number): string => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysFromNow);
-    return date.toISOString().split('T')[0];
+    return formatDateISO(addDaysToDate(new Date(), daysFromNow));
 };
 
 describe('calculateReadingDailyRequirement', () => {
@@ -307,7 +306,7 @@ describe('getTodayPlan', () => {
         const today = getTodayPlan(plan);
 
         expect(today).not.toBeNull();
-        expect(today!.date).toBe(new Date().toISOString().split('T')[0]);
+        expect(today!.date).toBe(getTodayISO());
     });
 });
 

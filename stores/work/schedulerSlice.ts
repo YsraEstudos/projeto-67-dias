@@ -48,64 +48,72 @@ export const createSchedulerSlice: StateCreator<
     studySubjects: [],
     studySchedules: [],
 
-    setStudySubjects: (subjects) => set({ studySubjects: subjects }),
+    setStudySubjects: (subjects) => set((state) => {
+        state.studySubjects = subjects;
+    }),
 
-    addSubject: (subject) => set((state) => ({
-        studySubjects: [...state.studySubjects, subject]
-    })),
+    addSubject: (subject) => set((state) => {
+        state.studySubjects.push(subject);
+    }),
 
-    updateSubject: (id, updates) => set((state) => ({
-        studySubjects: state.studySubjects.map(s =>
-            s.id === id ? { ...s, ...updates } : s
-        )
-    })),
+    updateSubject: (id, updates) => set((state) => {
+        const subject = state.studySubjects.find(s => s.id === id);
+        if (subject) Object.assign(subject, updates);
+    }),
 
-    deleteSubject: (id) => set((state) => ({
-        studySubjects: state.studySubjects.filter(s => s.id !== id)
-    })),
+    deleteSubject: (id) => set((state) => {
+        const idx = state.studySubjects.findIndex(s => s.id === id);
+        if (idx !== -1) state.studySubjects.splice(idx, 1);
+    }),
 
-    setSchedules: (schedules) => set({ studySchedules: schedules }),
+    setSchedules: (schedules) => set((state) => {
+        state.studySchedules = schedules;
+    }),
 
-    updateSchedule: (date, schedule) => set((state) => ({
-        studySchedules: state.studySchedules.some(s => s.date === date)
-            ? state.studySchedules.map(s => s.date === date ? schedule : s)
-            : [...state.studySchedules, schedule]
-    })),
+    updateSchedule: (date, schedule) => set((state) => {
+        const existing = state.studySchedules.find(s => s.date === date);
+        if (existing) {
+            Object.assign(existing, schedule);
+        } else {
+            state.studySchedules.push(schedule);
+        }
+    }),
 
-    toggleScheduleItem: (date, itemId) => set((state) => ({
-        studySchedules: state.studySchedules.map(schedule => {
-            if (schedule.date !== date) return schedule;
-            return {
-                ...schedule,
-                items: schedule.items.map(item =>
-                    item.subjectId === itemId ? { ...item, isCompleted: !item.isCompleted } : item
-                )
-            };
-        })
-    })),
+    toggleScheduleItem: (date, itemId) => set((state) => {
+        const schedule = state.studySchedules.find(s => s.date === date);
+        if (schedule) {
+            const item = schedule.items.find(i => i.subjectId === itemId);
+            if (item) item.isCompleted = !item.isCompleted;
+        }
+    }),
 
     // Aliases for workStore compatibility
-    addStudySubject: (subject) => set((state) => ({
-        studySubjects: [...state.studySubjects, subject]
-    })),
+    addStudySubject: (subject) => set((state) => {
+        state.studySubjects.push(subject);
+    }),
 
-    updateStudySubject: (id, updates) => set((state) => ({
-        studySubjects: state.studySubjects.map(s =>
-            s.id === id ? { ...s, ...updates } : s
-        )
-    })),
+    updateStudySubject: (id, updates) => set((state) => {
+        const subject = state.studySubjects.find(s => s.id === id);
+        if (subject) Object.assign(subject, updates);
+    }),
 
-    deleteStudySubject: (id) => set((state) => ({
-        studySubjects: state.studySubjects.filter(s => s.id !== id)
-    })),
+    deleteStudySubject: (id) => set((state) => {
+        const idx = state.studySubjects.findIndex(s => s.id === id);
+        if (idx !== -1) state.studySubjects.splice(idx, 1);
+    }),
 
-    setStudySchedule: (date, schedule) => set((state) => ({
-        studySchedules: state.studySchedules.some(s => s.date === date)
-            ? state.studySchedules.map(s => s.date === date ? schedule : s)
-            : [...state.studySchedules, schedule]
-    })),
+    setStudySchedule: (date, schedule) => set((state) => {
+        const existing = state.studySchedules.find(s => s.date === date);
+        if (existing) {
+            Object.assign(existing, schedule);
+        } else {
+            state.studySchedules.push(schedule);
+        }
+    }),
 
-    clearStudySchedule: (date) => set((state) => ({
-        studySchedules: state.studySchedules.filter(s => s.date !== date)
-    })),
+    clearStudySchedule: (date) => set((state) => {
+        const idx = state.studySchedules.findIndex(s => s.date === date);
+        if (idx !== -1) state.studySchedules.splice(idx, 1);
+    }),
 });
+

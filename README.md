@@ -19,19 +19,10 @@ O **Projeto 67 Dias** é uma aplicação web "Single Page Application" (SPA) que
 - **Recharts**: Biblioteca de gráficos para visualização de dados.
 - **@dnd-kit**: Drag-and-drop acessível para reordenação de itens.
 - **Zustand**: Gerenciamento de estado leve e reativo.
+- **Zod**: Validação de schemas para formulários e importação de dados.
 - **Firebase**: Autenticação e Firestore para persistência.
 - **Lazy Loading**: Otimização de performance via `React.lazy` e `Suspense`.
 
-## 🔑 Configuração do Gemini
-
-1. Crie um arquivo `.env.local` (não versionado) na raiz do projeto.
-2. Adicione a chave obtida no [Google AI Studio](https://aistudio.google.com/apikey) usando o prefixo da Vite:
-
-	```dotenv
-	VITE_GEMINI_API_KEY=SEU_TOKEN_AQUI
-	```
-
-3. Garanta que o navegador consiga chamar o endpoint do Gemini. O projeto define um CSP estrito em `index.html`, então qualquer host novo precisa ser adicionado em `connect-src` (o domínio `https://generativelanguage.googleapis.com` já está liberado). Caso veja avisos citando ferramentas como Kaspersky, teste em uma janela sem extensões ou adicione o site à lista de confiança, pois alguns antivírus injetam CSP adicionais e podem bloquear os requests mesmo com a configuração correta.
 
 ## 📂 Estrutura de Arquivos
 

@@ -14,55 +14,55 @@ export interface MicroAchievementActions {
 
 export const createMicroAchievementActions = (set: SkillsSet, get: SkillsGet): MicroAchievementActions => ({
     addMicroAchievement: (skillId, title) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill) {
                 const newAchievement: MicroAchievement = {
                     id: generateUUID(),
                     title,
                     isCompleted: false,
                     createdAt: Date.now()
                 };
-                return { ...skill, microAchievements: [...(skill.microAchievements || []), newAchievement] };
-            })
-        }));
+                if (!skill.microAchievements) skill.microAchievements = [];
+                skill.microAchievements.push(newAchievement);
+            }
+        });
         get()._syncToFirestore();
     },
 
     toggleMicroAchievement: (skillId, achievementId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return {
-                    ...skill,
-                    microAchievements: skill.microAchievements?.map(a =>
-                        a.id === achievementId
-                            ? { ...a, isCompleted: !a.isCompleted, completedAt: !a.isCompleted ? Date.now() : undefined }
-                            : a
-                    )
-                };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.microAchievements) {
+                const achievement = skill.microAchievements.find(a => a.id === achievementId);
+                if (achievement) {
+                    achievement.isCompleted = !achievement.isCompleted;
+                    achievement.completedAt = achievement.isCompleted ? Date.now() : undefined;
+                }
+            }
+        });
         get()._syncToFirestore();
     },
 
     deleteMicroAchievement: (skillId, achievementId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return { ...skill, microAchievements: skill.microAchievements?.filter(a => a.id !== achievementId) };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.microAchievements) {
+                const idx = skill.microAchievements.findIndex(a => a.id === achievementId);
+                if (idx !== -1) skill.microAchievements.splice(idx, 1);
+            }
+        });
         get()._syncToFirestore();
     },
 
     clearCompletedMicroAchievements: (skillId) => {
-        set((state) => ({
-            skills: state.skills.map(skill => {
-                if (skill.id !== skillId) return skill;
-                return { ...skill, microAchievements: skill.microAchievements?.filter(a => !a.isCompleted) };
-            })
-        }));
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (skill?.microAchievements) {
+                skill.microAchievements = skill.microAchievements.filter(a => !a.isCompleted);
+            }
+        });
         get()._syncToFirestore();
     }
 });
+

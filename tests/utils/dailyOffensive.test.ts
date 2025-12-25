@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { calculateReadingProgress, calculateSkillProgress, calculateGamesProgress, calculateDailyOffensiveAdvanced } from '../../utils/dailyOffensiveUtils';
 import { Book, Skill, Game, ProjectConfig } from '../../types';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
+import { getTodayISO } from '../../utils/dateUtils';
 
-const today = new Date().toISOString().split('T')[0];
+const today = getTodayISO();
 
 describe('Daily Offensive Advanced Utils', () => {
 

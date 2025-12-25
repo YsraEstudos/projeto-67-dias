@@ -2,19 +2,16 @@
  * Streak Store - Daily streak tracking with Firestore-first persistence
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { StreakData } from '../types';
 import { writeToFirestore } from './firestoreSync';
+import { getTodayISO, daysDiff } from '../utils/dateUtils';
 
 const STORE_KEY = 'p67_streak_store';
 
-const getTodayDate = (): string => new Date().toISOString().split('T')[0];
+const getTodayDate = (): string => getTodayISO();
 
-const daysBetween = (date1: string, date2: string): number => {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-    const diffTime = Math.abs(d2.getTime() - d1.getTime());
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-};
+const daysBetween = (date1: string, date2: string): number => Math.abs(daysDiff(date1, date2));
 
 const DEFAULT_STREAK: StreakData = {
     currentStreak: 0,
@@ -46,7 +43,7 @@ interface StreakState extends StreakData {
     _reset: () => void;
 }
 
-export const useStreakStore = create<StreakState>()((set, get) => ({
+export const useStreakStore = create<StreakState>()(immer((set, get) => ({
     ...DEFAULT_STREAK,
     isLoading: true,
     _initialized: false,
@@ -88,16 +85,14 @@ export const useStreakStore = create<StreakState>()((set, get) => ({
                 newStreakStart = today;
             }
 
-            return {
-                currentStreak: newStreak,
-                longestStreak: Math.max(s.longestStreak, newStreak),
-                lastActiveDate: today,
-                freezeDaysUsed: newFreezeUsed,
-                freezeDaysAvailable: 3 - newFreezeUsed,
-                totalActiveDays: s.totalActiveDays + 1,
-                activeDates: [...s.activeDates, today],
-                streakStartDate: newStreakStart,
-            };
+            s.currentStreak = newStreak;
+            s.longestStreak = Math.max(s.longestStreak, newStreak);
+            s.lastActiveDate = today;
+            s.freezeDaysUsed = newFreezeUsed;
+            s.freezeDaysAvailable = 3 - newFreezeUsed;
+            s.totalActiveDays = s.totalActiveDays + 1;
+            s.activeDates.push(today);
+            s.streakStartDate = newStreakStart;
         });
         get()._syncToFirestore();
     },
@@ -112,12 +107,12 @@ export const useStreakStore = create<StreakState>()((set, get) => ({
         const daysSince = daysBetween(state.lastActiveDate, today);
 
         if (daysSince > 3 || (daysSince > 1 && state.freezeDaysAvailable < daysSince - 1)) {
-            set({
-                currentStreak: 0,
-                freezeDaysUsed: 0,
-                freezeDaysAvailable: 3,
-                streakStartDate: null,
-                lastStreakLostDate: today,
+            set((s) => {
+                s.currentStreak = 0;
+                s.freezeDaysUsed = 0;
+                s.freezeDaysAvailable = 3;
+                s.streakStartDate = null;
+                s.lastStreakLostDate = today;
             });
             get()._syncToFirestore();
         }
@@ -127,21 +122,23 @@ export const useStreakStore = create<StreakState>()((set, get) => ({
         const state = get();
         if (state.freezeDaysAvailable <= 0) return false;
 
-        set((s) => ({
-            freezeDaysUsed: s.freezeDaysUsed + 1,
-            freezeDaysAvailable: s.freezeDaysAvailable - 1,
-            totalFreezeUsed: s.totalFreezeUsed + 1,
-        }));
+        set((s) => {
+            s.freezeDaysUsed = s.freezeDaysUsed + 1;
+            s.freezeDaysAvailable = s.freezeDaysAvailable - 1;
+            s.totalFreezeUsed = s.totalFreezeUsed + 1;
+        });
         get()._syncToFirestore();
         return true;
     },
 
     resetStreak: () => {
-        set({ ...DEFAULT_STREAK, createdAt: Date.now() });
+        set((s) => {
+            Object.assign(s, { ...DEFAULT_STREAK, createdAt: Date.now() });
+        });
         get()._syncToFirestore();
     },
 
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     isActiveToday: () => get().lastActiveDate === getTodayDate(),
 
@@ -166,19 +163,25 @@ export const useStreakStore = create<StreakState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data) {
-            set({
-                ...data,
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                Object.assign(state, data);
+                state.isLoading = false;
+                state._initialized = true;
             });
             // Run streak check after hydration
             get().checkStreak();
         } else {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
         }
     },
 
     _reset: () => {
-        set({ ...DEFAULT_STREAK, isLoading: true, _initialized: false });
+        set((state) => {
+            Object.assign(state, { ...DEFAULT_STREAK, isLoading: true, _initialized: false });
+        });
     }
-}));
+})));
+

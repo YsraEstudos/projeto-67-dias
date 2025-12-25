@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     TrendingUp, TrendingDown, Minus, Flame, BookOpen,
-    GraduationCap, CheckCircle2, Calendar, Star, Sparkles, Gamepad2
+    GraduationCap, CheckCircle2, Calendar, Star, Gamepad2
 } from 'lucide-react';
 import { WeeklySnapshot } from '../../types';
 
@@ -179,17 +179,6 @@ export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = React.memo(({
                     <span className="text-lg font-bold text-white">{metrics.gamesHoursPlayed || 0}h</span>
                 </div>
             </div>
-
-            {/* AI Insights Preview */}
-            {snapshot.aiInsights && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-xl border border-purple-500/20">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Sparkles size={12} className="text-purple-400" />
-                        <span className="text-xs text-purple-300 font-medium">Insight da IA</span>
-                    </div>
-                    <p className="text-xs text-slate-300 line-clamp-2">{snapshot.aiInsights.summary}</p>
-                </div>
-            )}
 
             {/* Status Badge */}
             {snapshot.status === 'PENDING' && (

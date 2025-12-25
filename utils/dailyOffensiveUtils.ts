@@ -1,11 +1,12 @@
 import { Book, Skill, Game, OffensiveGoalsConfig, FocusSkill } from '../types';
 import { DEFAULT_OFFENSIVE_GOALS } from '../stores/configStore';
+import { getTodayISO } from './dateUtils';
 
 /**
  * Calcula % de progresso de leitura do dia atual
  */
 export function calculateReadingProgress(books: Book[]): number {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayISO();
 
     const booksWithGoal = books.filter(b => b.dailyGoal && b.dailyGoal > 0 && b.status === 'READING');
     if (booksWithGoal.length === 0) return 0;
@@ -26,7 +27,7 @@ export function calculateReadingProgress(books: Book[]): number {
  * Calcula % de progresso de estudo do dia atual
  */
 export function calculateSkillProgress(skills: Skill[], focusSkills?: FocusSkill[]): number {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayISO();
 
     // Se tiver skills em foco configuradas, usar lógica ponderada
     // MAS só se pelo menos uma focusSkill ainda existir no array de skills
@@ -41,14 +42,14 @@ export function calculateSkillProgress(skills: Skill[], focusSkills?: FocusSkill
     // Fallback: Considerar skills que têm meta OU que tiveram atividade hoje
     const activeSkills = skills.filter(s =>
         s.goalMinutes > 0 ||
-        (s.logs && s.logs.some(l => l.date.split('T')[0] === today))
+        (s.logs && s.logs.some(l => (l.date.split('T')[0] || l.date) === today))
     );
     if (activeSkills.length === 0) return 0;
 
     let totalProgress = 0;
     for (const skill of activeSkills) {
         const todayMinutes = (skill.logs || [])
-            .filter(l => l.date.split('T')[0] === today)
+            .filter(l => (l.date.split('T')[0] || l.date) === today)
             .reduce((acc, l) => acc + l.minutes, 0);
 
         let dailyGoal = 0;
@@ -79,7 +80,7 @@ function calculateWeightedFocusSkills(skills: Skill[], focusSkills: FocusSkill[]
         if (!skill) continue;
 
         const todayMinutes = skill.logs
-            .filter(l => l.date.split('T')[0] === today)
+            .filter(l => (l.date.split('T')[0] || l.date) === today)
             .reduce((acc, l) => acc + l.minutes, 0);
 
         // Assume meta diária baseada em 67 dias se não houver lógica melhor
@@ -107,7 +108,7 @@ function calculateWeightedFocusSkills(skills: Skill[], focusSkills: FocusSkill[]
 export function calculateGamesProgress(games: Game[], dailyGoalHours: number): number {
     if (!dailyGoalHours || dailyGoalHours <= 0) return 0;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayISO();
     let totalHours = 0;
 
     // Considera apenas jogos 'PLAYING'
@@ -115,7 +116,7 @@ export function calculateGamesProgress(games: Game[], dailyGoalHours: number): n
 
     playingGames.forEach(game => {
         game.history?.forEach(log => {
-            if (log.date.split('T')[0] === today) {
+            if ((log.date.split('T')[0] || log.date) === today) {
                 totalHours += log.hoursPlayed;
             }
         });

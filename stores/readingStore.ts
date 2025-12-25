@@ -2,9 +2,11 @@
  * Reading Store - Books and folders with Firestore-first persistence
  */
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { Book, Folder, ReadingLog } from '../types';
 import { writeToFirestore } from './firestoreSync';
 import { generateUUID } from '../utils/uuid';
+import { getTodayISO } from '../utils/dateUtils';
 
 const STORE_KEY = 'p67_reading_store';
 
@@ -55,174 +57,187 @@ interface ReadingState {
     _reset: () => void;
 }
 
-export const useReadingStore = create<ReadingState>()((set, get) => ({
+export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
     books: [],
     folders: [],
     isLoading: true,
     _initialized: false,
 
     setBooks: (books) => {
-        set({ books: deduplicateById(books) });
+        set((state) => { state.books = deduplicateById(books); });
         get()._syncToFirestore();
     },
 
     addBook: (book) => {
-        set((state) => ({ books: [...state.books, book] }));
+        set((state) => { state.books.push(book); });
         get()._syncToFirestore();
     },
 
     updateBook: (id, updates) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, ...updates } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) Object.assign(book, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteBook: (id) => {
-        set((state) => ({ books: state.books.filter(b => b.id !== id) }));
+        set((state) => {
+            const idx = state.books.findIndex(b => b.id === id);
+            if (idx !== -1) state.books.splice(idx, 1);
+        });
         get()._syncToFirestore();
     },
 
     updateProgress: (id, current) => {
-        set((state) => ({
-            books: state.books.map(b => {
-                if (b.id !== id) return b;
-                const newStatus = current >= b.total ? 'COMPLETED' : b.status;
-                return { ...b, current, status: newStatus };
-            })
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) {
+                book.current = current;
+                if (current >= book.total) book.status = 'COMPLETED';
+            }
+        });
         get()._syncToFirestore();
     },
 
     setBookStatus: (id, status) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, status } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.status = status;
+        });
         get()._syncToFirestore();
     },
 
     setBookRating: (id, rating) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, rating } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.rating = rating;
+        });
         get()._syncToFirestore();
     },
 
     moveBookToFolder: (bookId, folderId) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === bookId ? { ...b, folderId } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === bookId);
+            if (book) book.folderId = folderId;
+        });
         get()._syncToFirestore();
     },
 
     setDailyGoal: (id, goal) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, dailyGoal: goal } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.dailyGoal = goal;
+        });
         get()._syncToFirestore();
     },
 
     addReadingLog: (id, pagesRead) => {
-        set((state) => ({
-            books: state.books.map(book => {
-                if (book.id !== id) return book;
-                const today = new Date().toISOString().split('T')[0];
-                const existingLog = book.logs?.find(l => l.date === today);
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (!book) return;
 
-                if (existingLog) {
-                    return {
-                        ...book,
-                        current: Math.min(book.total, book.current + pagesRead),
-                        logs: book.logs?.map(l =>
-                            l.date === today ? { ...l, pagesRead: l.pagesRead + pagesRead } : l
-                        )
-                    };
-                }
+            const today = getTodayISO();
+            if (!book.logs) book.logs = [];
 
-                return {
-                    ...book,
-                    current: Math.min(book.total, book.current + pagesRead),
-                    logs: [...(book.logs || []), {
-                        id: generateUUID(),
-                        date: today,
-                        pagesRead,
-                        bookId: id
-                    }]
-                };
-            })
-        }));
+            const existingLog = book.logs.find(l => l.date === today);
+            if (existingLog) {
+                existingLog.pagesRead += pagesRead;
+            } else {
+                book.logs.push({
+                    id: generateUUID(),
+                    date: today,
+                    pagesRead,
+                    bookId: id
+                });
+            }
+            book.current = Math.min(book.total, book.current + pagesRead);
+        });
         get()._syncToFirestore();
     },
 
     // Exponential Distribution Actions
     setBookDeadline: (id, deadline) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, deadline } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.deadline = deadline;
+        });
         get()._syncToFirestore();
     },
 
     setDistributionType: (id, type) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, distributionType: type } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.distributionType = type;
+        });
         get()._syncToFirestore();
     },
 
     toggleExcludedDay: (id, dayOfWeek) => {
-        set((state) => ({
-            books: state.books.map(b => {
-                if (b.id !== id) return b;
-                const currentDays = b.excludedDays || [];
-                const newDays = currentDays.includes(dayOfWeek)
-                    ? currentDays.filter(d => d !== dayOfWeek)
-                    : [...currentDays, dayOfWeek].sort();
-                return { ...b, excludedDays: newDays };
-            })
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (!book) return;
+            if (!book.excludedDays) book.excludedDays = [];
+
+            const idx = book.excludedDays.indexOf(dayOfWeek);
+            if (idx >= 0) {
+                book.excludedDays.splice(idx, 1);
+            } else {
+                book.excludedDays.push(dayOfWeek);
+                book.excludedDays.sort();
+            }
+        });
         get()._syncToFirestore();
     },
 
     setExcludedDays: (id, days) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, excludedDays: days.sort() } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.excludedDays = days.sort();
+        });
         get()._syncToFirestore();
     },
 
     setExponentialIntensity: (id, intensity) => {
-        set((state) => ({
-            books: state.books.map(b => b.id === id ? { ...b, exponentialIntensity: intensity } : b)
-        }));
+        set((state) => {
+            const book = state.books.find(b => b.id === id);
+            if (book) book.exponentialIntensity = intensity;
+        });
         get()._syncToFirestore();
     },
 
     setFolders: (folders) => {
-        set({ folders: deduplicateById(folders) });
+        set((state) => { state.folders = deduplicateById(folders); });
         get()._syncToFirestore();
     },
 
     addFolder: (folder) => {
-        set((state) => ({ folders: [...state.folders, folder] }));
+        set((state) => { state.folders.push(folder); });
         get()._syncToFirestore();
     },
 
     updateFolder: (id, updates) => {
-        set((state) => ({
-            folders: state.folders.map(f => f.id === id ? { ...f, ...updates } : f)
-        }));
+        set((state) => {
+            const folder = state.folders.find(f => f.id === id);
+            if (folder) Object.assign(folder, updates);
+        });
         get()._syncToFirestore();
     },
 
     deleteFolder: (id) => {
-        set((state) => ({
-            folders: state.folders.filter(f => f.id !== id),
-            books: state.books.map(b => b.folderId === id ? { ...b, folderId: null } : b)
-        }));
+        set((state) => {
+            const folderIdx = state.folders.findIndex(f => f.id === id);
+            if (folderIdx !== -1) state.folders.splice(folderIdx, 1);
+
+            // Remove folder reference from books
+            for (const book of state.books) {
+                if (book.folderId === id) book.folderId = null;
+            }
+        });
         get()._syncToFirestore();
     },
 
-    setLoading: (loading) => set({ isLoading: loading }),
+    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
         const { books, folders, _initialized } = get();
@@ -233,18 +248,27 @@ export const useReadingStore = create<ReadingState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data) {
-            set({
-                books: deduplicateById(data.books || []),
-                folders: deduplicateById(data.folders || []),
-                isLoading: false,
-                _initialized: true
+            set((state) => {
+                state.books = deduplicateById(data.books || []);
+                state.folders = deduplicateById(data.folders || []);
+                state.isLoading = false;
+                state._initialized = true;
             });
         } else {
-            set({ isLoading: false, _initialized: true });
+            set((state) => {
+                state.isLoading = false;
+                state._initialized = true;
+            });
         }
     },
 
     _reset: () => {
-        set({ books: [], folders: [], isLoading: true, _initialized: false });
+        set((state) => {
+            state.books = [];
+            state.folders = [];
+            state.isLoading = true;
+            state._initialized = false;
+        });
     }
-}));
+})));
+
