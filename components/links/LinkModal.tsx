@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { X, Globe, Sparkles, ArrowUpRight } from 'lucide-react';
-import { LinkItem, Prompt, PromptCategory } from '../../types';
+import { X, Globe, Sparkles, ArrowUpRight, Folder } from 'lucide-react';
+import { LinkItem, Prompt, PromptCategory, SiteCategory, SiteFolder, Site } from '../../types';
 import MultiPromptSelector from './MultiPromptSelector';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
@@ -9,15 +9,21 @@ interface LinkModalProps {
     link: LinkItem | null;
     prompts: Prompt[];
     promptCategories: PromptCategory[];
+    siteCategories: SiteCategory[];
+    sites: Site[];
+    folders: SiteFolder[];
+    defaultSiteId?: string;
+    defaultFolderId?: string | null;
     onClose: () => void;
     onSave: (data: Partial<LinkItem>) => void;
 }
 
-const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, onClose, onSave }) => {
-    const [formData, setFormData] = useState<{ title: string; url: string; categoryId: string; promptIds: string[] }>({
+const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, siteCategories, sites, folders, defaultSiteId, defaultFolderId, onClose, onSave }) => {
+    const [formData, setFormData] = useState<{ title: string; url: string; siteId: string; folderId: string | null; promptIds: string[] }>({
         title: link?.title || '',
         url: link?.url || '',
-        categoryId: link?.categoryId || 'personal',
+        siteId: link?.siteId || defaultSiteId || (sites.length > 0 ? sites[0].id : ''),
+        folderId: link?.folderId ?? defaultFolderId ?? null,
         promptIds: link?.promptIds || []
     });
     const [isPromptSelectorOpen, setIsPromptSelectorOpen] = useState(false);
@@ -27,15 +33,23 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
     const initialValues = useMemo(() => ({
         title: link?.title || '',
         url: link?.url || '',
-        categoryId: link?.categoryId || 'personal',
+        siteId: link?.siteId || defaultSiteId || (sites.length > 0 ? sites[0].id : ''),
+        folderId: link?.folderId ?? defaultFolderId ?? null,
         promptIds: link?.promptIds || [],
-    }), []);
+    }), [link, sites, defaultSiteId, defaultFolderId]);
+
+    // Get folders for the selected site
+    const siteFolders = useMemo(() =>
+        folders.filter(f => f.siteId === formData.siteId).sort((a, b) => a.order - b.order),
+        [folders, formData.siteId]
+    );
 
     // Track unsaved changes
     const { hasChanges } = useUnsavedChanges({
         initialValue: initialValues,
         currentValue: formData,
     });
+
 
     // Intercept close to check for unsaved changes
     const handleClose = () => {
@@ -90,22 +104,34 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Categoria</label>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setFormData({ ...formData, categoryId: 'personal' })}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${formData.categoryId === 'personal' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
-                                >
-                                    Meus Sites
-                                </button>
-                                <button
-                                    onClick={() => setFormData({ ...formData, categoryId: 'general' })}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${formData.categoryId === 'general' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}`}
-                                >
-                                    Sites Gerais
-                                </button>
-                            </div>
+                            <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Site</label>
+                            <select
+                                value={formData.siteId}
+                                onChange={(e) => setFormData({ ...formData, siteId: e.target.value, folderId: null })}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none"
+                            >
+                                {sites.map(site => (
+                                    <option key={site.id} value={site.id}>{site.name}</option>
+                                ))}
+                            </select>
                         </div>
+                        {siteFolders.length > 0 && (
+                            <div>
+                                <label className="block text-xs text-slate-500 uppercase font-bold mb-2 flex items-center gap-1">
+                                    <Folder size={12} className="text-indigo-400" /> Pasta (opcional)
+                                </label>
+                                <select
+                                    value={formData.folderId || ''}
+                                    onChange={(e) => setFormData({ ...formData, folderId: e.target.value || null })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none"
+                                >
+                                    <option value="">Raiz do Site</option>
+                                    {siteFolders.map(folder => (
+                                        <option key={folder.id} value={folder.id}>📁 {folder.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* PROMPT LINKING SECTION */}
                         <div>

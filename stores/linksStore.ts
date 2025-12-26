@@ -31,6 +31,14 @@ interface LinksState {
     addPromptToLink: (linkId: string, promptId: string) => void;
     removePromptFromLink: (linkId: string, promptId: string) => void;
 
+    // Site helpers
+    getLinksBySite: (siteId: string) => LinkItem[];
+    getLinksByFolder: (folderId: string) => LinkItem[];
+    getLinksInSiteRoot: (siteId: string) => LinkItem[];
+    getLinksNeedingMigration: () => LinkItem[];
+
+    moveLink: (linkId: string, targetFolderId: string | null) => void;
+
     setLoading: (loading: boolean) => void;
 
     _syncToFirestore: () => void;
@@ -79,6 +87,38 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
         get()._syncToFirestore();
     },
 
+    // Site helpers
+    getLinksBySite: (siteId) => {
+        return get().links
+            .filter(l => l.siteId === siteId)
+            .sort((a, b) => a.order - b.order);
+    },
+
+    getLinksByFolder: (folderId) => {
+        return get().links
+            .filter(l => l.folderId === folderId)
+            .sort((a, b) => a.order - b.order);
+    },
+
+    getLinksInSiteRoot: (siteId) => {
+        return get().links
+            .filter(l => l.siteId === siteId && (l.folderId === null || l.folderId === undefined))
+            .sort((a, b) => a.order - b.order);
+    },
+
+    getLinksNeedingMigration: () => {
+        return get().links.filter(l => !l.siteId || l.siteId === '');
+    },
+
+    moveLink: (linkId, targetFolderId) => {
+        set((state) => ({
+            links: state.links.map(l =>
+                l.id === linkId ? { ...l, folderId: targetFolderId } : l
+            )
+        }));
+        get()._syncToFirestore();
+    },
+
     addPromptToLink: (linkId, promptId) => {
         set((state) => ({
             links: state.links.map(l => {
@@ -117,20 +157,32 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data) {
-            // Migrate promptId -> promptIds and category -> categoryId
-            const migratedLinks = (data.links || []).map((link: any) => ({
-                ...link,
-                promptIds: link.promptIds ?? (link.promptId ? [link.promptId] : []),
-                categoryId: link.categoryId ?? (link.category === 'PERSONAL' ? 'personal' : link.category === 'GENERAL' ? 'general' : link.category || 'personal'),
-                promptId: undefined // Remove deprecated field
-            }));
+            // Migrate: promptId -> promptIds, category -> categoryId, and prepare for siteId
+            const migratedLinks = (data.links || []).map((link: any) => {
+                // Handle legacy category enum to categoryId
+                const categoryId = link.categoryId ??
+                    (link.category === 'PERSONAL' ? 'personal' :
+                        link.category === 'GENERAL' ? 'general' :
+                            link.category || 'personal');
+
+                return {
+                    ...link,
+                    promptIds: link.promptIds ?? (link.promptId ? [link.promptId] : []),
+                    // Keep siteId if exists, otherwise use categoryId (for migration later)
+                    // The actual Site creation happens in LinksView migration
+                    siteId: link.siteId ?? '', // Empty string = needs migration
+                    folderId: link.folderId ?? null, // Default to null (root)
+                    categoryId: categoryId, // Keep for migration reference
+                    promptId: undefined // Remove deprecated field
+                };
+            });
             set({
                 links: deduplicateById(migratedLinks),
                 isLoading: false,
                 _initialized: true
             });
             // NOTE: Do NOT call _syncToFirestore here - it causes an infinite loop!
-            // Migration will be persisted on the next user action.
+            // Migration will be persisted when Sites are created in LinksView.
         } else {
             set({ isLoading: false, _initialized: true });
         }
@@ -155,5 +207,10 @@ export const useLinkActions = () => useLinksStore(
         setLinks: state.setLinks,
         addPromptToLink: state.addPromptToLink,
         removePromptFromLink: state.removePromptFromLink,
+        getLinksBySite: state.getLinksBySite,
+        getLinksByFolder: state.getLinksByFolder,
+        getLinksInSiteRoot: state.getLinksInSiteRoot,
+        getLinksNeedingMigration: state.getLinksNeedingMigration,
+        moveLink: state.moveLink,
     }))
 );

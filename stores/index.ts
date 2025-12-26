@@ -42,6 +42,12 @@ export { useLinksStore, useLinkActions, useLinks, useIsLinksLoading } from './li
 // Site Categories Store - Categories for links
 export { useSiteCategoriesStore, useSiteCategories, useSiteCategoryActions, useIsSiteCategoriesLoading, DEFAULT_SITE_CATEGORIES } from './siteCategoriesStore';
 
+// Sites Store - Site groups for organizing links
+export { useSitesStore, useSites, useSiteActions, useIsSitesLoading } from './sitesStore';
+
+// Site Folders Store - Folders within sites
+export { useSiteFoldersStore, useSiteFolders, useSiteFolderActions, useIsSiteFoldersLoading } from './siteFoldersStore';
+
 // Sunday Store - Sunday tasks
 export { useSundayStore } from './sundayStore';
 
@@ -119,8 +125,10 @@ import { useWaterStore } from './waterStore';
 import { useStreakStore } from './streakStore';
 import { useTimerStore } from './timerStore';
 import { useSiteCategoriesStore } from './siteCategoriesStore';
+import { useSitesStore } from './sitesStore';
 import { useWeeklyAgendaStore } from './weeklyAgendaStore';
 import { useTabStore } from './tabStore';
+import { useSiteFoldersStore } from './siteFoldersStore';
 
 /**
  * Clears all stores to initial state.
@@ -146,6 +154,8 @@ export const clearAllStores = () => {
     useStreakStore.getState()._reset();
     useTimerStore.getState()._reset();
     useSiteCategoriesStore.getState()._reset();
+    useSitesStore.getState()._reset();
+    useSiteFoldersStore.getState()._reset();
     useWeeklyAgendaStore.getState()._reset();
     useTabStore.setState({ tabs: [], activeTabId: null }); // Reset tabs on logout
     console.log('[clearAllStores] All stores reset for user switch');

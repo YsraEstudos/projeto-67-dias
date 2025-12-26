@@ -387,11 +387,14 @@ export interface LinkItem {
   id: string;
   title: string;
   url: string;
-  categoryId: string;           // ID da categoria (dinâmica ou legacy)
+  siteId: string;               // ID do site que contém este link
+  folderId?: string | null;     // [NOVO] ID da pasta dentro do site (null = raiz do site)
   clickCount: number;
   lastClicked?: number;
   order: number;
   promptIds: string[];          // IDs dos prompts vinculados (múltiplos)
+  /** @deprecated Use siteId. Mantido para migração. */
+  categoryId?: string;
   /** @deprecated Use promptIds. Mantido para migração. */
   promptId?: string;
 }
@@ -404,7 +407,33 @@ export interface SiteCategory {
   color: string;
   icon: string;
   order: number;
-  isDefault?: boolean;  // Categorias padrão não podem ser deletadas
+  isDefault?: boolean;    // Categorias padrão não podem ser deletadas
+  parentId: string | null; // null = categoria raiz, string = subcategoria
+  isCollapsed?: boolean;   // Estado de UI para árvore expandida/colapsada
+}
+
+// Agrupador de links relacionados (ex: Google → Drive, Docs, Gmail)
+export interface Site {
+  id: string;
+  name: string;
+  description?: string;
+  categoryId: string;       // Categoria pai
+  faviconUrl?: string;      // Cache do favicon principal
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// [NOVO] Pasta dentro de um Site para organizar links
+export interface SiteFolder {
+  id: string;
+  name: string;
+  siteId: string;           // Site pai
+  color?: string;           // Cor opcional (slug de cor das constantes)
+  order: number;
+  isCollapsed?: boolean;    // Estado de UI (se deve esconder links)
+  createdAt: number;
+  updatedAt: number;
 }
 
 

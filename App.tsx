@@ -24,7 +24,7 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, clearAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, clearAllStores } from './stores';
 import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
@@ -158,7 +158,7 @@ const App: React.FC = () => {
 
     const unsubscribers: (() => void)[] = [];
     const hydratedStores = new Set<string>();
-    const totalStores = 16;
+    const totalStores = 19;
 
     const checkAllHydrated = (storeKey: string) => {
       // Only count first hydration per store
@@ -250,6 +250,21 @@ const App: React.FC = () => {
     unsubscribers.push(subscribeToDocument('p67_tool_timer', (data: any) => {
       useTimerStore.getState()._hydrateFromFirestore(data);
       checkAllHydrated('p67_tool_timer');
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_site_categories_store', (data: any) => {
+      useSiteCategoriesStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated('p67_site_categories_store');
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_sites_store', (data: any) => {
+      useSitesStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated('p67_sites_store');
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_site_folders_store', (data: any) => {
+      useSiteFoldersStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated('p67_site_folders_store');
     }));
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');

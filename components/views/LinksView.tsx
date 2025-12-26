@@ -1,11 +1,11 @@
 import React, { useState, useMemo, Suspense, useCallback } from 'react';
 import {
-   Globe, Search, Plus, X, Sparkles, FolderPlus, MoreVertical, Trash2, Edit2
+   Globe, Search, Plus, X, Sparkles, FolderPlus, MoreVertical, Trash2, Edit2, ChevronRight, Home
 } from 'lucide-react';
 import LinkCard from '../links/LinkCard';
 import { LinkItem, SiteCategory } from '../../types';
 import { useLinks, useLinkActions } from '../../stores/linksStore';
-import { usePromptsStore, useSiteCategories, useSiteCategoryActions } from '../../stores';
+import { usePromptsStore, useSiteCategories, useSiteCategoryActions, useSites, useSiteFolders } from '../../stores';
 import { PromptPreviewModal } from '../skills/PromptPreviewModal';
 import { siteIcons, siteColorClasses } from '../links/constants';
 
@@ -29,7 +29,9 @@ const LinksView: React.FC = () => {
    const { addLink, updateLink, deleteLink: removeLink, incrementClickCount, reorderLinks } = useLinkActions();
    const { prompts, categories: promptCategories } = usePromptsStore();
    const siteCategories = useSiteCategories();
-   const { addCategory: addSiteCategory, updateCategory: updateSiteCategory, deleteCategory: deleteSiteCategory } = useSiteCategoryActions();
+   const { addCategory: addSiteCategory, updateCategory: updateSiteCategory, deleteCategory: deleteSiteCategory, getCategoryPath } = useSiteCategoryActions();
+   const sites = useSites();
+   const folders = useSiteFolders();
 
    const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts'>('links');
    const [activeTab, setActiveTab] = useState(siteCategories[0]?.id || 'personal');
@@ -57,13 +59,16 @@ const LinksView: React.FC = () => {
       if (editingLink) {
          updateLink(editingLink.id, data);
       } else {
+         // If in 'all' view, use the first category (Personal/Meus Sites) as default
+         const targetCategory = activeTab === 'all' ? (siteCategories[0]?.id || 'personal') : activeTab;
+
          const newLink: LinkItem = {
             id: Date.now().toString(),
             title: data.title || 'Novo Link',
             url: formatUrl(data.url || ''),
-            categoryId: activeTab,
+            categoryId: targetCategory,
             clickCount: 0,
-            order: links.filter(l => l.categoryId === activeTab).length,
+            order: links.filter(l => l.categoryId === targetCategory).length,
             promptIds: [],
             ...data
          } as LinkItem;
@@ -71,7 +76,7 @@ const LinksView: React.FC = () => {
       }
       setIsModalOpen(false);
       setEditingLink(null);
-   }, [editingLink, activeTab, links, updateLink, addLink]); // Note: formatUrl needs to be defined before usage or stable
+   }, [editingLink, activeTab, links, updateLink, addLink, siteCategories]);
 
    const handleDelete = useCallback((id: string) => {
       if (confirm("Remover este link?")) {
@@ -102,6 +107,9 @@ const LinksView: React.FC = () => {
 
    const handleDragOver = useCallback((e: React.DragEvent, targetItem: LinkItem) => {
       e.preventDefault();
+      // Disable reordering in 'All' view for now as it's complex across categories
+      if (activeTab === 'all') return;
+
       if (!draggedItem || draggedItem.id === targetItem.id || draggedItem.categoryId !== targetItem.categoryId) return;
 
       // Reorder logic using Zustand
@@ -124,7 +132,7 @@ const LinksView: React.FC = () => {
          return item;
       });
       reorderLinks(reorderedList);
-   }, [draggedItem, links, reorderLinks]);
+   }, [draggedItem, links, reorderLinks, activeTab]);
 
    const handleDragEnd = useCallback(() => {
       setDraggedItem(null);
@@ -160,8 +168,22 @@ const LinksView: React.FC = () => {
       return map;
    }, [links, prompts]);
 
-   // Filtering
+   // Filtering - filter only links in the active category (not subcategories), unless 'all'
    const filteredLinks = useMemo(() => {
+      if (activeTab === 'all') {
+         return links
+            .filter(l =>
+               searchQuery
+                  ? l.title.toLowerCase().includes(searchQuery.toLowerCase()) || l.url.toLowerCase().includes(searchQuery.toLowerCase())
+                  : true
+            )
+            .sort((a, b) => {
+               // Determine orders based on category order first, then link order
+               // This is a rough sort to keep things somewhat organized in 'All' view
+               // We'd ideally need a map of categories to order
+               return a.order - b.order;
+            });
+      }
       return links
          .filter(l => l.categoryId === activeTab)
          .filter(l =>
@@ -171,6 +193,14 @@ const LinksView: React.FC = () => {
          )
          .sort((a, b) => a.order - b.order);
    }, [links, activeTab, searchQuery]);
+
+   // Get current category and its path for breadcrumb
+   const currentCategory = siteCategories.find(c => c.id === activeTab);
+   const categoryPath = currentCategory ? getCategoryPath(activeTab) : [];
+   const hasParent = currentCategory?.parentId !== null && currentCategory?.parentId !== undefined;
+
+   // Get root-level categories for tab display
+   const rootCategories = siteCategories.filter(c => c.parentId === null);
 
    return (
       <div className="max-w-6xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -233,15 +263,57 @@ const LinksView: React.FC = () => {
                   </button>
                </div>
 
-               {/* LINK CATEGORY TABS */}
-               <div className="flex flex-wrap gap-2 mb-8">
-                  {siteCategories.map(cat => {
+               {/* BREADCRUMB - Shows path when in subcategory */}
+               {hasParent && categoryPath.length > 0 && (
+                  <div className="flex items-center gap-1 mb-4 text-sm text-slate-400 flex-wrap">
+                     <button
+                        onClick={() => setActiveTab('all')}
+                        className="flex items-center gap-1 hover:text-white transition-colors"
+                     >
+                        <Home size={14} />
+                        <span>Início</span>
+                     </button>
+                     {categoryPath.map((cat, idx) => (
+                        <React.Fragment key={cat.id}>
+                           <ChevronRight size={14} className="text-slate-600" />
+                           <button
+                              onClick={() => setActiveTab(cat.id)}
+                              className={`hover:text-white transition-colors ${idx === categoryPath.length - 1 ? 'text-white font-medium' : ''}`}
+                           >
+                              {cat.name}
+                           </button>
+                        </React.Fragment>
+                     ))}
+                  </div>
+               )}
+
+               {/* LINK CATEGORY TABS - Show root categories + subcategories of current */}
+               <div className="flex flex-wrap gap-2 mb-4">
+
+                  {/* "Todos" Tab */}
+                  <button
+                     onClick={() => setActiveTab('all')}
+                     className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'all'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700'
+                        }`}
+                  >
+                     <Globe size={16} />
+                     Todos
+                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'all' ? 'bg-indigo-500' : 'bg-slate-700'}`}>
+                        {links.length}
+                     </span>
+                  </button>
+
+                  {/* Root level categories */}
+                  {rootCategories.map(cat => {
                      const isActive = activeTab === cat.id;
                      const IconComponent = siteIcons[cat.icon];
                      const linkCount = links.filter(l => l.categoryId === cat.id).length;
+                     const childCount = siteCategories.filter(c => c.parentId === cat.id).length;
 
                      return (
-                        <div key={cat.id} className="relative">
+                        <div key={cat.id} className="relative group">
                            <button
                               onClick={() => setActiveTab(cat.id)}
                               className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isActive
@@ -298,6 +370,34 @@ const LinksView: React.FC = () => {
                   </button>
                </div>
 
+               {/* SUBCATEGORIES - Show children of current category */}
+               {(() => {
+                  const subcategories = siteCategories.filter(c => c.parentId === activeTab);
+                  if (subcategories.length === 0) return null;
+                  return (
+                     <div className="mb-6">
+                        <p className="text-xs text-slate-500 uppercase font-bold mb-2">Subcategorias</p>
+                        <div className="flex flex-wrap gap-2">
+                           {subcategories.map(sub => {
+                              const SubIcon = siteIcons[sub.icon];
+                              const subLinkCount = links.filter(l => l.categoryId === sub.id).length;
+                              return (
+                                 <button
+                                    key={sub.id}
+                                    onClick={() => setActiveTab(sub.id)}
+                                    className="px-3 py-2 rounded-lg text-sm bg-slate-800/70 border border-slate-700 text-slate-300 hover:text-white hover:border-indigo-500 hover:bg-slate-700 transition-all flex items-center gap-2"
+                                 >
+                                    {SubIcon || <FolderPlus size={14} />}
+                                    {sub.name}
+                                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-600">{subLinkCount}</span>
+                                 </button>
+                              );
+                           })}
+                        </div>
+                     </div>
+                  );
+               })()}
+
                {/* GRID */}
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filteredLinks.length === 0 && (
@@ -315,6 +415,7 @@ const LinksView: React.FC = () => {
                         isDragging={draggedItem?.id === link.id}
                         getFavicon={getFavicon}
                         formatUrl={formatUrl}
+                        categoryName={activeTab === 'all' ? siteCategories.find(c => c.id === link.categoryId)?.name : undefined}
                         onDragStart={handleDragStart}
                         onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}
@@ -336,6 +437,9 @@ const LinksView: React.FC = () => {
                   link={editingLink}
                   prompts={prompts}
                   promptCategories={promptCategories}
+                  siteCategories={siteCategories}
+                  sites={sites}
+                  folders={folders}
                   onClose={() => setIsModalOpen(false)}
                   onSave={handleSave}
                />
@@ -356,12 +460,14 @@ const LinksView: React.FC = () => {
             <Suspense fallback={null}>
                <SiteCategoryModal
                   category={editingCategory}
+                  categories={siteCategories}
+                  defaultParentId={null}
                   onClose={() => { setIsCategoryModalOpen(false); setEditingCategory(null); }}
                   onSave={(category) => {
                      if (editingCategory) {
                         updateSiteCategory(editingCategory.id, category);
                      } else {
-                        addSiteCategory({ ...category, order: siteCategories.length });
+                        addSiteCategory({ ...category, order: siteCategories.length } as SiteCategory);
                      }
                      setIsCategoryModalOpen(false);
                      setEditingCategory(null);
