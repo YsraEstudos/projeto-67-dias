@@ -717,7 +717,7 @@ const App: React.FC = () => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas de 15 em 15 dias" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.0
+          versão 1.1
         </span>
       </footer>
 
