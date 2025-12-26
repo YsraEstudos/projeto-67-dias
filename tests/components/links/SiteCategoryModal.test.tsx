@@ -7,6 +7,10 @@ import { SiteCategory } from '../../../types';
 describe('SiteCategoryModal', () => {
     const mockOnClose = vi.fn();
     const mockOnSave = vi.fn();
+    const mockCategories: SiteCategory[] = [
+        { id: 'personal', name: 'Meus Sites', color: 'indigo', icon: 'layout', order: 0, isDefault: true, parentId: null },
+        { id: 'general', name: 'Sites Gerais', color: 'slate', icon: 'grid', order: 1, isDefault: true, parentId: null },
+    ];
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -17,18 +21,20 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={null}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
             );
 
-            expect(screen.getByText('Nova Categoria de Site')).toBeInTheDocument();
+            expect(screen.getByText('Nova Categoria')).toBeInTheDocument();
         });
 
         it('enables save button when name is filled', () => {
             render(
                 <SiteCategoryModal
                     category={null}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -47,6 +53,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={null}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -63,6 +70,7 @@ describe('SiteCategoryModal', () => {
                     name: 'Trabalho',
                     color: 'indigo', // default
                     icon: 'layout', // default
+                    parentId: null,
                     isDefault: false,
                 })
             );
@@ -72,6 +80,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={null}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -103,12 +112,14 @@ describe('SiteCategoryModal', () => {
             icon: 'briefcase',
             order: 0,
             isDefault: false,
+            parentId: null,
         };
 
         it('renders with "Editar Categoria" title', () => {
             render(
                 <SiteCategoryModal
                     category={existingCategory}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -121,6 +132,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={existingCategory}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -134,6 +146,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={existingCategory}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -152,12 +165,14 @@ describe('SiteCategoryModal', () => {
             icon: 'layout',
             order: 0,
             isDefault: true,
+            parentId: null,
         };
 
         it('disables name input for default categories', () => {
             render(
                 <SiteCategoryModal
                     category={defaultCategory}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -171,6 +186,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={defaultCategory}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -185,6 +201,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={null}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -198,6 +215,7 @@ describe('SiteCategoryModal', () => {
             render(
                 <SiteCategoryModal
                     category={null}
+                    categories={mockCategories}
                     onClose={mockOnClose}
                     onSave={mockOnSave}
                 />
@@ -208,3 +226,4 @@ describe('SiteCategoryModal', () => {
         });
     });
 });
+
