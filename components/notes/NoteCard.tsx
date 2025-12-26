@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { MoreVertical, Trash2, Copy, Download, Pin } from 'lucide-react';
 import { Note, Tag } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -12,6 +12,7 @@ interface NoteCardProps {
     onDuplicate: (id: string) => void;
     onTogglePin: (id: string) => void;
     tagMap?: Record<string, Tag>;
+    onMiddleClick?: (note: Note) => void;
 }
 
 const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; hover: string }> = {
@@ -25,9 +26,10 @@ const COLOR_CLASSES: Record<string, { bg: string; border: string; text: string; 
     orange: { bg: 'bg-orange-500/5', border: 'border-orange-500/20', text: 'text-orange-400', hover: 'hover:border-orange-500/40' },
 };
 
-export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, onDelete, onDuplicate, onTogglePin, tagMap = {} }) => {
+export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, onDelete, onDuplicate, onTogglePin, tagMap = {}, onMiddleClick }) => {
     const [showMenu, setShowMenu] = React.useState(false);
     const cardRef = React.useRef<HTMLDivElement>(null);
+    const middleClickHandled = useRef(false);
     const colorScheme = COLOR_CLASSES[note.color] || COLOR_CLASSES.blue;
 
     // Close menu when clicking/right-clicking outside this card
@@ -103,6 +105,29 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
             ref={cardRef}
             onClick={() => onClick(note)}
             onContextMenu={handleContextMenu}
+            // Middle-click support for opening in new tab
+            onAuxClick={(e) => {
+                if (e.button === 1 && onMiddleClick && !middleClickHandled.current) {
+                    e.preventDefault();
+                    middleClickHandled.current = true;
+                    onMiddleClick(note);
+                    setTimeout(() => { middleClickHandled.current = false; }, 100);
+                }
+            }}
+            onMouseDown={(e) => {
+                if (e.button === 1) {
+                    e.preventDefault();
+                    middleClickHandled.current = false;
+                }
+            }}
+            onMouseUp={(e) => {
+                if (e.button === 1 && onMiddleClick && !middleClickHandled.current) {
+                    e.preventDefault();
+                    middleClickHandled.current = true;
+                    onMiddleClick(note);
+                    setTimeout(() => { middleClickHandled.current = false; }, 100);
+                }
+            }}
             className={`relative group cursor-pointer rounded-xl border-2 ${colorScheme.border} ${colorScheme.bg} ${colorScheme.hover} hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-in fade-in slide-in-from-bottom-2 aspect-square md:aspect-auto overflow-hidden flex flex-col`}
         >
             {/* Top Color Bar */}

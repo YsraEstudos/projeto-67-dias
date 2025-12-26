@@ -88,11 +88,11 @@ export const TabBar: React.FC = React.memo(() => {
     if (tabs.length === 0) return null;
 
     return (
-        <div className="w-full bg-slate-900/50 backdrop-blur-sm border-b border-slate-800 flex items-center px-2 py-1 gap-1 overflow-x-auto scrollbar-hide">
+        <div className="w-full bg-slate-900/50 backdrop-blur-sm border-b border-slate-800 flex items-center px-2 py-1 gap-1">
             {/* Home/Dashboard Button */}
             <button
                 onClick={handleHomeClick}
-                className={`flex items-center justify-center p-2 rounded-lg transition-colors min-w-[36px] ${!activeTabId
+                className={`flex items-center justify-center p-2 rounded-lg transition-colors min-w-[36px] shrink-0 ${!activeTabId
                     ? 'bg-slate-800 text-cyan-400 border border-slate-700'
                     : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
                     }`}
@@ -104,17 +104,29 @@ export const TabBar: React.FC = React.memo(() => {
             {/* Separator */}
             <div className="h-4 w-px bg-slate-800 mx-1 shrink-0" />
 
-            {/* Tabs - Memoized for performance */}
-            <div className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-hide" ref={scrollRef}>
-                {tabs.map((tab) => (
-                    <TabItem
-                        key={tab.id}
-                        tab={tab}
-                        isActive={tab.id === activeTabId}
-                        onTabClick={handleTabClick}
-                        onCloseTab={handleCloseTab}
-                    />
-                ))}
+            {/* Tabs Container with overflow gradients */}
+            <div className="relative flex-1 min-w-0">
+                {/* Left fade gradient */}
+                <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-slate-900/90 to-transparent z-10 pointer-events-none" />
+
+                {/* Scrollable tabs */}
+                <div
+                    className="flex items-center gap-1 overflow-x-auto scrollbar-hide scroll-smooth px-6"
+                    ref={scrollRef}
+                >
+                    {tabs.map((tab) => (
+                        <TabItem
+                            key={tab.id}
+                            tab={tab}
+                            isActive={tab.id === activeTabId}
+                            onTabClick={handleTabClick}
+                            onCloseTab={handleCloseTab}
+                        />
+                    ))}
+                </div>
+
+                {/* Right fade gradient */}
+                <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-slate-900/90 to-transparent z-10 pointer-events-none" />
             </div>
         </div>
     );

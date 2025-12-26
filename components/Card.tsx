@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { ViewState, DashboardCardProps } from '../types';
 
@@ -12,6 +12,8 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
   onClick,
   onAuxClick,
 }) => {
+  // Prevent double-trigger of middle-click (auxclick + mouseup)
+  const middleClickHandled = useRef(false);
   // Map color classes to glow colors
   const glowMap: Record<string, string> = {
     'text-orange-500': 'hover:shadow-orange-500/20',
@@ -49,9 +51,27 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
     <div
       onClick={() => onClick(id)}
       onAuxClick={(e) => {
-        if (e.button === 1 && onAuxClick) {
+        if (e.button === 1 && onAuxClick && !middleClickHandled.current) {
           e.preventDefault();
+          middleClickHandled.current = true;
           onAuxClick(id);
+          // Reset after a short delay
+          setTimeout(() => { middleClickHandled.current = false; }, 100);
+        }
+      }}
+      // Fallback for middle-click: some browsers don't fire auxclick reliably
+      onMouseDown={(e) => {
+        if (e.button === 1) {
+          e.preventDefault(); // Prevent autoscroll
+          middleClickHandled.current = false; // Reset on mousedown
+        }
+      }}
+      onMouseUp={(e) => {
+        if (e.button === 1 && onAuxClick && !middleClickHandled.current) {
+          e.preventDefault();
+          middleClickHandled.current = true;
+          onAuxClick(id);
+          setTimeout(() => { middleClickHandled.current = false; }, 100);
         }
       }}
       className={`

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Search, StickyNote, Pin, ChevronRight } from 'lucide-react';
-import { Note, Tag } from '../../types';
+import { Note, Tag, ViewState } from '../../types';
 import { useNotesStore } from '../../stores/notesStore';
 import { useTabStore } from '../../stores/tabStore';
 import { useNavigationHistory } from '../../hooks/useNavigationHistory';
@@ -19,10 +19,11 @@ interface NotesTabProps {
 
 export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => {
     // Tab Store Integration
-    const { activeTabId, tabs, updateTabState } = useTabStore(useShallow(state => ({
+    const { activeTabId, tabs, updateTabState, addTab } = useTabStore(useShallow(state => ({
         activeTabId: state.activeTabId,
         tabs: state.tabs,
-        updateTabState: state.updateTabState
+        updateTabState: state.updateTabState,
+        addTab: state.addTab
     })));
 
     // Navigation History for browser back button
@@ -288,6 +289,19 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         setEditingNoteId(null);
     }, [setIsCreating, setEditingNoteId]);
 
+    // Middle-click handler: open note in new background tab
+    const handleNoteMiddleClick = useCallback((note: Note) => {
+        // Create new tab with the note ready to open, but don't activate it (background tab)
+        const tabLabel = `📝 ${note.title.substring(0, 15)}${note.title.length > 15 ? '...' : ''}`;
+
+        // IMPORTANT: Notes are currently rendered within SundayView (ViewState.SUNDAY)
+        // NOT ViewState.JOURNAL (which is the Diary)
+        addTab(ViewState.SUNDAY, tabLabel, {
+            activeNoteId: note.id,
+            isCreating: false
+        }, false); // false = don't activate (background tab)
+    }, [addTab]);
+
     if (isAuthLoading) {
         return (
             <div className="flex items-center justify-center p-20">
@@ -427,6 +441,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                                     onDuplicate={handleDuplicateNote}
                                                     onTogglePin={handleTogglePin}
                                                     tagMap={tagMap}
+                                                    onMiddleClick={handleNoteMiddleClick}
                                                 />
                                             </div>
                                         ))}
@@ -474,6 +489,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                                 onDuplicate={handleDuplicateNote}
                                 onTogglePin={handleTogglePin}
                                 tagMap={tagMap}
+                                onMiddleClick={handleNoteMiddleClick}
                             />
                         ))}
                     </div>

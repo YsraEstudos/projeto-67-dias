@@ -387,33 +387,25 @@ const App: React.FC = () => {
           selectedEntryId: null,
           isCreating: false
         });
-        // Go back in browser history (will trigger popstate)
+        // Go back in browser history only for internal navigation
         if (history.length > 1) {
           history.back();
         }
       } else {
-        // No internal state: close the tab
-        closeTab(activeTabId!);
-        // Go to dashboard if this was the last tab
-        if (tabs.length <= 1) {
-          setActiveView(ViewState.DASHBOARD);
-        }
-        // Go back in browser history
-        if (history.length > 1) {
-          history.back();
-        }
+        // No internal state: go to Dashboard WITHOUT closing the tab
+        // Tabs only close via explicit X button
+        // DO NOT call history.back() here - just navigate directly
+        setActiveView(ViewState.DASHBOARD);
+        setActiveTab(''); // Deactivate tab without closing
       }
     } else {
       // No tabs: just go to dashboard
       if (activeView !== ViewState.DASHBOARD) {
         setActiveView(ViewState.DASHBOARD);
-        if (history.length > 1) {
-          history.back();
-        }
       }
       // If already on dashboard, don't navigate (prevents closing PWA)
     }
-  }, [tabs, activeTabId, activeView, updateTabState, closeTab, setActiveView]);
+  }, [tabs, activeTabId, activeView, updateTabState, setActiveView, setActiveTab]);
 
   // --- Configuration Data ---
   // Work data is now from Zustand store (already declared above)

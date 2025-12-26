@@ -16,7 +16,7 @@ interface TabState {
     activeTabId: string | null;
 
     // Actions
-    addTab: (view: ViewState, label: string, initialState?: Record<string, any>) => void;
+    addTab: (view: ViewState, label: string, initialState?: Record<string, any>, activate?: boolean) => void;
     closeTab: (id: string) => void;
     setActiveTab: (id: string) => void;
     updateTabState: (tabId: string, newState: Record<string, any>) => void;
@@ -25,11 +25,14 @@ interface TabState {
     getTab: (id: string) => Tab | undefined;
 }
 
+// Maximum number of tabs allowed for performance
+const MAX_TABS = 20;
+
 export const useTabStore = create<TabState>((set, get) => ({
     tabs: [],
     activeTabId: null,
 
-    addTab: (view, label, initialState = {}) => {
+    addTab: (view, label, initialState = {}, activate = true) => {
         const newTab: Tab = {
             id: generateUUID(),
             label,
@@ -39,13 +42,17 @@ export const useTabStore = create<TabState>((set, get) => ({
         };
 
         set((state) => {
-            // If we want to prevent duplicates of the same View (optional), we could check here.
-            // For now, let's allow multiple tabs of same view if user explicitly asks (middle click),
-            // but simple click might just focus existing one (handled in component logic).
+            let currentTabs = state.tabs;
+
+            // If we hit the limit, remove the oldest tab
+            if (currentTabs.length >= MAX_TABS) {
+                currentTabs = currentTabs.slice(1); // Remove first (oldest)
+            }
 
             return {
-                tabs: [...state.tabs, newTab],
-                activeTabId: newTab.id
+                tabs: [...currentTabs, newTab],
+                // Only activate if activate=true (default behavior)
+                activeTabId: activate ? newTab.id : state.activeTabId
             };
         });
     },
