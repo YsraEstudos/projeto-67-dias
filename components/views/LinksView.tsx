@@ -5,7 +5,7 @@ import {
 import LinkCard from '../links/LinkCard';
 import { LinkItem, SiteCategory } from '../../types';
 import { useLinks, useLinkActions } from '../../stores/linksStore';
-import { usePromptsStore, useSiteCategories, useSiteCategoryActions, useSites, useSiteFolders } from '../../stores';
+import { usePromptsStore, useSiteCategories, useIsSiteCategoriesLoading, useSiteCategoryActions, useSites, useSiteFolders } from '../../stores';
 import { PromptPreviewModal } from '../skills/PromptPreviewModal';
 import { siteIcons, siteColorClasses } from '../links/constants';
 
@@ -29,12 +29,13 @@ const LinksView: React.FC = () => {
    const { addLink, updateLink, deleteLink: removeLink, incrementClickCount, reorderLinks } = useLinkActions();
    const { prompts, categories: promptCategories } = usePromptsStore();
    const siteCategories = useSiteCategories();
+   const isSiteCategoriesLoading = useIsSiteCategoriesLoading();
    const { addCategory: addSiteCategory, updateCategory: updateSiteCategory, deleteCategory: deleteSiteCategory, getCategoryPath } = useSiteCategoryActions();
    const sites = useSites();
    const folders = useSiteFolders();
 
    const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts'>('links');
-   const [activeTab, setActiveTab] = useState(siteCategories[0]?.id || 'personal');
+   const [activeTab, setActiveTab] = useState('personal');
    const [searchQuery, setSearchQuery] = useState('');
 
    // Site Category Modal State
@@ -201,6 +202,18 @@ const LinksView: React.FC = () => {
 
    // Get root-level categories for tab display
    const rootCategories = siteCategories.filter(c => c.parentId === null);
+
+   // Show loading state while categories are being fetched from Firestore
+   if (isSiteCategoriesLoading || siteCategories.length === 0) {
+      return (
+         <div className="max-w-6xl mx-auto pb-20 flex items-center justify-center min-h-screen">
+            <div className="flex flex-col items-center gap-4">
+               <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
+               <p className="text-slate-400 text-sm">Carregando categorias...</p>
+            </div>
+         </div>
+      );
+   }
 
    return (
       <div className="max-w-6xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
