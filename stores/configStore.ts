@@ -38,7 +38,16 @@ const sanitizeOffensive = (input?: OffensiveGoalsConfig): OffensiveGoalsConfig =
         games: Math.max(0, input?.categoryWeights?.games ?? 20),
     },
     focusSkills: Array.isArray(input?.focusSkills)
-        ? input.focusSkills.map((value) => String(value).slice(0, 120)).slice(0, 50)
+        ? input.focusSkills
+            .filter((item): item is { skillId: string; weight: number } =>
+                typeof item === 'object' && item !== null &&
+                typeof item.skillId === 'string' && typeof item.weight === 'number'
+            )
+            .map((item) => ({
+                skillId: String(item.skillId).slice(0, 120),
+                weight: Math.max(0, Math.min(100, item.weight))
+            }))
+            .slice(0, 50)
         : [],
     dailyGameHoursGoal: Math.max(0, Math.min(24, input?.dailyGameHoursGoal ?? 1)),
 });

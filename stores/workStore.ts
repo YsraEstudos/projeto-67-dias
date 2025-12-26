@@ -142,45 +142,45 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
 
         _hydrateFromFirestore: (data) => {
             if (data) {
-                set((state) => {
-                    if (data.history !== undefined) state.history = data.history;
-                    if (data.goals !== undefined) state.goals = data.goals;
-                    if (data.studySubjects !== undefined) state.studySubjects = data.studySubjects;
-                    if (data.studySchedules !== undefined) state.studySchedules = data.studySchedules;
-                    if (data.currentCount !== undefined) state.currentCount = data.currentCount;
-                    if (data.goal !== undefined) state.goal = data.goal;
-                    if (data.preBreakCount !== undefined) state.preBreakCount = data.preBreakCount;
-                    if (data.startTime !== undefined) state.startTime = data.startTime;
-                    if (data.endTime !== undefined) state.endTime = data.endTime;
-                    if (data.breakTime !== undefined) state.breakTime = data.breakTime;
-                    if (data.paceMode !== undefined) state.paceMode = data.paceMode;
-                    state.isLoading = false;
-                    state._initialized = true;
-                });
+                set(() => ({
+                    history: data.history !== undefined ? data.history : [],
+                    goals: data.goals !== undefined ? data.goals : goalsSlice.goals,
+                    studySubjects: data.studySubjects !== undefined ? data.studySubjects : [],
+                    studySchedules: data.studySchedules !== undefined ? data.studySchedules : [],
+                    currentCount: data.currentCount !== undefined ? data.currentCount : 0,
+                    goal: data.goal !== undefined ? data.goal : trackingSlice.goal,
+                    preBreakCount: data.preBreakCount !== undefined ? data.preBreakCount : 0,
+                    startTime: data.startTime !== undefined ? data.startTime : trackingSlice.startTime,
+                    endTime: data.endTime !== undefined ? data.endTime : trackingSlice.endTime,
+                    breakTime: data.breakTime !== undefined ? data.breakTime : trackingSlice.breakTime,
+                    paceMode: data.paceMode !== undefined ? data.paceMode : trackingSlice.paceMode,
+                    isLoading: false,
+                    _initialized: true,
+                }));
             } else {
-                set((state) => {
-                    state.isLoading = false;
-                    state._initialized = true;
-                });
+                set(() => ({
+                    isLoading: false,
+                    _initialized: true,
+                }));
             }
         },
 
         _reset: () => {
-            set((state) => {
-                state.history = [];
-                state.goals = goalsSlice.goals;
-                state.studySubjects = [];
-                state.studySchedules = [];
-                state.currentCount = 0;
-                state.goal = trackingSlice.goal;
-                state.preBreakCount = 0;
-                state.startTime = trackingSlice.startTime;
-                state.endTime = trackingSlice.endTime;
-                state.breakTime = trackingSlice.breakTime;
-                state.paceMode = trackingSlice.paceMode;
-                state.isLoading = true;
-                state._initialized = false;
-            });
+            set(() => ({
+                history: [],
+                goals: goalsSlice.goals,
+                studySubjects: [],
+                studySchedules: [],
+                currentCount: 0,
+                goal: trackingSlice.goal,
+                preBreakCount: 0,
+                startTime: trackingSlice.startTime,
+                endTime: trackingSlice.endTime,
+                breakTime: trackingSlice.breakTime,
+                paceMode: trackingSlice.paceMode,
+                isLoading: true,
+                _initialized: false,
+            }));
         },
     } satisfies WorkState;
 };

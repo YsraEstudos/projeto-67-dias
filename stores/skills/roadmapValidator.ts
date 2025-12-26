@@ -49,7 +49,7 @@ export const normalizeRoadmap = (input: unknown): SkillRoadmapItem[] | null => {
 
     if (!raw) return null;
 
-    const sanitized = raw
+    const sanitized = (raw as unknown[])
         .map((item) => sanitizeItem(item, 0))
         .filter(Boolean) as SkillRoadmapItem[];
 

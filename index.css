@@ -801,12 +801,28 @@ html {
 .touch-action-none {
     touch-action: none !important;
     -webkit-user-drag: none;
+    -webkit-touch-callout: none;
     user-select: none;
 }
 
 /* ===============================================
    DRAG AND DROP OPTIMIZATIONS
    =============================================== */
+
+/* Unified class for draggable items */
+.draggable-item {
+    touch-action: none !important;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
+    will-change: transform;
+}
+
+.draggable-item:active {
+    cursor: grabbing;
+}
 
 /* GPU acceleration during drag */
 .is-dragging {

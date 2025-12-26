@@ -60,28 +60,28 @@ export const createTrackingSlice: StateCreator<
     isLoading: true,
 
     // Work tracking
-    setCurrentCount: (count) => set((state) => { state.currentCount = count; }),
-    setGoal: (goal) => set((state) => { state.goal = goal; }),
-    setPreBreakCount: (count) => set((state) => { state.preBreakCount = count; }),
-    incrementCount: () => set((state) => { state.currentCount += 1; }),
-    decrementCount: () => set((state) => { state.currentCount = Math.max(0, state.currentCount - 1); }),
+    setCurrentCount: (count) => set(() => ({ currentCount: count })),
+    setGoal: (goal) => set(() => ({ goal })),
+    setPreBreakCount: (count) => set(() => ({ preBreakCount: count })),
+    incrementCount: () => set((state) => ({ currentCount: state.currentCount + 1 })),
+    decrementCount: () => set((state) => ({ currentCount: Math.max(0, state.currentCount - 1) })),
 
     // Time configuration
-    setStartTime: (time) => set((state) => { state.startTime = time; }),
-    setEndTime: (time) => set((state) => { state.endTime = time; }),
-    setBreakTime: (time) => set((state) => { state.breakTime = time; }),
+    setStartTime: (time) => set(() => ({ startTime: time })),
+    setEndTime: (time) => set(() => ({ endTime: time })),
+    setBreakTime: (time) => set(() => ({ breakTime: time })),
 
     // Pace mode
-    setPaceMode: (mode) => set((state) => { state.paceMode = mode; }),
+    setPaceMode: (mode) => set(() => ({ paceMode: mode })),
 
     // Time config (combined)
-    setTimeConfig: (config) => set((state) => {
-        if (config.startTime !== undefined) state.startTime = config.startTime;
-        if (config.endTime !== undefined) state.endTime = config.endTime;
-        if (config.breakTime !== undefined) state.breakTime = config.breakTime;
-    }),
+    setTimeConfig: (config) => set((state) => ({
+        startTime: config.startTime !== undefined ? config.startTime : state.startTime,
+        endTime: config.endTime !== undefined ? config.endTime : state.endTime,
+        breakTime: config.breakTime !== undefined ? config.breakTime : state.breakTime,
+    })),
 
     // Loading
-    setLoading: (loading) => set((state) => { state.isLoading = loading; }),
+    setLoading: (loading) => set(() => ({ isLoading: loading })),
 });
 

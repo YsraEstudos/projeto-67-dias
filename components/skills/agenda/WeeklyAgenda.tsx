@@ -15,9 +15,8 @@ import {
     DndContext,
     DragEndEvent,
     DragStartEvent,
-    PointerSensor,
-    TouchSensor,
     MouseSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragOverlay,
@@ -117,32 +116,24 @@ export const WeeklyAgenda: React.FC = () => {
         referenceId: string;
     } | null>(null);
 
-    // Setup Sensors - Optimized for responsive drag-and-drop
-    // MouseSensor for desktop with low activation distance
+    // Setup Sensors for drag-and-drop
+    // MouseSensor for desktop - minimal distance to start quickly
     const mouseSensor = useSensor(MouseSensor, {
         activationConstraint: {
-            distance: 5, // Start drag after 5px movement
+            distance: 5, // Start drag after 5px - responsive but not too sensitive
         },
     });
 
-    // PointerSensor as fallback with slightly higher threshold
-    const pointerSensor = useSensor(PointerSensor, {
-        activationConstraint: {
-            distance: 8,
-        },
-    });
-
-    // TouchSensor for mobile - Small delay to differentiate from scroll
-    // 150ms is fast enough to feel responsive but prevents accidental drags
+    // TouchSensor for mobile with delay to distinguish from scroll
     const touchSensor = useSensor(TouchSensor, {
         activationConstraint: {
-            delay: 150, // Small delay to differentiate from scroll
-            tolerance: 8, // Allow 8px movement during delay period
+            delay: 250, // 250ms hold before drag starts
+            tolerance: 5, // Small tolerance during delay
         },
     });
 
-    // Combine sensors - order matters! Touch first for mobile
-    const sensors = useSensors(touchSensor, mouseSensor, pointerSensor);
+    // Combine sensors
+    const sensors = useSensors(mouseSensor, touchSensor);
 
     // Calculate week dates with offset  
     const baseDate = useMemo(() => {
@@ -242,6 +233,7 @@ export const WeeklyAgenda: React.FC = () => {
     // Panel slides away automatically via CSS when activeId is set
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
+        console.log('[DnD] Drag started!', { id: active.id, data: active.data.current });
         setActiveId(active.id as string);
         setActiveData(active.data.current);
         // Trigger haptic feedback on mobile
@@ -251,11 +243,20 @@ export const WeeklyAgenda: React.FC = () => {
     // Handle DnD drag end - with haptic on successful drop
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event;
+        const dragData = active.data.current; // Get data BEFORE resetting state
+
+        console.log('[DnD] Drag ended!', {
+            activeId: active.id,
+            overId: over?.id,
+            dragData,
+            hasOver: !!over
+        });
 
         setActiveId(null);
         setActiveData(null);
 
         if (!over) {
+            console.log('[DnD] No drop target');
             return;
         }
 
@@ -266,14 +267,26 @@ export const WeeklyAgenda: React.FC = () => {
             const date = `${parts[1]}-${parts[2]}-${parts[3]}`;
             const hour = parseInt(parts[4]);
 
-            if (active.id.toString().startsWith('block-')) {
-                const blockId = active.id.toString().replace('block-', '');
-                moveBlock(blockId, date, hour, 0);
-            } else if (activeData) {
-                handleBlockDrop(activeData.type, activeData.referenceId, date, hour, 0);
+            console.log('[DnD] Dropping on slot:', { date, hour });
+
+            // Check if it's an existing block being moved (ScheduledBlockCard uses block.id directly)
+            const existingBlock = scheduledBlocks.find(b => b.id === active.id);
+
+            if (existingBlock) {
+                // Moving existing block
+                console.log('[DnD] Moving existing block');
+                moveBlock(active.id as string, date, hour, 0);
+                triggerHaptic('medium');
+            } else if (dragData?.type && dragData?.referenceId) {
+                // Dropping new item from sidebar
+                console.log('[DnD] Creating new block from sidebar item');
+                handleBlockDrop(dragData.type, dragData.referenceId, date, hour, 0);
+                triggerHaptic('medium');
+            } else {
+                console.log('[DnD] Unknown drag data:', dragData);
             }
         }
-    }, [moveBlock, handleBlockDrop, isMobile, showSidePanel]);
+    }, [scheduledBlocks, moveBlock, handleBlockDrop]);
 
     // Handle block click - opens specialized log modal for skills/activities
     const handleBlockClick = useCallback((block: ScheduledBlock) => {

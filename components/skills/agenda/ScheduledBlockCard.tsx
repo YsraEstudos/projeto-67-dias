@@ -76,13 +76,11 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
     const timeRange = formatTimeRange(block.startHour, block.startMinute, block.durationMinutes);
     const duration = formatDuration(block.durationMinutes);
 
-    // Combined transform style with proper touch handling
+    // Only apply positioning and transform styles - touchAction critical for dnd-kit
     const combinedStyle: React.CSSProperties = {
         ...style,
         ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
-        touchAction: 'none',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
+        touchAction: 'none', // Critical for dnd-kit to work on touch devices
     };
 
     const isCompact = block.durationMinutes <= 30;

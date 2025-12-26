@@ -4,7 +4,7 @@
  * Left sidebar with draggable items (skills, activities, events)
  * that can be dropped onto the calendar grid
  */
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Plus, GripVertical, Clock, Target, Calendar, Layers } from 'lucide-react';
@@ -37,7 +37,7 @@ interface SidePanelProps {
 }
 
 // Draggable item component with tap support for mobile
-// Uses pointer events to separate drag from click
+// Drag handled by dnd-kit listeners, tap handled separately via onPointerUp
 const DraggableItem = React.memo<{
     id: string;
     type: 'skill' | 'activity' | 'event';
@@ -55,56 +55,15 @@ const DraggableItem = React.memo<{
 
     const colorClasses = COLOR_MAP[color] || COLOR_MAP.emerald;
 
-    // Track if drag started to prevent false clicks
-    const dragStartedRef = useRef(false);
-    const pointerStartPosRef = useRef<{ x: number; y: number } | null>(null);
+    // Debug: Log when dragging state changes
+    if (isDragging) {
+        console.log('[DraggableItem] isDragging=true for:', id, type);
+    }
 
+    // Always provide a style object - transform when dragging, empty otherwise
     const style: React.CSSProperties = {
-        ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
-        touchAction: 'none',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-    };
-
-    // Custom pointer handlers that work WITH dnd-kit listeners
-    const handlePointerDown = useCallback((e: React.PointerEvent) => {
-        dragStartedRef.current = false;
-        pointerStartPosRef.current = { x: e.clientX, y: e.clientY };
-        // Call dnd-kit's onPointerDown if it exists
-        listeners?.onPointerDown?.(e as any);
-    }, [listeners]);
-
-    const handlePointerMove = useCallback((e: React.PointerEvent) => {
-        if (pointerStartPosRef.current) {
-            const dx = Math.abs(e.clientX - pointerStartPosRef.current.x);
-            const dy = Math.abs(e.clientY - pointerStartPosRef.current.y);
-            // If moved more than 5px, consider it a drag
-            if (dx > 5 || dy > 5) {
-                dragStartedRef.current = true;
-            }
-        }
-    }, []);
-
-    const handlePointerUp = useCallback((e: React.PointerEvent) => {
-        // Only trigger tap if:
-        // 1. We didn't start a drag
-        // 2. We're not currently dragging
-        // 3. We have a tap handler
-        if (!dragStartedRef.current && !isDragging && onTap) {
-            e.stopPropagation();
-            e.preventDefault();
-            onTap();
-        }
-        pointerStartPosRef.current = null;
-        dragStartedRef.current = false;
-    }, [isDragging, onTap]);
-
-    // Merge listeners with our custom handlers
-    const mergedListeners = {
-        ...listeners,
-        onPointerDown: handlePointerDown,
-        onPointerMove: handlePointerMove,
-        onPointerUp: handlePointerUp,
+        transform: transform ? CSS.Translate.toString(transform) : undefined,
+        touchAction: 'none', // Critical for dnd-kit to work on touch devices
     };
 
     return (
@@ -112,14 +71,14 @@ const DraggableItem = React.memo<{
             ref={setNodeRef}
             style={style}
             {...attributes}
-            {...mergedListeners}
+            {...listeners}
             className={`
                 flex items-center gap-3 p-3 min-h-[56px] rounded-lg border cursor-grab active:cursor-grabbing
                 ${colorClasses}
                 transition-all hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-white/20
-                ${isDragging ? 'drag-ghost' : ''}
+                ${isDragging ? 'opacity-30 scale-95' : ''}
                 ${isSelected ? 'ring-2 ring-emerald-400 scale-[1.03] animate-pulse' : ''}
-                touch-action-none select-none
+                select-none
             `}
         >
             <GripVertical size={16} className="text-slate-400 flex-shrink-0" />
