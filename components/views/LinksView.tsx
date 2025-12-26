@@ -204,7 +204,7 @@ const LinksView: React.FC = () => {
    const rootCategories = siteCategories.filter(c => c.parentId === null);
 
    // Show loading state while categories are being fetched from Firestore
-   if (isSiteCategoriesLoading || siteCategories.length === 0) {
+   if (isSiteCategoriesLoading) {
       return (
          <div className="max-w-6xl mx-auto pb-20 flex items-center justify-center min-h-screen">
             <div className="flex flex-col items-center gap-4">
