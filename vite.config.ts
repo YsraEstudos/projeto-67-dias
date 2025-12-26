@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      host: 'localhost', // Localhost para PWA funcionar via HTTP
+      host: true, // Expõe para a rede local
     },
     plugins: [
       react(),

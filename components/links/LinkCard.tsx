@@ -15,6 +15,7 @@ interface LinkCardProps {
     onPreviewPrompt: (id: string) => void;
     linkedPrompts: Prompt[]; // Array of linked prompts (replaces hasLinkedPrompt)
     formatUrl: (url: string) => string;
+    categoryName?: string; // Optional category name for display in 'All' view
 }
 
 const LinkCard = React.memo<LinkCardProps>(({
@@ -29,7 +30,8 @@ const LinkCard = React.memo<LinkCardProps>(({
     onDelete,
     onPreviewPrompt,
     linkedPrompts,
-    formatUrl
+    formatUrl,
+    categoryName
 }) => {
     const [showPromptMenu, setShowPromptMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -90,7 +92,14 @@ const LinkCard = React.memo<LinkCardProps>(({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-slate-200 truncate">{link.title}</h3>
+                <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="font-bold text-slate-200 truncate">{link.title}</h3>
+                    {categoryName && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 font-medium shrink-0">
+                            {categoryName}
+                        </span>
+                    )}
+                </div>
                 <p className="text-xs text-slate-500 truncate flex items-center gap-1">
                     {(() => { try { return new URL(formatUrl(link.url)).hostname.replace('www.', ''); } catch { return link.url; } })()}
                     <ExternalLink size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
