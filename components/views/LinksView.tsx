@@ -2,16 +2,17 @@ import React, { useState, useMemo, Suspense, useCallback } from 'react';
 import {
    Globe, Search, Plus, X, Sparkles, FolderPlus, MoreVertical, Trash2, Edit2, ChevronRight, Home
 } from 'lucide-react';
-import LinkCard from '../links/LinkCard';
-import { LinkItem, SiteCategory } from '../../types';
+import SiteCard from '../links/SiteCard';
+import { LinkItem, SiteCategory, Site } from '../../types';
 import { useLinks, useLinkActions } from '../../stores/linksStore';
-import { usePromptsStore, useSiteCategories, useIsSiteCategoriesLoading, useSiteCategoryActions, useSites, useSiteFolders } from '../../stores';
+import { usePromptsStore, useSiteCategories, useIsSiteCategoriesLoading, useSiteCategoryActions, useSites, useSiteActions, useSiteFolders } from '../../stores';
 import { PromptPreviewModal } from '../skills/PromptPreviewModal';
-import { siteIcons, siteColorClasses } from '../links/constants';
+import { siteIcons } from '../links/constants';
 
 // Lazy load Components
 const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
 const LinkModal = React.lazy(() => import('../links/LinkModal'));
+const SiteModal = React.lazy(() => import('../links/SiteModal'));
 const SiteCategoryModal = React.lazy(() => import('../links/SiteCategoryModal'));
 
 const formatUrl = (url: string) => {
@@ -28,10 +29,13 @@ const LinksView: React.FC = () => {
    const links = useLinks();
    const { addLink, updateLink, deleteLink: removeLink, incrementClickCount, reorderLinks } = useLinkActions();
    const { prompts, categories: promptCategories } = usePromptsStore();
+
    const siteCategories = useSiteCategories();
    const isSiteCategoriesLoading = useIsSiteCategoriesLoading();
    const { addCategory: addSiteCategory, updateCategory: updateSiteCategory, deleteCategory: deleteSiteCategory, getCategoryPath } = useSiteCategoryActions();
+
    const sites = useSites();
+   const { addSite, updateSite, deleteSite, reorderSites } = useSiteActions();
    const folders = useSiteFolders();
 
    const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts'>('links');
@@ -43,33 +47,46 @@ const LinksView: React.FC = () => {
    const [editingCategory, setEditingCategory] = useState<SiteCategory | null>(null);
    const [categoryMenuOpen, setCategoryMenuOpen] = useState<string | null>(null);
 
-   // Modal State
+   // Link Modal State
    const [isModalOpen, setIsModalOpen] = useState(false);
    const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
+   const [linkDefaultSiteId, setLinkDefaultSiteId] = useState<string | undefined>(undefined);
+
+   // Site Modal State
+   const [isSiteModalOpen, setIsSiteModalOpen] = useState(false);
+   const [editingSite, setEditingSite] = useState<Site | null>(null);
+   const [openPromptSelectorOnModal, setOpenPromptSelectorOnModal] = useState(false);
 
    // Drag State
-   const [draggedItem, setDraggedItem] = useState<LinkItem | null>(null);
+   const [draggedSite, setDraggedSite] = useState<Site | null>(null);
 
    // Prompt Modal States
-   const [promptSelectorFor, setPromptSelectorFor] = useState<string | null>(null);
    const [previewPromptId, setPreviewPromptId] = useState<string | null>(null);
 
    // --- HANDLERS ---
 
-   const handleSave = useCallback((data: Partial<LinkItem>) => {
+   // Links Handlers
+   const handleSaveLink = useCallback((data: Partial<LinkItem>) => {
       if (editingLink) {
          updateLink(editingLink.id, data);
       } else {
-         // If in 'all' view, use the first category (Personal/Meus Sites) as default
+         // If in 'all' view, use the first category (Personal/Meus Sites) as default if no site selected
          const targetCategory = activeTab === 'all' ? (siteCategories[0]?.id || 'personal') : activeTab;
+
+         // If siteId is provided in data (selected in modal), use it.
+         // Otherwise, if we started adding from a site card (linkDefaultSiteId), use that.
 
          const newLink: LinkItem = {
             id: Date.now().toString(),
             title: data.title || 'Novo Link',
             url: formatUrl(data.url || ''),
-            categoryId: targetCategory,
+            categoryId: targetCategory, // Legacy support
+            siteId: data.siteId || linkDefaultSiteId || '',
+            folderId: data.folderId || null,
             clickCount: 0,
-            order: links.filter(l => l.categoryId === targetCategory).length,
+            order: data.siteId
+               ? links.filter(l => l.siteId === data.siteId).length // Add to end of site
+               : links.filter(l => !l.siteId && l.categoryId === targetCategory).length, // Add to end of category orphans
             promptIds: [],
             ...data
          } as LinkItem;
@@ -77,22 +94,89 @@ const LinksView: React.FC = () => {
       }
       setIsModalOpen(false);
       setEditingLink(null);
-   }, [editingLink, activeTab, links, updateLink, addLink, siteCategories]);
+      setLinkDefaultSiteId(undefined);
+   }, [editingLink, activeTab, links, linkDefaultSiteId, updateLink, addLink, siteCategories]);
 
-   const handleDelete = useCallback((id: string) => {
+   const handleDeleteLink = useCallback((id: string) => {
       if (confirm("Remover este link?")) {
          removeLink(id);
       }
    }, [removeLink]);
 
-   const handleClick = useCallback((link: LinkItem) => {
-      // Update stats using Zustand action
+   const handleClickLink = useCallback((link: LinkItem) => {
       incrementClickCount(link.id);
       window.open(link.url, '_blank');
    }, [incrementClickCount]);
 
-   const handleEdit = useCallback((link: LinkItem) => {
+   const handleEditLink = useCallback((link: LinkItem) => {
       setEditingLink(link);
+      setLinkDefaultSiteId(link.siteId);
+      setIsModalOpen(true);
+   }, []);
+
+   // Sites Handlers
+   const handleSaveSite = useCallback((siteData: Partial<Site>, newLinks?: Partial<LinkItem>[]) => {
+      let siteId = siteData.id;
+
+      if (editingSite) {
+         updateSite(editingSite.id, siteData);
+         siteId = editingSite.id;
+      } else {
+         // Create new site
+         const newSite: Site = {
+            id: siteData.id || `site_${Date.now()}`,
+            name: siteData.name || 'Novo Site',
+            categoryId: siteData.categoryId || (activeTab === 'all' ? 'personal' : activeTab),
+            order: sites.filter(s => s.categoryId === (siteData.categoryId || activeTab)).length,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            ...siteData
+         } as Site;
+         addSite(newSite);
+         siteId = newSite.id;
+      }
+
+      // Add any new links created within the site modal
+      if (newLinks && newLinks.length > 0) {
+         newLinks.forEach((linkData, index) => {
+            const newLink: LinkItem = {
+               id: Date.now().toString() + index, // Ensure unique IDs
+               title: linkData.title || 'Novo Link',
+               url: formatUrl(linkData.url || ''),
+               siteId: siteId!,
+               categoryId: siteData.categoryId || activeTab,
+               clickCount: 0,
+               order: index, // Start orders from 0 for these new links
+               promptIds: [],
+               ...linkData
+            } as LinkItem;
+            addLink(newLink);
+         });
+      }
+
+      setIsSiteModalOpen(false);
+      setEditingSite(null);
+   }, [editingSite, activeTab, sites, addSite, updateSite, addLink]);
+
+   const handleDeleteSite = useCallback((siteId: string) => {
+      if (confirm("Tem certeza que deseja excluir este site? Todos os links dentro dele serão movidos para 'Sem Site'.")) {
+         deleteSite(siteId);
+         // NOTE: Ideally we should update links to remove siteId, but for now they will become orphans
+         // which is handled by the store or UI automatically if they just have empty siteId key?
+         // Actually, if we delete the site, the links still reference it. 
+         // Implementation detail: we should probably update links here, but for now user can delete them manually
+         // or they will just disappear from site view and appear in generic list if we filter right.
+      }
+   }, [deleteSite]);
+
+   const handleEditSite = useCallback((site: Site) => {
+      setEditingSite(site);
+      setIsSiteModalOpen(true);
+   }, []);
+
+   const handleAddLinkToSite = useCallback((siteId: string) => {
+      setLinkDefaultSiteId(siteId);
+      setEditingLink(null);
       setIsModalOpen(true);
    }, []);
 
@@ -100,43 +184,51 @@ const LinksView: React.FC = () => {
       setPreviewPromptId(id);
    }, []);
 
-   // Drag and Drop
-   const handleDragStart = useCallback((e: React.DragEvent, item: LinkItem) => {
-      setDraggedItem(item);
+   const handleLinkPromptToSite = useCallback((siteId: string) => {
+      const site = sites.find(s => s.id === siteId);
+      if (site) {
+         setEditingSite(site);
+         setOpenPromptSelectorOnModal(true);
+         setIsSiteModalOpen(true);
+      }
+   }, [sites]);
+
+
+
+   const handleDragStartSite = useCallback((e: React.DragEvent, site: Site) => {
+      setDraggedSite(site);
       e.dataTransfer.effectAllowed = "move";
+      e.stopPropagation();
    }, []);
 
-   const handleDragOver = useCallback((e: React.DragEvent, targetItem: LinkItem) => {
+   const handleDragOver = useCallback((e: React.DragEvent, _targetItem?: LinkItem, targetSite?: Site) => {
       e.preventDefault();
-      // Disable reordering in 'All' view for now as it's complex across categories
-      if (activeTab === 'all') return;
+      if (activeTab === 'all') return; // Disable reordering in 'All' view
 
-      if (!draggedItem || draggedItem.id === targetItem.id || draggedItem.categoryId !== targetItem.categoryId) return;
+      // Handle Site Reordering
+      if (draggedSite && targetSite && draggedSite.id !== targetSite.id && draggedSite.categoryId === targetSite.categoryId) {
+         const newList = [...sites];
+         const sourceIndex = newList.findIndex(s => s.id === draggedSite.id);
+         const targetIndex = newList.findIndex(s => s.id === targetSite.id);
 
-      // Reorder logic using Zustand
-      const newList = [...links];
-      const sourceIndex = newList.findIndex(i => i.id === draggedItem.id);
-      const targetIndex = newList.findIndex(i => i.id === targetItem.id);
+         if (sourceIndex > -1 && targetIndex > -1) {
+            newList.splice(sourceIndex, 1);
+            newList.splice(targetIndex, 0, draggedSite);
 
-      // Remove source
-      newList.splice(sourceIndex, 1);
-      // Insert at target
-      newList.splice(targetIndex, 0, draggedItem);
-
-      // Update order property ONLY for items in the same category
-      const categoryId = draggedItem.categoryId;
-      let orderIndex = 0;
-      const reorderedList = newList.map(item => {
-         if (item.categoryId === categoryId) {
-            return { ...item, order: orderIndex++ };
+            // Update orders
+            const categoryId = draggedSite.categoryId;
+            let orderIndex = 0;
+            const reorderedList = newList.map(s => {
+               if (s.categoryId === categoryId) return { ...s, order: orderIndex++ };
+               return s;
+            });
+            reorderSites(reorderedList);
          }
-         return item;
-      });
-      reorderLinks(reorderedList);
-   }, [draggedItem, links, reorderLinks, activeTab]);
+      }
+   }, [draggedSite, sites, reorderSites, activeTab]);
 
    const handleDragEnd = useCallback(() => {
-      setDraggedItem(null);
+      setDraggedSite(null);
    }, []);
 
    // Helpers
@@ -149,11 +241,10 @@ const LinksView: React.FC = () => {
       }
    }, []);
 
-   // Prompt Helpers
    const getPromptById = (promptId: string) => prompts.find(p => p.id === promptId);
    const getCategoryById = (catId: string) => promptCategories.find(c => c.id === catId);
 
-   // Pre-compute linked prompts map for all links (prevents recreating arrays on each render)
+   // Pre-compute linked prompts map
    const linkedPromptsMap = useMemo(() => {
       const map = new Map<string, typeof prompts>();
       for (const link of links) {
@@ -169,41 +260,45 @@ const LinksView: React.FC = () => {
       return map;
    }, [links, prompts]);
 
-   // Filtering - filter only links in the active category (not subcategories), unless 'all'
-   const filteredLinks = useMemo(() => {
+   // --- FILTERING & DATA PREP ---
+
+   // 1. Filter Sites
+   const filteredSites = useMemo(() => {
       if (activeTab === 'all') {
-         return links
-            .filter(l =>
+         return sites
+            .filter(s =>
                searchQuery
-                  ? l.title.toLowerCase().includes(searchQuery.toLowerCase()) || l.url.toLowerCase().includes(searchQuery.toLowerCase())
+                  ? s.name.toLowerCase().includes(searchQuery.toLowerCase())
                   : true
             )
-            .sort((a, b) => {
-               // Determine orders based on category order first, then link order
-               // This is a rough sort to keep things somewhat organized in 'All' view
-               // We'd ideally need a map of categories to order
-               return a.order - b.order;
-            });
+            .sort((a, b) => a.order - b.order);
       }
-      return links
-         .filter(l => l.categoryId === activeTab)
-         .filter(l =>
+      return sites
+         .filter(s => s.categoryId === activeTab)
+         .filter(s =>
             searchQuery
-               ? l.title.toLowerCase().includes(searchQuery.toLowerCase()) || l.url.toLowerCase().includes(searchQuery.toLowerCase())
+               ? s.name.toLowerCase().includes(searchQuery.toLowerCase())
                : true
          )
          .sort((a, b) => a.order - b.order);
-   }, [links, activeTab, searchQuery]);
+   }, [sites, activeTab, searchQuery]);
 
-   // Get current category and its path for breadcrumb
+
+
+   // Get current category info
    const currentCategory = siteCategories.find(c => c.id === activeTab);
    const categoryPath = currentCategory ? getCategoryPath(activeTab) : [];
    const hasParent = currentCategory?.parentId !== null && currentCategory?.parentId !== undefined;
-
-   // Get root-level categories for tab display
    const rootCategories = siteCategories.filter(c => c.parentId === null);
 
-   // Show loading state while categories are being fetched from Firestore
+   // Simple helper to get links for a site (for SiteCard)
+   const getLinksForSite = (siteId: string) => {
+      return links
+         .filter(l => l.siteId === siteId)
+         .sort((a, b) => a.order - b.order);
+   };
+
+   // Loading State
    if (isSiteCategoriesLoading) {
       return (
          <div className="max-w-6xl mx-auto pb-20 flex items-center justify-center min-h-screen">
@@ -228,7 +323,7 @@ const LinksView: React.FC = () => {
             </div>
          </div>
 
-         {/* MAIN TABS - Links vs Prompts */}
+         {/* MAIN TABS */}
          <div className="flex bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700 mb-8 w-full max-w-md">
             <button
                onClick={() => setActiveMainTab('links')}
@@ -251,15 +346,15 @@ const LinksView: React.FC = () => {
             </Suspense>
          ) : (
             <>
-               {/* LINKS CONTROLS */}
-               <div className="flex w-full gap-3 mb-6">
-                  <div className="relative flex-1 md:w-64">
+               {/* LINKS ACTIONS BAR */}
+               <div className="flex flex-col sm:flex-row w-full gap-3 mb-6">
+                  <div className="relative flex-1">
                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                      <input
                         type="text"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Buscar sites..."
+                        placeholder="Buscar sites e links..."
                         className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all focus:ring-1 focus:ring-indigo-500/20"
                      />
                      {searchQuery && (
@@ -268,15 +363,19 @@ const LinksView: React.FC = () => {
                         </button>
                      )}
                   </div>
-                  <button
-                     onClick={() => { setEditingLink(null); setIsModalOpen(true); }}
-                     className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg shadow-indigo-900/20 transition-all hover:scale-105 flex items-center gap-2 font-medium"
-                  >
-                     <Plus size={20} /> <span className="hidden sm:inline">Novo Link</span>
-                  </button>
+
+                  <div className="flex gap-2 shrink-0">
+                     {/* ADD SITE BUTTON */}
+                     <button
+                        onClick={() => { setEditingSite(null); setIsSiteModalOpen(true); }}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl shadow-lg shadow-indigo-900/20 transition-all hover:scale-105 flex items-center gap-2 font-medium"
+                     >
+                        <Plus size={20} /> <span className="hidden sm:inline">Novo Site</span>
+                     </button>
+                  </div>
                </div>
 
-               {/* BREADCRUMB - Shows path when in subcategory */}
+               {/* BREADCRUMB */}
                {hasParent && categoryPath.length > 0 && (
                   <div className="flex items-center gap-1 mb-4 text-sm text-slate-400 flex-wrap">
                      <button
@@ -300,9 +399,9 @@ const LinksView: React.FC = () => {
                   </div>
                )}
 
-               {/* LINK CATEGORY TABS - Show root categories + subcategories of current */}
-               <div className="flex flex-wrap gap-2 mb-4">
 
+               {/* TAB NAVIGATOR */}
+               <div className="flex flex-wrap gap-2 mb-4">
                   {/* "Todos" Tab */}
                   <button
                      onClick={() => setActiveTab('all')}
@@ -314,16 +413,16 @@ const LinksView: React.FC = () => {
                      <Globe size={16} />
                      Todos
                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'all' ? 'bg-indigo-500' : 'bg-slate-700'}`}>
-                        {links.length}
+                        {sites.length}
                      </span>
                   </button>
 
-                  {/* Root level categories */}
+                  {/* Root Categories */}
                   {rootCategories.map(cat => {
                      const isActive = activeTab === cat.id;
                      const IconComponent = siteIcons[cat.icon];
-                     const linkCount = links.filter(l => l.categoryId === cat.id).length;
-                     const childCount = siteCategories.filter(c => c.parentId === cat.id).length;
+                     // Count sites in this category
+                     const siteCount = sites.filter(s => s.categoryId === cat.id).length;
 
                      return (
                         <div key={cat.id} className="relative group">
@@ -337,11 +436,11 @@ const LinksView: React.FC = () => {
                               {IconComponent}
                               {cat.name}
                               <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-indigo-500' : 'bg-slate-700'}`}>
-                                 {linkCount}
+                                 {siteCount}
                               </span>
                            </button>
 
-                           {/* Context menu button for non-default categories */}
+                           {/* Category Menu (Edit/Delete) - Only for non-default */}
                            {!cat.isDefault && (
                               <button
                                  onClick={(e) => { e.stopPropagation(); setCategoryMenuOpen(categoryMenuOpen === cat.id ? null : cat.id); }}
@@ -352,7 +451,7 @@ const LinksView: React.FC = () => {
                               </button>
                            )}
 
-                           {/* Context menu dropdown */}
+                           {/* Dropdown */}
                            {categoryMenuOpen === cat.id && !cat.isDefault && (
                               <div className="absolute top-full right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 py-1 min-w-32">
                                  <button
@@ -383,7 +482,7 @@ const LinksView: React.FC = () => {
                   </button>
                </div>
 
-               {/* SUBCATEGORIES - Show children of current category */}
+               {/* SUBCATEGORIES */}
                {(() => {
                   const subcategories = siteCategories.filter(c => c.parentId === activeTab);
                   if (subcategories.length === 0) return null;
@@ -393,7 +492,7 @@ const LinksView: React.FC = () => {
                         <div className="flex flex-wrap gap-2">
                            {subcategories.map(sub => {
                               const SubIcon = siteIcons[sub.icon];
-                              const subLinkCount = links.filter(l => l.categoryId === sub.id).length;
+                              const subCount = sites.filter(s => s.categoryId === sub.id).length;
                               return (
                                  <button
                                     key={sub.id}
@@ -402,7 +501,7 @@ const LinksView: React.FC = () => {
                                  >
                                     {SubIcon || <FolderPlus size={14} />}
                                     {sub.name}
-                                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-600">{subLinkCount}</span>
+                                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-600">{subCount}</span>
                                  </button>
                               );
                            })}
@@ -411,87 +510,127 @@ const LinksView: React.FC = () => {
                   );
                })()}
 
-               {/* GRID */}
+               {/* GRID - SITES FIRST, THEN LINKS */}
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredLinks.length === 0 && (
-                     <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/20 text-slate-500">
-                        <Globe size={48} className="mb-4 opacity-50" />
-                        <p>Nenhum link encontrado nesta categoria.</p>
-                        <button onClick={() => setIsModalOpen(true)} className="mt-2 text-indigo-400 hover:underline">Adicionar primeiro link</button>
-                     </div>
-                  )}
 
-                  {filteredLinks.map(link => (
-                     <LinkCard
-                        key={link.id}
-                        link={link}
-                        isDragging={draggedItem?.id === link.id}
+                  {/* 1. RENDER SITES */}
+                  {filteredSites.map(site => (
+                     <SiteCard
+                        key={site.id}
+                        site={site}
+                        links={getLinksForSite(site.id)}
+                        sitePrompts={site.promptIds?.map(id => prompts.find(p => p.id === id)).filter((p): p is typeof prompts[0] => !!p)}
+                        linkedPromptsMap={linkedPromptsMap}
+                        isDragging={draggedSite?.id === site.id}
+                        onEditSite={handleEditSite}
+                        onLinkPrompt={handleLinkPromptToSite}
+                        onDeleteSite={handleDeleteSite}
+                        onAddLink={handleAddLinkToSite}
+                        onClickLink={handleClickLink}
+                        onEditLink={handleEditLink}
+                        onDeleteLink={handleDeleteLink}
+                        onPreviewPrompt={handlePreviewPrompt}
                         getFavicon={getFavicon}
                         formatUrl={formatUrl}
-                        categoryName={activeTab === 'all' ? siteCategories.find(c => c.id === link.categoryId)?.name : undefined}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
+                        onDragStart={handleDragStartSite}
+                        onDragOver={(e, s) => handleDragOver(e, undefined, s)}
                         onDragEnd={handleDragEnd}
-                        onClick={handleClick}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        onPreviewPrompt={handlePreviewPrompt}
-                        linkedPrompts={linkedPromptsMap.get(link.id) || []}
                      />
                   ))}
+
+                  {/* EMPTY STATE */}
+                  {filteredSites.length === 0 && (
+                     <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/20 text-slate-500">
+                        <Globe size={48} className="mb-4 opacity-50" />
+                        <p>Nenhum site encontrado nesta categoria.</p>
+                        <button
+                           onClick={() => { setEditingSite(null); setIsSiteModalOpen(true); }}
+                           className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
+                        >
+                           Criar novo Site
+                        </button>
+                     </div>
+                  )}
                </div>
             </>
          )}
 
-         {/* MODAL */}
-         {isModalOpen && (
-            <Suspense fallback={null}>
-               <LinkModal
-                  link={editingLink}
-                  prompts={prompts}
-                  promptCategories={promptCategories}
-                  siteCategories={siteCategories}
-                  sites={sites}
-                  folders={folders}
-                  onClose={() => setIsModalOpen(false)}
-                  onSave={handleSave}
-               />
-            </Suspense>
-         )}
+         {/* LINK MODAL */}
+         {
+            isModalOpen && (
+               <Suspense fallback={null}>
+                  <LinkModal
+                     link={editingLink}
+                     prompts={prompts}
+                     promptCategories={promptCategories}
+                     siteCategories={siteCategories}
+                     sites={sites}
+                     folders={folders}
+                     defaultSiteId={linkDefaultSiteId}
+                     onClose={() => setIsModalOpen(false)}
+                     onSave={handleSaveLink}
+                  />
+               </Suspense>
+            )
+         }
 
-         {/* PROMPT PREVIEW MODAL */}
-         {previewPromptId && getPromptById(previewPromptId) && (
-            <PromptPreviewModal
-               prompt={getPromptById(previewPromptId)!}
-               category={getCategoryById(getPromptById(previewPromptId)!.category)}
-               onClose={() => setPreviewPromptId(null)}
-            />
-         )}
+         {/* SITE MODAL */}
+         {
+            isSiteModalOpen && (
+               <Suspense fallback={null}>
+                  <SiteModal
+                     site={editingSite}
+                     categories={siteCategories}
+                     links={editingSite ? getLinksForSite(editingSite.id) : []}
+                     prompts={prompts}
+                     promptCategories={promptCategories}
+                     defaultCategoryId={activeTab === 'all' ? 'personal' : activeTab}
+                     initialOpenPromptSelector={openPromptSelectorOnModal}
+                     onClose={() => {
+                        setIsSiteModalOpen(false);
+                        setOpenPromptSelectorOnModal(false);
+                     }}
+                     onSave={handleSaveSite}
+                  />
+               </Suspense>
+            )
+         }
 
-         {/* SITE CATEGORY MODAL */}
-         {isCategoryModalOpen && (
-            <Suspense fallback={null}>
-               <SiteCategoryModal
-                  category={editingCategory}
-                  categories={siteCategories}
-                  defaultParentId={null}
-                  onClose={() => { setIsCategoryModalOpen(false); setEditingCategory(null); }}
-                  onSave={(category) => {
-                     if (editingCategory) {
-                        updateSiteCategory(editingCategory.id, category);
-                     } else {
-                        addSiteCategory({ ...category, order: siteCategories.length } as SiteCategory);
-                     }
-                     setIsCategoryModalOpen(false);
-                     setEditingCategory(null);
-                  }}
+         {/* PREVIEW MODAL */}
+         {
+            previewPromptId && getPromptById(previewPromptId) && (
+               <PromptPreviewModal
+                  prompt={getPromptById(previewPromptId)!}
+                  category={getCategoryById(getPromptById(previewPromptId)!.category)}
+                  onClose={() => setPreviewPromptId(null)}
                />
-            </Suspense>
-         )}
-      </div>
+            )
+         }
+
+         {/* CATEGORY MODAL */}
+         {
+            isCategoryModalOpen && (
+               <Suspense fallback={null}>
+                  <SiteCategoryModal
+                     category={editingCategory}
+                     categories={siteCategories}
+                     defaultParentId={null}
+                     onClose={() => { setIsCategoryModalOpen(false); setEditingCategory(null); }}
+                     onSave={(category) => {
+                        if (editingCategory) {
+                           updateSiteCategory(editingCategory.id, category);
+                        } else {
+                           addSiteCategory({ ...category, order: siteCategories.length } as SiteCategory);
+                        }
+                        setIsCategoryModalOpen(false);
+                        setEditingCategory(null);
+                     }}
+                  />
+               </Suspense>
+            )
+         }
+      </div >
    );
 };
-
-
 
 export default LinksView;

@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Globe, ExternalLink, Plus, ChevronDown, ChevronUp, Edit2, Trash2, MoreVertical, GripVertical } from 'lucide-react';
+import { Globe, ExternalLink, Plus, ChevronDown, ChevronUp, Edit2, Trash2, MoreVertical, GripVertical, Sparkles } from 'lucide-react';
 import { Site, LinkItem, Prompt } from '../../types';
 
 interface SiteCardProps {
     site: Site;
     links: LinkItem[];
+    sitePrompts?: Prompt[]; // Prompts linked directly to the site
     linkedPromptsMap: Map<string, Prompt[]>;
     isDragging?: boolean;
     onEditSite: (site: Site) => void;
     onDeleteSite: (siteId: string) => void;
     onAddLink: (siteId: string) => void;
+    onLinkPrompt: (siteId: string) => void;
     onClickLink: (link: LinkItem) => void;
     onEditLink: (link: LinkItem) => void;
     onDeleteLink: (linkId: string) => void;
@@ -25,11 +27,13 @@ interface SiteCardProps {
 const SiteCard: React.FC<SiteCardProps> = ({
     site,
     links,
+    sitePrompts = [],
     linkedPromptsMap,
     isDragging = false,
     onEditSite,
     onDeleteSite,
     onAddLink,
+    onLinkPrompt,
     onClickLink,
     onEditLink,
     onDeleteLink,
@@ -54,7 +58,7 @@ const SiteCard: React.FC<SiteCardProps> = ({
             onDragOver={onDragOver ? (e) => { e.preventDefault(); onDragOver(e, site); } : undefined}
             onDragEnd={onDragEnd}
             className={`group relative bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl
-                overflow-hidden transition-all duration-300 hover:border-slate-600 hover:shadow-xl hover:shadow-slate-900/30
+                transition-all duration-300 hover:border-slate-600 hover:shadow-xl hover:shadow-slate-900/30 hover:z-10
                 ${isDragging ? 'opacity-50 scale-95' : 'hover:-translate-y-1'}
             `}
         >
@@ -118,6 +122,12 @@ const SiteCard: React.FC<SiteCardProps> = ({
                                     <Edit2 size={14} /> Editar Site
                                 </button>
                                 <button
+                                    onClick={() => { onLinkPrompt(site.id); setMenuOpen(false); }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+                                >
+                                    <Sparkles size={14} /> Vincular Prompt
+                                </button>
+                                <button
                                     onClick={() => { onAddLink(site.id); setMenuOpen(false); }}
                                     className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
                                 >
@@ -136,6 +146,23 @@ const SiteCard: React.FC<SiteCardProps> = ({
                 </div>
             </div>
 
+            {/* Site Prompts */}
+            {sitePrompts.length > 0 && (
+                <div className="px-4 pb-3 flex flex-wrap gap-2">
+                    {sitePrompts.map(prompt => (
+                        <button
+                            key={prompt.id}
+                            onClick={(e) => { e.stopPropagation(); onPreviewPrompt(prompt.id); }}
+                            className="bg-purple-900/30 hover:bg-purple-900/50 border border-purple-700/30 text-emerald-400 hover:text-emerald-300 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all group/prompt shadow-sm"
+                            title={prompt.title}
+                        >
+                            <Sparkles size={12} className="text-purple-400 group-hover/prompt:text-purple-300" />
+                            <span className="max-w-[150px] truncate">{prompt.title}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* Links List */}
             {(isExpanded || links.length === 1) && links.length > 0 && (
                 <div className="border-t border-slate-700/50">
@@ -146,6 +173,7 @@ const SiteCard: React.FC<SiteCardProps> = ({
                                 key={link.id}
                                 className={`group/link flex items-center gap-3 px-4 py-2.5 hover:bg-slate-700/30 cursor-pointer transition-colors
                                     ${index < links.length - 1 ? 'border-b border-slate-700/30' : ''}
+                                    ${index === links.length - 1 ? 'rounded-b-2xl' : ''}
                                 `}
                                 onClick={() => onClickLink(link)}
                             >

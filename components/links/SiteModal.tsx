@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Globe, Plus, Trash2, GripVertical, ExternalLink } from 'lucide-react';
-import { Site, SiteCategory, LinkItem } from '../../types';
+import { X, Globe, Plus, Trash2, GripVertical, ExternalLink, Sparkles } from 'lucide-react';
+import { Site, SiteCategory, LinkItem, Prompt, PromptCategory } from '../../types';
 import { siteIcons, siteColorClasses } from './constants';
+import MultiPromptSelector from './MultiPromptSelector';
 
 interface SiteModalProps {
     site: Site | null; // null = new site
     categories: SiteCategory[];
     links: LinkItem[]; // Existing links for this site (when editing)
+    prompts: Prompt[];
+    promptCategories: PromptCategory[];
     defaultCategoryId: string;
+    initialOpenPromptSelector?: boolean;
     onClose: () => void;
     onSave: (site: Partial<Site>, newLinks?: Partial<LinkItem>[]) => void;
 }
@@ -22,7 +26,10 @@ const SiteModal: React.FC<SiteModalProps> = ({
     site,
     categories,
     links,
+    prompts,
+    promptCategories,
     defaultCategoryId,
+    initialOpenPromptSelector = false,
     onClose,
     onSave
 }) => {
@@ -31,7 +38,11 @@ const SiteModal: React.FC<SiteModalProps> = ({
     const [name, setName] = useState(site?.name || '');
     const [description, setDescription] = useState(site?.description || '');
     const [categoryId, setCategoryId] = useState(site?.categoryId || defaultCategoryId);
+    const [promptIds, setPromptIds] = useState<string[]>(site?.promptIds || []);
     const [newLinks, setNewLinks] = useState<NewLinkInput[]>([]);
+
+    // Modal state for prompt selector
+    const [isPromptSelectorOpen, setIsPromptSelectorOpen] = useState(initialOpenPromptSelector);
 
     // Get category path for display
     const getCategoryPath = (catId: string): string => {
@@ -103,6 +114,15 @@ const SiteModal: React.FC<SiteModalProps> = ({
         }
     };
 
+    // Helper for linked prompts display
+    const linkedPrompts = promptIds
+        .map(id => prompts.find(p => p.id === id))
+        .filter((p): p is Prompt => p !== undefined);
+
+    const removePrompt = (pid: string) => {
+        setPromptIds(promptIds.filter(id => id !== pid));
+    };
+
     const handleSave = () => {
         if (!name.trim()) return;
 
@@ -111,6 +131,7 @@ const SiteModal: React.FC<SiteModalProps> = ({
             name: name.trim(),
             description: description.trim() || undefined,
             categoryId,
+            promptIds,
             updatedAt: Date.now(),
             ...(site ? {} : { createdAt: Date.now(), order: 0 })
         };
@@ -197,6 +218,44 @@ const SiteModal: React.FC<SiteModalProps> = ({
                         )}
                     </div>
 
+                    {/* PROMPT LINKING SECTION */}
+                    <div>
+                        <label className="block text-xs text-slate-500 uppercase font-bold mb-2 flex items-center gap-1">
+                            <Sparkles size={12} className="text-purple-400" /> Prompts Vinculados ao Site (opcional)
+                        </label>
+
+                        {/* Linked Prompts as Chips */}
+                        {linkedPrompts.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                {linkedPrompts.map(prompt => (
+                                    <div
+                                        key={prompt.id}
+                                        className="bg-purple-900/30 border border-purple-700/50 rounded-lg px-3 py-1.5 flex items-center gap-2 group"
+                                    >
+                                        <Sparkles size={12} className="text-purple-400" />
+                                        <span className="text-sm text-purple-300">{prompt.title}</span>
+                                        <button
+                                            onClick={() => removePrompt(prompt.id)}
+                                            className="p-0.5 text-slate-500 hover:text-red-400 transition-colors"
+                                            title="Remover prompt"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Add Prompts Button */}
+                        <button
+                            onClick={() => setIsPromptSelectorOpen(true)}
+                            className="w-full py-3 bg-slate-900 hover:bg-slate-700 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:text-purple-400 text-sm flex items-center justify-center gap-2 transition-all"
+                        >
+                            <Sparkles size={16} />
+                            {linkedPrompts.length === 0 ? 'Vincular Prompts' : 'Adicionar mais prompts'}
+                        </button>
+                    </div>
+
                     {/* Existing Links (when editing) */}
                     {isEditing && links.length > 0 && (
                         <div>
@@ -272,6 +331,20 @@ const SiteModal: React.FC<SiteModalProps> = ({
                     </button>
                 </div>
             </div>
+
+            {/* MULTI-PROMPT SELECTOR MODAL */}
+            {isPromptSelectorOpen && (
+                <MultiPromptSelector
+                    prompts={prompts}
+                    categories={promptCategories}
+                    selectedIds={promptIds}
+                    onClose={() => setIsPromptSelectorOpen(false)}
+                    onSave={(ids) => {
+                        setPromptIds(ids);
+                        setIsPromptSelectorOpen(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

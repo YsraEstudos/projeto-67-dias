@@ -420,6 +420,7 @@ export interface Site {
   categoryId: string;       // Categoria pai
   faviconUrl?: string;      // Cache do favicon principal
   order: number;
+  promptIds?: string[];     // Prompts vinculados diretamente ao site
   createdAt: number;
   updatedAt: number;
 }
