@@ -6,7 +6,7 @@
  */
 import { create } from 'zustand';
 import { SundayTimerState, WidgetPosition } from '../types';
-import { writeToFirestore } from './firestoreSync';
+import { writeToFirestore, REALTIME_DEBOUNCE_MS } from './firestoreSync';
 
 const STORE_KEY = 'p67_sunday_timer';
 const DEFAULT_DURATION = 150 * 60 * 1000; // 2.5h em ms
@@ -116,7 +116,9 @@ export const useSundayTimerStore = create<SundayTimerStoreState>()((set, get) =>
     _syncToFirestore: () => {
         const { timer, _initialized } = get();
         if (_initialized) {
-            writeToFirestore(STORE_KEY, { timer });
+            // Use realtime debounce (200ms) for near-instant sync across devices
+            // Critical for timer state to feel synchronized in real-time
+            writeToFirestore(STORE_KEY, { timer }, REALTIME_DEBOUNCE_MS);
         }
     },
 

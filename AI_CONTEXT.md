@@ -588,9 +588,10 @@ Camada de sincronização centralizada que gerencia writes debounced e subscript
 
 ```typescript
 // Exports principais
-export const writeToFirestore: <T>(collectionKey: string, data: T) => void;
+export const writeToFirestore: <T>(collectionKey: string, data: T, debounceMs?: number) => void;
 export const subscribeToDocument: <T>(key: string, onData: (data: T | null) => void) => Unsubscribe;
 export const flushPendingWrites: () => void;  // Força envio imediato (antes de logout)
+export const REALTIME_DEBOUNCE_MS: number;   // 200ms para stores de tempo real (timers)
 
 // Para UI (SyncStatusIndicator)
 export const isFullySynced: () => boolean;
@@ -599,7 +600,8 @@ export const subscribeToPendingWrites: (listener: () => void) => () => void;
 ```
 
 **Comportamento:**
-- Debounce de 300ms evita writes excessivos durante digitação rápida
+- Debounce padrão de 1500ms evita writes excessivos durante digitação rápida
+- Debounce customizável via terceiro parâmetro (ex: 200ms para timers)
 - `pendingWriteCount` incrementa **imediatamente** ao agendar write (não após debounce)
 - Writes para mesma collection substituem o anterior sem duplicar contagem
 - SDK do Firebase gerencia cache IndexedDB automaticamente (funciona offline)
@@ -1026,7 +1028,10 @@ beforeEach(() => {
 
 ## 12. Deploy e Produção
 
-### 12.1 Versionamento de Schema (Cache Busting)
+> [!CAUTION]
+> **ANTES DE QUALQUER DEPLOY:** Verifique se houve mudanças estruturais nos dados. Se sim, incremente `APP_SCHEMA_VERSION` em `App.tsx`. Ver seção 12.1.
+
+### 12.1 Versionamento de Schema (Cache Busting) ⚠️ CRÍTICO
 
 O app possui um mecanismo de **Cache Busting automático** para resolver conflitos de dados no IndexedDB do Firestore quando há mudanças estruturais (schema changes).
 
@@ -1037,13 +1042,24 @@ O app possui um mecanismo de **Cache Busting automático** para resolver conflit
 **Quando incrementar:**
 Sempre que fizer um deploy que **altere a estrutura dos dados** (ex: migração de campos, novos relacionamentos), você DEVE incrementar a versão antes do commit.
 
+**⚠️ REGRA DO FORMATO:**
+- Use **SEMPRE a data de hoje** no formato `AAAA.MM.DD.revisão`
+- Se já existe uma versão de hoje, incremente apenas o último número
+- Se é um dia novo, use `.1` como revisão
+
+**Exemplos:**
+
 ```typescript
 // App.tsx
-// Antes:
+
+// Hoje é 27/12/2024, primeira mudança:
 const APP_SCHEMA_VERSION = '2024.12.27.1';
 
-// Depois (antes do deploy):
-const APP_SCHEMA_VERSION = '2024.12.27.2'; 
+// Ainda é 27/12/2024, segunda mudança no mesmo dia:
+const APP_SCHEMA_VERSION = '2024.12.27.2';
+
+// Agora é 28/12/2024, primeira mudança do dia:
+const APP_SCHEMA_VERSION = '2024.12.28.1';  // ← Muda a DATA, reseta revisão para .1
 ```
 
 ⚠️ **NOTA:** Isso é transparente para o usuário final, que apenas perceberá um reload rápido.
@@ -1065,12 +1081,21 @@ const APP_SCHEMA_VERSION = '2024.12.27.2';
 
 ### Processo de Deploy
 
-```bash
-git add .
-git commit -m "feat: descrição clara"
-git push origin main
-# Netlify detecta e faz deploy automático (~2 min)
-```
+**CHECKLIST OBRIGATÓRIA:**
+
+1. ✅ **Verificar mudanças estruturais**
+   - Adicionou/removeu store?
+   - Mudou campos em `types.ts`?
+   - Alterou relacionamentos entre entidades?
+   - **Se SIM:** Incrementar `APP_SCHEMA_VERSION` em `App.tsx`
+
+2. ✅ **Commit e Push**
+   ```bash
+   git add .
+   git commit -m "feat: descrição clara"
+   git push origin main
+   # Netlify detecta e faz deploy automático (~2 min)
+   ```
 
 ### Verificação Pós-Deploy
 
@@ -1093,6 +1118,7 @@ git push origin main
 - [ ] Adicionar card no dashboard (opcional)
 - [ ] Definir storage key: `p67_nova`
 - [ ] Adicionar tipos em `types.ts`
+- [ ] **⚠️ ANTES DO DEPLOY:** Incrementar `APP_SCHEMA_VERSION` se houver mudanças estruturais
 - [ ] Criar testes básicos
 
 ### Novo Modal com IA

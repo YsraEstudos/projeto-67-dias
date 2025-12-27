@@ -26,6 +26,10 @@ const writeTimeouts = new Map<string, PendingWrite>();
 // This prevents excessive billing from rapid user interactions
 const WRITE_DEBOUNCE_MS = 1500;
 
+// Reduced debounce for realtime stores (timers) that need instant sync across devices
+// 200ms is fast enough for realtime UX while still preventing excessive writes
+export const REALTIME_DEBOUNCE_MS = 200;
+
 // Rate limiter to prevent billing spikes (max 60 writes per minute globally)
 const MAX_WRITES_PER_MINUTE = 60;
 let writeCountLastMinute = 0;
@@ -141,7 +145,11 @@ const performWrite = async (payload: PendingWrite['payload']) => {
     }
 };
 
-export const writeToFirestore = <T extends object>(collectionKey: string, data: T): void => {
+export const writeToFirestore = <T extends object>(
+    collectionKey: string,
+    data: T,
+    debounceMs?: number  // Optional custom debounce (e.g., 200ms for realtime stores)
+): void => {
     const userId = getCurrentUserId();
     if (!userId) {
         console.warn('[Firestore] Cannot write without authenticated user');
@@ -163,10 +171,13 @@ export const writeToFirestore = <T extends object>(collectionKey: string, data: 
         notifyPendingListeners();
     }
 
+    // Use custom debounce if provided, otherwise use default
+    const effectiveDebounce = debounceMs ?? WRITE_DEBOUNCE_MS;
+
     const timeout = setTimeout(() => {
         writeTimeouts.delete(collectionKey);
         void performWrite(payload);
-    }, WRITE_DEBOUNCE_MS);
+    }, effectiveDebounce);
 
     writeTimeouts.set(collectionKey, { timeout, payload });
 };
