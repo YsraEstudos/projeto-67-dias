@@ -24,7 +24,7 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, clearAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, clearAllStores } from './stores';
 import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
@@ -46,6 +46,15 @@ const AuthView = React.lazy(() => import('./components/views/AuthView').then(m =
 
 // --- Constants ---
 const PROJECT_DURATION_DAYS = 67;
+
+/**
+ * APP_SCHEMA_VERSION - Increment this when making breaking changes to data structures
+ * This triggers automatic cache invalidation to prevent stale data issues
+ * Format: YYYY.MM.DD.revision (e.g., 2024.12.27.1)
+ */
+const APP_SCHEMA_VERSION = '2024.12.27.1';
+const SCHEMA_VERSION_KEY = 'p67_schema_version';
+
 
 // --- Interfaces ---
 interface WorkViewData {
@@ -70,7 +79,67 @@ const GamesView = React.lazy(() => import('./components/views/GamesView'));
 // --- Floating Timer Widget (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
 
+// --- Floating Sunday Timer Widget (lazy loaded, global) ---
+const SundayTimerWidget = React.lazy(() => import('./components/SundayTimerWidget').then(m => ({ default: m.SundayTimerWidget })));
+
 const App: React.FC = () => {
+  // --- Global Error Handler for Chunk Loading ---
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      const isChunkLoadError =
+        event.message?.includes('Failed to fetch dynamically imported module') ||
+        event.message?.includes('Importing a module script failed');
+
+      if (isChunkLoadError) {
+        event.preventDefault();
+        console.warn('Chunk load error detected, forcing reload...');
+        // Force reload without cache to get new chunks
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  // --- Schema Version Check (Auto-clear stale cache) ---
+  useEffect(() => {
+    const storedVersion = localStorage.getItem(SCHEMA_VERSION_KEY);
+
+    if (storedVersion !== APP_SCHEMA_VERSION) {
+      console.log(`[App] Schema version mismatch: ${storedVersion} → ${APP_SCHEMA_VERSION}. Clearing Firestore cache...`);
+
+      // Clear all Firestore IndexedDB databases
+      // Firestore uses databases prefixed with 'firestore/'
+      if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+        indexedDB.databases().then(databases => {
+          const firestoreDbs = databases.filter(db => db.name?.startsWith('firestore/'));
+          firestoreDbs.forEach(db => {
+            if (db.name) {
+              console.log(`[App] Deleting IndexedDB: ${db.name}`);
+              indexedDB.deleteDatabase(db.name);
+            }
+          });
+
+          // Update version and reload if any databases were deleted
+          localStorage.setItem(SCHEMA_VERSION_KEY, APP_SCHEMA_VERSION);
+          if (firestoreDbs.length > 0) {
+            console.log('[App] Reloading to apply fresh data...');
+            window.location.reload();
+          }
+        }).catch(err => {
+          console.warn('[App] Could not enumerate IndexedDB databases:', err);
+          // Still update version to prevent infinite loops
+          localStorage.setItem(SCHEMA_VERSION_KEY, APP_SCHEMA_VERSION);
+        });
+      } else {
+        // Fallback for browsers without indexedDB.databases() (Safari)
+        localStorage.setItem(SCHEMA_VERSION_KEY, APP_SCHEMA_VERSION);
+      }
+    }
+  }, []);
+
+
   // --- AUTH STATE (Firebase) ---
   const {
     user,
@@ -158,7 +227,7 @@ const App: React.FC = () => {
 
     const unsubscribers: (() => void)[] = [];
     const hydratedStores = new Set<string>();
-    const totalStores = 19;
+    const totalStores = 20; // Incrementado para incluir p67_sunday_timer
 
     const checkAllHydrated = (storeKey: string) => {
       // Only count first hydration per store
@@ -265,6 +334,11 @@ const App: React.FC = () => {
     unsubscribers.push(subscribeToDocument('p67_site_folders_store', (data: any) => {
       useSiteFoldersStore.getState()._hydrateFromFirestore(data);
       checkAllHydrated('p67_site_folders_store');
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_sunday_timer', (data: any) => {
+      useSundayTimerStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated('p67_sunday_timer');
     }));
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
@@ -708,6 +782,11 @@ const App: React.FC = () => {
           <TimerWidget onClick={() => setActiveView(ViewState.TOOLS)} />
         </Suspense>
       )}
+
+      {/* Floating Sunday Timer Widget (Global - appears on any view when active) */}
+      <Suspense fallback={null}>
+        <SundayTimerWidget onClick={() => handleCardClick(ViewState.SUNDAY)} />
+      </Suspense>
 
       {/* Logout Confirmation Modal */}
       <ConfirmModal

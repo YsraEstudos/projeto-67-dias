@@ -1026,6 +1026,28 @@ beforeEach(() => {
 
 ## 12. Deploy e Produção
 
+### 12.1 Versionamento de Schema (Cache Busting)
+
+O app possui um mecanismo de **Cache Busting automático** para resolver conflitos de dados no IndexedDB do Firestore quando há mudanças estruturais (schema changes).
+
+**Como funciona:**
+1. O app verifica a constante `APP_SCHEMA_VERSION` no `App.tsx`.
+2. Se a versão do código for diferente da versão salva no LocalStorage do usuário, o app limpa automaticamente todo o cache do Firestore (IndexedDB) e recarrega a página.
+
+**Quando incrementar:**
+Sempre que fizer um deploy que **altere a estrutura dos dados** (ex: migração de campos, novos relacionamentos), você DEVE incrementar a versão antes do commit.
+
+```typescript
+// App.tsx
+// Antes:
+const APP_SCHEMA_VERSION = '2024.12.27.1';
+
+// Depois (antes do deploy):
+const APP_SCHEMA_VERSION = '2024.12.27.2'; 
+```
+
+⚠️ **NOTA:** Isso é transparente para o usuário final, que apenas perceberá um reload rápido.
+
 ### Netlify Configuration
 
 - **Comando de Build**: `npm run build`

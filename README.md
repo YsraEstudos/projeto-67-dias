@@ -70,6 +70,9 @@ Cada store (`habitsStore`, `linksStore`, etc.) segue o padrão:
 - `_hydrateFromFirestore()` - Recebe dados da nuvem (via subscription)
 - `_initialized` flag evita overwrites acidentais durante hidratação
 
+### Versionamento de Schema
+Para evitar dados obsoletos após deploys, o arquivo `App.tsx` possui a constante `APP_SCHEMA_VERSION`. Ao ser incrementada, o app limpa automaticamente o cache local do usuário.
+
 ## 🎨 Design System
 
 - **Fundo**: Slate-950 (`#020617`)

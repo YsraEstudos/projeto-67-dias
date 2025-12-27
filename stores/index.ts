@@ -51,6 +51,9 @@ export { useSiteFoldersStore, useSiteFolders, useSiteFolderActions, useIsSiteFol
 // Sunday Store - Sunday tasks
 export { useSundayStore } from './sundayStore';
 
+// Sunday Timer Store - Timer do Ajeitar Rápido (global floating widget)
+export { useSundayTimerStore, getTimeRemaining } from './sundayTimerStore';
+
 // Journal Store - Journal entries
 export { useJournalStore } from './journalStore';
 export type { JournalEntry } from './journalStore';
@@ -129,6 +132,7 @@ import { useSitesStore } from './sitesStore';
 import { useWeeklyAgendaStore } from './weeklyAgendaStore';
 import { useTabStore } from './tabStore';
 import { useSiteFoldersStore } from './siteFoldersStore';
+import { useSundayTimerStore } from './sundayTimerStore';
 
 /**
  * Clears all stores to initial state.
@@ -157,6 +161,7 @@ export const clearAllStores = () => {
     useSitesStore.getState()._reset();
     useSiteFoldersStore.getState()._reset();
     useWeeklyAgendaStore.getState()._reset();
+    useSundayTimerStore.getState()._reset();
     useTabStore.setState({ tabs: [], activeTabId: null }); // Reset tabs on logout
     console.log('[clearAllStores] All stores reset for user switch');
 };

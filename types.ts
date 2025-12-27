@@ -449,6 +449,19 @@ export interface GlobalTimerState {
   label?: string;
 }
 
+// --- SUNDAY TIMER (Ajeitar Rápido) ---
+export type WidgetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+
+export interface SundayTimerState {
+  status: 'IDLE' | 'RUNNING' | 'PAUSED' | 'FINISHED';
+  startTime: number | null;     // timestamp quando iniciou
+  pausedAt: number | null;      // timestamp quando pausou
+  accumulated: number;          // milissegundos acumulados em pausas
+  totalDuration: number;        // 2.5h = 9000000ms
+  widgetPosition: WidgetPosition; // posição do widget flutuante
+}
+
+
 // --- NOTES MODULE INTERFACES ---
 
 
