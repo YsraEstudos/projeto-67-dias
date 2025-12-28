@@ -15,3 +15,4 @@ export { createPomodoroActions, type PomodoroActions } from './pomodoroActions';
 export { createNextDayContentActions, type NextDayContentActions } from './nextDayContentActions';
 export { createDistributionActions, type DistributionActions } from './distributionActions';
 export { createSectionVisibilityActions, type SectionVisibilityActions } from './sectionVisibilityActions';
+export { createHistoryActions, type HistoryActions } from './historyActions';

@@ -6,16 +6,21 @@ import { SkillsSet, SkillsGet, SkillRoadmapItem, VisualRoadmap, RoadmapViewMode 
 import { normalizeRoadmap } from './roadmapValidator';
 
 export interface RoadmapActions {
-    setRoadmap: (skillId: string, roadmap: SkillRoadmapItem[]) => void;
+    setRoadmap: (skillId: string, roadmap: SkillRoadmapItem[], options?: { createBackup?: boolean; backupLabel?: string }) => void;
     toggleRoadmapItem: (skillId: string, itemId: string) => void;
     setVisualRoadmap: (skillId: string, visualRoadmap: VisualRoadmap) => void;
     setRoadmapViewMode: (skillId: string, mode: RoadmapViewMode) => void;
 }
 
 export const createRoadmapActions = (set: SkillsSet, get: SkillsGet): RoadmapActions => ({
-    setRoadmap: (skillId, roadmap) => {
+    setRoadmap: (skillId, roadmap, options) => {
         const safeRoadmap = normalizeRoadmap(roadmap);
         if (!safeRoadmap) return;
+
+        // Create backup before replacing if requested
+        if (options?.createBackup) {
+            get().createRoadmapBackup(skillId, options.backupLabel);
+        }
 
         set((state) => {
             const skill = state.skills.find(s => s.id === skillId);
@@ -64,4 +69,3 @@ export const createRoadmapActions = (set: SkillsSet, get: SkillsGet): RoadmapAct
         get()._syncToFirestore();
     }
 });
-

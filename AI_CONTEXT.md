@@ -779,6 +779,7 @@ const useWorkDataPersistence = () => {
 - Drag and drop no roadmap
 - Seções/divisórias no roadmap
 - Import/Export de roadmaps (Markdown/JSON)
+- **Sistema de Backup de Roadmaps**: Histórico automático de imports (máx 10 backups)
 - Cofre de recursos (links de estudo)
 
 **Storage Key:** `p67_skills`
@@ -786,8 +787,16 @@ const useWorkDataPersistence = () => {
 **Subcomponentes:**
 - `SkillCard.tsx` - Card resumido com quick-add de minutos
 - `SkillDetailView.tsx` - View completa
-- `ImportExportModal.tsx` - Markdown/JSON
+- `ImportExportModal.tsx` - Markdown/JSON com campo de nome do backup
+- `RoadmapBackupModal.tsx` - Visualizar/restaurar/excluir backups
 - `CreateSkillModal.tsx` - Criar nova skill
+
+**Sistema de Backup:**
+- Backup automático antes de cada import de roadmap
+- Rollback cria novo backup do estado atual (operação reversível)
+- Limite de 10 backups por skill (remove mais antigo automaticamente)
+- Label opcional para identificação
+- Store actions: `createRoadmapBackup`, `rollbackToBackup`, `deleteBackup`
 
 ### JournalView - Diário Pessoal
 

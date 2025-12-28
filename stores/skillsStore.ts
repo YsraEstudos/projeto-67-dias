@@ -16,6 +16,7 @@ import { createPomodoroActions, PomodoroActions } from './skills/pomodoroActions
 import { createNextDayContentActions, NextDayContentActions } from './skills/nextDayContentActions';
 import { createDistributionActions, DistributionActions } from './skills/distributionActions';
 import { createSectionVisibilityActions, SectionVisibilityActions } from './skills/sectionVisibilityActions';
+import { createHistoryActions, HistoryActions } from './skills/historyActions';
 
 const STORE_KEY = 'p67_skills_store';
 
@@ -58,7 +59,8 @@ interface SkillsState extends SkillsBaseState,
     PomodoroActions,
     NextDayContentActions,
     DistributionActions,
-    SectionVisibilityActions { }
+    SectionVisibilityActions,
+    HistoryActions { }
 
 export const useSkillsStore = create<SkillsState>()(immer((set, get) => ({
     // Initial state
@@ -132,6 +134,7 @@ export const useSkillsStore = create<SkillsState>()(immer((set, get) => ({
     ...createNextDayContentActions(set as any, get as any),
     ...createDistributionActions(set as any, get as any),
     ...createSectionVisibilityActions(set as any, get as any),
+    ...createHistoryActions(set as any, get as any),
 
     // Internal methods
     setLoading: (loading) => set((state) => { state.isLoading = loading; }),

@@ -22,6 +22,8 @@ export interface SkillsInternals {
     _syncToFirestore: () => void;
     _hydrateFromFirestore: (data: { skills: Skill[]; hasInitialized: boolean } | null) => void;
     _reset: () => void;
+    // Cross-slice method: allows roadmapActions to call historyActions
+    createRoadmapBackup: (skillId: string, label?: string) => void;
 }
 
 /**

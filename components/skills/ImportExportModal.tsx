@@ -6,12 +6,13 @@ import { normalizeRoadmap, MAX_ROADMAP_BYTES } from '../../stores/skills/roadmap
 interface ImportExportModalProps {
     skill: Skill;
     onClose: () => void;
-    onImport: (roadmap: SkillRoadmapItem[]) => void;
+    onImport: (roadmap: SkillRoadmapItem[], backupLabel?: string) => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onClose, onImport }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
+    const [backupLabel, setBackupLabel] = useState('');
 
     const handleExport = () => {
         const data = JSON.stringify(skill.roadmap, null, 2);
@@ -71,7 +72,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
                     setImportStatus('ERROR');
                     return;
                 }
-                onImport(normalized);
+                onImport(normalized, backupLabel.trim() || undefined);
                 setImportStatus('SUCCESS');
                 setTimeout(onClose, 1500);
             } catch {
@@ -192,6 +193,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
                     {/* Import Section */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Importar JSON</h4>
+
+                        {/* Backup Label Input */}
+                        <div className="mb-3">
+                            <label className="block text-xs text-slate-400 mb-1">Nome do Backup (opcional)</label>
+                            <input
+                                type="text"
+                                value={backupLabel}
+                                onChange={(e) => setBackupLabel(e.target.value)}
+                                placeholder="Ex: Roadmap v2, Antes de refatorar..."
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-500 outline-none transition-colors"
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Um backup do roadmap atual será criado automaticamente.</p>
+                        </div>
+
                         <div
                             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                             onDragLeave={() => setIsDragging(false)}

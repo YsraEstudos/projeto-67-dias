@@ -1,7 +1,7 @@
 import React, { useState, Suspense, useMemo } from 'react';
 import {
     Bot, Plus, X, CheckCircle2, Circle,
-    Layers, Download, Maximize2, ListTodo, Map, Loader2, Lock
+    Layers, Download, Maximize2, ListTodo, Map, Loader2, Lock, History
 } from 'lucide-react';
 import { SkillRoadmapItem, VisualRoadmap, RoadmapViewMode } from '../../types';
 import { VisualRoadmapView } from './VisualRoadmapView';
@@ -10,6 +10,7 @@ import { SectionContextMenu } from './SectionContextMenu';
 
 // Lazy load heavy modals (~72KB combined) - loaded only when opened
 const ImportExportModal = React.lazy(() => import('./ImportExportModal').then(m => ({ default: m.ImportExportModal })));
+const RoadmapBackupModal = React.lazy(() => import('./RoadmapBackupModal').then(m => ({ default: m.RoadmapBackupModal })));
 
 const FullRoadmapEditor = React.lazy(() => import('./FullRoadmapEditor').then(m => ({ default: m.FullRoadmapEditor })));
 const VisualRoadmapEditor = React.lazy(() => import('./VisualRoadmapEditor').then(m => ({ default: m.VisualRoadmapEditor })));
@@ -28,6 +29,11 @@ interface RoadmapSectionProps {
     unlockedSections?: string[];
     onUnlockSection?: (sectionId: string) => void;
     onLockSection?: (sectionId: string) => void;
+    // Roadmap Backup System
+    skill?: { roadmapHistory?: { id: string; createdAt: number; label?: string; previousRoadmap: SkillRoadmapItem[] }[] };
+    onImportWithBackup?: (roadmap: SkillRoadmapItem[], backupLabel?: string) => void;
+    onRollbackToBackup?: (backupId: string) => void;
+    onDeleteBackup?: (backupId: string) => void;
 }
 
 /**
@@ -47,12 +53,18 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     onViewModeChange,
     unlockedSections = [],
     onUnlockSection,
-    onLockSection
+    onLockSection,
+    // Backup system
+    skill,
+    onImportWithBackup,
+    onRollbackToBackup,
+    onDeleteBackup
 }) => {
 
     const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
     const [isVisualEditorOpen, setIsVisualEditorOpen] = useState(false);
     const [isImportExportOpen, setIsImportExportOpen] = useState(false);
+    const [isBackupHistoryOpen, setIsBackupHistoryOpen] = useState(false);
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [isAddingDivider, setIsAddingDivider] = useState(false);
@@ -242,8 +254,21 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                     </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2">
+                    {/* Backup History Button */}
+                    {skill?.roadmapHistory && skill.roadmapHistory.length > 0 && (
+                        <button
+                            onClick={() => setIsBackupHistoryOpen(true)}
+                            className="text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg border border-amber-500/30 flex items-center gap-1 transition-colors"
+                            title="Histórico de Backups"
+                        >
+                            <History size={12} />
+                            <span className="hidden sm:inline">Backups</span>
+                            <span className="bg-amber-500/30 text-amber-300 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                                {skill.roadmapHistory.length}
+                            </span>
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsImportExportOpen(true)}
                         className="text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1 transition-colors"
@@ -502,7 +527,25 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                     <ImportExportModal
                         skill={{ roadmap, name: skillName } as any}
                         onClose={() => setIsImportExportOpen(false)}
-                        onImport={(newRoadmap) => onUpdate(newRoadmap)}
+                        onImport={(newRoadmap, backupLabel) => {
+                            if (onImportWithBackup) {
+                                onImportWithBackup(newRoadmap, backupLabel);
+                            } else {
+                                onUpdate(newRoadmap);
+                            }
+                        }}
+                    />
+                )}
+
+                {isBackupHistoryOpen && skill && (
+                    <RoadmapBackupModal
+                        skill={skill as any}
+                        onClose={() => setIsBackupHistoryOpen(false)}
+                        onRollback={(backupId) => {
+                            onRollbackToBackup?.(backupId);
+                            setIsBackupHistoryOpen(false);
+                        }}
+                        onDelete={(backupId) => onDeleteBackup?.(backupId)}
                     />
                 )}
 

@@ -29,7 +29,15 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
     onUpdate,
     onDelete
 }) => {
-    const { completeSkill, uncompleteSkill, unlockSection, lockSection } = useSkillsStore();
+    const {
+        completeSkill,
+        uncompleteSkill,
+        unlockSection,
+        lockSection,
+        setRoadmap,
+        rollbackToBackup,
+        deleteBackup
+    } = useSkillsStore();
 
     // Session handler that creates a log entry
     const handleAddSession = (minutes: number) => {
@@ -46,6 +54,20 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
 
     const handleRemoveResource = (id: string) => {
         onUpdate({ resources: skill.resources.filter(r => r.id !== id) });
+    };
+
+    // Backup handlers
+    const handleImportWithBackup = (newRoadmap: typeof skill.roadmap, backupLabel?: string) => {
+        // setRoadmap with createBackup: true automatically creates a backup before replacing
+        setRoadmap(skill.id, newRoadmap, { createBackup: true, backupLabel });
+    };
+
+    const handleRollback = (backupId: string) => {
+        rollbackToBackup(skill.id, backupId);
+    };
+
+    const handleDeleteBackup = (backupId: string) => {
+        deleteBackup(skill.id, backupId);
     };
 
     return (
@@ -108,6 +130,11 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                     unlockedSections={skill.unlockedSections || []}
                     onUnlockSection={(sectionId) => unlockSection(skill.id, sectionId)}
                     onLockSection={(sectionId) => lockSection(skill.id, sectionId)}
+                    // Backup system props
+                    skill={skill}
+                    onImportWithBackup={handleImportWithBackup}
+                    onRollbackToBackup={handleRollback}
+                    onDeleteBackup={handleDeleteBackup}
                 />
             </div>
         </div>

@@ -236,6 +236,16 @@ export interface SkillRoadmapItem {
   subTasks?: SkillRoadmapItem[];
 }
 
+// --- ROADMAP BACKUP SYSTEM ---
+
+// Snapshot de um roadmap antes de um import
+export interface RoadmapBackup {
+  id: string;
+  createdAt: number;           // timestamp do import
+  label?: string;              // Nome opcional (ex: "Roadmap JavaScript v2")
+  previousRoadmap: SkillRoadmapItem[];  // Snapshot ANTES do import
+}
+
 export interface SkillLog {
   id: string;
   date: string;
@@ -340,6 +350,9 @@ export interface Skill {
 
   // Weekly Agenda: Meta diária configurável (permanente)
   dailyGoalMinutes?: number;  // Meta diária padrão em minutos
+
+  // Roadmap Backup History: Histórico de imports (máx 10)
+  roadmapHistory?: RoadmapBackup[];
 }
 
 // --- PROMPTS MODULE INTERFACES ---
