@@ -2,12 +2,16 @@
  * EditableMarkdown - Componente de edição WYSIWYG para Markdown
  * 
  * Renderiza markdown formatado e permite edição inline com conversão
- * em tempo real para markdown usando MutationObserver.
+ * em tempo real para markdown usando eventos de input.
+ * 
+ * SOLUÇÃO DO BUG DE LOOP INFINITO:
+ * - Não renderiza componentes React dentro do contentEditable
+ * - Usa HTML estático gerado uma vez na montagem
+ * - Usa onInput ao invés de MutationObserver para evitar ciclos
  */
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { MarkdownRenderer } from './MarkdownRenderer';
 import { FloatingToolbar } from './FloatingToolbar';
-import { htmlToMarkdown } from '../../utils/markdownUtils';
+import { htmlToMarkdown, markdownToHtml } from '../../utils/markdownUtils';
 
 interface EditableMarkdownProps {
     content: string;
@@ -25,9 +29,21 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
     const editorRef = useRef<HTMLDivElement>(null);
     const isInternalChange = useRef(false);
     const lastContent = useRef(content);
+    const isInitialized = useRef(false);
     const [isEmpty, setIsEmpty] = useState(!content.trim());
 
-    // Sync external content changes to editor
+    // Initialize editor with HTML content only once
+    useEffect(() => {
+        if (!editorRef.current || isInitialized.current) return;
+
+        isInitialized.current = true;
+        if (content.trim()) {
+            const html = markdownToHtml(content);
+            editorRef.current.innerHTML = html;
+        }
+    }, []);
+
+    // Sync external content changes to editor (only when content changes from outside)
     useEffect(() => {
         if (isInternalChange.current) {
             isInternalChange.current = false;
@@ -35,20 +51,37 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
         }
 
         // Only update if content actually changed from outside
-        if (content !== lastContent.current && editorRef.current) {
+        if (content !== lastContent.current && editorRef.current && isInitialized.current) {
             lastContent.current = content;
-            // We need to re-render the markdown - this is handled by React re-render
+            const html = markdownToHtml(content);
+
+            // Save cursor position
+            const selection = window.getSelection();
+            const savedRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+
+            editorRef.current.innerHTML = html;
+
+            // Restore cursor if possible
+            if (savedRange && selection) {
+                try {
+                    selection.removeAllRanges();
+                    selection.addRange(savedRange);
+                } catch (e) {
+                    // Cursor restoration failed, that's ok
+                }
+            }
+
+            setIsEmpty(!content.trim());
         }
     }, [content]);
 
-    // Convert HTML to Markdown and emit change
-    const emitChange = useCallback(() => {
+    // Handle input changes - convert HTML back to Markdown
+    const handleInput = useCallback(() => {
         if (!editorRef.current) return;
 
         const html = editorRef.current.innerHTML;
-
-        // Check if empty
         const textContent = editorRef.current.textContent || '';
+
         setIsEmpty(!textContent.trim());
 
         // Convert to markdown
@@ -60,26 +93,6 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
             onChange(markdown);
         }
     }, [onChange]);
-
-    // Setup MutationObserver for real-time changes
-    useEffect(() => {
-        const editor = editorRef.current;
-        if (!editor) return;
-
-        const observer = new MutationObserver(() => {
-            // Debounce slightly to batch rapid changes
-            requestAnimationFrame(emitChange);
-        });
-
-        observer.observe(editor, {
-            childList: true,
-            subtree: true,
-            characterData: true,
-            characterDataOldValue: true
-        });
-
-        return () => observer.disconnect();
-    }, [emitChange]);
 
     // Handle paste - convert to plain text to avoid HTML pollution
     const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -138,8 +151,8 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
         }
 
         // Trigger change after formatting
-        requestAnimationFrame(emitChange);
-    }, [emitChange]);
+        requestAnimationFrame(handleInput);
+    }, [handleInput]);
 
     // Handle keyboard shortcuts
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -173,6 +186,7 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
+                onInput={handleInput}
                 onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
                 className={`
@@ -183,11 +197,7 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
                     ${className}
                 `}
                 data-placeholder={placeholder}
-            >
-                {content.trim() ? (
-                    <MarkdownRenderer content={content} editable />
-                ) : null}
-            </div>
+            />
         </div>
     );
 });

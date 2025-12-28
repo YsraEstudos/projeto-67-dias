@@ -10,7 +10,8 @@ import {
     Circle,
     FileText,
     Layers,
-    X
+    X,
+    FileDown
 } from 'lucide-react';
 import { SkillRoadmapItem } from '../../types';
 import { THEME_VARIANTS, ThemeKey } from './constants';
@@ -34,6 +35,9 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
     const [items, setItems] = useState<SkillRoadmapItem[]>(JSON.parse(JSON.stringify(roadmap)));
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(roadmap.map(i => i.id)));
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+    // Drag and Drop state
+    const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
     const variants = THEME_VARIANTS[theme] || THEME_VARIANTS.emerald;
 
@@ -62,6 +66,29 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
         setItems(prev => prev.map(item =>
             item.id === id ? { ...item, title: newTitle } : item
         ));
+    };
+
+    const updateSubTaskTitle = (parentId: string, subTaskId: string, newTitle: string) => {
+        setItems(prev => prev.map(item => {
+            if (item.id !== parentId || !item.subTasks) return item;
+            return {
+                ...item,
+                subTasks: item.subTasks.map(sub =>
+                    sub.id === subTaskId ? { ...sub, title: newTitle } : sub
+                )
+            };
+        }));
+    };
+
+    const deleteSubTask = (parentId: string, subTaskId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setItems(prev => prev.map(item => {
+            if (item.id !== parentId || !item.subTasks) return item;
+            return {
+                ...item,
+                subTasks: item.subTasks.filter(sub => sub.id !== subTaskId)
+            };
+        }));
     };
 
     const deleteItem = (id: string, e: React.MouseEvent) => {
@@ -104,16 +131,72 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
         setExpandedIds(prev => new Set(prev).add(parentId));
     };
 
+    // --- Drag & Drop Handlers ---
+    const handleDragStart = (e: React.DragEvent, id: string) => {
+        setDraggedItemId(id);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e: React.DragEvent, targetId: string) => {
+        e.preventDefault();
+        if (!draggedItemId || draggedItemId === targetId) return;
+
+        const sourceIndex = items.findIndex(i => i.id === draggedItemId);
+        const targetIndex = items.findIndex(i => i.id === targetId);
+
+        if (sourceIndex === -1 || targetIndex === -1) return;
+
+        const newItems = [...items];
+        const [removed] = newItems.splice(sourceIndex, 1);
+        newItems.splice(targetIndex, 0, removed);
+
+        setItems(newItems);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedItemId(null);
+    };
+
     // --- PDF Export ---
     const handlePrint = () => {
-        // Simple window print for now, can be enhanced with jsPDF later for strict control
         window.print();
     };
 
-    // --- Drag & Drop (Simplified Reorder) ---
-    // Note: detailed dnd-kit implementation skipped for brevity in this step, 
-    // relying on simple up/down buttons or future implementation. 
-    // For now, let's just render the list cleanly.
+    // --- Markdown Export ---
+    const generateMarkdown = (itemsList: SkillRoadmapItem[]): string => {
+        let md = `# ${skillName} - Plano de Estudos\n\n`;
+        md += `> Gerado via Projeto 67 Dias\n\n`;
+
+        for (const item of itemsList) {
+            if (item.type === 'SECTION') {
+                md += `\n## ${item.title}\n\n`;
+            } else {
+                const check = item.isCompleted ? 'x' : ' ';
+                md += `- [${check}] ${item.title}\n`;
+                if (item.subTasks && item.subTasks.length > 0) {
+                    for (const sub of item.subTasks) {
+                        const subCheck = sub.isCompleted ? 'x' : ' ';
+                        const subTitle = typeof sub === 'string' ? sub : sub.title;
+                        md += `  - [${subCheck}] ${subTitle}\n`;
+                    }
+                }
+            }
+        }
+        return md;
+    };
+
+    const handleExportMarkdown = () => {
+        const markdown = generateMarkdown(items);
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${skillName.replace(/\s+/g, '_')}_roadmap.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col animate-in fade-in duration-300">
@@ -132,12 +215,20 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExportMarkdown}
+                        className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-700"
+                        title="Baixar como Markdown"
+                    >
+                        <FileDown size={16} /> Markdown
+                    </button>
                     <button
                         onClick={handlePrint}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-700"
+                        className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors border border-slate-700"
+                        title="Exportar como PDF"
                     >
-                        <Download size={16} /> Exportar PDF
+                        <Download size={16} /> PDF
                     </button>
 
                     <div className="h-6 w-px bg-slate-800 mx-2" />
@@ -154,7 +245,7 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Visual Editor (Tree View) */}
-                <div className="flex-1 overflow-y-auto p-8 bg-slate-950 scrollbar-thin print:bg-white print:text-black">
+                <div className="flex-1 overflow-y-auto p-8 bg-slate-950 scrollbar-thin print:bg-white print:text-black print:overflow-visible">
                     <div className="max-w-4xl mx-auto space-y-2 print:space-y-4">
 
                         {/* Print Header */}
@@ -173,12 +264,19 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
                         )}
 
                         {items.map((item, index) => (
-                            <div key={item.id} className="group animate-in slide-in-from-bottom-2 duration-300 delay-75">
+                            <div
+                                key={item.id}
+                                className={`group animate-in slide-in-from-bottom-2 duration-300 delay-75 ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, item.id)}
+                                onDragOver={(e) => handleDragOver(e, item.id)}
+                                onDragEnd={handleDragEnd}
+                            >
                                 {/* SECTION RENDER */}
                                 {item.type === 'SECTION' ? (
-                                    <div className="mt-8 mb-4 print:mt-6 print:mb-2">
+                                    <div className="mt-8 mb-4 print:mt-6 print:mb-2 print:break-inside-avoid">
                                         <div className="flex items-center gap-4 group/section">
-                                            <div draggable className="cursor-move p-1 text-slate-600 hover:text-slate-400 print:hidden">
+                                            <div className="cursor-move p-1 text-slate-600 hover:text-slate-400 print:hidden">
                                                 <GripVertical size={16} />
                                             </div>
                                             <input
@@ -200,15 +298,15 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
                                     // TASK RENDER
                                     <div
                                         className={`
-                                            relative flex flex-col bg-slate-900/40 border border-slate-800 rounded-lg hover:border-slate-700 transition-all
+                                            relative flex flex-col bg-slate-900/40 border border-slate-800 rounded-lg hover:border-slate-700 transition-all cursor-move
                                             ${selectedItemId === item.id ? 'ring-1 ring-emerald-500/50 bg-slate-900/80 shadow-lg' : ''}
-                                            print:border-none print:bg-transparent print:shadow-none print:mb-2
+                                            print:border-none print:bg-transparent print:shadow-none print:mb-2 print:break-inside-avoid
                                         `}
                                         onClick={() => setSelectedItemId(item.id)}
                                     >
                                         {/* Main Task Row */}
                                         <div className="flex items-center gap-3 p-3">
-                                            <div draggable className="cursor-move text-slate-700 hover:text-slate-500 print:hidden">
+                                            <div className="text-slate-700 hover:text-slate-500 print:hidden">
                                                 <GripVertical size={16} />
                                             </div>
 
@@ -251,35 +349,26 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
                                         {/* Subtasks Container */}
                                         {item.subTasks && item.subTasks.length > 0 && (
                                             <div className="pl-10 pr-3 pb-3 space-y-1 print:pl-8">
-                                                {item.subTasks.map((sub, sIdx) => (
-                                                    <div key={sIdx} className="flex items-center gap-2 group/sub">
-                                                        <div className="w-1.5 h-1.5 bg-slate-700 rounded-full print:bg-slate-400" />
-                                                        <input
-                                                            value={(sub as any).title || sub} // Handle potential string vs object mismatch during migration
-                                                            onChange={(e) => {
-                                                                const newItems = [...items];
-                                                                // Very naive update for nested prop, ensuring structure
-                                                                const parent = newItems[index];
-                                                                if (parent.subTasks) {
-                                                                    // If it's a string convert to obj logic or just string? 
-                                                                    // Let's assume schema migration happened or we support legacy strings
-                                                                    //Ideally we standardize on objects.
-                                                                    // For this MVP step let's just make it editable if it's an object, or update string array
-                                                                    // Skipping deep complex reducer logic for brevity
-                                                                }
-                                                            }}
-                                                            // Simplified display for this step
-                                                            readOnly
-                                                            className="flex-1 bg-transparent border-none outline-none text-xs text-slate-400 focus:text-slate-200"
-                                                        />
-                                                        <button
-                                                            // Delete subtask logic would go here
-                                                            className="opacity-0 group-hover/sub:opacity-100 text-slate-600 hover:text-red-400 scale-75 print:hidden"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
-                                                    </div>
-                                                ))}
+                                                {item.subTasks.map((sub) => {
+                                                    const subTitle = typeof sub === 'string' ? sub : sub.title;
+                                                    const subId = typeof sub === 'string' ? sub : sub.id;
+                                                    return (
+                                                        <div key={subId} className="flex items-center gap-2 group/sub">
+                                                            <div className="w-1.5 h-1.5 bg-slate-700 rounded-full print:bg-slate-400" />
+                                                            <input
+                                                                value={subTitle}
+                                                                onChange={(e) => updateSubTaskTitle(item.id, subId, e.target.value)}
+                                                                className="flex-1 bg-transparent border-none outline-none text-xs text-slate-400 focus:text-slate-200 print:text-black"
+                                                            />
+                                                            <button
+                                                                onClick={(e) => deleteSubTask(item.id, subId, e)}
+                                                                className="opacity-0 group-hover/sub:opacity-100 text-slate-600 hover:text-red-400 scale-75 print:hidden"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -311,12 +400,34 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
             {/* Global Print Styles */}
             <style>{`
                 @media print {
-                    @page { margin: 2cm; }
-                    body { background: white; color: black; }
+                    @page { 
+                        margin: 2cm;
+                        size: A4;
+                    }
+                    body { 
+                        background: white !important; 
+                        color: black !important;
+                        font-size: 12pt;
+                    }
                     .print\\:hidden { display: none !important; }
                     .print\\:block { display: block !important; }
                     .print\\:text-black { color: black !important; }
                     .print\\:bg-white { background: white !important; }
+                    .print\\:break-inside-avoid { 
+                        page-break-inside: avoid;
+                        break-inside: avoid;
+                    }
+                    .print\\:overflow-visible {
+                        overflow: visible !important;
+                        max-height: none !important;
+                    }
+                    /* Ensure all content is visible */
+                    .overflow-y-auto {
+                        overflow: visible !important;
+                    }
+                    .scrollbar-thin {
+                        overflow: visible !important;
+                    }
                 }
             `}</style>
         </div>

@@ -446,3 +446,86 @@ export function autoPair(
         paired: true
     };
 }
+
+/**
+ * Converts Markdown content to HTML format.
+ * 
+ * Simple converter for use in contentEditable areas.
+ * Supports: headings, bold, italic, links, lists, code, blockquotes
+ * 
+ * @param markdown - The Markdown string to convert
+ * @returns The converted HTML string
+ */
+export function markdownToHtml(markdown: string): string {
+    if (!markdown || typeof markdown !== 'string') {
+        return '';
+    }
+
+    let html = markdown;
+
+    // Escape HTML entities first
+    html = html
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // Code blocks (must be before other transformations)
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+        return `<pre class="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-3 overflow-x-auto text-sm font-mono text-slate-300"><code class="language-${lang}">${code.trim()}</code></pre>`;
+    });
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>');
+
+    // Headings
+    html = html.replace(/^###### (.+)$/gm, '<h6 class="text-sm font-semibold text-slate-200 mb-2">$1</h6>');
+    html = html.replace(/^##### (.+)$/gm, '<h5 class="text-sm font-semibold text-slate-200 mb-2">$1</h5>');
+    html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-semibold text-slate-200 mb-2 mt-2">$1</h4>');
+    html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-white mb-2 mt-3">$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-white mb-2 mt-4">$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-white mb-3 mt-4 border-b border-slate-700 pb-2">$1</h1>');
+
+    // Blockquotes
+    html = html.replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-purple-500 pl-4 py-1 my-3 bg-purple-500/5 rounded-r-lg italic text-slate-400">$1</blockquote>');
+
+    // Horizontal rule
+    html = html.replace(/^---$/gm, '<hr class="border-slate-700 my-4" />');
+
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-white">$1</strong>');
+
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em class="italic text-slate-200">$1</em>');
+
+    // Strikethrough
+    html = html.replace(/~~(.+?)~~/g, '<del class="line-through text-slate-500">$1</del>');
+
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors">$1</a>');
+
+    // Images
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded-lg my-3 border border-slate-700" />');
+
+    // Unordered lists
+    html = html.replace(/^- (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
+    html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc list-inside space-y-1 mb-3 text-slate-300 ml-2">$&</ul>');
+
+    // Ordered lists
+    html = html.replace(/^\d+\. (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
+
+    // Paragraphs (lines that don't start with HTML tags)
+    html = html.replace(/^(?!<[a-z])(.+)$/gm, (match, content) => {
+        // Skip if it's just whitespace
+        if (!content.trim()) return match;
+        // Skip if it's already in a tag
+        if (content.startsWith('<')) return content;
+        return `<p class="text-slate-300 leading-relaxed mb-3">${content}</p>`;
+    });
+
+    // Clean up double paragraphs and empty paragraphs
+    html = html.replace(/<p[^>]*><\/p>/g, '');
+    html = html.replace(/\n\n+/g, '\n');
+
+    return html.trim();
+}
+
