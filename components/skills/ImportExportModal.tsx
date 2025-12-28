@@ -120,64 +120,109 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
                     <div>
                         <button
                             onClick={() => {
+                                // Exemplo CORRETO: Array plano com SECTIONs como divisores
                                 const sampleRoadmap: SkillRoadmapItem[] = [
                                     {
-                                        id: '1',
-                                        title: 'Fase 1: Fundamentos (Seção)',
+                                        id: 'section-fundamentos',
+                                        title: '📚 Fase 1: Fundamentos',
                                         isCompleted: false,
-                                        type: 'SECTION',
+                                        type: 'SECTION'
+                                    },
+                                    {
+                                        id: 'task-setup',
+                                        title: 'Setup e Configuração',
+                                        isCompleted: false,
+                                        type: 'TASK',
                                         subTasks: [
                                             {
-                                                id: '1-1',
-                                                title: 'Tarefa Principal',
-                                                isCompleted: false,
-                                                type: 'TASK',
-                                                subTasks: [
-                                                    {
-                                                        id: '1-1-1',
-                                                        title: 'Subtarefa Detalhada',
-                                                        isCompleted: false,
-                                                        type: 'TASK'
-                                                    }
-                                                ]
+                                                id: 'sub-install',
+                                                title: 'Instalar ferramentas necessárias',
+                                                isCompleted: false
                                             },
                                             {
-                                                id: '1-2',
-                                                title: 'Leitura de Documentação',
-                                                isCompleted: true,
-                                                type: 'TASK'
+                                                id: 'sub-config',
+                                                title: 'Configurar ambiente',
+                                                isCompleted: true
                                             }
                                         ]
                                     },
                                     {
-                                        id: '2',
-                                        title: 'Fase 2: Prática Avançada (Seção)',
+                                        id: 'task-teoria',
+                                        title: 'Estudar Conceitos Básicos',
                                         isCompleted: false,
-                                        type: 'SECTION',
+                                        type: 'TASK'
+                                    },
+                                    {
+                                        id: 'section-pratica',
+                                        title: '💻 Fase 2: Prática',
+                                        isCompleted: false,
+                                        type: 'SECTION'
+                                    },
+                                    {
+                                        id: 'task-projeto',
+                                        title: 'Criar Projeto Prático',
+                                        isCompleted: false,
+                                        type: 'TASK',
                                         subTasks: [
                                             {
-                                                id: '2-1',
-                                                title: 'Projeto Prático',
-                                                isCompleted: false,
-                                                type: 'TASK'
+                                                id: 'sub-backend',
+                                                title: 'Desenvolver Backend',
+                                                isCompleted: false
+                                            },
+                                            {
+                                                id: 'sub-frontend',
+                                                title: 'Desenvolver Frontend',
+                                                isCompleted: false
                                             }
                                         ]
                                     }
                                 ];
-                                const data = JSON.stringify(sampleRoadmap, null, 2);
-                                const blob = new Blob([data], { type: 'application/json' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = 'roadmap_exemplo.json';
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
+
+                                // Baixar JSON exemplo
+                                const jsonData = JSON.stringify(sampleRoadmap, null, 2);
+                                const jsonBlob = new Blob([jsonData], { type: 'application/json' });
+                                const jsonUrl = URL.createObjectURL(jsonBlob);
+                                const jsonLink = document.createElement('a');
+                                jsonLink.href = jsonUrl;
+                                jsonLink.download = 'roadmap_exemplo.json';
+                                document.body.appendChild(jsonLink);
+                                jsonLink.click();
+                                document.body.removeChild(jsonLink);
+                                URL.revokeObjectURL(jsonUrl);
+
+                                // Baixar guia AI (Markdown)
+                                setTimeout(() => {
+                                    fetch('/ROADMAP_AI_GUIDE.md')
+                                        .then(res => res.text())
+                                        .then(content => {
+                                            const mdBlob = new Blob([content], { type: 'text/markdown' });
+                                            const mdUrl = URL.createObjectURL(mdBlob);
+                                            const mdLink = document.createElement('a');
+                                            mdLink.href = mdUrl;
+                                            mdLink.download = 'ROADMAP_AI_GUIDE.md';
+                                            document.body.appendChild(mdLink);
+                                            mdLink.click();
+                                            document.body.removeChild(mdLink);
+                                            URL.revokeObjectURL(mdUrl);
+                                        })
+                                        .catch(() => {
+                                            // Fallback: criar guia inline caso fetch falhe
+                                            const guideContent = `# 📋 Guia Rápido para Criar Roadmaps\n\n## Estrutura Correta\n\n1. Array plano no nível raiz\n2. SECTION = divisor/cabeçalho (SEM subTasks)\n3. TASK = tarefa (pode ter subTasks)\n\nExemplo:\n[\n  { "type": "SECTION", "title": "Fundamentos", ... },\n  { "type": "TASK", "title": "Tarefa 1", "subTasks": [...] },\n  { "type": "SECTION", "title": "Avançado", ... },\n  { "type": "TASK", "title": "Tarefa 2", ... }\n]\n\nVeja ROADMAP_AI_GUIDE.md completo no repositório para detalhes.`;
+                                            const mdBlob = new Blob([guideContent], { type: 'text/markdown' });
+                                            const mdUrl = URL.createObjectURL(mdBlob);
+                                            const mdLink = document.createElement('a');
+                                            mdLink.href = mdUrl;
+                                            mdLink.download = 'ROADMAP_AI_GUIDE.md';
+                                            document.body.appendChild(mdLink);
+                                            mdLink.click();
+                                            document.body.removeChild(mdLink);
+                                            URL.revokeObjectURL(mdUrl);
+                                        });
+                                }, 500);
                             }}
                             className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs py-2 rounded-lg transition-colors border border-slate-700"
                         >
-                            <Download size={14} /> Baixar Exemplo (Template)
+                            <Download size={14} /> Baixar Exemplo + Guia para IAs
                         </button>
                     </div>
 
