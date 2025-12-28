@@ -77,3 +77,13 @@ export interface WorkData {
     studySchedules?: DailyStudySchedule[];
     lastUpdated: string;
 }
+
+// --- WEEKLY GOALS SYSTEM ---
+
+/** Registro de meta semanal */
+export interface WeeklyGoalEntry {
+    weekKey: string;       // ISO week: "2024-W52"
+    goal: number;          // Meta (itens/dia)
+    createdAt: number;     // Timestamp de criação
+    updatedAt: number;     // Timestamp de última alteração
+}

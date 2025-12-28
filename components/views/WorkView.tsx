@@ -9,6 +9,7 @@ import { AnalysisGrid } from './work/components/AnalysisGrid';
 
 // Hooks
 import { useWorkMetrics } from './work/hooks/useWorkMetrics';
+import { useWeeklyGoal } from './work/hooks/useWeeklyGoal';
 
 // Lazy load heavy modal
 const MetTargetModal = lazy(() => import('./work/MetTargetModal'));
@@ -59,8 +60,10 @@ const WorkViewSkeleton: React.FC = () => (
 // --- MAIN VIEW COMPONENT ---
 
 const WorkView: React.FC = () => {
+  // Weekly goal hook (replaces individual goal)
+  const { currentGoal, weekLabel, updateCurrentWeekGoal } = useWeeklyGoal();
+
   // Atomic selectors for primitives (don't cause re-render on other changes)
-  const goal = useWorkStore((s) => s.goal);
   const currentCount = useWorkStore((s) => s.currentCount);
   const preBreakCount = useWorkStore((s) => s.preBreakCount);
   const isLoading = useWorkStore((s) => s.isLoading);
@@ -83,7 +86,6 @@ const WorkView: React.FC = () => {
   })));
 
   // Actions are stable references - they don't cause re-renders
-  const setGoal = useWorkStore((s) => s.setGoal);
   const setCurrentCount = useWorkStore((s) => s.setCurrentCount);
   const setPreBreakCount = useWorkStore((s) => s.setPreBreakCount);
   const setStartTime = useWorkStore((s) => s.setStartTime);
@@ -100,7 +102,7 @@ const WorkView: React.FC = () => {
   const [isMetTargetModalOpen, setIsMetTargetModalOpen] = useState(false);
 
   const stats = useWorkMetrics({
-    goal,
+    goal: currentGoal,
     startTime: timeConfig.startTime,
     endTime: timeConfig.endTime,
     breakTime: timeConfig.breakTime,
@@ -139,16 +141,17 @@ const WorkView: React.FC = () => {
     <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-10">
 
       <ConfigurationHeader
-        goal={goal} setGoal={setGoal}
+        goal={currentGoal} setGoal={updateCurrentWeekGoal}
         startTime={timeConfig.startTime} setStartTime={setStartTime}
         endTime={timeConfig.endTime} setEndTime={setEndTime}
         breakTime={timeConfig.breakTime} setBreakTime={setBreakTime}
         status={stats.status}
+        weekLabel={weekLabel}
       />
 
       <MainTracker
         currentCount={currentCount}
-        goal={goal}
+        goal={currentGoal}
         progressPercent={stats.progressPercent}
         onUpdate={setCurrentCount}
         status={stats.status}

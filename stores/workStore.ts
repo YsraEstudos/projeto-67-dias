@@ -6,6 +6,7 @@
  * - GoalsSlice: Work goals configuration
  * - SchedulerSlice: Study subjects and schedules
  * - TrackingSlice: Daily tracking, time config, pace mode
+ * - WeeklyGoalsSlice: Weekly goal management with inheritance
  */
 import { create, StateCreator } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -17,10 +18,12 @@ import {
     createGoalsSlice,
     createSchedulerSlice,
     createTrackingSlice,
+    createWeeklyGoalsSlice,
     type SessionsSlice,
     type GoalsSlice,
     type SchedulerSlice,
     type TrackingSlice,
+    type WeeklyGoalsSlice,
 } from './work';
 
 // Re-export types for external use
@@ -31,7 +34,10 @@ export type {
     ScheduledStudyItem,
     DailyStudySchedule,
     PaceMode,
+    WeeklyGoalEntry,
 } from './work';
+
+export { DEFAULT_WEEKLY_GOAL } from './work';
 
 const STORE_KEY = 'p67_work_store';
 
@@ -44,7 +50,7 @@ interface SyncMethods {
 }
 
 // Combined state type
-type WorkState = SessionsSlice & GoalsSlice & SchedulerSlice & TrackingSlice & SyncMethods;
+type WorkState = SessionsSlice & GoalsSlice & SchedulerSlice & TrackingSlice & WeeklyGoalsSlice & SyncMethods;
 
 // Create a wrapper that adds sync to each action
 const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
@@ -53,6 +59,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
     const goalsSlice = createGoalsSlice(set, get, store);
     const schedulerSlice = createSchedulerSlice(set, get, store);
     const trackingSlice = createTrackingSlice(set, get, store);
+    const weeklyGoalsSlice = createWeeklyGoalsSlice(set, get, store);
 
     // Helper to wrap actions with sync
     const withSync = <T extends (...args: any[]) => void>(fn: T): T => {
@@ -97,6 +104,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         currentCount: trackingSlice.currentCount,
         goal: trackingSlice.goal,
         preBreakCount: trackingSlice.preBreakCount,
+        lastActiveDate: trackingSlice.lastActiveDate,
         startTime: trackingSlice.startTime,
         endTime: trackingSlice.endTime,
         breakTime: trackingSlice.breakTime,
@@ -113,6 +121,13 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         setTimeConfig: withSync(trackingSlice.setTimeConfig),
         setPaceMode: withSync(trackingSlice.setPaceMode),
         setLoading: trackingSlice.setLoading, // Don't sync loading state
+        _checkAndResetForNewDay: trackingSlice._checkAndResetForNewDay, // Internal, no sync needed
+
+        // Weekly Goals slice - wrap mutating actions
+        weeklyGoals: weeklyGoalsSlice.weeklyGoals,
+        setWeeklyGoal: withSync(weeklyGoalsSlice.setWeeklyGoal),
+        getWeeklyGoal: weeklyGoalsSlice.getWeeklyGoal, // Read-only, no sync needed
+        getCurrentWeekGoal: weeklyGoalsSlice.getCurrentWeekGoal, // Read-only, no sync needed
 
         // Sync methods
         _initialized: false,
@@ -137,23 +152,35 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 endTime: state.endTime,
                 breakTime: state.breakTime,
                 paceMode: state.paceMode,
+                lastActiveDate: state.lastActiveDate,
+                // Weekly Goals
+                weeklyGoals: state.weeklyGoals,
             });
         },
 
         _hydrateFromFirestore: (data) => {
             if (data) {
+                // Check if day changed - reset counters if so
+                const today = new Date().toISOString().split('T')[0];
+                const savedDate = data.lastActiveDate || null;
+                const isNewDay = savedDate && savedDate !== today;
+
                 set(() => ({
                     history: data.history !== undefined ? data.history : [],
                     goals: data.goals !== undefined ? data.goals : goalsSlice.goals,
                     studySubjects: data.studySubjects !== undefined ? data.studySubjects : [],
                     studySchedules: data.studySchedules !== undefined ? data.studySchedules : [],
-                    currentCount: data.currentCount !== undefined ? data.currentCount : 0,
+                    // Reset counters if new day, otherwise use saved values
+                    currentCount: isNewDay ? 0 : (data.currentCount !== undefined ? data.currentCount : 0),
                     goal: data.goal !== undefined ? data.goal : trackingSlice.goal,
-                    preBreakCount: data.preBreakCount !== undefined ? data.preBreakCount : 0,
+                    preBreakCount: isNewDay ? 0 : (data.preBreakCount !== undefined ? data.preBreakCount : 0),
+                    lastActiveDate: today, // Always update to today
                     startTime: data.startTime !== undefined ? data.startTime : trackingSlice.startTime,
                     endTime: data.endTime !== undefined ? data.endTime : trackingSlice.endTime,
                     breakTime: data.breakTime !== undefined ? data.breakTime : trackingSlice.breakTime,
                     paceMode: data.paceMode !== undefined ? data.paceMode : trackingSlice.paceMode,
+                    // Weekly Goals
+                    weeklyGoals: data.weeklyGoals !== undefined ? data.weeklyGoals : {},
                     isLoading: false,
                     _initialized: true,
                 }));
@@ -174,10 +201,13 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 currentCount: 0,
                 goal: trackingSlice.goal,
                 preBreakCount: 0,
+                lastActiveDate: null,
                 startTime: trackingSlice.startTime,
                 endTime: trackingSlice.endTime,
                 breakTime: trackingSlice.breakTime,
                 paceMode: trackingSlice.paceMode,
+                // Weekly Goals
+                weeklyGoals: {},
                 isLoading: true,
                 _initialized: false,
             }));
