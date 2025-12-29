@@ -169,7 +169,7 @@ const App: React.FC = () => {
 
   // Read Work Data for Dashboard (Zustand)
   const workCurrentCount = useWorkStore((state) => state.currentCount);
-  const workGoal = useWorkStore((state) => state.goal);
+  const workGoal = useWorkStore((state) => state.getCurrentWeekGoal());
 
   // Read Reading Data for Dashboard (Zustand)
   const books = useReadingStore((state) => state.books);
