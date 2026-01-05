@@ -34,6 +34,8 @@ interface RoadmapSectionProps {
     onImportWithBackup?: (roadmap: SkillRoadmapItem[], backupLabel?: string) => void;
     onRollbackToBackup?: (backupId: string) => void;
     onDeleteBackup?: (backupId: string) => void;
+    // Item rename (tasks & subtasks)
+    onRenameItem?: (itemId: string, newTitle: string) => void;
 }
 
 /**
@@ -58,7 +60,9 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     skill,
     onImportWithBackup,
     onRollbackToBackup,
-    onDeleteBackup
+    onDeleteBackup,
+    // Rename
+    onRenameItem
 }) => {
 
     const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
@@ -70,6 +74,10 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     const [isAddingDivider, setIsAddingDivider] = useState(false);
     const [newDividerTitle, setNewDividerTitle] = useState('');
     const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+
+    // Inline editing state
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editingTitle, setEditingTitle] = useState('');
 
     // Context menu state for section lock/unlock
     const [contextMenu, setContextMenu] = useState<{
@@ -149,6 +157,30 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
 
     const removeItem = (itemId: string) => {
         onUpdate(roadmap.filter(r => r.id !== itemId));
+    };
+
+    // Inline edit handlers
+    const startEditing = (itemId: string, currentTitle: string) => {
+        setEditingItemId(itemId);
+        setEditingTitle(currentTitle);
+    };
+
+    const handleSaveRename = () => {
+        if (editingItemId && editingTitle.trim() && onRenameItem) {
+            onRenameItem(editingItemId, editingTitle.trim());
+        }
+        setEditingItemId(null);
+        setEditingTitle('');
+    };
+
+    const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSaveRename();
+        } else if (e.key === 'Escape') {
+            setEditingItemId(null);
+            setEditingTitle('');
+        }
     };
 
 
@@ -422,9 +454,28 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                             {item.isCompleted ? <CheckCircle2 size={20} /> : <Circle size={20} />}
                                         </button>
                                         <div className="flex-1">
-                                            <p className={`text-sm leading-relaxed ${item.isCompleted ? 'line-through text-slate-500' : 'text-slate-200'}`}>
-                                                {item.title}
-                                            </p>
+                                            {editingItemId === item.id ? (
+                                                <input
+                                                    autoFocus
+                                                    value={editingTitle}
+                                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                                    onKeyDown={handleRenameKeyDown}
+                                                    onBlur={handleSaveRename}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-white outline-none focus:border-emerald-500"
+                                                />
+                                            ) : (
+                                                <p
+                                                    onDoubleClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (onRenameItem) startEditing(item.id, item.title);
+                                                    }}
+                                                    className={`text-sm leading-relaxed cursor-text ${item.isCompleted ? 'line-through text-slate-500' : 'text-slate-200'}`}
+                                                    title="Duplo clique para editar"
+                                                >
+                                                    {item.title}
+                                                </p>
+                                            )}
                                         </div>
                                         <button onClick={() => removeItem(item.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover/item:opacity-100 transition-opacity">
                                             <X size={14} />
@@ -455,11 +506,30 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                                             ? <CheckCircle2 size={14} />
                                                             : <Circle size={14} />}
                                                     </button>
-                                                    <p className={`text-xs flex-1 ${subTask.isCompleted
-                                                        ? 'line-through text-slate-500'
-                                                        : 'text-slate-300'}`}>
-                                                        {typeof subTask === 'string' ? subTask : subTask.title}
-                                                    </p>
+                                                    {editingItemId === subTask.id ? (
+                                                        <input
+                                                            autoFocus
+                                                            value={editingTitle}
+                                                            onChange={(e) => setEditingTitle(e.target.value)}
+                                                            onKeyDown={handleRenameKeyDown}
+                                                            onBlur={handleSaveRename}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="flex-1 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-xs text-white outline-none focus:border-emerald-500"
+                                                        />
+                                                    ) : (
+                                                        <p
+                                                            onDoubleClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (onRenameItem) startEditing(subTask.id, subTask.title);
+                                                            }}
+                                                            className={`text-xs flex-1 cursor-text ${subTask.isCompleted
+                                                                ? 'line-through text-slate-500'
+                                                                : 'text-slate-300'}`}
+                                                            title="Duplo clique para editar"
+                                                        >
+                                                            {subTask.title}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

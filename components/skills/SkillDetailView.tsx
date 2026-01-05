@@ -35,6 +35,7 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
         unlockSection,
         lockSection,
         setRoadmap,
+        renameRoadmapItem,
         rollbackToBackup,
         deleteBackup
     } = useSkillsStore();
@@ -135,6 +136,8 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                     onImportWithBackup={handleImportWithBackup}
                     onRollbackToBackup={handleRollback}
                     onDeleteBackup={handleDeleteBackup}
+                    // Rename items (tasks & subtasks)
+                    onRenameItem={(itemId, newTitle) => renameRoadmapItem(skill.id, itemId, newTitle)}
                 />
             </div>
         </div>

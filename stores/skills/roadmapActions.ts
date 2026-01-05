@@ -8,6 +8,7 @@ import { normalizeRoadmap } from './roadmapValidator';
 export interface RoadmapActions {
     setRoadmap: (skillId: string, roadmap: SkillRoadmapItem[], options?: { createBackup?: boolean; backupLabel?: string }) => void;
     toggleRoadmapItem: (skillId: string, itemId: string) => void;
+    renameRoadmapItem: (skillId: string, itemId: string, newTitle: string) => void;
     setVisualRoadmap: (skillId: string, visualRoadmap: VisualRoadmap) => void;
     setRoadmapViewMode: (skillId: string, mode: RoadmapViewMode) => void;
 }
@@ -49,6 +50,33 @@ export const createRoadmapActions = (set: SkillsSet, get: SkillsGet): RoadmapAct
             };
 
             toggleItem(skill.roadmap);
+        });
+        get()._syncToFirestore();
+    },
+
+    renameRoadmapItem: (skillId, itemId, newTitle) => {
+        const trimmedTitle = newTitle.trim();
+        if (!trimmedTitle) return; // Não permite título vazio
+
+        set((state) => {
+            const skill = state.skills.find(s => s.id === skillId);
+            if (!skill) return;
+
+            // Recursive function to rename item in nested subtasks
+            const renameItem = (items: SkillRoadmapItem[]): boolean => {
+                for (const item of items) {
+                    if (item.id === itemId) {
+                        item.title = trimmedTitle;
+                        return true;
+                    }
+                    if (item.subTasks && renameItem(item.subTasks)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            renameItem(skill.roadmap);
         });
         get()._syncToFirestore();
     },
