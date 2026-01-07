@@ -171,7 +171,7 @@ export const SundayTimerWidget: React.FC<SundayTimerWidgetProps> = React.memo(({
             <div className="relative">
                 {/* Drag handle */}
                 <button
-                    className="absolute -left-2 top-1/2 -translate-y-1/2 p-1.5 bg-slate-800/90 rounded-lg text-slate-400 hover:text-white cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity z-10"
+                    className="absolute -left-2 top-1/2 -translate-y-1/2 p-1.5 bg-slate-800/90 rounded-lg text-slate-400 hover:text-white cursor-grab active:cursor-grabbing md:opacity-0 md:group-hover:opacity-100 hover:opacity-100 transition-opacity z-10"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                     title="Arrastar para mover"

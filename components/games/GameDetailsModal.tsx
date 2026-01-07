@@ -244,7 +244,7 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
                                                 </span>
                                                 <button
                                                     onClick={() => deleteMission(game.id, mission.id)}
-                                                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 transition-all"
+                                                    className="md:opacity-0 md:group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 transition-all"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>

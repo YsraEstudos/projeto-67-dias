@@ -199,7 +199,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                             >
                                 {skill.pomodorosCompleted || 0}
                                 <span className="text-3xl">🍅</span>
-                                <Edit2 size={16} className={`opacity-0 group-hover:opacity-100 transition-opacity ${variants.text}`} />
+                                <Edit2 size={16} className={`md:opacity-0 md:group-hover:opacity-100 transition-opacity ${variants.text}`} />
                             </div>
                         )}
                         <div className="text-sm text-slate-400 mt-1">
@@ -230,7 +230,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                                 title="Clique para corrigir o valor"
                             >
                                 {(skill.currentMinutes / 60).toFixed(1)}<span className="text-xl text-slate-500">h</span>
-                                <Edit2 size={16} className={`ml-2 opacity-0 group-hover:opacity-100 transition-opacity ${variants.text}`} />
+                                <Edit2 size={16} className={`ml-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity ${variants.text}`} />
                             </div>
                         )}
                         {goalEditor.isEditing ? (
@@ -256,7 +256,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                                 title="Clique para alterar a meta de horas"
                             >
                                 <span>de {(skill.goalMinutes / 60)}h meta</span>
-                                <Edit2 size={12} className={`opacity-0 group-hover:opacity-100 transition-opacity ${variants.text}`} />
+                                <Edit2 size={12} className={`md:opacity-0 md:group-hover:opacity-100 transition-opacity ${variants.text}`} />
                             </div>
                         )}
                     </>

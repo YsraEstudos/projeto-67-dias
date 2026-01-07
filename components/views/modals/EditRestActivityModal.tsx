@@ -230,7 +230,7 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                                                         <div className="text-sm text-slate-300 truncate">{link.label}</div>
                                                         <div className="text-[10px] text-slate-500 truncate">{link.url}</div>
                                                     </div>
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             onClick={() => setEditingLinkId(link.id)}
                                                             className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 rounded transition-colors"

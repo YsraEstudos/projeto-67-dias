@@ -75,8 +75,8 @@ export const TaskItem = memo(({
                 </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Actions - visible on mobile, hover on desktop */}
+            <div className="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 {!task.isArchived && (
                     <button
                         onClick={() => onEdit(task)}

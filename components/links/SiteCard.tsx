@@ -66,7 +66,7 @@ const SiteCard: React.FC<SiteCardProps> = ({
             <div className="p-4 flex items-start gap-3">
                 {/* Drag Handle */}
                 {onDragStart && (
-                    <div className="pt-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 transition-colors opacity-0 group-hover:opacity-100">
+                    <div className="pt-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 transition-colors md:opacity-0 md:group-hover:opacity-100">
                         <GripVertical size={16} />
                     </div>
                 )}

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Trophy, X } from 'lucide-react';
 import type { MetTargetSession, StudySubject, DailyStudySchedule } from '../../../stores';
+import { useHabitsStore } from '../../../stores';
 import { getWeekStart, isSameWeek } from './utils';
+import { IdleTask } from '../../../types';
 
 // Hooks
 import { useStudyScheduler } from './hooks/useStudyScheduler';
@@ -32,12 +34,19 @@ interface MetTargetModalProps {
     onUpdateSubjects: (subjects: StudySubject[]) => void;
     studySchedules: DailyStudySchedule[];
     onUpdateSchedules: (schedules: DailyStudySchedule[]) => void;
+    // Idle Tasks Props (Metas Extras)
+    selectedIdleTasks: IdleTask[];
+    onAddIdleTask: (task: Omit<IdleTask, 'id' | 'addedAt'>) => void;
+    onRemoveIdleTask: (id: string) => void;
+    onUpdateIdleTaskPoints: (id: string, points: number) => void;
 }
 
 const MetTargetModal: React.FC<MetTargetModalProps> = ({
     isOpen, onClose, history, onSaveSession,
     goals, onUpdateGoals, onDeleteSession,
-    studySubjects, onUpdateSubjects, studySchedules, onUpdateSchedules
+    studySubjects, onUpdateSubjects, studySchedules, onUpdateSchedules,
+    // Idle Tasks
+    selectedIdleTasks, onAddIdleTask, onRemoveIdleTask, onUpdateIdleTaskPoints
 }) => {
     // --- STATE ---
     const [activeTab, setActiveTab] = useState<'SESSION' | 'HISTORY' | 'SETTINGS'>('SESSION');
@@ -197,6 +206,39 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
         // Visual feedback could be added here
     }, [localGoals, onUpdateGoals]);
 
+    // Get today's date for habit completion
+    const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+    // Get habitsStore actions for completing tasks
+    const toggleTaskComplete = useHabitsStore((s) => s.toggleTaskComplete);
+    const toggleHabitCompletion = useHabitsStore((s) => s.toggleHabitCompletion);
+
+    // Handler: Complete an Idle Task
+    const handleCompleteIdleTask = useCallback((task: IdleTask) => {
+        // 1. Mark as complete in the original store
+        if (task.sourceType === 'TASK') {
+            toggleTaskComplete(task.sourceId);
+        } else if (task.sourceType === 'HABIT') {
+            toggleHabitCompletion(task.sourceId, today);
+        }
+
+        // 2. Save a session with the points from this task
+        const newSession: MetTargetSession = {
+            id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            date: new Date().toISOString(),
+            durationSeconds: 0,
+            ankiCount: 0,
+            ncmCount: 0,
+            tomorrowReady: false,
+            points: task.points,
+            comment: `Tarefa: ${task.title}`
+        };
+        onSaveSession(newSession);
+
+        // 3. Remove from idle tasks list
+        onRemoveIdleTask(task.id);
+    }, [toggleTaskComplete, toggleHabitCompletion, today, onSaveSession, onRemoveIdleTask]);
+
     // Memoized history list for expensive renders
     const reversedHistory = useMemo(() => [...history].reverse(), [history]);
     const visibleHistory = useMemo(() => reversedHistory.slice(0, visibleHistoryCount), [reversedHistory, visibleHistoryCount]);
@@ -260,6 +302,12 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
                             goals={goals}
                             isInputLocked={isInputLocked}
                             onSave={handleSaveSession}
+                            // Idle Tasks props
+                            selectedIdleTasks={selectedIdleTasks}
+                            onAddIdleTask={onAddIdleTask}
+                            onRemoveIdleTask={onRemoveIdleTask}
+                            onCompleteIdleTask={handleCompleteIdleTask}
+                            onUpdateIdleTaskPoints={onUpdateIdleTaskPoints}
                         >
                             <StudyScheduler
                                 today={scheduler.today}

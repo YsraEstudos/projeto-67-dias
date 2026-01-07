@@ -82,7 +82,7 @@ const LibraryView: React.FC<LibraryViewProps> = React.memo(({ books, folders, cu
                         onDrop={(e) => onDropOnFolder(e, folder.id)}
                         className="bg-slate-800 hover:bg-slate-750 p-4 rounded-xl border border-slate-700 cursor-pointer group hover:border-indigo-500/50 transition-all flex flex-col items-center text-center gap-3 relative animate-in zoom-in-95"
                     >
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                             <button onClick={(e) => { e.stopPropagation(); onDeleteFolder(folder.id); }} className="text-slate-600 hover:text-red-400 p-1 rounded hover:bg-slate-900"><Trash2 size={12} /></button>
                         </div>
                         <Folder size={40} className="text-indigo-400 fill-indigo-400/10 group-hover:scale-110 transition-transform" />

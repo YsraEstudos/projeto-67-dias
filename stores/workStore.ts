@@ -7,6 +7,7 @@
  * - SchedulerSlice: Study subjects and schedules
  * - TrackingSlice: Daily tracking, time config, pace mode
  * - WeeklyGoalsSlice: Weekly goal management with inheritance
+ * - IdleTasksSlice: Tasks/Habits selected for idle time (Metas Extras)
  */
 import { create, StateCreator } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -19,11 +20,13 @@ import {
     createSchedulerSlice,
     createTrackingSlice,
     createWeeklyGoalsSlice,
+    createIdleTasksSlice,
     type SessionsSlice,
     type GoalsSlice,
     type SchedulerSlice,
     type TrackingSlice,
     type WeeklyGoalsSlice,
+    type IdleTasksSlice,
 } from './work';
 
 // Re-export types for external use
@@ -37,7 +40,7 @@ export type {
     WeeklyGoalEntry,
 } from './work';
 
-export { DEFAULT_WEEKLY_GOAL } from './work';
+export { DEFAULT_WEEKLY_GOAL, DEFAULT_IDLE_TASK_POINTS } from './work';
 
 const STORE_KEY = 'p67_work_store';
 
@@ -50,7 +53,7 @@ interface SyncMethods {
 }
 
 // Combined state type
-type WorkState = SessionsSlice & GoalsSlice & SchedulerSlice & TrackingSlice & WeeklyGoalsSlice & SyncMethods;
+type WorkState = SessionsSlice & GoalsSlice & SchedulerSlice & TrackingSlice & WeeklyGoalsSlice & IdleTasksSlice & SyncMethods;
 
 // Create a wrapper that adds sync to each action
 const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
@@ -60,6 +63,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
     const schedulerSlice = createSchedulerSlice(set, get, store);
     const trackingSlice = createTrackingSlice(set, get, store);
     const weeklyGoalsSlice = createWeeklyGoalsSlice(set, get, store);
+    const idleTasksSlice = createIdleTasksSlice(set, get, store);
 
     // Helper to wrap actions with sync
     const withSync = <T extends (...args: any[]) => void>(fn: T): T => {
@@ -129,6 +133,13 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         getWeeklyGoal: weeklyGoalsSlice.getWeeklyGoal, // Read-only, no sync needed
         getCurrentWeekGoal: weeklyGoalsSlice.getCurrentWeekGoal, // Read-only, no sync needed
 
+        // Idle Tasks slice - wrap mutating actions (Metas Extras)
+        selectedIdleTasks: idleTasksSlice.selectedIdleTasks,
+        addIdleTask: withSync(idleTasksSlice.addIdleTask),
+        removeIdleTask: withSync(idleTasksSlice.removeIdleTask),
+        updateIdleTaskPoints: withSync(idleTasksSlice.updateIdleTaskPoints),
+        clearIdleTasks: withSync(idleTasksSlice.clearIdleTasks),
+
         // Sync methods
         _initialized: false,
 
@@ -155,6 +166,8 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 lastActiveDate: state.lastActiveDate,
                 // Weekly Goals
                 weeklyGoals: state.weeklyGoals,
+                // Idle Tasks (Metas Extras)
+                selectedIdleTasks: state.selectedIdleTasks,
             });
         },
 
@@ -181,6 +194,8 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                     paceMode: data.paceMode !== undefined ? data.paceMode : trackingSlice.paceMode,
                     // Weekly Goals
                     weeklyGoals: data.weeklyGoals !== undefined ? data.weeklyGoals : {},
+                    // Idle Tasks - clear on new day
+                    selectedIdleTasks: isNewDay ? [] : (data.selectedIdleTasks !== undefined ? data.selectedIdleTasks : []),
                     isLoading: false,
                     _initialized: true,
                 }));
@@ -208,6 +223,8 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 paceMode: trackingSlice.paceMode,
                 // Weekly Goals
                 weeklyGoals: {},
+                // Idle Tasks
+                selectedIdleTasks: [],
                 isLoading: true,
                 _initialized: false,
             }));

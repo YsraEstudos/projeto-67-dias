@@ -65,14 +65,14 @@ export const FolderCard: React.FC<FolderCardProps> = React.memo(({ folder, games
                     <div className="flex items-center gap-1">
                         <button
                             onClick={handleEdit}
-                            className="p-2 text-slate-600 hover:text-purple-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
+                            className="p-2 text-slate-600 hover:text-purple-400 md:opacity-0 md:group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
                             title="Editar pasta"
                         >
                             <Pencil size={16} />
                         </button>
                         <button
                             onClick={handleDelete}
-                            className="p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
+                            className="p-2 text-slate-600 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100 transition-all hover:bg-slate-800 rounded-lg"
                             title="Excluir pasta"
                         >
                             <Trash2 size={16} />

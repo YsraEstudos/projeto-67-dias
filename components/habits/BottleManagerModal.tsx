@@ -190,7 +190,7 @@ export const BottleManagerModal: React.FC<BottleManagerModalProps> = ({ isOpen, 
                                             <div className="font-medium text-white">{bottle.label}</div>
                                             <div className="text-sm text-slate-400">{bottle.amount}ml</div>
                                         </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => startEditing(bottle)}
                                                 className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 rounded-lg transition-colors"

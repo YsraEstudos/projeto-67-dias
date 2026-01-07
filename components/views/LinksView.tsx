@@ -444,7 +444,7 @@ const LinksView: React.FC = () => {
                            {!cat.isDefault && (
                               <button
                                  onClick={(e) => { e.stopPropagation(); setCategoryMenuOpen(categoryMenuOpen === cat.id ? null : cat.id); }}
-                                 className="absolute -top-1 -right-1 p-1 bg-slate-700 rounded-full opacity-0 group-hover:opacity-100 hover:bg-slate-600 transition-opacity"
+                                 className="absolute -top-1 -right-1 p-1 bg-slate-700 rounded-full md:opacity-0 md:group-hover:opacity-100 hover:bg-slate-600 transition-opacity"
                                  title="Opções"
                               >
                                  <MoreVertical size={12} />

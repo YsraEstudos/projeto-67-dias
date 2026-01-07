@@ -64,7 +64,7 @@ const FolderCard: React.FC<FolderCardProps> = ({
             <div className={`p-3 flex items-center gap-3 ${isExpanded ? 'bg-slate-800/40' : ''}`}>
                 {/* Drag Handle */}
                 {onDragStart && (
-                    <div className="cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 transition-colors opacity-0 group-hover:opacity-100">
+                    <div className="cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 transition-colors md:opacity-0 md:group-hover:opacity-100">
                         <GripVertical size={14} />
                     </div>
                 )}

@@ -83,14 +83,14 @@ const RestActivityItem: React.FC<RestActivityItemProps> = React.memo(({
             {/* Actions */}
             <button
                 onClick={() => onEdit(activity)}
-                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-cyan-500/10 text-slate-600 hover:text-cyan-400 rounded-lg transition-all duration-200"
+                className="md:opacity-0 md:group-hover:opacity-100 p-2 hover:bg-cyan-500/10 text-slate-600 hover:text-cyan-400 rounded-lg transition-all duration-200"
                 title="Editar"
             >
                 <Pencil size={18} />
             </button>
             <button
                 onClick={() => onDelete(activity.id)}
-                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded-lg transition-all duration-200"
+                className="md:opacity-0 md:group-hover:opacity-100 p-2 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded-lg transition-all duration-200"
                 title="Remover"
             >
                 <Trash2 size={18} />

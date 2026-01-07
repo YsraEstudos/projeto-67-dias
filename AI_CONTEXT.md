@@ -159,6 +159,22 @@ import WorkView from './components/views/WorkView';
 // Entrada de componente
 className="animate-in fade-in duration-500"
 
+### Responsividade Mobile e Touch
+Em dispositivos móveis (touch), o pseudo-estado `:hover` não existe ou se comporta de maneira inesperada (sticky hover).
+
+**Ações secundárias (botões de editar/excluir)** que normalmente aparecem apenas no hover devem seguir este padrão para acessibilidade:
+
+```tsx
+// ❌ INCORRETO (invisível em mobile)
+className="opacity-0 group-hover:opacity-100"
+
+// ✅ CORRETO (visível em mobile, hover apenas em desktop)
+className="md:opacity-0 md:group-hover:opacity-100"
+```
+Isso garante que:
+1. Em telas < 768px (mobile), a opacidade é 100% (MD default).
+2. Em telas >= 768px (desktop), a opacidade inicial é 0 e muda com hover.
+
 // Slide de baixo
 className="animate-in slide-in-from-bottom-4 duration-500"
 
@@ -192,19 +208,20 @@ projeto-67-dias/
 │   ├── Card.tsx            # Card do dashboard com glassmorphism
 │   ├── TimerWidget.tsx     # Widget flutuante de timer
 │   │
-│   ├── views/              # Cada "página" do app (12 views)
-│   │   ├── AuthView.tsx    # Login/Registro (18KB)
-│   │   ├── WorkView.tsx    # Gerenciador de trabalho (37KB)
-│   │   ├── RestView.tsx    # Planejador de descansos (48KB)
-│   │   ├── ToolsView.tsx   # Calculadora, Timer, Conversores (33KB)
-│   │   ├── ReadingView.tsx # Biblioteca de livros (70KB - maior)
-│   │   ├── ProgressView.tsx# Sistema de revisão semanal (29KB)
-│   │   ├── HabitsView.tsx  # Hábitos + Tarefas com IA (49KB)
-│   │   ├── JournalView.tsx # Diário pessoal com IA (16KB)
-│   │   ├── SkillsView.tsx  # Skill Tree principal (4KB)
-│   │   ├── SettingsView.tsx# Configurações + Notas (13KB)
-│   │   ├── LinksView.tsx   # Links + Prompts (19KB)
-│   │   ├── SundayView.tsx  # Organização dominical (18KB)
+│   ├── views/              # Cada "página" do app
+│   │   ├── AuthView.tsx    # Login/Registro
+│   │   ├── WorkView.tsx    # Gerenciador de trabalho
+│   │   ├── RestView.tsx    # Planejador de descansos
+│   │   ├── ToolsView.tsx   # Calculadora, Timer, Conversores
+│   │   ├── ReadingView.tsx # Biblioteca de livros
+│   │   ├── ProgressView.tsx# Sistema de revisão semanal
+│   │   ├── HabitsView.tsx  # Hábitos + Tarefas
+│   │   ├── JournalView.tsx # Diário pessoal
+│   │   ├── SkillsView.tsx  # Skill Tree principal
+│   │   ├── SettingsView.tsx# Configurações + Notas
+│   │   ├── LinksView.tsx   # Links + Prompts + Sites
+│   │   ├── SundayView.tsx  # Organização dominical
+│   │   ├── GamesView.tsx   # Tracking de jogos
 │   │   └── work/           # Subcomponentes de WorkView
 │   │
 │   ├── progress/           # Sistema de Revisão Semanal (NOVO)
@@ -216,7 +233,7 @@ projeto-67-dias/
 │   │   ├── FinalJourneySummary.tsx   # Resumo final dos 67 dias
 │   │   └── SnapshotConfirmationModal.tsx # Modal de confirmação
 │   │
-│   ├── skills/             # Subcomponentes de Skills (21 arquivos)
+│   ├── skills/             # Subcomponentes de Skills + Agenda
 │   │   ├── SkillCard.tsx
 │   │   ├── SkillDetailView.tsx
 │   │   ├── SkillHeader.tsx
@@ -271,9 +288,13 @@ projeto-67-dias/
 │       └── PlaceholderView.tsx
 │
 ├── hooks/
-│   ├── useAuth.ts          # Autenticação Firebase (229 linhas)
-│   ├── useStorage.ts       # LocalStorage + Firestore híbrido (343 linhas)
-│   └── useEditableField.ts # Campo editável inline
+│   ├── useAuth.ts          # Autenticação Firebase
+│   ├── useStorage.ts       # LocalStorage + Firestore híbrido
+│   ├── useEditableField.ts # Campo editável inline
+│   ├── useDebounce.ts      # Debounce genérico
+│   ├── usePWA.ts           # Instalação PWA
+│   ├── useNavigationHistory.ts # Histórico de navegação
+│   └── useLocalStorage.ts  # LocalStorage simples
 │
 ├── services/
 │   ├── firebase.ts         # Inicialização + funções de auth
@@ -283,11 +304,11 @@ projeto-67-dias/
 ├── constants/
 │   └── dataCategories.ts   # Categorias de dados
 │
-├── tests/                  # 16 arquivos de teste
+├── tests/                  # Testes automatizados
 │   ├── setup.ts
 │   ├── App.test.tsx
-│   ├── components/         # 12 testes de componentes
-│   └── services/           # 2 testes de serviços
+│   ├── components/         # Testes de componentes
+│   └── services/           # Testes de serviços
 │
 └── public/
     ├── favicon.ico
@@ -298,193 +319,35 @@ projeto-67-dias/
 
 ## 5. Tipos e Interfaces (types.ts)
 
-### Principais Interfaces
+> **IMPORTANTE**: Consulte sempre o arquivo `types.ts` para ver os tipos mais atualizados. Esta seção lista apenas as principais interfaces para referência rápida.
+
+### ViewState (Enum de Navegação)
 
 ```typescript
-// Usuário autenticado
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl?: string;
-  isGuest: boolean;
-}
-
-// Configuração do projeto
-interface ProjectConfig {
-  startDate: string;  // ISO Date - usado para calcular "Dia X de 67"
-  userName: string;
-  isGuest: boolean;
-}
-
-// Tarefas organizacionais (HabitsView - tab TASKS)
-interface OrganizeTask {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-  isArchived: boolean;    // Auto-archive ao completar
-  category: string;
-  dueDate?: string;       // ISO Date
-  reminderDate?: string;  // ISO Date - aparece no dashboard
-  createdAt: number;
-}
-
-// Hábitos com histórico (HabitsView - tab HABITS)
-interface Habit {
-  id: string;
-  title: string;
-  category: string;
-  subHabits: SubHabit[];          // Passos para completar
-  history: Record<string, HabitLog>; // Chave = data ISO (YYYY-MM-DD)
-  createdAt: number;
-  archived: boolean;
-}
-
-interface SubHabit {
-  id: string;
-  title: string;
-}
-
-interface HabitLog {
-  completed: boolean;
-  subHabitsCompleted: string[]; // IDs dos sub-hábitos feitos
-}
-
-// Skill Tree
-interface Skill {
-  id: string;
-  name: string;
-  description?: string;
-  level: 'Iniciante' | 'Intermediário' | 'Avançado';
-  currentMinutes: number;
-  goalMinutes: number;
-  resources: SkillResource[];
-  roadmap: SkillRoadmapItem[];
-  logs: SkillLog[];
-  colorTheme: string;
-  createdAt: number;
-}
-
-interface SkillResource {
-  id: string;
-  title: string;
-  url: string;
-  type: 'VIDEO' | 'ARTICLE' | 'DOC' | 'OTHER';
-}
-
-// Roadmap item (Skill)
-interface SkillRoadmapItem {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-  type?: 'TASK' | 'SECTION'; // SECTION = divisória visual
-}
-
-interface SkillLog {
-  id: string;
-  date: string;
-  minutes: number;
-  notes?: string;
-}
-
-// Entrada de diário
-interface JournalEntry {
-  id: string;
-  date: string;
-  content: string;
-  mood: 'HAPPY' | 'NEUTRAL' | 'SAD' | 'STRESSED' | 'ENERGETIC';
-  aiAnalysis?: {
-    sentiment: string;
-    advice: string;
-    quote: string;
-  };
-  updatedAt: number;
-}
-
-// Atividade de descanso (RestView)
-interface RestActivity {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-  type: 'DAILY' | 'WEEKLY' | 'ONCE';
-  daysOfWeek?: number[]; // 0-6 para WEEKLY (0 = domingo)
-  specificDate?: string; // para ONCE
-  order: number;         // Drag and drop
-}
-
-// Links salvos
-interface LinkItem {
-  id: string;
-  title: string;
-  url: string;
-  category: 'PERSONAL' | 'GENERAL';
-  clickCount: number;
-  lastClicked?: number;
-  order: number;
-}
-
-// Notas coloridas (SettingsView > NotesTab)
-type NoteColor = 'amber' | 'rose' | 'emerald' | 'blue' | 'purple' | 'cyan' | 'pink' | 'orange';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  color: NoteColor;
-  tags: string[];
-  isPinned: boolean;
-  pinnedToTags: string[];  // IDs das tags onde a nota está fixada
-  createdAt: number;
-  updatedAt: number;
-}
-
-// Sunday Reset (SundayView)
-interface SundayTask {
-  id: string;
-  title: string;
-  subTasks: SundaySubTask[];
-  isArchived: boolean;
-  createdAt: number;
-}
-
-interface SundaySubTask {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-}
-
-// Prompts salvos (LinksView > PromptsTab)
-interface Prompt {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  images: PromptImage[];
-  variables?: PromptVariable[];  // Variáveis dinâmicas layout: {{nome|op1,op2}}
-  copyCount: number;
-  isFavorite: boolean;
-  createdAt: number;
-  updatedAt: number;
-}
-
-interface PromptVariable {
-  id: string;
-  name: string;
-  options: string[];
-  defaultIndex: number;
-}
-
-// Timer global (ToolsView)
-interface GlobalTimerState {
-  mode: 'STOPWATCH' | 'TIMER';
-  status: 'IDLE' | 'RUNNING' | 'PAUSED' | 'FINISHED';
-  startTime: number | null;
-  endTime: number | null;
-  accumulated: number;
-  totalDuration: number;
-  label?: string;
+export enum ViewState {
+  DASHBOARD, WORK, SUNDAY, LINKS, READING,
+  SKILLS, HABITS, JOURNAL, PROGRESS, REST,
+  TOOLS, SETTINGS, GAMES
 }
 ```
+
+### Tipos Principais por Módulo
+
+| Módulo | Interface Principal | Campos Chave |
+|--------|--------------------|--------------|
+| Config | `ProjectConfig` | `startDate`, `userName`, `theme` |
+| Auth | `User` | `id`, `name`, `email`, `isGuest` |
+| Skills | `Skill` | `roadmap[]`, `logs[]`, `currentMinutes` |
+| Habits | `Habit` | `history{}`, `subHabits[]`, `isNegative` |
+| Reading | `Book` | `logs[]`, `deadline`, `dailyGoal` |
+| Journal | `JournalEntry` | `mood`, `content`, `aiAnalysis` |
+| Rest | `RestActivity` | `type`, `daysOfWeek[]`, `links[]` |
+| Tasks | `OrganizeTask` | `dueDate`, `reminderDate`, `category` |
+| Notes | `Note` | `tags[]`, `color`, `isPinned` |
+| Prompts | `Prompt` | `variables[]`, `images[]`, `category` |
+| Sunday | `SundayTask` | `subTasks[]`, `isArchived` |
+| Games | `Game` | `hoursPlayed`, `platform`, `status` |
+| Links | `Site`, `SiteCategory` | `prompts[]`, `folders[]` |
 
 ---
 
@@ -721,7 +584,16 @@ export function generateFinalSummary(snapshots: WeeklySnapshot[], improvements: 
 - Contador de itens com meta diária
 - Análise de break (pré/pós almoço)
 - Calculadora de pace (10min/25min)
+- Calculadora de pace (10min/25min)
 - Modal "Bati a Meta" com timer + histórico semanal (Anki + NCM)
+- **Metas Extras (Idle Tasks)**: Seleção de tarefas "ociosas" para pontuação extra durante sessões de trabalho.
+
+**Arquivos Principais:**
+- `WorkView.tsx` - Container principal
+- `MetTargetModal.tsx` - Modal de sessão (Bati a Meta)
+- `SessionTab.tsx` - Tab da sessão ativa (Timer + Metas Extras)
+- `IdleTaskSelector.tsx` - Modal de seleção de tarefas ociosas
+- `IdleTaskItem.tsx` - Item da lista de metas extras
 
 **Storage Keys:**
 - `workview_data` - Configurações e contagem atual
@@ -842,16 +714,7 @@ const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
 - Reset seletivo do projeto (manter livros, skills, links)
 - Tab de Notas com filtro por tags
 
-**Backup Keys utilizados:**
-```typescript
-const BACKUP_KEYS = [
-  'p67_project_config', 'p67_tasks', 'p67_journal',
-  'p67_skills', 'p67_links', 'p67_books', 'p67_folders',
-  'p67_habits', 'p67_notes', 'p67_prompts', 'p67_prompt_categories',
-  'p67_sunday_tasks', 'p67_rest_activities', 'p67_rest_next_2h',
-  'p67_tool_timer', 'p67_work_met_target_history'
-];
-```
+**Storage Keys:** Cada store Zustand define sua própria `STORE_KEY` (padrão: `p67_*_store`). Consulte os arquivos em `stores/` para ver a lista atual.
 
 ### NotesTab - Sistema de Notas
 
@@ -1293,5 +1156,5 @@ export type MinhaEntidade = z.infer<typeof minhaEntidadeSchema>;
 
 ---
 
-**Última Atualização**: 2025-12-25  
-**Versão do Documento**: 4.0
+**Última Atualização**: 2026-01-07  
+**Versão do Documento**: 5.0

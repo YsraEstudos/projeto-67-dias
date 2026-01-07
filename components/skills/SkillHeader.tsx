@@ -52,7 +52,7 @@ export const SkillHeader: React.FC<SkillHeaderProps> = ({ skill, onBack, onUpdat
                         <h2 className="text-3xl font-bold text-white">{skill.name}</h2>
                         <button
                             onClick={nameEditor.startEditing}
-                            className={`p-1.5 text-slate-600 ${variants.hoverText} hover:bg-slate-800 rounded-lg transition-colors opacity-0 group-hover:opacity-100`}
+                            className={`p-1.5 text-slate-600 ${variants.hoverText} hover:bg-slate-800 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100`}
                             title="Renomear módulo"
                         >
                             <Edit2 size={18} />

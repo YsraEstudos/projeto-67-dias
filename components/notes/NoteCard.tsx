@@ -138,7 +138,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                 {/* Menu Button (3 dots) */}
                 <button
                     onClick={handleMenuClick}
-                    className={`p-1.5 rounded-lg border transition-all bg-slate-800/50 border-slate-700/50 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-white hover:border-slate-600`}
+                    className={`p-1.5 rounded-lg border transition-all bg-slate-800/50 border-slate-700/50 text-slate-500 md:opacity-0 md:group-hover:opacity-100 hover:text-white hover:border-slate-600`}
                     title="Opções"
                 >
                     <MoreVertical size={14} />
@@ -149,7 +149,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({ note, onClick, on
                     onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
                     className={`p-1.5 rounded-lg border transition-all ${note.isPinned
                         ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                        : 'bg-slate-800/50 border-slate-700/50 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:border-amber-500/30'
+                        : 'bg-slate-800/50 border-slate-700/50 text-slate-500 md:opacity-0 md:group-hover:opacity-100 hover:text-amber-400 hover:border-amber-500/30'
                         }`}
                     title={note.isPinned ? `Desafixar (fixada em: ${pinnedTagLabels.join(', ') || 'Geral'})` : 'Fixar'}
                 >

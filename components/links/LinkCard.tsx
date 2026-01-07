@@ -102,7 +102,7 @@ const LinkCard = React.memo<LinkCardProps>(({
                 </div>
                 <p className="text-xs text-slate-500 truncate flex items-center gap-1">
                     {(() => { try { return new URL(formatUrl(link.url)).hostname.replace('www.', ''); } catch { return link.url; } })()}
-                    <ExternalLink size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ExternalLink size={10} className="md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                 </p>
                 {link.clickCount > 0 && (
                     <div className="text-[10px] text-indigo-400/60 mt-1 flex items-center gap-1">
@@ -112,12 +112,12 @@ const LinkCard = React.memo<LinkCardProps>(({
             </div>
 
             {/* Drag Handle */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-slate-600 hover:text-white" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-slate-600 hover:text-white" onClick={e => e.stopPropagation()}>
                 <GripVertical size={16} />
             </div>
 
             {/* Menu Button */}
-            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+            <div className="absolute bottom-2 right-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                 <div className="flex gap-1">
                     {/* Prompt Button with Popover */}
                     {hasLinkedPrompts && (

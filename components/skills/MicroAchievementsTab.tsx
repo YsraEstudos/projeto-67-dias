@@ -298,7 +298,7 @@ export const MicroAchievementsTab: React.FC<MicroAchievementsTabProps> = ({ skil
                                     </span>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDeleteAchievement(achievement.id); }}
-                                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all p-1"
+                                        className="md:opacity-0 md:group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all p-1"
                                     >
                                         <Trash2 size={14} />
                                     </button>
@@ -438,7 +438,7 @@ export const MicroAchievementsTab: React.FC<MicroAchievementsTabProps> = ({ skil
                                     )}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDeleteContent(content.id); }}
-                                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all p-1"
+                                        className="md:opacity-0 md:group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all p-1"
                                     >
                                         <Trash2 size={14} />
                                     </button>

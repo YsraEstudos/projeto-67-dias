@@ -139,18 +139,18 @@ export const ResourcesVault: React.FC<ResourcesVaultProps> = ({
                         <div
                             key={res.id}
                             className={`flex items-center gap-3 p-3 rounded-xl border group transition-all ${isPrompt
-                                    ? isPromptMissing
-                                        ? 'bg-red-900/20 border-red-800/50'
-                                        : 'bg-purple-900/20 border-purple-800/50 hover:border-purple-600 cursor-pointer'
-                                    : 'bg-slate-900/50 border-slate-800 hover:border-slate-600'
+                                ? isPromptMissing
+                                    ? 'bg-red-900/20 border-red-800/50'
+                                    : 'bg-purple-900/20 border-purple-800/50 hover:border-purple-600 cursor-pointer'
+                                : 'bg-slate-900/50 border-slate-800 hover:border-slate-600'
                                 }`}
                             onClick={() => isPrompt && !isPromptMissing && handleResourceClick(res)}
                         >
                             <div className={`p-2 rounded-lg ${isPrompt
-                                    ? isPromptMissing
-                                        ? 'bg-red-900/30 text-red-400'
-                                        : 'bg-purple-900/30'
-                                    : 'bg-slate-800 text-slate-400'
+                                ? isPromptMissing
+                                    ? 'bg-red-900/30 text-red-400'
+                                    : 'bg-purple-900/30'
+                                : 'bg-slate-800 text-slate-400'
                                 }`}>
                                 {isPromptMissing ? <AlertCircle size={16} /> : getResourceIcon(res)}
                             </div>
@@ -177,7 +177,7 @@ export const ResourcesVault: React.FC<ResourcesVaultProps> = ({
                                     e.stopPropagation();
                                     onRemove(res.id);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-opacity"
+                                className="md:opacity-0 md:group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-opacity"
                             >
                                 <Trash2 size={14} />
                             </button>

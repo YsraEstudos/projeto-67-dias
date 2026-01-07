@@ -314,8 +314,8 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
                                     type="button"
                                     onClick={() => setIsPreviewMode(!isPreviewMode)}
                                     className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${isPreviewMode
-                                            ? 'bg-purple-600 text-white'
-                                            : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                                        ? 'bg-purple-600 text-white'
+                                        : 'text-slate-400 hover:text-white hover:bg-slate-700'
                                         }`}
                                     title={isPreviewMode ? 'Editar' : 'Visualizar'}
                                 >
@@ -426,7 +426,7 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
                                             <button
                                                 type="button"
                                                 onClick={() => removeImage(img.id)}
-                                                className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                                 aria-label="Remover imagem do prompt"
                                             >
                                                 <X size={12} />

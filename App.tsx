@@ -24,7 +24,7 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, clearAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, clearAllStores } from './stores';
 import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
@@ -227,7 +227,7 @@ const App: React.FC = () => {
 
     const unsubscribers: (() => void)[] = [];
     const hydratedStores = new Set<string>();
-    const totalStores = 20; // Incrementado para incluir p67_sunday_timer
+    const totalStores = 21; // Incrementado para incluir p67_goals_store
 
     const checkAllHydrated = (storeKey: string) => {
       // Only count first hydration per store
@@ -339,6 +339,11 @@ const App: React.FC = () => {
     unsubscribers.push(subscribeToDocument('p67_sunday_timer', (data: any) => {
       useSundayTimerStore.getState()._hydrateFromFirestore(data);
       checkAllHydrated('p67_sunday_timer');
+    }));
+
+    unsubscribers.push(subscribeToDocument('p67_goals_store', (data: any) => {
+      useGoalsStore.getState()._hydrateFromFirestore(data);
+      checkAllHydrated('p67_goals_store');
     }));
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');

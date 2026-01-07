@@ -78,7 +78,7 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                                 <span className="text-lg font-bold text-white">{metrics.habitConsistency}%</span>
                                 <button
                                     onClick={() => onEdit('habits')}
-                                    className="p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    className="p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                     title="Editar hábitos"
                                 >
                                     <Edit2 size={14} />
@@ -99,7 +99,7 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                                 <span className="text-lg font-bold text-white">{Math.round(metrics.skillMinutes / 60)}h {metrics.skillMinutes % 60}m</span>
                                 <button
                                     onClick={() => onEdit('skills')}
-                                    className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                     title="Editar skills"
                                 >
                                     <Edit2 size={14} />
@@ -120,7 +120,7 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                                 <span className="text-lg font-bold text-white">{metrics.booksProgress} págs</span>
                                 <button
                                     onClick={() => onEdit('reading')}
-                                    className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                     title="Editar leitura"
                                 >
                                     <Edit2 size={14} />
@@ -141,7 +141,7 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                                 <span className="text-lg font-bold text-white">{metrics.tasksCompleted}</span>
                                 <button
                                     onClick={() => onEdit('tasks')}
-                                    className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                     title="Editar tarefas"
                                 >
                                     <Edit2 size={14} />
@@ -162,7 +162,7 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                                 <span className="text-lg font-bold text-white">{metrics.journalEntries}</span>
                                 <button
                                     onClick={() => onEdit('journal')}
-                                    className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                    className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                     title="Editar diário"
                                 >
                                     <Edit2 size={14} />

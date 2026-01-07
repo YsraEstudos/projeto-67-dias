@@ -166,7 +166,7 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
                                         </div>
                                         <button
                                             onClick={(e) => handleDelete(log.id, e)}
-                                            className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                             title="Remover sessão"
                                         >
                                             <Trash2 size={14} className="text-slate-400 hover:text-red-400" />

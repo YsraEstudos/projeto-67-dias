@@ -140,7 +140,7 @@ export const TagManager: React.FC<TagManagerProps> = ({ tags, onSaveTag, onDelet
                                             <div className={`w-3 h-3 rounded-full ${tag.color}`} />
                                             <span className="text-sm text-slate-200">{tag.label}</span>
                                         </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => handleEdit(tag)}
                                                 className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-colors"

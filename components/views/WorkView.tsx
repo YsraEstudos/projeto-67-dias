@@ -83,6 +83,7 @@ const WorkView: React.FC = () => {
     goals: s.goals,
     studySubjects: s.studySubjects,
     studySchedules: s.studySchedules,
+    selectedIdleTasks: s.selectedIdleTasks,
   })));
 
   // Actions are stable references - they don't cause re-renders
@@ -97,6 +98,11 @@ const WorkView: React.FC = () => {
   const setGoals = useWorkStore((s) => s.setGoals);
   const setStudySubjects = useWorkStore((s) => s.setStudySubjects);
   const setSchedules = useWorkStore((s) => s.setSchedules);
+
+  // Idle Tasks actions
+  const addIdleTask = useWorkStore((s) => s.addIdleTask);
+  const removeIdleTask = useWorkStore((s) => s.removeIdleTask);
+  const updateIdleTaskPoints = useWorkStore((s) => s.updateIdleTaskPoints);
 
   // UI State only (not persisted)
   const [isMetTargetModalOpen, setIsMetTargetModalOpen] = useState(false);
@@ -174,6 +180,11 @@ const WorkView: React.FC = () => {
             onUpdateSubjects={setStudySubjects}
             studySchedules={modalData.studySchedules}
             onUpdateSchedules={setSchedules}
+            // Idle Tasks props
+            selectedIdleTasks={modalData.selectedIdleTasks}
+            onAddIdleTask={addIdleTask}
+            onRemoveIdleTask={removeIdleTask}
+            onUpdateIdleTaskPoints={updateIdleTaskPoints}
           />
         </Suspense>
       )}

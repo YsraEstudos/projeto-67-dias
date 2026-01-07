@@ -408,7 +408,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                             {isVisible && (
                                                 <button
                                                     onClick={() => removeItem(item.id)}
-                                                    className="absolute right-0 -top-2.5 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 p-1 bg-slate-800 rounded-full"
+                                                    className="absolute right-0 -top-2.5 md:opacity-0 md:group-hover:opacity-100 text-slate-600 hover:text-red-400 p-1 bg-slate-800 rounded-full"
                                                 >
                                                     <X size={12} />
                                                 </button>

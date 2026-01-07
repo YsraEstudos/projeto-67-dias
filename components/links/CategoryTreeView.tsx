@@ -104,7 +104,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
                 {!category.isDefault && (
                     <button
                         onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-                        className="p-1 opacity-0 group-hover:opacity-100 hover:bg-slate-600 rounded transition-all"
+                        className="p-1 md:opacity-0 md:group-hover:opacity-100 hover:bg-slate-600 rounded transition-all"
                     >
                         <MoreVertical size={14} />
                     </button>

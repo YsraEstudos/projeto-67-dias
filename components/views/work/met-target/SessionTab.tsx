@@ -1,6 +1,9 @@
-import React from 'react';
-import { Play, Pause, RotateCcw, ArrowDown, ArrowUp, Save } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Pause, RotateCcw, ArrowDown, ArrowUp, Save, Plus } from 'lucide-react';
 import { formatDuration } from '../utils';
+import { IdleTask } from '../../../../types';
+import { IdleTaskItem } from './IdleTaskItem';
+import { IdleTaskSelector } from './IdleTaskSelector';
 
 interface WorkGoals {
     weekly: number;
@@ -30,6 +33,12 @@ interface SessionTabProps {
     isInputLocked: boolean;
     onSave: () => void;
     children?: React.ReactNode; // For StudyScheduler
+    // Idle Tasks props (Metas Extras)
+    selectedIdleTasks: IdleTask[];
+    onAddIdleTask: (task: Omit<IdleTask, 'id' | 'addedAt'>) => void;
+    onRemoveIdleTask: (id: string) => void;
+    onCompleteIdleTask: (task: IdleTask) => void;
+    onUpdateIdleTaskPoints: (id: string, points: number) => void;
 }
 
 export const SessionTab: React.FC<SessionTabProps> = React.memo(({
@@ -37,8 +46,11 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
     initialTimerMinutes, onSetPreset, onResetTimer,
     ankiCount, setAnkiCount, ncmCount, setNcmCount,
     tomorrowReady, setTomorrowReady,
-    goals, isInputLocked, onSave, children
+    goals, isInputLocked, onSave, children,
+    // Idle Tasks
+    selectedIdleTasks, onAddIdleTask, onRemoveIdleTask, onCompleteIdleTask, onUpdateIdleTaskPoints
 }) => {
+    const [isTaskSelectorOpen, setIsTaskSelectorOpen] = useState(false);
     return (
         <div className="space-y-8">
             {/* Countdown Timer */}
@@ -155,8 +167,8 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                         onClick={() => setTomorrowReady(!tomorrowReady)}
                         disabled={isInputLocked}
                         className={`w-full py-3 px-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${tomorrowReady
-                                ? 'bg-green-600 text-white shadow-lg shadow-green-900/30'
-                                : 'bg-slate-900 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-600'
+                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/30'
+                            : 'bg-slate-900 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-600'
                             } ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         {tomorrowReady ? (
@@ -176,6 +188,48 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                     <p className="text-sm text-amber-400 font-bold">🏆 Ultra metas diárias atingidas!</p>
                 </div>
             )}
+
+            {/* Idle Tasks Section (Metas Extras) */}
+            <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs">
+                        Tarefas do Dia
+                    </h4>
+                    <button
+                        onClick={() => setIsTaskSelectorOpen(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium transition-colors"
+                    >
+                        <Plus size={14} />
+                        Adicionar
+                    </button>
+                </div>
+
+                {selectedIdleTasks.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-4">
+                        Nenhuma tarefa selecionada. Clique em "Adicionar" para escolher tarefas ou hábitos.
+                    </p>
+                ) : (
+                    <div className="space-y-2">
+                        {selectedIdleTasks.map(task => (
+                            <IdleTaskItem
+                                key={task.id}
+                                task={task}
+                                onComplete={() => onCompleteIdleTask(task)}
+                                onRemove={() => onRemoveIdleTask(task.id)}
+                                onEditPoints={(pts) => onUpdateIdleTaskPoints(task.id, pts)}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Task Selector Modal */}
+            <IdleTaskSelector
+                isOpen={isTaskSelectorOpen}
+                onClose={() => setIsTaskSelectorOpen(false)}
+                selectedTasks={selectedIdleTasks}
+                onAddTask={onAddIdleTask}
+            />
 
             {/* Save Button */}
             <button

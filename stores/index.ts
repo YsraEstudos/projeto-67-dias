@@ -77,6 +77,9 @@ export { useWeeklyAgendaStore } from './weeklyAgendaStore';
 // Tab Store - Multi-tab navigation
 export { useTabStore } from './tabStore';
 
+// Goals Store - Yearly goals with linked resources
+export { useGoalsStore } from './goalsStore';
+
 // Optimized Selectors - Pre-built hooks with useShallow for common patterns
 export {
     // Habits selectors
@@ -133,6 +136,7 @@ import { useWeeklyAgendaStore } from './weeklyAgendaStore';
 import { useTabStore } from './tabStore';
 import { useSiteFoldersStore } from './siteFoldersStore';
 import { useSundayTimerStore } from './sundayTimerStore';
+import { useGoalsStore } from './goalsStore';
 
 /**
  * Clears all stores to initial state.
@@ -162,6 +166,7 @@ export const clearAllStores = () => {
     useSiteFoldersStore.getState()._reset();
     useWeeklyAgendaStore.getState()._reset();
     useSundayTimerStore.getState()._reset();
+    useGoalsStore.getState()._reset();
     useTabStore.setState({ tabs: [], activeTabId: null }); // Reset tabs on logout
     console.log('[clearAllStores] All stores reset for user switch');
 };

@@ -21,7 +21,9 @@ O **Projeto 67 Dias** é uma aplicação web "Single Page Application" (SPA) que
 - **Zustand**: Gerenciamento de estado leve e reativo.
 - **Zod**: Validação de schemas para formulários e importação de dados.
 - **Firebase**: Autenticação e Firestore para persistência.
-- **Lazy Loading**: Otimização de performance via `React.lazy` e `Suspense`.
+- **Metas Extras:** Sistema integrado para converter tempo ocioso em produtividade, permitindo selecionar e completar tarefas/hábitos menores durante sessões de trabalho.
+- **Lazy Loading:** Otimização de performance via `React.lazy` e `Suspense`.
+- **Mobile First:** Interface touchscreen otimizada, garantindo que ações de hover sejam acessíveis em dispositivos móveis.
 
 
 ## 📂 Estrutura de Arquivos

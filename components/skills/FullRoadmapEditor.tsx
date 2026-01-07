@@ -329,7 +329,7 @@ export const FullRoadmapEditor: React.FC<FullRoadmapEditorProps> = ({
                                                 />
                                             </div>
 
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                                            <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity print:hidden">
                                                 <button
                                                     onClick={(e) => addSubTask(item.id, e)}
                                                     className="p-1.5 text-slate-500 hover:text-emerald-400 rounded hover:bg-slate-800"

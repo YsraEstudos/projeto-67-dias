@@ -304,7 +304,7 @@ const SundayTaskCard: React.FC<SundayTaskCardProps> = React.memo(({ task, onArch
                                 <span className={`text-sm flex-1 ${sub.isCompleted ? 'text-slate-500 line-through decoration-slate-600' : 'text-slate-300'}`}>
                                     {sub.title}
                                 </span>
-                                <button onClick={() => onRemoveSubTask(task.id, sub.id)} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-opacity" aria-label="Remover subtarefa">
+                                <button onClick={() => onRemoveSubTask(task.id, sub.id)} className="md:opacity-0 md:group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-opacity" aria-label="Remover subtarefa">
                                     <Trash2 size={14} />
                                 </button>
                             </div>

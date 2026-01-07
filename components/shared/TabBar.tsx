@@ -29,7 +29,7 @@ const TabItem = React.memo<{
             onClick={(e) => onCloseTab(e, tab.id)}
             className={`
                 absolute right-1 p-1 rounded-md transition-all
-                ${isActive ? 'text-slate-400 hover:text-red-400 hover:bg-slate-700' : 'opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 hover:bg-slate-800'}
+                ${isActive ? 'text-slate-400 hover:text-red-400 hover:bg-slate-700' : 'md:opacity-0 md:group-hover:opacity-100 text-slate-500 hover:text-red-400 hover:bg-slate-800'}
             `}
         >
             <X size={12} />
