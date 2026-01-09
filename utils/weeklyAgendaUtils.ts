@@ -127,7 +127,26 @@ export const calculateActivityStats = (
     type: 'skill' | 'activity'
 ): { dailyGoal: number; todayDone: number; totalDebt: number } => {
     const today = getTodayISO();
-    const dailyGoal = item.dailyGoalMinutes || 0;
+
+    // Get daily goal with fallback for skills
+    let dailyGoal = item.dailyGoalMinutes || 0;
+
+    // Fallback: for skills without dailyGoalMinutes, calculate from deadline or use default
+    if (type === 'skill' && dailyGoal === 0) {
+        const skill = item as Skill;
+        if (skill.deadline) {
+            // Calculate based on deadline and remaining minutes
+            const daysToDeadline = daysDiff(today, skill.deadline);
+            if (daysToDeadline > 0) {
+                const remaining = Math.max(0, skill.goalMinutes - skill.currentMinutes);
+                dailyGoal = Math.ceil(remaining / daysToDeadline);
+            }
+        } else if (skill.goalMinutes > 0) {
+            // Default: assume 30 days to complete if no deadline set
+            const remaining = Math.max(0, skill.goalMinutes - skill.currentMinutes);
+            dailyGoal = Math.ceil(remaining / 30);
+        }
+    }
 
     // Get today's completion
     let todayDone = 0;

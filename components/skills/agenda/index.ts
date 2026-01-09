@@ -12,4 +12,7 @@ export { ScheduledBlockCard } from './ScheduledBlockCard';
 export { SidePanel } from './SidePanel';
 export { BlockEditModal } from './BlockEditModal';
 export { EventModal } from './EventModal';
+export { DayTemplateModal } from './DayTemplateModal';
+export { BlockContextMenu } from './BlockContextMenu';
+export { DailyDedicationCard } from './DailyDedicationCard';
 

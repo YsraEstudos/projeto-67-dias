@@ -1,39 +1,27 @@
 import React, { useState } from 'react';
-import { Play, Pause, RotateCcw, ArrowDown, ArrowUp, Save, Plus } from 'lucide-react';
+import { Play, Pause, RotateCcw, Save, Plus } from 'lucide-react';
 import { formatDuration } from '../utils';
 import { IdleTask } from '../../../../types';
 import { IdleTaskItem } from './IdleTaskItem';
 import { IdleTaskSelector } from './IdleTaskSelector';
-
-interface WorkGoals {
-    weekly: number;
-    ultra: number;
-    anki: number;
-    ncm: number;
-}
+import { DailyScheduleGrid } from './DailyScheduleGrid';
 
 // Timer presets in minutes
 const TIMER_PRESETS = [5, 10, 15, 25, 30];
 
 interface SessionTabProps {
-    timeRemaining: number; // Seconds remaining in countdown
+    timeRemaining: number;
     isRunning: boolean;
     setIsRunning: (v: boolean) => void;
     timerFinished: boolean;
     initialTimerMinutes: number;
     onSetPreset: (minutes: number) => void;
     onResetTimer: () => void;
-    ankiCount: number;
-    setAnkiCount: (v: number) => void;
-    ncmCount: number;
-    setNcmCount: (v: number) => void;
-    tomorrowReady: boolean;
-    setTomorrowReady: (v: boolean) => void;
-    goals: WorkGoals;
     isInputLocked: boolean;
     onSave: () => void;
-    children?: React.ReactNode; // For StudyScheduler
-    // Idle Tasks props (Metas Extras)
+    onNavigateToSunday: () => void;
+    children?: React.ReactNode;
+    // Idle Tasks props
     selectedIdleTasks: IdleTask[];
     onAddIdleTask: (task: Omit<IdleTask, 'id' | 'addedAt'>) => void;
     onRemoveIdleTask: (id: string) => void;
@@ -44,9 +32,7 @@ interface SessionTabProps {
 export const SessionTab: React.FC<SessionTabProps> = React.memo(({
     timeRemaining, isRunning, setIsRunning, timerFinished,
     initialTimerMinutes, onSetPreset, onResetTimer,
-    ankiCount, setAnkiCount, ncmCount, setNcmCount,
-    tomorrowReady, setTomorrowReady,
-    goals, isInputLocked, onSave, children,
+    isInputLocked, onSave, onNavigateToSunday, children,
     // Idle Tasks
     selectedIdleTasks, onAddIdleTask, onRemoveIdleTask, onCompleteIdleTask, onUpdateIdleTaskPoints
 }) => {
@@ -112,76 +98,8 @@ export const SessionTab: React.FC<SessionTabProps> = React.memo(({
                 )}
             </div>
 
-            {/* Counters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Anki */}
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
-                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">Anki (Meta: {goals.anki})</h4>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setAnkiCount(Math.max(0, ankiCount - 1))}
-                            disabled={isInputLocked}
-                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <ArrowDown size={20} />
-                        </button>
-                        <span className={`text-4xl font-bold ${ankiCount >= goals.anki ? 'text-green-400' : 'text-white'}`}>{ankiCount}</span>
-                        <button
-                            onClick={() => setAnkiCount(ankiCount + 1)}
-                            disabled={isInputLocked}
-                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <ArrowUp size={20} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* NCM */}
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
-                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">NCM (Meta: {goals.ncm})</h4>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setNcmCount(Math.max(0, ncmCount - 1))}
-                            disabled={isInputLocked}
-                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <ArrowDown size={20} />
-                        </button>
-                        <span className={`text-4xl font-bold ${ncmCount >= goals.ncm ? 'text-green-400' : 'text-white'}`}>{ncmCount}</span>
-                        <button
-                            onClick={() => setNcmCount(ncmCount + 1)}
-                            disabled={isInputLocked}
-                            className={`p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <ArrowUp size={20} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Arrumar o de Amanhã */}
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col items-center">
-                    <h4 className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3 whitespace-nowrap">
-                        Arrumar o de Amanhã
-                    </h4>
-                    <button
-                        onClick={() => setTomorrowReady(!tomorrowReady)}
-                        disabled={isInputLocked}
-                        className={`w-full py-3 px-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${tomorrowReady
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/30'
-                            : 'bg-slate-900 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-600'
-                            } ${isInputLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        {tomorrowReady ? (
-                            <>✅ Preparado!</>
-                        ) : (
-                            <>📦 Confirmar</>
-                        )}
-                    </button>
-                    <p className="text-slate-500 text-xs mt-2 text-center">
-                        +5 pts ao confirmar
-                    </p>
-                </div>
-            </div>
+            {/* Schedule-Based Goals (Rotina do Dia) */}
+            <DailyScheduleGrid onNavigateToSunday={onNavigateToSunday} />
 
             {isInputLocked && (
                 <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center animate-pulse">

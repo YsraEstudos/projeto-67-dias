@@ -35,7 +35,9 @@ import { BlockEditModal } from './BlockEditModal';
 import { EventModal } from './EventModal';
 import { ActivityModal } from './ActivityModal';
 import { ScheduledBlockCard } from './ScheduledBlockCard';
-import { GripVertical, Clock, Target } from 'lucide-react';
+import { DayTemplateModal } from './DayTemplateModal';
+import { BlockContextMenu } from './BlockContextMenu';
+import { GripVertical, Clock, Target, Copy } from 'lucide-react';
 import {
     getWeekDates,
     formatMinutes,
@@ -76,6 +78,7 @@ export const WeeklyAgenda: React.FC = () => {
     const [weekOffset, setWeekOffset] = useState(0);
     const [showEventModal, setShowEventModal] = useState(false);
     const [showActivityModal, setShowActivityModal] = useState<string | boolean>(false);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
 
     // Mobile-specific state
     const isMobile = useIsMobile();
@@ -86,6 +89,7 @@ export const WeeklyAgenda: React.FC = () => {
     // Logging & Editing state
     const [selectedBlock, setSelectedBlock] = useState<ScheduledBlock | null>(null);
     const [loggingBlock, setLoggingBlock] = useState<{ block: ScheduledBlock; item: Skill | AgendaActivity; type: 'skill' | 'activity' } | null>(null);
+    const [contextMenuState, setContextMenuState] = useState<{ block: ScheduledBlock; position: { x: number; y: number } } | null>(null);
 
     // Stores
     const {
@@ -105,6 +109,15 @@ export const WeeklyAgenda: React.FC = () => {
         moveBlock,
         resizeBlock
     } = useWeeklyAgendaStore();
+
+    // Context menu handler
+    const handleBlockContextMenu = useCallback((block: ScheduledBlock, position: { x: number; y: number }) => {
+        setContextMenuState({ block, position });
+    }, []);
+
+    const handleAddNote = useCallback((blockId: string, note: string) => {
+        updateBlock(blockId, { notes: note || undefined });
+    }, [updateBlock]);
 
     // DnD Active Item State
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -473,6 +486,13 @@ export const WeeklyAgenda: React.FC = () => {
                     {/* Action buttons */}
                     <div className="flex justify-center gap-2 mt-3 md:mt-4">
                         <button
+                            onClick={() => setShowTemplateModal(true)}
+                            className="px-3 md:px-4 py-2 min-h-[44px] bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition-colors"
+                        >
+                            <Copy size={16} />
+                            <span className="hidden sm:inline">Templates</span>
+                        </button>
+                        <button
                             onClick={() => setShowActivityModal(true)}
                             className="px-3 md:px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition-colors"
                         >
@@ -581,6 +601,8 @@ export const WeeklyAgenda: React.FC = () => {
                             onBlockMove={(blockId, date, hour, minute) => moveBlock(blockId, date, hour, minute)}
                             onBlockClick={handleBlockClick}
                             onBlockDelete={deleteBlock}
+                            onBlockResize={resizeBlock}
+                            onBlockContextMenu={handleBlockContextMenu}
                             onEmptySlotClick={handleEmptySlotClick}
                             selectedDayIndex={isMobile && viewMode === 'day' ? selectedDayIndex : undefined}
                             isMobile={isMobile}
@@ -655,6 +677,31 @@ export const WeeklyAgenda: React.FC = () => {
                             : undefined
                         }
                         onClose={() => setShowActivityModal(false)}
+                    />
+                )}
+
+                {showTemplateModal && (
+                    <DayTemplateModal
+                        onClose={() => setShowTemplateModal(false)}
+                        currentDate={weekDates[selectedDayIndex] || weekDates[0]}
+                    />
+                )}
+
+                {/* Context Menu for blocks */}
+                {contextMenuState && (
+                    <BlockContextMenu
+                        block={contextMenuState.block}
+                        position={contextMenuState.position}
+                        onClose={() => setContextMenuState(null)}
+                        onAddNote={handleAddNote}
+                        onEditBlock={() => {
+                            setSelectedBlock(contextMenuState.block);
+                            setContextMenuState(null);
+                        }}
+                        onDeleteBlock={() => {
+                            deleteBlock(contextMenuState.block.id);
+                            setContextMenuState(null);
+                        }}
                     />
                 )}
 

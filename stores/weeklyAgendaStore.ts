@@ -17,7 +17,9 @@ import {
     DayOverride,
     WeeklyAgendaData,
     CalendarEvent,
-    ScheduledBlock
+    ScheduledBlock,
+    DayTemplate,
+    TemplateBlock
 } from '../types';
 import { writeToFirestore } from './firestoreSync';
 import { getTodayISO } from '../utils/dateUtils';
@@ -33,7 +35,8 @@ const initialState: WeeklyAgendaData = {
     overrides: [],
     activities: [],
     events: [],
-    scheduledBlocks: []
+    scheduledBlocks: [],
+    templates: []
 };
 
 interface WeeklyAgendaState extends WeeklyAgendaData {
@@ -70,6 +73,13 @@ interface WeeklyAgendaState extends WeeklyAgendaData {
     resizeBlock: (blockId: string, newDurationMinutes: number) => void;
     getBlocksForDate: (date: string) => ScheduledBlock[];
 
+    // Template Actions
+    templates: DayTemplate[];
+    addTemplate: (name: string, blocks: TemplateBlock[]) => string;
+    deleteTemplate: (id: string) => void;
+    applyTemplateToDate: (templateId: string, date: string) => void;
+    saveCurrentDayAsTemplate: (date: string, name: string) => string;
+
     // Internal Methods
     _syncToFirestore: () => void;
     _hydrateFromFirestore: (data: WeeklyAgendaData | null) => void;
@@ -83,6 +93,7 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()(immer((set, get)
     activities: [],
     events: [],
     scheduledBlocks: [],
+    templates: [],
     isLoading: true,
     _initialized: false,
 
@@ -320,11 +331,78 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()(immer((set, get)
         return get().scheduledBlocks.filter(b => b.date === date);
     },
 
+    // Template Actions
+    addTemplate: (name, blocks) => {
+        const id = generateId();
+        set((state) => {
+            const template: DayTemplate = {
+                id,
+                name,
+                blocks,
+                createdAt: Date.now()
+            };
+            if (!state.templates) state.templates = [];
+            state.templates.push(template);
+        });
+        get()._syncToFirestore();
+        return id;
+    },
+
+    deleteTemplate: (id) => {
+        set((state) => {
+            if (!state.templates) return;
+            const idx = state.templates.findIndex(t => t.id === id);
+            if (idx !== -1) state.templates.splice(idx, 1);
+        });
+        get()._syncToFirestore();
+    },
+
+    applyTemplateToDate: (templateId, date) => {
+        const template = get().templates?.find(t => t.id === templateId);
+        if (!template) return;
+
+        set((state) => {
+            // Remove existing blocks for this date
+            state.scheduledBlocks = state.scheduledBlocks.filter(b => b.date !== date);
+
+            // Add template blocks with new IDs and the target date
+            for (const tb of template.blocks) {
+                const newBlock: ScheduledBlock = {
+                    id: generateId(),
+                    date,
+                    startHour: tb.startHour,
+                    startMinute: tb.startMinute,
+                    durationMinutes: tb.durationMinutes,
+                    type: tb.type,
+                    referenceId: tb.referenceId,
+                    color: tb.color,
+                    notes: tb.notes
+                };
+                state.scheduledBlocks.push(newBlock);
+            }
+        });
+        get()._syncToFirestore();
+    },
+
+    saveCurrentDayAsTemplate: (date, name) => {
+        const blocksForDate = get().scheduledBlocks.filter(b => b.date === date);
+        const templateBlocks: TemplateBlock[] = blocksForDate.map(b => ({
+            startHour: b.startHour,
+            startMinute: b.startMinute,
+            durationMinutes: b.durationMinutes,
+            type: b.type,
+            referenceId: b.referenceId,
+            color: b.color,
+            notes: b.notes
+        }));
+        return get().addTemplate(name, templateBlocks);
+    },
+
     // Internal Methods
     _syncToFirestore: () => {
-        const { weeklyPlan, overrides, activities, events, scheduledBlocks, _initialized } = get();
+        const { weeklyPlan, overrides, activities, events, scheduledBlocks, templates, _initialized } = get();
         if (_initialized) {
-            const data = { weeklyPlan, overrides, activities, events, scheduledBlocks };
+            const data = { weeklyPlan, overrides, activities, events, scheduledBlocks, templates };
             if (typeof requestIdleCallback !== 'undefined') {
                 requestIdleCallback(() => writeToFirestore(STORE_KEY, data), { timeout: 2000 });
             } else {
@@ -341,6 +419,7 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()(immer((set, get)
                 state.activities = data.activities || [];
                 state.events = data.events || [];
                 state.scheduledBlocks = data.scheduledBlocks || [];
+                state.templates = data.templates || [];
                 state.isLoading = false;
                 state._initialized = true;
             });

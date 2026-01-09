@@ -3,12 +3,22 @@
  * 
  * Draggable block that appears in the calendar grid
  * Shows skill/activity/event info with time range
+ * 
+ * Features:
+ * - Drag to move
+ * - Resize via bottom handle
+ * - Context menu (right-click / long-press)
+ * - Notes indicator
  */
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, X } from 'lucide-react';
+import { GripVertical, X, MessageSquare } from 'lucide-react';
 import { ScheduledBlock } from '../../../types';
+
+// Pixels per hour for resize calculations
+const HOUR_HEIGHT = 80;
+const HOUR_HEIGHT_MOBILE = 100;
 
 // Color mapping for Tailwind classes
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = {
@@ -32,6 +42,8 @@ interface ScheduledBlockCardProps {
     style?: React.CSSProperties;
     onClick: () => void;
     onDelete: () => void;
+    onResize?: (blockId: string, newDuration: number) => void;
+    onContextMenu?: (block: ScheduledBlock, position: { x: number; y: number }) => void;
     isMobile?: boolean;
 }
 
@@ -63,6 +75,8 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
     style,
     onClick,
     onDelete,
+    onResize,
+    onContextMenu,
     isMobile = false
 }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -70,17 +84,94 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
         data: { isBlock: true, blockId: block.id }
     });
 
-    const colors = COLOR_MAP[color] || COLOR_MAP.emerald;
+    // Resize state
+    const [isResizing, setIsResizing] = useState(false);
+    const [resizeDelta, setResizeDelta] = useState(0);
+    const resizeStartRef = useRef({ y: 0, duration: 0 });
 
-    // Memoize these calculations if needed, but they are simple enough
+    // Long press state for mobile context menu
+    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const touchStartPos = useRef({ x: 0, y: 0 });
+
+    const hourHeight = isMobile ? HOUR_HEIGHT_MOBILE : HOUR_HEIGHT;
+
+    const colors = COLOR_MAP[color] || COLOR_MAP.emerald;
     const timeRange = formatTimeRange(block.startHour, block.startMinute, block.durationMinutes);
     const duration = formatDuration(block.durationMinutes);
 
-    // Only apply positioning and transform styles - touchAction critical for dnd-kit
+    // Handle resize start
+    const handleResizeStart = useCallback((e: React.PointerEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setIsResizing(true);
+        resizeStartRef.current = { y: e.clientY, duration: block.durationMinutes };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    }, [block.durationMinutes]);
+
+    // Handle resize move
+    const handleResizeMove = useCallback((e: React.PointerEvent) => {
+        if (!isResizing) return;
+        const deltaY = e.clientY - resizeStartRef.current.y;
+        // Convert pixels to minutes (snap to 15 min intervals)
+        const deltaMinutes = Math.round((deltaY / hourHeight) * 60 / 15) * 15;
+        setResizeDelta(deltaMinutes);
+    }, [isResizing, hourHeight]);
+
+    // Handle resize end
+    const handleResizeEnd = useCallback((e: React.PointerEvent) => {
+        if (!isResizing) return;
+        setIsResizing(false);
+        const newDuration = Math.max(15, resizeStartRef.current.duration + resizeDelta);
+        setResizeDelta(0);
+        if (onResize && newDuration !== block.durationMinutes) {
+            onResize(block.id, newDuration);
+        }
+    }, [isResizing, resizeDelta, onResize, block.id, block.durationMinutes]);
+
+    // Handle context menu (right-click)
+    const handleContextMenu = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu?.(block, { x: e.clientX, y: e.clientY });
+    }, [block, onContextMenu]);
+
+    // Long press handlers for mobile
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        longPressTimer.current = setTimeout(() => {
+            onContextMenu?.(block, { x: touchStartPos.current.x, y: touchStartPos.current.y });
+        }, 600); // 600ms long press
+    }, [block, onContextMenu]);
+
+    const handleTouchEnd = useCallback(() => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
+    }, []);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        // Cancel long press if finger moves too much
+        const dx = e.touches[0].clientX - touchStartPos.current.x;
+        const dy = e.touches[0].clientY - touchStartPos.current.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 10) {
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+            }
+        }
+    }, []);
+
+    // Calculate visual height including resize delta
+    const visualDuration = isResizing ? resizeStartRef.current.duration + resizeDelta : block.durationMinutes;
+    const clampedDuration = Math.max(15, visualDuration);
+
+    // Only apply positioning and transform styles
     const combinedStyle: React.CSSProperties = {
         ...style,
-        ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
-        touchAction: 'none', // Critical for dnd-kit to work on touch devices
+        ...(transform && !isResizing ? { transform: CSS.Translate.toString(transform) } : {}),
+        touchAction: 'none',
+        height: isResizing ? `${(clampedDuration / 60) * hourHeight}px` : style?.height,
     };
 
     const isCompact = block.durationMinutes <= 30;
@@ -89,19 +180,23 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
         <div
             ref={setNodeRef}
             style={combinedStyle}
-            {...attributes}
-            {...listeners}
+            {...(isResizing ? {} : { ...attributes, ...listeners })}
             className={`
                 ${colors.bg} ${colors.border} border rounded-lg 
                 cursor-grab active:cursor-grabbing transition-all overflow-hidden z-10
                 touch-action-none select-none
                 ${!isMobile ? 'hover:shadow-lg hover:scale-[1.02]' : ''}
                 ${isDragging ? 'opacity-0 shadow-2xl scale-105 z-50' : ''}
+                ${isResizing ? 'ring-2 ring-blue-500 z-50' : ''}
             `}
             onClick={(e) => {
                 e.stopPropagation();
                 onClick();
             }}
+            onContextMenu={handleContextMenu}
+            onTouchStart={onContextMenu ? handleTouchStart : undefined}
+            onTouchEnd={onContextMenu ? handleTouchEnd : undefined}
+            onTouchMove={onContextMenu ? handleTouchMove : undefined}
         >
             {/* Visual drag indicator */}
             <div
@@ -109,6 +204,13 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
             >
                 <GripVertical size={isMobile ? 18 : 14} className="text-slate-300" />
             </div>
+
+            {/* Notes indicator */}
+            {block.notes && (
+                <div className="absolute top-1 left-1 text-blue-400">
+                    <MessageSquare size={isMobile ? 14 : 10} />
+                </div>
+            )}
 
             {/* Delete button - larger touch target on mobile */}
             <button
@@ -141,8 +243,19 @@ export const ScheduledBlockCard = React.memo<ScheduledBlockCardProps>(({
                 )}
             </div>
 
-            {/* Resize handle - larger on mobile */}
-            <div className={`absolute bottom-0 left-0 right-0 ${isMobile ? 'h-4' : 'h-2'} cursor-ns-resize bg-gradient-to-t from-black/20 to-transparent`} />
+            {/* Resize handle - functional drag zone */}
+            <div
+                className={`absolute bottom-0 left-0 right-0 ${isMobile ? 'h-6' : 'h-3'} cursor-ns-resize bg-gradient-to-t from-black/30 to-transparent hover:from-blue-500/30 transition-colors`}
+                onPointerDown={onResize ? handleResizeStart : undefined}
+                onPointerMove={isResizing ? handleResizeMove : undefined}
+                onPointerUp={isResizing ? handleResizeEnd : undefined}
+                onPointerCancel={isResizing ? handleResizeEnd : undefined}
+            >
+                {/* Visual resize indicator */}
+                <div className="flex justify-center items-end h-full pb-0.5">
+                    <div className={`w-8 h-1 rounded-full ${isResizing ? 'bg-blue-400' : 'bg-slate-500/50'}`} />
+                </div>
+            </div>
         </div>
     );
 });

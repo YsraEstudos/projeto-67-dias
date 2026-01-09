@@ -29,6 +29,7 @@ interface MetTargetModalProps {
     goals: WorkGoals;
     onUpdateGoals: (goals: WorkGoals) => void;
     onDeleteSession: (id: string) => void;
+    onNavigateToSunday: () => void;
     // Study Scheduler Props
     studySubjects: StudySubject[];
     onUpdateSubjects: (subjects: StudySubject[]) => void;
@@ -43,7 +44,7 @@ interface MetTargetModalProps {
 
 const MetTargetModal: React.FC<MetTargetModalProps> = ({
     isOpen, onClose, history, onSaveSession,
-    goals, onUpdateGoals, onDeleteSession,
+    goals, onUpdateGoals, onDeleteSession, onNavigateToSunday,
     studySubjects, onUpdateSubjects, studySchedules, onUpdateSchedules,
     // Idle Tasks
     selectedIdleTasks, onAddIdleTask, onRemoveIdleTask, onUpdateIdleTaskPoints
@@ -57,10 +58,6 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
     const [isRunning, setIsRunning] = useState(false);
     const [timerFinished, setTimerFinished] = useState(false);
     const [elapsedSeconds, setElapsedSeconds] = useState(0); // Track actual time spent
-
-    const [ankiCount, setAnkiCount] = useState(0);
-    const [ncmCount, setNcmCount] = useState(0);
-    const [tomorrowReady, setTomorrowReady] = useState(false);
 
     // Local state for goals editing
     const [localGoals, setLocalGoals] = useState(goals);
@@ -162,28 +159,20 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
 
     const targetGoal = isInUltraPhase ? goals.ultra : goals.weekly;
 
-    // Check if daily goals met for locking input
-    // Goals with value 0 are considered as "no goal set" and thus always met
-    const isAnkiMet = goals.anki === 0 || ankiCount >= goals.anki;
-    const isNcmMet = goals.ncm === 0 || ncmCount >= goals.ncm;
-    // Lock only if at least one goal is set AND all set goals are met
-    const hasActiveGoals = goals.anki > 0 || goals.ncm > 0;
-    const isInputLocked = hasActiveGoals && isAnkiMet && isNcmMet;
-
     // --- HANDLERS ---
     const handleSaveSession = useCallback(() => {
-        if (elapsedSeconds === 0 && ankiCount === 0 && ncmCount === 0 && !tomorrowReady) return;
+        if (elapsedSeconds === 0) return;
 
-        // Calculate points: 1 pt per min, 2 pts per Anki/NCM, 5 pts if tomorrowReady
-        const points = Math.floor(elapsedSeconds / 60) + (ankiCount * 2) + (ncmCount * 2) + (tomorrowReady ? 5 : 0);
+        // Calculate points: 1 pt per min
+        const points = Math.floor(elapsedSeconds / 60);
 
         const newSession: MetTargetSession = {
             id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             date: new Date().toISOString(),
             durationSeconds: elapsedSeconds,
-            ankiCount: ankiCount,
-            ncmCount: ncmCount,
-            tomorrowReady: tomorrowReady,
+            ankiCount: 0,
+            ncmCount: 0,
+            tomorrowReady: false,
             points
         };
 
@@ -194,12 +183,9 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
         setElapsedSeconds(0);
         setIsRunning(false);
         setTimerFinished(false);
-        setAnkiCount(0);
-        setNcmCount(0);
-        setTomorrowReady(false);
 
         setActiveTab('HISTORY');
-    }, [elapsedSeconds, ankiCount, ncmCount, tomorrowReady, onSaveSession, initialTimerMinutes]);
+    }, [elapsedSeconds, onSaveSession, initialTimerMinutes]);
 
     const handleSaveSettings = useCallback(() => {
         onUpdateGoals(localGoals);
@@ -293,15 +279,9 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
                             initialTimerMinutes={initialTimerMinutes}
                             onSetPreset={handleSetPreset}
                             onResetTimer={handleResetTimer}
-                            ankiCount={ankiCount}
-                            setAnkiCount={setAnkiCount}
-                            ncmCount={ncmCount}
-                            setNcmCount={setNcmCount}
-                            tomorrowReady={tomorrowReady}
-                            setTomorrowReady={setTomorrowReady}
-                            goals={goals}
-                            isInputLocked={isInputLocked}
+                            isInputLocked={false}
                             onSave={handleSaveSession}
+                            onNavigateToSunday={onNavigateToSunday}
                             // Idle Tasks props
                             selectedIdleTasks={selectedIdleTasks}
                             onAddIdleTask={onAddIdleTask}

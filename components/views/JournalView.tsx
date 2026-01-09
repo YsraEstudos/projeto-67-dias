@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import {
     Book, Calendar, Plus, Trash2,
-    Smile, Meh, Frown, CloudRain, Zap, Quote, Target
+    Smile, Meh, Frown, CloudRain, Zap, Quote, Target, PenLine
 } from 'lucide-react';
 import { useJournalStore, JournalEntry } from '../../stores/journalStore';
 import { useTabStore } from '../../stores/tabStore';
@@ -11,8 +11,10 @@ import { useStreakTracking } from '../../hooks/useStreakTracking';
 
 import { Mood, MOOD_CONFIG } from '../../types';
 
-// Lazy load GoalsTab
+// Lazy load components
 const GoalsTab = React.lazy(() => import('../journal/GoalsTab'));
+const EntryTypeSelector = React.lazy(() => import('../journal/EntryTypeSelector'));
+const DrawingCanvas = React.lazy(() => import('../journal/DrawingCanvas'));
 
 // Extended entry for UI
 type UIJournalEntry = JournalEntry;
@@ -24,6 +26,7 @@ const INITIAL_ENTRIES: UIJournalEntry[] = [
         date: new Date().toISOString().split('T')[0],
         content: "Hoje foi um dia produtivo. Consegui finalizar o módulo de trabalho do projeto. Me sinto um pouco cansado, mas satisfeito com o progresso.",
         mood: 'great', // Matches Mood type
+        entryType: 'text',
         createdAt: Date.now(),
         updatedAt: Date.now()
     }
@@ -96,6 +99,13 @@ const JournalView: React.FC = () => {
     // Main tab state (journal vs goals)
     const [activeMainTab, setActiveMainTab] = useState<'journal' | 'goals'>('journal');
 
+    // Drawing mode state
+    const [showTypeSelector, setShowTypeSelector] = useState(false);
+    const [drawingMode, setDrawingMode] = useState<{ active: boolean; entryId: string | null }>({
+        active: false,
+        entryId: null
+    });
+
     const setSelectedId = (id: string | null) => {
         if (activeTabId) {
             updateTabState(activeTabId, { selectedEntryId: id });
@@ -136,17 +146,39 @@ const JournalView: React.FC = () => {
         [entries, selectedId]);
 
     // Handlers
-    const createNewEntry = () => {
+    const handleCreateTextEntry = () => {
         const newEntry: UIJournalEntry = {
             id: Date.now().toString(),
             date: new Date().toISOString().split('T')[0],
             content: '',
             mood: 'neutral',
+            entryType: 'text',
             createdAt: Date.now(),
             updatedAt: Date.now()
         };
         addEntry(newEntry);
         setSelectedId(newEntry.id);
+        setShowTypeSelector(false);
+    };
+
+    const handleCreateDrawingEntry = () => {
+        const newEntry: UIJournalEntry = {
+            id: Date.now().toString(),
+            date: new Date().toISOString().split('T')[0],
+            content: '',
+            entryType: 'drawing',
+            drawingPages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        addEntry(newEntry);
+        setShowTypeSelector(false);
+        // Open drawing canvas
+        setDrawingMode({ active: true, entryId: newEntry.id });
+    };
+
+    const handleOpenNewEntrySelector = () => {
+        setShowTypeSelector(true);
     };
 
     const handleUpdateEntry = (id: string, updates: Partial<UIJournalEntry>) => {
@@ -204,7 +236,7 @@ const JournalView: React.FC = () => {
                                 <Book size={18} className="text-purple-400" /> Diário
                             </h3>
                             <button
-                                onClick={createNewEntry}
+                                onClick={handleOpenNewEntrySelector}
                                 className="p-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors border border-violet-500/20 shadow-lg shadow-violet-500/20"
                                 title="Nova Entrada"
                             >
@@ -232,8 +264,11 @@ const JournalView: React.FC = () => {
                                             {new Date(entry.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
                                         </span>
                                     </div>
-                                    <div className="text-sm text-slate-200 font-medium truncate pr-6">
-                                        {entry.content || 'Nova entrada...'}
+                                    <div className="text-sm text-slate-200 font-medium truncate pr-6 flex items-center gap-2">
+                                        {entry.entryType === 'drawing' && <PenLine size={14} className="text-emerald-400 shrink-0" />}
+                                        {entry.entryType === 'drawing'
+                                            ? `Desenho (${entry.drawingPages?.length || 0} páginas)`
+                                            : (entry.content || 'Nova entrada...')}
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
                                         <span className="truncate max-w-[100px]">{new Date(entry.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -299,12 +334,38 @@ const JournalView: React.FC = () => {
                             </div>
                             <h3 className="text-xl font-bold text-slate-300 mb-2">Seu espaço de reflexão</h3>
                             <p className="max-w-xs text-center text-sm mb-6">Selecione uma entrada ao lado ou crie uma nova para começar a escrever.</p>
-                            <button onClick={createNewEntry} className="text-purple-400 hover:text-purple-300 font-medium flex items-center gap-2 hover:underline">
+                            <button onClick={handleOpenNewEntrySelector} className="text-purple-400 hover:text-purple-300 font-medium flex items-center gap-2 hover:underline">
                                 <Plus size={18} /> Criar nova entrada
                             </button>
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Entry Type Selector Modal */}
+            {showTypeSelector && (
+                <Suspense fallback={null}>
+                    <EntryTypeSelector
+                        onSelectText={handleCreateTextEntry}
+                        onSelectDrawing={handleCreateDrawingEntry}
+                        onClose={() => setShowTypeSelector(false)}
+                    />
+                </Suspense>
+            )}
+
+            {/* Drawing Canvas (Fullscreen) */}
+            {drawingMode.active && drawingMode.entryId && (
+                <Suspense fallback={
+                    <div className="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center">
+                        <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
+                    </div>
+                }>
+                    <DrawingCanvas
+                        entryId={drawingMode.entryId}
+                        existingPages={entries.find(e => e.id === drawingMode.entryId)?.drawingPages}
+                        onClose={() => setDrawingMode({ active: false, entryId: null })}
+                    />
+                </Suspense>
             )}
         </div>
     );

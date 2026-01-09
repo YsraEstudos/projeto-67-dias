@@ -507,6 +507,21 @@ export interface NoteFilter {
 }
 
 
+// --- JOURNAL DRAWING INTERFACES ---
+
+// Tipo de entrada do diário
+export type JournalEntryType = 'text' | 'drawing';
+
+// Página de desenho (armazenada no Firebase Storage)
+export interface DrawingPage {
+  id: string;
+  storageUrl: string;      // URL do Firebase Storage
+  storagePath: string;     // Path para delete
+  width: number;           // Largura do canvas
+  height: number;          // Altura do canvas
+  createdAt: number;
+}
+
 // --- YEARLY GOALS (Metas do Ano) ---
 
 // Prioridade da meta
@@ -849,6 +864,28 @@ export interface WeeklyAgendaData {
   activities: AgendaActivity[];      // Atividades extras (não são skills)
   events: CalendarEvent[];           // Eventos customizados
   scheduledBlocks: ScheduledBlock[]; // Blocos agendados no calendário
+  templates?: DayTemplate[];         // Templates de dias reutilizáveis
+}
+
+// --- DAY TEMPLATES (Agenda Semanal) ---
+
+// Bloco de template (sem data específica)
+export interface TemplateBlock {
+  startHour: number;
+  startMinute: number;
+  durationMinutes: number;
+  type: 'skill' | 'activity' | 'event';
+  referenceId: string;
+  color?: string;
+  notes?: string;
+}
+
+// Template de dia reutilizável
+export interface DayTemplate {
+  id: string;
+  name: string;                  // "Dia de Trabalho", "Feriado"
+  blocks: TemplateBlock[];       // Blocos do template
+  createdAt: number;
 }
 
 // --- IDLE TASKS (Tarefas para Tempo Ocioso - Metas Extras) ---
@@ -862,3 +899,27 @@ export interface IdleTask {
   points: number;                   // Pontos configuráveis (default: 5)
   addedAt: number;                  // Timestamp quando foi adicionado
 }
+
+// --- SCHEDULE BLOCKS (Metas por Horário) ---
+
+export type ScheduleBlockType = 'NCM' | 'STUDY' | 'AJEITAR';
+
+// Configuração de um bloco de horário (persistida)
+export interface ScheduleBlockConfig {
+  id: ScheduleBlockType;
+  label: string;           // "Comer + NCM", "Estudar", "Ajeitar Rápido"
+  startHour: number;       // 8, 10, 14 (configurável)
+  endHour: number;         // 10, 14, 16 (configurável)
+  icon: string;            // Emoji
+  color: string;           // amber, violet, pink
+}
+
+// Progresso de um bloco em determinada data
+export interface ScheduleBlockProgress {
+  blockId: ScheduleBlockType;
+  date: string;            // YYYY-MM-DD
+  completed: boolean;
+  count?: number;          // Para NCM: contador livre
+  completedAt?: number;    // timestamp quando foi marcado completo
+}
+

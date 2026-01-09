@@ -8,6 +8,7 @@ import React, { useMemo, useCallback } from 'react';
 import { useDroppable, DragEndEvent } from '@dnd-kit/core';
 import { ScheduledBlock, Skill, AgendaActivity, CalendarEvent } from '../../../types';
 import { ScheduledBlockCard } from './ScheduledBlockCard';
+import { DailyDedicationCard } from './DailyDedicationCard';
 
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6h to 23h
 const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -24,6 +25,8 @@ interface CalendarGridProps {
     onBlockMove: (blockId: string, newDate: string, newStartHour: number, newStartMinute: number) => void;
     onBlockClick: (block: ScheduledBlock) => void;
     onBlockDelete: (blockId: string) => void;
+    onBlockResize?: (blockId: string, newDuration: number) => void;
+    onBlockContextMenu?: (block: ScheduledBlock, position: { x: number; y: number }) => void;
     onEmptySlotClick: (date: string, hour: number) => void;
     selectedDayIndex?: number;
     isMobile?: boolean;
@@ -131,6 +134,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     onBlockMove,
     onBlockClick,
     onBlockDelete,
+    onBlockResize,
+    onBlockContextMenu,
     onEmptySlotClick,
     selectedDayIndex,
     isMobile = false,
@@ -264,7 +269,20 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                     tapToPlaceMode={tapToPlaceMode}
                                     isMobile={isMobile}
                                 />
+
                             ))}
+
+                            {/* Daily Dedication Summary */}
+                            <div className="absolute top-0 left-0 right-0 z-10 px-0.5 pt-0.5 pointer-events-none">
+                                <DailyDedicationCard
+                                    date={date}
+                                    blocks={dateBlocks}
+                                    skills={skillsMap}
+                                    activities={activitiesMap}
+                                    events={eventsMap}
+                                    compact={true}
+                                />
+                            </div>
 
                             {dateBlocks.map(block => {
                                 const { title, color } = getBlockInfo(block);
@@ -288,6 +306,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                         }}
                                         onClick={() => onBlockClick(block)}
                                         onDelete={() => onBlockDelete(block.id)}
+                                        onResize={onBlockResize}
+                                        onContextMenu={onBlockContextMenu}
                                         isMobile={isMobile}
                                     />
                                 );

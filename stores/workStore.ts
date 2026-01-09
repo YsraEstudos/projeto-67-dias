@@ -21,12 +21,14 @@ import {
     createTrackingSlice,
     createWeeklyGoalsSlice,
     createIdleTasksSlice,
+    createScheduleBlocksSlice,
     type SessionsSlice,
     type GoalsSlice,
     type SchedulerSlice,
     type TrackingSlice,
     type WeeklyGoalsSlice,
     type IdleTasksSlice,
+    type ScheduleBlocksSlice,
 } from './work';
 
 // Re-export types for external use
@@ -40,7 +42,7 @@ export type {
     WeeklyGoalEntry,
 } from './work';
 
-export { DEFAULT_WEEKLY_GOAL, DEFAULT_IDLE_TASK_POINTS } from './work';
+export { DEFAULT_WEEKLY_GOAL, DEFAULT_IDLE_TASK_POINTS, DEFAULT_SCHEDULE_BLOCKS } from './work';
 
 const STORE_KEY = 'p67_work_store';
 
@@ -53,7 +55,7 @@ interface SyncMethods {
 }
 
 // Combined state type
-type WorkState = SessionsSlice & GoalsSlice & SchedulerSlice & TrackingSlice & WeeklyGoalsSlice & IdleTasksSlice & SyncMethods;
+type WorkState = SessionsSlice & GoalsSlice & SchedulerSlice & TrackingSlice & WeeklyGoalsSlice & IdleTasksSlice & ScheduleBlocksSlice & SyncMethods;
 
 // Create a wrapper that adds sync to each action
 const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
@@ -64,6 +66,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
     const trackingSlice = createTrackingSlice(set, get, store);
     const weeklyGoalsSlice = createWeeklyGoalsSlice(set, get, store);
     const idleTasksSlice = createIdleTasksSlice(set, get, store);
+    const scheduleBlocksSlice = createScheduleBlocksSlice(set, get, store);
 
     // Helper to wrap actions with sync
     const withSync = <T extends (...args: any[]) => void>(fn: T): T => {
@@ -140,6 +143,16 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         updateIdleTaskPoints: withSync(idleTasksSlice.updateIdleTaskPoints),
         clearIdleTasks: withSync(idleTasksSlice.clearIdleTasks),
 
+        // Schedule Blocks slice - wrap mutating actions (Metas por Horário)
+        scheduleBlocks: scheduleBlocksSlice.scheduleBlocks,
+        scheduleProgress: scheduleBlocksSlice.scheduleProgress,
+        updateBlockConfig: withSync(scheduleBlocksSlice.updateBlockConfig),
+        completeBlock: withSync(scheduleBlocksSlice.completeBlock),
+        uncompleteBlock: withSync(scheduleBlocksSlice.uncompleteBlock),
+        setNcmCount: withSync(scheduleBlocksSlice.setNcmCount),
+        getTodayProgress: scheduleBlocksSlice.getTodayProgress, // Read-only
+        getActiveBlockId: scheduleBlocksSlice.getActiveBlockId, // Read-only
+
         // Sync methods
         _initialized: false,
 
@@ -168,6 +181,9 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 weeklyGoals: state.weeklyGoals,
                 // Idle Tasks (Metas Extras)
                 selectedIdleTasks: state.selectedIdleTasks,
+                // Schedule Blocks (Metas por Horário)
+                scheduleBlocks: state.scheduleBlocks,
+                scheduleProgress: state.scheduleProgress,
             });
         },
 
@@ -196,6 +212,9 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                     weeklyGoals: data.weeklyGoals !== undefined ? data.weeklyGoals : {},
                     // Idle Tasks - clear on new day
                     selectedIdleTasks: isNewDay ? [] : (data.selectedIdleTasks !== undefined ? data.selectedIdleTasks : []),
+                    // Schedule Blocks - config persists, progress filter to keep recent
+                    scheduleBlocks: data.scheduleBlocks !== undefined ? data.scheduleBlocks : scheduleBlocksSlice.scheduleBlocks,
+                    scheduleProgress: data.scheduleProgress !== undefined ? data.scheduleProgress : [],
                     isLoading: false,
                     _initialized: true,
                 }));
@@ -225,6 +244,9 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 weeklyGoals: {},
                 // Idle Tasks
                 selectedIdleTasks: [],
+                // Schedule Blocks
+                scheduleBlocks: scheduleBlocksSlice.scheduleBlocks,
+                scheduleProgress: [],
                 isLoading: true,
                 _initialized: false,
             }));

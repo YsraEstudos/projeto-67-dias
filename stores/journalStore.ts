@@ -84,6 +84,36 @@ export const useJournalStore = create<JournalState>()((set, get) => ({
         get()._syncToFirestore();
     },
 
+    // Drawing Page Actions
+    addDrawingPage: (entryId, page) => {
+        set((state) => ({
+            entries: state.entries.map(e => {
+                if (e.id !== entryId) return e;
+                const pages = e.drawingPages || [];
+                return {
+                    ...e,
+                    drawingPages: [...pages, page],
+                    updatedAt: Date.now()
+                };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
+    removeDrawingPage: (entryId, pageId) => {
+        set((state) => ({
+            entries: state.entries.map(e => {
+                if (e.id !== entryId) return e;
+                return {
+                    ...e,
+                    drawingPages: (e.drawingPages || []).filter(p => p.id !== pageId),
+                    updatedAt: Date.now()
+                };
+            })
+        }));
+        get()._syncToFirestore();
+    },
+
     getEntryByDate: (date) => get().entries.find(e => e.date === date),
 
     setLoading: (loading) => set({ isLoading: loading }),

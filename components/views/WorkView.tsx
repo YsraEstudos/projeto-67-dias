@@ -1,6 +1,7 @@
 import React, { useState, useCallback, lazy, Suspense, useMemo } from 'react';
-import { useWorkStore } from '../../stores';
+import { useWorkStore, useUIStore } from '../../stores';
 import { useShallow } from 'zustand/react/shallow';
+import { ViewState } from '../../types';
 
 // Components
 import { ConfigurationHeader } from './work/components/ConfigurationHeader';
@@ -126,6 +127,13 @@ const WorkView: React.FC = () => {
     setIsMetTargetModalOpen(true);
   }, []);
 
+  // Navigation to Sunday view
+  const setActiveView = useUIStore((s) => s.setActiveView);
+  const handleNavigateToSunday = useCallback(() => {
+    setIsMetTargetModalOpen(false);
+    setActiveView(ViewState.SUNDAY);
+  }, [setActiveView]);
+
   const handleUpdateGoals = useCallback((newGoals: { weekly: number; ultra: number; anki: number; ncm: number }) => {
     setGoals(newGoals);
   }, [setGoals]);
@@ -185,6 +193,7 @@ const WorkView: React.FC = () => {
             onAddIdleTask={addIdleTask}
             onRemoveIdleTask={removeIdleTask}
             onUpdateIdleTaskPoints={updateIdleTaskPoints}
+            onNavigateToSunday={handleNavigateToSunday}
           />
         </Suspense>
       )}
