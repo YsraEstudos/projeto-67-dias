@@ -3,14 +3,18 @@
  */
 import { create } from 'zustand';
 import { writeToFirestore } from './firestoreSync';
-import { Mood } from '../types';
+import { Mood, DrawingPage } from '../types';
 
 const STORE_KEY = 'p67_journal_store';
+
+export type JournalEntryType = 'text' | 'drawing';
 
 export interface JournalEntry {
     id: string;
     date: string;
     content: string;
+    entryType?: JournalEntryType; // Default 'text' if undefined
+    drawingPages?: DrawingPage[];
     mood?: Mood;
     tags?: string[];
     createdAt: number;
@@ -36,6 +40,10 @@ interface JournalState {
     addEntry: (entry: JournalEntry) => void;
     updateEntry: (id: string, updates: Partial<JournalEntry>) => void;
     deleteEntry: (id: string) => void;
+
+    // Drawing Actions
+    addDrawingPage: (entryId: string, page: DrawingPage) => void;
+    removeDrawingPage: (entryId: string, pageId: string) => void;
 
     // Helpers
     getEntryByDate: (date: string) => JournalEntry | undefined;

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
     Target, Plus, Check, X, Trash2, Edit2, ExternalLink, Link2,
-    ChevronDown, ChevronRight, Trophy, AlertCircle
+    ChevronDown, ChevronRight, Trophy, AlertCircle, RotateCcw, Ban
 } from 'lucide-react';
 import { useGoalsStore } from '../../stores/goalsStore';
 import { useLinks } from '../../stores/linksStore';
@@ -115,12 +115,30 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, onEdit, onDelete, onStatusCha
                 {/* Actions - visible on mobile, hover on desktop */}
                 <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     {goal.status === 'ACTIVE' && (
+                        <>
+                            <button
+                                onClick={() => onStatusChange(goal.id, 'ACHIEVED')}
+                                className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                                title="Marcar como alcançada"
+                            >
+                                <Check size={16} />
+                            </button>
+                            <button
+                                onClick={() => onStatusChange(goal.id, 'DROPPED')}
+                                className="p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors"
+                                title="Abandonar meta"
+                            >
+                                <Ban size={16} />
+                            </button>
+                        </>
+                    )}
+                    {(goal.status === 'DROPPED' || goal.status === 'ACHIEVED') && (
                         <button
-                            onClick={() => onStatusChange(goal.id, 'ACHIEVED')}
-                            className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                            title="Marcar como alcançada"
+                            onClick={() => onStatusChange(goal.id, 'ACTIVE')}
+                            className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                            title="Reativar meta"
                         >
-                            <Check size={16} />
+                            <RotateCcw size={16} />
                         </button>
                     )}
                     <button
