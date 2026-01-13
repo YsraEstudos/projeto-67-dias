@@ -143,7 +143,24 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         updateIdleTaskPoints: withSync(idleTasksSlice.updateIdleTaskPoints),
         clearIdleTasks: withSync(idleTasksSlice.clearIdleTasks),
 
-        // Schedule Blocks slice - wrap mutating actions (Metas por Horário)
+        // Time Slots slice - wrap mutating actions (Metas Extras Dinâmicas)
+        timeSlots: scheduleBlocksSlice.timeSlots,
+        availableGoals: scheduleBlocksSlice.availableGoals,
+        tasks: scheduleBlocksSlice.tasks,
+        createCustomGoal: withSync(scheduleBlocksSlice.createCustomGoal),
+        deleteCustomGoal: withSync(scheduleBlocksSlice.deleteCustomGoal),
+        updateTimeSlotGoal: withSync(scheduleBlocksSlice.updateTimeSlotGoal),
+        assignGoalToSlot: withSync(scheduleBlocksSlice.assignGoalToSlot),
+        removeTask: withSync(scheduleBlocksSlice.removeTask),
+        toggleTaskComplete: withSync(scheduleBlocksSlice.toggleTaskComplete),
+        updateTaskCount: withSync(scheduleBlocksSlice.updateTaskCount),
+        updateTaskMinutes: withSync(scheduleBlocksSlice.updateTaskMinutes),
+        updateSlotConfig: withSync(scheduleBlocksSlice.updateSlotConfig),
+        getTasksForSlot: scheduleBlocksSlice.getTasksForSlot, // Read-only
+        getGoalById: scheduleBlocksSlice.getGoalById, // Read-only
+        getActiveSlotId: scheduleBlocksSlice.getActiveSlotId, // Read-only
+        getTodayTasks: scheduleBlocksSlice.getTodayTasks, // Read-only
+        // Legacy Schedule Blocks (deprecated)
         scheduleBlocks: scheduleBlocksSlice.scheduleBlocks,
         scheduleProgress: scheduleBlocksSlice.scheduleProgress,
         updateBlockConfig: withSync(scheduleBlocksSlice.updateBlockConfig),
@@ -181,7 +198,11 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 weeklyGoals: state.weeklyGoals,
                 // Idle Tasks (Metas Extras)
                 selectedIdleTasks: state.selectedIdleTasks,
-                // Schedule Blocks (Metas por Horário)
+                // Time Slots (Metas Extras Dinâmicas)
+                timeSlots: state.timeSlots,
+                availableGoals: state.availableGoals,
+                tasks: state.tasks,
+                // Legacy Schedule Blocks
                 scheduleBlocks: state.scheduleBlocks,
                 scheduleProgress: state.scheduleProgress,
             });
@@ -212,7 +233,11 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                     weeklyGoals: data.weeklyGoals !== undefined ? data.weeklyGoals : {},
                     // Idle Tasks - clear on new day
                     selectedIdleTasks: isNewDay ? [] : (data.selectedIdleTasks !== undefined ? data.selectedIdleTasks : []),
-                    // Schedule Blocks - config persists, progress filter to keep recent
+                    // Time Slots - new system
+                    timeSlots: data.timeSlots !== undefined ? data.timeSlots : scheduleBlocksSlice.timeSlots,
+                    availableGoals: data.availableGoals !== undefined ? data.availableGoals : scheduleBlocksSlice.availableGoals,
+                    tasks: data.tasks !== undefined ? data.tasks : [],
+                    // Legacy Schedule Blocks
                     scheduleBlocks: data.scheduleBlocks !== undefined ? data.scheduleBlocks : scheduleBlocksSlice.scheduleBlocks,
                     scheduleProgress: data.scheduleProgress !== undefined ? data.scheduleProgress : [],
                     isLoading: false,
@@ -244,7 +269,11 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 weeklyGoals: {},
                 // Idle Tasks
                 selectedIdleTasks: [],
-                // Schedule Blocks
+                // Time Slots
+                timeSlots: scheduleBlocksSlice.timeSlots,
+                availableGoals: scheduleBlocksSlice.availableGoals,
+                tasks: [],
+                // Legacy Schedule Blocks
                 scheduleBlocks: scheduleBlocksSlice.scheduleBlocks,
                 scheduleProgress: [],
                 isLoading: true,

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Sync - Projeto 67 Dias</title>
+    <style>
+        body { font-family: monospace; background: #0f172a; color: #e2e8f0; padding: 20px; }
+        .box { background: #1e293b; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .success { border-left: 4px solid #22c55e; }
+        .error { border-left: 4px solid #ef4444; }
+        .warning { border-left: 4px solid #eab308; }
+        h1 { color: #38bdf8; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+        button { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin: 5px; }
+        button:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug de Sincronização</h1>
+    <p>Execute este script nos DOIS PCs para comparar os dados.</p>
+    
+    <div class="box">
+        <h3>1. Informações do Usuário</h3>
+        <div id="user-info">Carregando...</div>
+    </div>
+
+    <div class="box">
+        <h3>2. Dados do Skills Store</h3>
+        <div id="skills-info">Carregando...</div>
+    </div>
+
+    <div class="box">
+        <h3>3. Dados do Work Store</h3>
+        <div id="work-info">Carregando...</div>
+    </div>
+
+    <div class="box">
+        <h3>4. Ações</h3>
+        <button onclick="clearCache()">🗑️ Limpar Cache</button>
+        <button onclick="copyReport()">📋 Copiar Relatório</button>
+    </div>
+
+    <div class="box">
+        <h3>📋 Relatório Completo (copie e envie)</h3>
+        <pre id="report"></pre>
+    </div>
+
+    <script type="module">
+        // Import Firebase from the app
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase config (same as your app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQfrYOrcJwzuPOcsgfCCQQ8CQjD3KbfSE",
+            authDomain: "projeto-67-dias.firebaseapp.com",
+            projectId: "projeto-67-dias",
+            storageBucket: "projeto-67-dias.firebasestorage.app",
+            messagingSenderId: "626408867971",
+            appId: "1:626408867971:web:e5f31c67c1ce5bfb71f0d9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let report = {};
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                report.userId = user.uid;
+                report.email = user.email;
+                report.timestamp = new Date().toISOString();
+                report.pcName = prompt("Digite um nome para este PC (ex: PC-Casa, PC-Trabalho):", "PC-" + Date.now());
+
+                document.getElementById('user-info').innerHTML = `
+                    <div class="success">
+                        <strong>✅ Usuário logado</strong><br>
+                        <strong>User ID:</strong> ${user.uid}<br>
+                        <strong>Email:</strong> ${user.email || 'N/A'}<br>
+                        <strong>Cached UID:</strong> ${localStorage.getItem('p67_last_uid') || 'N/A'}
+                    </div>
+                `;
+
+                // Check if cached UID matches
+                const cachedUid = localStorage.getItem('p67_last_uid');
+                if (cachedUid && cachedUid !== user.uid) {
+                    document.getElementById('user-info').innerHTML += `
+                        <div class="error">
+                            <strong>⚠️ PROBLEMA: Cached UID não combina!</strong><br>
+                            Cached: ${cachedUid}<br>
+                            Current: ${user.uid}
+                        </div>
+                    `;
+                    report.uidMismatch = true;
+                }
+
+                // Fetch Skills data directly from Firestore
+                try {
+                    const skillsDoc = await getDoc(doc(db, 'users', user.uid, 'data', 'p67_skills_store'));
+                    if (skillsDoc.exists()) {
+                        const data = skillsDoc.data();
+                        const skills = data.value?.skills || [];
+                        report.skillsCount = skills.length;
+                        report.skillsUpdatedAt = data.updatedAt;
+                        report.skillsNames = skills.map(s => s.name);
+
+                        document.getElementById('skills-info').innerHTML = `
+                            <div class="success">
+                                <strong>✅ Dados encontrados</strong><br>
+                                <strong>Total skills:</strong> ${skills.length}<br>
+                                <strong>Última atualização:</strong> ${new Date(data.updatedAt).toLocaleString()}<br>
+                                <strong>Skills:</strong> ${skills.map(s => s.name).join(', ') || 'Nenhuma'}
+                            </div>
+                        `;
+                    } else {
+                        report.skillsCount = 0;
+                        document.getElementById('skills-info').innerHTML = `
+                            <div class="warning">
+                                <strong>⚠️ Documento não existe no Firestore</strong>
+                            </div>
+                        `;
+                    }
+                } catch (err) {
+                    report.skillsError = err.message;
+                    document.getElementById('skills-info').innerHTML = `
+                        <div class="error">
+                            <strong>❌ Erro:</strong> ${err.message}
+                        </div>
+                    `;
+                }
+
+                // Fetch Work data directly from Firestore
+                try {
+                    const workDoc = await getDoc(doc(db, 'users', user.uid, 'data', 'p67_work_store'));
+                    if (workDoc.exists()) {
+                        const data = workDoc.data();
+                        const workData = data.value || {};
+                        report.workCurrentCount = workData.currentCount;
+                        report.workUpdatedAt = data.updatedAt;
+
+                        document.getElementById('work-info').innerHTML = `
+                            <div class="success">
+                                <strong>✅ Dados encontrados</strong><br>
+                                <strong>Current Count:</strong> ${workData.currentCount || 0}<br>
+                                <strong>Pre-break Count:</strong> ${workData.preBreakCount || 0}<br>
+                                <strong>Última atualização:</strong> ${new Date(data.updatedAt).toLocaleString()}
+                            </div>
+                        `;
+                    } else {
+                        report.workCurrentCount = 0;
+                        document.getElementById('work-info').innerHTML = `
+                            <div class="warning">
+                                <strong>⚠️ Documento não existe no Firestore</strong>
+                            </div>
+                        `;
+                    }
+                } catch (err) {
+                    report.workError = err.message;
+                    document.getElementById('work-info').innerHTML = `
+                        <div class="error">
+                            <strong>❌ Erro:</strong> ${err.message}
+                        </div>
+                    `;
+                }
+
+                // Show full report
+                document.getElementById('report').textContent = JSON.stringify(report, null, 2);
+            } else {
+                document.getElementById('user-info').innerHTML = `
+                    <div class="error">
+                        <strong>❌ Não logado</strong><br>
+                        Faça login primeiro no app principal.
+                    </div>
+                `;
+            }
+        });
+
+        window.clearCache = async function() {
+            if (confirm('Isso vai limpar o cache do Firestore. Continuar?')) {
+                const dbs = await indexedDB.databases();
+                for (const db of dbs) {
+                    if (db.name?.startsWith('firestore/')) {
+                        indexedDB.deleteDatabase(db.name);
+                        console.log('Deleted:', db.name);
+                    }
+                }
+                alert('Cache limpo! A página vai recarregar.');
+                location.reload();
+            }
+        };
+
+        window.copyReport = function() {
+            navigator.clipboard.writeText(document.getElementById('report').textContent);
+            alert('Relatório copiado!');
+        };
+    </script>
+</body>
+</html>

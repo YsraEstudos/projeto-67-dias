@@ -10,7 +10,6 @@ import { useStudyScheduler } from './hooks/useStudyScheduler';
 
 // Components
 import { SessionTab } from './met-target/SessionTab';
-import { HistoryTab } from './met-target/HistoryTab';
 import { SettingsTab } from './met-target/SettingsTab';
 import { StudyScheduler } from './met-target/StudyScheduler';
 
@@ -50,7 +49,7 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
     selectedIdleTasks, onAddIdleTask, onRemoveIdleTask, onUpdateIdleTaskPoints
 }) => {
     // --- STATE ---
-    const [activeTab, setActiveTab] = useState<'SESSION' | 'HISTORY' | 'SETTINGS'>('SESSION');
+    const [activeTab, setActiveTab] = useState<'SESSION' | 'SETTINGS'>('SESSION');
 
     // Countdown Timer State
     const [initialTimerMinutes, setInitialTimerMinutes] = useState(10); // Default 10 minutes
@@ -62,8 +61,6 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
     // Local state for goals editing
     const [localGoals, setLocalGoals] = useState(goals);
 
-    // Pagination for history
-    const [visibleHistoryCount, setVisibleHistoryCount] = useState(20);
 
     // Use Custom Hook for Study Scheduler Logic
     const scheduler = useStudyScheduler({
@@ -184,7 +181,7 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
         setIsRunning(false);
         setTimerFinished(false);
 
-        setActiveTab('HISTORY');
+        setActiveTab('SETTINGS');
     }, [elapsedSeconds, onSaveSession, initialTimerMinutes]);
 
     const handleSaveSettings = useCallback(() => {
@@ -225,9 +222,6 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
         onRemoveIdleTask(task.id);
     }, [toggleTaskComplete, toggleHabitCompletion, today, onSaveSession, onRemoveIdleTask]);
 
-    // Memoized history list for expensive renders
-    const reversedHistory = useMemo(() => [...history].reverse(), [history]);
-    const visibleHistory = useMemo(() => reversedHistory.slice(0, visibleHistoryCount), [reversedHistory, visibleHistoryCount]);
 
     if (!isOpen) return null;
 
@@ -252,7 +246,6 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
                 <div className="flex p-2 bg-slate-950/50 justify-center gap-2">
                     {[
                         { id: 'SESSION', label: 'Sessão Atual' },
-                        { id: 'HISTORY', label: 'Histórico' },
                         { id: 'SETTINGS', label: 'Configurações' }
                     ].map(tab => (
                         <button
@@ -304,23 +297,6 @@ const MetTargetModal: React.FC<MetTargetModalProps> = ({
                         </SessionTab>
                     )}
 
-                    {activeTab === 'HISTORY' && (
-                        <HistoryTab
-                            history={history}
-                            visibleHistory={visibleHistory}
-                            visibleHistoryCount={visibleHistoryCount}
-                            setVisibleHistoryCount={setVisibleHistoryCount}
-                            reversedHistoryLength={reversedHistory.length}
-                            onDeleteSession={onDeleteSession}
-                            weeklyPoints={weeklyPoints}
-                            targetGoal={targetGoal}
-                            weeklyProgressPercent={weeklyProgressPercent}
-                            isInUltraPhase={isInUltraPhase}
-                            goals={goals}
-                            hasMetWeeklyGoal={hasMetWeeklyGoal}
-                            hasMetUltraGoal={hasMetUltraGoal}
-                        />
-                    )}
 
                     {activeTab === 'SETTINGS' && (
                         <SettingsTab

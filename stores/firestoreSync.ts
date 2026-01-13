@@ -22,9 +22,13 @@ type PendingWrite = {
 
 const writeTimeouts = new Map<string, PendingWrite>();
 
-// Increased from 300ms to 1500ms to reduce Firestore writes significantly
+// Increased from 1500ms to 3000ms to reduce Firestore writes significantly
 // This prevents excessive billing from rapid user interactions
-const WRITE_DEBOUNCE_MS = 1500;
+const WRITE_DEBOUNCE_MS = 3000;
+
+// Track last written data per collection to avoid duplicate writes
+// Uses JSON hash comparison to skip writes when data hasn't changed
+const lastWrittenData = new Map<string, string>();
 
 // Reduced debounce for realtime stores (timers) that need instant sync across devices
 // 200ms is fast enough for realtime UX while still preventing excessive writes
@@ -103,6 +107,16 @@ export const getCurrentUserId = (): string | null => {
 const performWrite = async (payload: PendingWrite['payload']) => {
     // Note: pendingWriteCount already incremented in writeToFirestore
 
+    // Dirty check: skip write if data hasn't changed since last write
+    const dataHash = JSON.stringify(payload.data);
+    const lastHash = lastWrittenData.get(payload.collectionKey);
+    if (lastHash === dataHash) {
+        // Data is identical to last write - skip to save quota
+        pendingWriteCount--;
+        notifyPendingListeners();
+        return;
+    }
+
     // Daily quota check - prevents exceeding 20k operations/day
     if (isQuotaExceeded()) {
         console.warn('[Firestore] Daily quota exceeded (20k ops). Write blocked.');
@@ -137,6 +151,8 @@ const performWrite = async (payload: PendingWrite['payload']) => {
         // Track successful write for quota monitoring
         incrementWrites();
         notifyQuotaListeners();
+        // Update last written data hash for dirty checking
+        lastWrittenData.set(collectionKey, dataHash);
     } catch (error) {
         console.warn(`[Firestore] Write for ${payload.collectionKey} will be retried when online:`, error);
     } finally {
@@ -249,6 +265,7 @@ if (typeof window !== 'undefined') {
 export const __resetForTesting = () => {
     writeTimeouts.forEach(({ timeout }) => clearTimeout(timeout));
     writeTimeouts.clear();
+    lastWrittenData.clear();
     pendingWriteCount = 0;
     pendingWriteListeners.length = 0;
 };

@@ -7,7 +7,7 @@ export { createSchedulerSlice, type SchedulerSlice, type StudySubject, type Sche
 export { createTrackingSlice, type TrackingSlice, type PaceMode } from './trackingSlice';
 export { createWeeklyGoalsSlice, type WeeklyGoalsSlice, type WeeklyGoalEntry, DEFAULT_WEEKLY_GOAL } from './weeklyGoalsSlice';
 export { createIdleTasksSlice, type IdleTasksSlice, DEFAULT_IDLE_TASK_POINTS } from './idleTasksSlice';
-export { createScheduleBlocksSlice, type ScheduleBlocksSlice, DEFAULT_SCHEDULE_BLOCKS } from './scheduleBlocksSlice';
+export { createScheduleBlocksSlice, createTimeSlotsSlice, type ScheduleBlocksSlice, type TimeSlotsSlice, DEFAULT_SCHEDULE_BLOCKS } from './scheduleBlocksSlice';
 
 
 
