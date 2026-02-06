@@ -79,7 +79,9 @@ export const useWorkMetrics = ({
         const expectedPreBreakRatio = (breakStartMins - startMins) / (totalWorkDuration || 1);
         const expectedPreBreakCount = Math.round(goal * expectedPreBreakRatio);
         const breakDiff = preBreakCount - expectedPreBreakCount;
-        const breakPerformance = (breakDiff >= 0 ? 'positive' : 'negative') as 'positive' | 'negative';
+        // Only show negative performance if we've already passed the break time
+        // Before the break time, always show positive (user still has time to catch up)
+        const breakPerformance = (status === 'PRE_BREAK' || breakDiff >= 0 ? 'positive' : 'negative') as 'positive' | 'negative';
 
         // Pace Calculation (Required Speed)
         const itemsRemaining = Math.max(0, goal - currentCount);
