@@ -45,8 +45,7 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
     const currentDay = calculateCurrentDay(config.startDate);
     const canCompleteCycle = currentDay >= 67 && !!decadeData.pendingCycleGoal;
 
-    // Check if user already used their one restart
-    const hasUsedOnlyRestart = (config.restartCount || 0) >= 1;
+
 
     if (!isOpen) return null;
 
@@ -147,66 +146,45 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
                             </div>
                         )}
 
-                        {/* BLOCKED: Already used the only restart */}
-                        {hasUsedOnlyRestart ? (
-                            <div className="bg-gradient-to-r from-red-900/30 to-slate-900/50 border border-red-500/30 rounded-xl p-5 text-center">
-                                <AlertTriangle className="text-red-500 mx-auto mb-3" size={32} />
-                                <h4 className="text-red-400 font-bold mb-2">Reinício Bloqueado</h4>
-                                <p className="text-slate-300 text-sm leading-relaxed">
-                                    Você já usou sua <strong>única reinicialização permitida</strong>.
-                                    Após iniciar os 67 dias, você só pode reiniciar <strong>uma vez</strong>.
-                                </p>
-                                <p className="text-slate-500 text-xs mt-3">
-                                    Para continuar, complete o ciclo atual ou continue de onde parou.
-                                </p>
+                        <p className="text-slate-300 mb-6 text-sm">
+                            <AlertTriangle className="inline text-orange-500 mr-1 mb-1" size={14} />
+                            <strong>Atenção:</strong> Esta opção reinicia o contador para o <strong>Dia 1</strong>.
+                            Use isso apenas se você falhou na jornada e quer começar de novo.
+                        </p>
+
+                        <div className="space-y-3 mb-6">
+                            <p className="text-xs font-bold text-slate-500 uppercase">Selecione o que MANTER:</p>
+                            {/* Toggles */}
+                            <div onClick={() => toggle('keepBooks')} className="reset-option-row">
+                                {options.keepBooks ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
+                                <span className="text-white text-sm ml-2">Progresso de Leitura</span>
                             </div>
-                        ) : (
-                            <>
-                                <p className="text-slate-300 mb-6 text-sm">
-                                    <AlertTriangle className="inline text-orange-500 mr-1 mb-1" size={14} />
-                                    <strong>Atenção:</strong> Esta opção reinicia o contador para o <strong>Dia 1</strong>.
-                                    Use isso apenas se você falhou na jornada e quer começar de novo.
-                                    <br />
-                                    <span className="text-yellow-500 text-xs mt-2 inline-block">
-                                        ⚠️ Você só pode reiniciar <strong>uma única vez</strong> após iniciar o projeto.
-                                    </span>
-                                </p>
+                            <div onClick={() => toggle('keepSkills')} className="reset-option-row">
+                                {options.keepSkills ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
+                                <span className="text-white text-sm ml-2">Skill Tree</span>
+                            </div>
+                            <div onClick={() => toggle('keepHabits')} className="reset-option-row">
+                                {options.keepHabits ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
+                                <span className="text-white text-sm ml-2">Hábitos e Rotina</span>
+                            </div>
+                            <div onClick={() => toggle('keepJournal')} className="reset-option-row">
+                                {options.keepJournal ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
+                                <span className="text-white text-sm ml-2">Diário e Reviews</span>
+                            </div>
+                        </div>
 
-                                <div className="space-y-3 mb-6">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Selecione o que MANTER:</p>
-                                    {/* Toggles */}
-                                    <div onClick={() => toggle('keepBooks')} className="reset-option-row">
-                                        {options.keepBooks ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
-                                        <span className="text-white text-sm ml-2">Progresso de Leitura</span>
-                                    </div>
-                                    <div onClick={() => toggle('keepSkills')} className="reset-option-row">
-                                        {options.keepSkills ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
-                                        <span className="text-white text-sm ml-2">Skill Tree</span>
-                                    </div>
-                                    <div onClick={() => toggle('keepHabits')} className="reset-option-row">
-                                        {options.keepHabits ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
-                                        <span className="text-white text-sm ml-2">Hábitos e Rotina</span>
-                                    </div>
-                                    <div onClick={() => toggle('keepJournal')} className="reset-option-row">
-                                        {options.keepJournal ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
-                                        <span className="text-white text-sm ml-2">Diário e Reviews</span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="text-xs text-slate-500 block">
-                                        Digite <strong className="text-white">REINICIAR</strong> para confirmar:
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={confirmation}
-                                        onChange={(e) => setConfirmation(e.target.value.toUpperCase())}
-                                        placeholder="REINICIAR"
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm font-bold tracking-wider placeholder-slate-600 focus:border-red-500 outline-none"
-                                    />
-                                </div>
-                            </>
-                        )}
+                        <div className="space-y-3">
+                            <label className="text-xs text-slate-500 block">
+                                Digite <strong className="text-white">REINICIAR</strong> para confirmar:
+                            </label>
+                            <input
+                                type="text"
+                                value={confirmation}
+                                onChange={(e) => setConfirmation(e.target.value.toUpperCase())}
+                                placeholder="REINICIAR"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm font-bold tracking-wider placeholder-slate-600 focus:border-red-500 outline-none"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -219,10 +197,10 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
                     </button>
                     <button
                         onClick={handleReset}
-                        disabled={confirmation !== 'REINICIAR' || isResetting || hasUsedOnlyRestart}
+                        disabled={confirmation !== 'REINICIAR' || isResetting}
                         className={`
                             flex-1 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2
-                            ${confirmation === 'REINICIAR' && !hasUsedOnlyRestart
+                            ${confirmation === 'REINICIAR'
                                 ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20'
                                 : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
                             }
