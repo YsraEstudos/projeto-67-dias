@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import {
-    X, RotateCcw, CheckSquare, Square, BookOpen, Calendar,
-    Activity, Link, PenTool, AlertTriangle, Trophy, ArrowRight
-} from 'lucide-react';
+import { X, RotateCcw, CheckSquare, Square, AlertTriangle, Trophy, ArrowRight } from 'lucide-react';
 
 import { useConfigStore } from '../../stores/configStore';
 import { useHabitsStore } from '../../stores/habitsStore';
@@ -12,6 +9,7 @@ import { useReviewStore } from '../../stores/reviewStore';
 import { useGamesStore } from '../../stores/gamesStore';
 import { useDecadeStore } from '../../stores/decadeStore';
 import { calculateCurrentDay } from '../../services/weeklySnapshot';
+import { flushPendingWrites } from '../../stores/firestoreSync';
 
 interface ResetProjectModalProps {
     isOpen: boolean;
@@ -21,13 +19,12 @@ interface ResetProjectModalProps {
 export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, onClose }) => {
     // Stores
     const { config, setConfig, resetConfig } = useConfigStore();
-    const { _reset: resetHabits } = useHabitsStore();
-    const { _reset: resetSkills } = useSkillsStore();
-    const { _reset: resetReading } = useReadingStore();
-    const { _reset: resetReview } = useReviewStore();
-    const { _reset: resetGames } = useGamesStore();
-    const { decadeData, completeCycle } = useDecadeStore();
-    const { reviewData } = useReviewStore();
+    const { habits, tasks, setHabits, setTasks } = useHabitsStore();
+    const { setSkills } = useSkillsStore();
+    const { books, folders, setBooks, setFolders } = useReadingStore();
+    const { setReviewData } = useReviewStore();
+    const { clearForRestart } = useGamesStore();
+    const { decadeData } = useDecadeStore();
 
     // Local State
     const [confirmation, setConfirmation] = useState('');
@@ -35,10 +32,9 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
     const [options, setOptions] = useState({
         keepBooks: true,
         keepSkills: true,
-        keepLinks: true,
         keepJournal: true,
         keepHabits: true,
-        keepPlanning: true
+        keepPlanning: false
     });
 
     // Check Eligibility for Cycle Completion
@@ -50,7 +46,13 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
     if (!isOpen) return null;
 
     const toggle = (key: keyof typeof options) => {
-        setOptions(prev => ({ ...prev, [key]: !prev[key] }));
+        setOptions(prev => {
+            const next = { ...prev, [key]: !prev[key] };
+            if (key === 'keepBooks' && !next.keepBooks) {
+                next.keepPlanning = false;
+            }
+            return next;
+        });
     };
 
     const handleCompleteCycle = () => {
@@ -64,7 +66,7 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
         alert("Vá para a aba '10 Anos' no menu de Progresso para finalizar o ciclo!");
     };
 
-    const handleReset = async () => {
+    const handleReset = () => {
         if (confirmation !== 'REINICIAR') return;
 
         setIsResetting(true);
@@ -82,13 +84,47 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
                 resetConfig();
             }
 
-            // 2. Resetar Stores baseado nas opções
-            if (!options.keepHabits) resetHabits();
-            if (!options.keepSkills) resetSkills();
-            if (!options.keepBooks) resetReading();
-            if (!options.keepJournal) resetReview();
-            // Games geralmente reseta junto
-            resetGames();
+            // 2. Resetar Stores baseado nas opções (com persistência imediata)
+            if (!options.keepHabits) {
+                // Limpa hábitos/tarefas mantendo o store inicializado para sincronizar no Firestore
+                if (habits.length > 0) setHabits([]);
+                if (tasks.length > 0) setTasks([]);
+            }
+
+            if (!options.keepSkills) {
+                setSkills([]);
+            }
+
+            if (!options.keepBooks) {
+                if (books.length > 0) setBooks([]);
+                if (folders.length > 0) setFolders([]);
+            } else if (!options.keepPlanning) {
+                setBooks(
+                    books.map((book) => ({
+                        ...book,
+                        dailyGoal: undefined,
+                        deadline: undefined,
+                        distributionType: undefined,
+                        excludedDays: undefined,
+                        exponentialIntensity: undefined,
+                        logs: []
+                    }))
+                );
+            }
+
+            if (!options.keepJournal) {
+                setReviewData({
+                    snapshots: [],
+                    improvements: [],
+                    lastSnapshotWeek: 0
+                });
+            }
+
+            // Games sempre reinicia no novo ciclo
+            clearForRestart();
+
+            // Garante flush das escritas debounced para evitar retorno de estado antigo
+            flushPendingWrites();
 
             // 3. Fechar modal sem recarregar a página.
             // Recarregar imediatamente podia interromper o flush do sync remoto,
@@ -163,6 +199,12 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
                                 {options.keepBooks ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
                                 <span className="text-white text-sm ml-2">Progresso de Leitura</span>
                             </div>
+                            {options.keepBooks && (
+                                <div onClick={() => toggle('keepPlanning')} className="reset-option-row ml-7">
+                                    {options.keepPlanning ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
+                                    <span className="text-white text-sm ml-2">Planejamento de Leitura (prazos e metas)</span>
+                                </div>
+                            )}
                             <div onClick={() => toggle('keepSkills')} className="reset-option-row">
                                 {options.keepSkills ? <CheckSquare className="text-emerald-500" /> : <Square className="text-slate-600" />}
                                 <span className="text-white text-sm ml-2">Skill Tree</span>

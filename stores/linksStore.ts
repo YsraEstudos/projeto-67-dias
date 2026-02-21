@@ -7,7 +7,7 @@ import { LinkItem } from '../types';
 import { writeToFirestore } from './firestoreSync';
 
 const STORE_KEY = 'p67_links_store';
-const LINKS_WRITE_DEBOUNCE_MS = 8000;
+const LINKS_WRITE_DEBOUNCE_MS = 15000;
 
 const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();

@@ -7,7 +7,7 @@ import { writeToFirestore } from './firestoreSync';
 import { DEFAULT_PROMPTS, DEFAULT_PROMPT_CATEGORIES } from '../constants/defaultData';
 
 const STORE_KEY = 'p67_prompts_store';
-const PROMPTS_WRITE_DEBOUNCE_MS = 8000;
+const PROMPTS_WRITE_DEBOUNCE_MS = 15000;
 
 const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();

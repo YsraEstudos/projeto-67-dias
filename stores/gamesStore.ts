@@ -40,6 +40,7 @@ interface GamesState {
 
     setGameReview: (gameId: string, review: string) => void;
     toggleReviewPending: (gameId: string) => void;
+    clearForRestart: () => void;
 
     setLoading: (loading: boolean) => void;
 
@@ -217,6 +218,14 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
                 game.reviewPending = !game.reviewPending;
                 game.updatedAt = Date.now();
             }
+        });
+        get()._syncToFirestore();
+    },
+
+    clearForRestart: () => {
+        set((state) => {
+            state.games = [];
+            state.folders = [CENTRAL_FOLDER];
         });
         get()._syncToFirestore();
     },
