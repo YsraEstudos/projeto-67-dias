@@ -90,8 +90,12 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
             // Games geralmente reseta junto
             resetGames();
 
-            // 3. Forçar reload ou navegar
-            window.location.reload();
+            // 3. Fechar modal sem recarregar a página.
+            // Recarregar imediatamente podia interromper o flush do sync remoto,
+            // fazendo o estado voltar para "projeto iniciado" em alguns casos.
+            setIsResetting(false);
+            setConfirmation('');
+            onClose();
         }, 1000);
     };
 
