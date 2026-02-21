@@ -176,17 +176,22 @@ const App: React.FC = () => {
 
   // Calculate reading stats dynamically
   const readingStats = useMemo(() => {
-    const reading = books.filter(b => b.status === 'READING');
-    const completed = books.filter(b => b.status === 'COMPLETED');
-    const total = books.length;
-    const progressPercent = total > 0
-      ? Math.round((completed.length / total) * 100)
+    const totals = books.reduce(
+      (acc, book) => {
+        if (book.status === 'READING') acc.readingCount += 1;
+        if (book.status === 'COMPLETED') acc.completedCount += 1;
+        acc.totalCount += 1;
+        return acc;
+      },
+      { readingCount: 0, completedCount: 0, totalCount: 0 }
+    );
+
+    const progressPercent = totals.totalCount > 0
+      ? Math.round((totals.completedCount / totals.totalCount) * 100)
       : 0;
 
     return {
-      readingCount: reading.length,
-      completedCount: completed.length,
-      totalCount: total,
+      ...totals,
       progressPercent
     };
   }, [books]);
@@ -227,7 +232,93 @@ const App: React.FC = () => {
 
     const unsubscribers: (() => void)[] = [];
     const hydratedStores = new Set<string>();
-    const totalStores = 21; // Incrementado para incluir p67_goals_store
+    const storeSubscriptions = [
+      {
+        key: 'p67_project_config',
+        hydrate: (data: any) => useConfigStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_habits_store',
+        hydrate: (data: any) => useHabitsStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_work_store',
+        hydrate: (data: any) => useWorkStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_notes_store',
+        hydrate: (data: any) => useNotesStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_sunday_store',
+        hydrate: (data: any) => useSundayStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_journal_store',
+        hydrate: (data: any) => useJournalStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_links_store',
+        hydrate: (data: any) => useLinksStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_skills_store',
+        hydrate: (data: any) => useSkillsStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_reading_store',
+        hydrate: (data: any) => useReadingStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_rest_store',
+        hydrate: (data: any) => useRestStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_prompts_store',
+        hydrate: (data: any) => usePromptsStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'games-storage',
+        hydrate: (data: any) => useGamesStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_review_store',
+        hydrate: (data: any) => useReviewStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_water_store',
+        hydrate: (data: any) => useWaterStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_streak_store',
+        hydrate: (data: any) => useStreakStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_tool_timer',
+        hydrate: (data: any) => useTimerStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_site_categories_store',
+        hydrate: (data: any) => useSiteCategoriesStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_sites_store',
+        hydrate: (data: any) => useSitesStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_site_folders_store',
+        hydrate: (data: any) => useSiteFoldersStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_sunday_timer',
+        hydrate: (data: any) => useSundayTimerStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_goals_store',
+        hydrate: (data: any) => useGoalsStore.getState()._hydrateFromFirestore(data)
+      }
+    ];
+    const totalStores = storeSubscriptions.length;
 
     const checkAllHydrated = (storeKey: string) => {
       // Only count first hydration per store
@@ -241,110 +332,12 @@ const App: React.FC = () => {
     };
 
     // Subscribe to all stores and hydrate with _hydrateFromFirestore
-    unsubscribers.push(subscribeToDocument('p67_project_config', (data: any) => {
-      useConfigStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_project_config');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_habits_store', (data: any) => {
-      useHabitsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_habits_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_work_store', (data: any) => {
-      useWorkStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_work_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_notes_store', (data: any) => {
-      useNotesStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_notes_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_sunday_store', (data: any) => {
-      useSundayStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_sunday_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_journal_store', (data: any) => {
-      useJournalStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_journal_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_links_store', (data: any) => {
-      useLinksStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_links_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_skills_store', (data: any) => {
-      useSkillsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_skills_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_reading_store', (data: any) => {
-      useReadingStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_reading_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_rest_store', (data: any) => {
-      useRestStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_rest_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_prompts_store', (data: any) => {
-      usePromptsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_prompts_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('games-storage', (data: any) => {
-      useGamesStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('games-storage');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_review_store', (data: any) => {
-      useReviewStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_review_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_water_store', (data: any) => {
-      useWaterStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_water_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_streak_store', (data: any) => {
-      useStreakStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_streak_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_tool_timer', (data: any) => {
-      useTimerStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_tool_timer');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_site_categories_store', (data: any) => {
-      useSiteCategoriesStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_site_categories_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_sites_store', (data: any) => {
-      useSitesStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_sites_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_site_folders_store', (data: any) => {
-      useSiteFoldersStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_site_folders_store');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_sunday_timer', (data: any) => {
-      useSundayTimerStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_sunday_timer');
-    }));
-
-    unsubscribers.push(subscribeToDocument('p67_goals_store', (data: any) => {
-      useGoalsStore.getState()._hydrateFromFirestore(data);
-      checkAllHydrated('p67_goals_store');
-    }));
+    storeSubscriptions.forEach(({ key, hydrate }) => {
+      unsubscribers.push(subscribeToDocument(key, (data: any) => {
+        hydrate(data);
+        checkAllHydrated(key);
+      }));
+    });
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
 
