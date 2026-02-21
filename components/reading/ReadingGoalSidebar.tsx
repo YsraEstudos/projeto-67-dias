@@ -182,7 +182,7 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
                                         {book.title}
                                     </h5>
                                     <p className="text-[10px] text-slate-500 mb-2">
-                                        {book.remaining} {book.unit === 'PAGES' ? 'págs' : 'caps'} restantes
+                                        {book.remaining} {book.unit === 'PAGES' ? 'págs' : book.unit === 'CHAPTERS' ? 'caps' : 'h'} restantes
                                     </p>
 
                                     {/* Per-day badge with phase indicator */}

@@ -322,7 +322,7 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                 {/* Front Controls */}
                 <div className={`${isGrid ? 'px-4 pb-4' : 'pr-4 w-48'}`} onClick={e => e.stopPropagation()}>
                     <div className="flex justify-between items-center text-[11px] text-slate-400 mb-2">
-                        <span className="font-medium">{isInputFocused ? localProgress : book.current} / {book.total} {book.unit === 'PAGES' ? 'pág' : 'cap'}</span>
+                        <span className="font-medium">{isInputFocused ? localProgress : book.current} / {book.total} {book.unit === 'PAGES' ? 'pág' : book.unit === 'CHAPTERS' ? 'cap' : 'h'}</span>
                         <span className="font-bold text-indigo-400">{percentage}%</span>
                     </div>
                     <ProgressBar current={isInputFocused ? localProgress : book.current} total={book.total} />

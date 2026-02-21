@@ -99,6 +99,7 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
                             >
                                 <option value="PAGES">Páginas</option>
                                 <option value="CHAPTERS">Capítulos</option>
+                                <option value="HOURS">Audiolivro (horas)</option>
                             </select>
                         </div>
                         <div className="col-span-1">
