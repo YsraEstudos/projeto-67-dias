@@ -161,7 +161,7 @@ const BookDetailsModal: React.FC<BookDetailsModalProps> = ({ book, onClose, onEd
                                         <span className="font-bold text-white">{book.current}</span> / {book.total}
                                     </div>
                                     <div className="text-xs text-slate-500">
-                                        {book.unit === 'PAGES' ? 'páginas' : 'capítulos'}
+                                        {book.unit === 'PAGES' ? 'páginas' : book.unit === 'CHAPTERS' ? 'capítulos' : 'horas'}
                                     </div>
                                 </div>
                             </div>
@@ -312,13 +312,13 @@ const BookDetailsModal: React.FC<BookDetailsModalProps> = ({ book, onClose, onEd
                                             {book.current} <span className="text-sm text-slate-500 font-normal">/ {book.total}</span>
                                         </div>
                                         <div className="text-xs text-slate-500 mt-0.5">
-                                            {book.unit === 'PAGES' ? 'páginas' : 'capítulos'}
+                                            {book.unit === 'PAGES' ? 'páginas' : book.unit === 'CHAPTERS' ? 'capítulos' : 'horas'}
                                         </div>
                                     </div>
                                 </div>
                                 <ProgressBar current={book.current} total={book.total} />
                                 <div className="mt-4 flex gap-2 text-xs text-slate-500 flex-wrap">
-                                    <span className="flex items-center gap-1 bg-slate-900/50 px-2.5 py-1.5 rounded-lg"><BookOpen size={12} /> {book.unit === 'PAGES' ? 'Páginas' : 'Capítulos'}</span>
+                                    <span className="flex items-center gap-1 bg-slate-900/50 px-2.5 py-1.5 rounded-lg"><BookOpen size={12} /> {book.unit === 'PAGES' ? 'Páginas' : book.unit === 'CHAPTERS' ? 'Capítulos' : 'Horas'}</span>
                                     {book.addedAt && (
                                         <span className="flex items-center gap-1 bg-slate-900/50 px-2.5 py-1.5 rounded-lg"><Calendar size={12} /> {new Date(book.addedAt).toLocaleDateString('pt-BR')}</span>
                                     )}

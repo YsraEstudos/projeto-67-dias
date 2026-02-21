@@ -114,7 +114,7 @@ export interface Book {
   coverUrl?: string;
   genre: string;
 
-  unit: 'PAGES' | 'CHAPTERS';
+  unit: 'PAGES' | 'CHAPTERS' | 'HOURS';
   total: number;
   current: number;
 

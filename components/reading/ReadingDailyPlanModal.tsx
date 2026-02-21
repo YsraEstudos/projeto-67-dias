@@ -85,7 +85,7 @@ const ReadingDailyPlanModal: React.FC<ReadingDailyPlanModalProps> = ({ book: ini
     };
 
     const formatPages = (pages: number): string => {
-        return `${pages} ${book.unit === 'PAGES' ? 'págs' : 'caps'}`;
+        return `${pages} ${book.unit === 'PAGES' ? 'págs' : book.unit === 'CHAPTERS' ? 'caps' : 'h'}`;
     };
 
     if (!dailyPlan) {
@@ -141,7 +141,7 @@ const ReadingDailyPlanModal: React.FC<ReadingDailyPlanModalProps> = ({ book: ini
     }
 
     const maxPages = Math.max(...dailyPlan.items.map(i => i.pages), 1);
-    const unitLabel = book.unit === 'PAGES' ? 'páginas' : 'capítulos';
+    const unitLabel = book.unit === 'PAGES' ? 'páginas' : book.unit === 'CHAPTERS' ? 'capítulos' : 'horas';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
