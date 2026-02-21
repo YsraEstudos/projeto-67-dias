@@ -7,6 +7,7 @@ import { writeToFirestore } from './firestoreSync';
 import { DEFAULT_PROMPTS, DEFAULT_PROMPT_CATEGORIES } from '../constants/defaultData';
 
 const STORE_KEY = 'p67_prompts_store';
+const PROMPTS_WRITE_DEBOUNCE_MS = 8000;
 
 const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();
@@ -155,7 +156,7 @@ export const usePromptsStore = create<PromptsState>()((set, get) => ({
     _syncToFirestore: () => {
         const { prompts, categories, _initialized } = get();
         if (_initialized) {
-            writeToFirestore(STORE_KEY, { prompts, categories });
+            writeToFirestore(STORE_KEY, { prompts, categories }, PROMPTS_WRITE_DEBOUNCE_MS);
         }
     },
 
