@@ -27,7 +27,7 @@ const writeTimeouts = new Map<string, PendingWrite>();
 const WRITE_DEBOUNCE_MS = 3000;
 
 // Track last written data per collection to avoid duplicate writes
-// Uses JSON hash comparison to skip writes when data hasn't changed
+// Uses stable JSON hash comparison to skip writes when data hasn't changed
 const lastWrittenData = new Map<string, string>();
 
 // Reduced debounce for realtime stores (timers) that need instant sync across devices
@@ -55,6 +55,23 @@ const removeUndefined = (obj: any): any => {
         }
     }
     return obj;
+};
+
+/**
+ * Stable stringify to avoid hash differences due to key ordering
+ */
+const stableStringify = (value: any): string => {
+    if (value === null || typeof value !== 'object') {
+        return JSON.stringify(value);
+    }
+
+    if (Array.isArray(value)) {
+        return `[${value.map(item => stableStringify(item)).join(',')}]`;
+    }
+
+    const keys = Object.keys(value).sort();
+    const entries = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
+    return `{${entries.join(',')}}`;
 };
 
 // Track pending writes for UI indicator
@@ -108,7 +125,7 @@ const performWrite = async (payload: PendingWrite['payload']) => {
     // Note: pendingWriteCount already incremented in writeToFirestore
 
     // Dirty check: skip write if data hasn't changed since last write
-    const dataHash = JSON.stringify(payload.data);
+    const dataHash = stableStringify(payload.data);
     const lastHash = lastWrittenData.get(payload.collectionKey);
     if (lastHash === dataHash) {
         // Data is identical to last write - skip to save quota
