@@ -7,6 +7,7 @@ import { LinkItem } from '../types';
 import { writeToFirestore } from './firestoreSync';
 
 const STORE_KEY = 'p67_links_store';
+const LINKS_WRITE_DEBOUNCE_MS = 8000;
 
 const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();
@@ -151,7 +152,7 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
     _syncToFirestore: () => {
         const { links, _initialized } = get();
         if (_initialized) {
-            writeToFirestore(STORE_KEY, { links });
+            writeToFirestore(STORE_KEY, { links }, LINKS_WRITE_DEBOUNCE_MS);
         }
     },
 

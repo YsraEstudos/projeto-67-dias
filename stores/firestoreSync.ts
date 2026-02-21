@@ -235,9 +235,13 @@ export const subscribeToDocument = <T>(
     return onSnapshot(
         docRef,
         (snapshot) => {
-            // Track read for quota monitoring
-            incrementReads();
-            notifyQuotaListeners();
+            // Track only server reads for quota monitoring.
+            // Local cache updates and optimistic local writes should not consume
+            // daily request budget in our internal tracker.
+            if (!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites) {
+                incrementReads();
+                notifyQuotaListeners();
+            }
 
             if (snapshot.exists()) {
                 const docData = snapshot.data();
