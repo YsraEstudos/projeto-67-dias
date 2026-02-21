@@ -22,9 +22,24 @@ type PendingWrite = {
 
 const writeTimeouts = new Map<string, PendingWrite>();
 
-// Increased from 1500ms to 3000ms to reduce Firestore writes significantly
-// This prevents excessive billing from rapid user interactions
-const WRITE_DEBOUNCE_MS = 3000;
+const getWriteIdentity = (userId: string, collectionKey: string): string => `${userId}:${collectionKey}`;
+
+// Default debounce for non-critical stores.
+// 12s dramatically reduces write volume while preserving cross-device sync.
+const WRITE_DEBOUNCE_MS = 12000;
+
+// Store-specific debounce overrides for responsiveness where needed
+const STORE_DEBOUNCE_OVERRIDES: Record<string, number> = {
+    // Keep project/session-critical flows more responsive
+    p67_project_config: 2500,
+    p67_work_store: 4000,
+    p67_tool_timer: 1500,
+
+    // Text-heavy modules can use a longer window safely
+    p67_notes_store: 15000,
+    p67_prompts_store: 15000,
+    p67_links_store: 15000,
+};
 
 // Track last written data per collection to avoid duplicate writes
 // Uses stable JSON hash comparison to skip writes when data hasn't changed
@@ -34,8 +49,8 @@ const lastWrittenData = new Map<string, string>();
 // 200ms is fast enough for realtime UX while still preventing excessive writes
 export const REALTIME_DEBOUNCE_MS = 200;
 
-// Rate limiter to prevent billing spikes (max 60 writes per minute globally)
-const MAX_WRITES_PER_MINUTE = 60;
+// Rate limiter to prevent billing spikes (max 24 writes/min globally)
+const MAX_WRITES_PER_MINUTE = 24;
 let writeCountLastMinute = 0;
 let lastWriteResetTime = Date.now();
 
@@ -60,17 +75,22 @@ const removeUndefined = (obj: any): any => {
 /**
  * Stable stringify to avoid hash differences due to key ordering
  */
-const stableStringify = (value: any): string => {
+const stableStringify = (value: any, seen = new WeakSet<object>()): string => {
     if (value === null || typeof value !== 'object') {
         return JSON.stringify(value);
     }
 
+    if (seen.has(value)) {
+        return '"[Circular]"';
+    }
+    seen.add(value);
+
     if (Array.isArray(value)) {
-        return `[${value.map(item => stableStringify(item)).join(',')}]`;
+        return `[${value.map(item => stableStringify(item, seen)).join(',')}]`;
     }
 
     const keys = Object.keys(value).sort();
-    const entries = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
+    const entries = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key], seen)}`);
     return `{${entries.join(',')}}`;
 };
 
@@ -122,11 +142,12 @@ export const getCurrentUserId = (): string | null => {
  * Firestore SDK automatically handles offline queueing via IndexedDB
  */
 const performWrite = async (payload: PendingWrite['payload']) => {
+    const writeIdentity = getWriteIdentity(payload.userId, payload.collectionKey);
     // Note: pendingWriteCount already incremented in writeToFirestore
 
     // Dirty check: skip write if data hasn't changed since last write
     const dataHash = stableStringify(payload.data);
-    const lastHash = lastWrittenData.get(payload.collectionKey);
+    const lastHash = lastWrittenData.get(writeIdentity);
     if (lastHash === dataHash) {
         // Data is identical to last write - skip to save quota
         pendingWriteCount--;
@@ -169,7 +190,7 @@ const performWrite = async (payload: PendingWrite['payload']) => {
         incrementWrites();
         notifyQuotaListeners();
         // Update last written data hash for dirty checking
-        lastWrittenData.set(collectionKey, dataHash);
+        lastWrittenData.set(writeIdentity, dataHash);
     } catch (error) {
         console.warn(`[Firestore] Write for ${payload.collectionKey} will be retried when online:`, error);
     } finally {
@@ -192,9 +213,17 @@ export const writeToFirestore = <T extends object>(
     // Clean data before writing (removes undefined which Firestore rejects)
     const cleanedData = removeUndefined(data);
     const payload: PendingWrite['payload'] = { userId, collectionKey, data: cleanedData };
+    const writeIdentity = getWriteIdentity(userId, collectionKey);
 
-    const existing = writeTimeouts.get(collectionKey);
+    const existing = writeTimeouts.get(writeIdentity);
     if (existing) {
+        // Skip noop updates that are identical to already-pending payload
+        const currentHash = stableStringify(existing.payload.data);
+        const nextHash = stableStringify(cleanedData);
+        if (currentHash === nextHash) {
+            return;
+        }
+
         // Cancel previous timeout - the new write replaces it
         // Don't change pendingWriteCount since we're just updating the pending write
         clearTimeout(existing.timeout);
@@ -205,14 +234,14 @@ export const writeToFirestore = <T extends object>(
     }
 
     // Use custom debounce if provided, otherwise use default
-    const effectiveDebounce = debounceMs ?? WRITE_DEBOUNCE_MS;
+    const effectiveDebounce = debounceMs ?? STORE_DEBOUNCE_OVERRIDES[collectionKey] ?? WRITE_DEBOUNCE_MS;
 
     const timeout = setTimeout(() => {
-        writeTimeouts.delete(collectionKey);
+        writeTimeouts.delete(writeIdentity);
         void performWrite(payload);
     }, effectiveDebounce);
 
-    writeTimeouts.set(collectionKey, { timeout, payload });
+    writeTimeouts.set(writeIdentity, { timeout, payload });
 };
 
 /**
@@ -238,7 +267,7 @@ export const subscribeToDocument = <T>(
             // Track only server reads for quota monitoring.
             // Local cache updates and optimistic local writes should not consume
             // daily request budget in our internal tracker.
-            if (!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites) {
+            if (!snapshot.metadata?.fromCache && !snapshot.metadata?.hasPendingWrites) {
                 incrementReads();
                 notifyQuotaListeners();
             }
