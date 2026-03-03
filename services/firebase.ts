@@ -1,6 +1,5 @@
 // src/services/firebase.ts
 import { initializeApp } from "firebase/app";
-// import { getAnalytics } from "firebase/analytics";
 import {
     getAuth,
     signInWithEmailAndPassword,
@@ -56,7 +55,6 @@ if (missingConfigKeys.length) {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
 
 // Export services
 export const auth = getAuth(app);
