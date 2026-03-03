@@ -403,11 +403,7 @@ export const useWeeklyAgendaStore = create<WeeklyAgendaState>()(immer((set, get)
         const { weeklyPlan, overrides, activities, events, scheduledBlocks, templates, _initialized } = get();
         if (_initialized) {
             const data = { weeklyPlan, overrides, activities, events, scheduledBlocks, templates };
-            if (typeof requestIdleCallback !== 'undefined') {
-                requestIdleCallback(() => writeToFirestore(STORE_KEY, data), { timeout: 2000 });
-            } else {
-                setTimeout(() => writeToFirestore(STORE_KEY, data), 100);
-            }
+            writeToFirestore(STORE_KEY, data);
         }
     },
 
