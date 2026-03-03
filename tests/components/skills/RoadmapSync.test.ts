@@ -60,7 +60,7 @@ describe('syncRoadmapState', () => {
                 ...initialVisual.nodes,
                 { id: '3', title: 'Node 3', type: 'main' as const, x: 200, y: 0, isCompleted: false }
             ];
-            const updatedVisual = { ...initialVisual, nodes: newNodes };
+            const updatedVisual = { ...initialVisual, nodes: newNodes }; // Fix: use updatedVisual
 
             const result = syncRoadmapState(initialTasks, updatedVisual, 'visual');
 

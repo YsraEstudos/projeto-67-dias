@@ -25,7 +25,7 @@ import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
 import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, clearAllStores } from './stores';
-import { subscribeToDocument, subscribeToSubcollection, flushPendingWrites } from './stores/firestoreSync';
+import { subscribeToDocument, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
 import { ConflictModal } from './components/modals/ConflictModal';
@@ -338,11 +338,6 @@ const App: React.FC = () => {
         checkAllHydrated(key);
       }));
     });
-
-    // Special case for subcollection-based stores (like Notes)
-    unsubscribers.push(subscribeToSubcollection('p67_notes_store_items', (data: any[]) => {
-      useNotesStore.getState()._hydrateNotesFromSubcollection(data);
-    }));
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
 

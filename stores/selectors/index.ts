@@ -202,9 +202,6 @@ export const useGameActions = () => useGamesStore(
         toggleMission: s.toggleMission,
         deleteMission: s.deleteMission,
         logHours: s.logHours,
-        addStory: s.addStory,
-        updateStory: s.updateStory,
-        deleteStory: s.deleteStory
     }))
 );
 

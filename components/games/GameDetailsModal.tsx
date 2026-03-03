@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { gameSchema, GameFormData, GameFormInput } from '../../schemas';
-import { X, Clock, Trophy, Trash2, Save, Plus, Check, AlertCircle, PencilLine, Bookmark, BookOpen, Image as ImageIcon } from 'lucide-react';
-import { Game, GameStatus, Note } from '../../types';
-import { useGameActions, useGameReviewActions, useGamesStore, useNotesStore } from '../../stores';
-import { incrementPendingWrites, decrementPendingWrites } from '../../stores/firestoreSync';
-import { generateId } from '../../utils/generateId';
+import { X, Clock, Trophy, Trash2, Save, Plus, Check, AlertCircle, PencilLine, Bookmark } from 'lucide-react';
+import { Game, GameStatus } from '../../types';
+import { useGameActions, useGameReviewActions, useGamesStore } from '../../stores';
 
 interface GameDetailsModalProps {
     gameId: string;
@@ -17,17 +15,9 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
     // Obtém o game diretamente da store para garantir reatividade
     const game = useGamesStore(s => s.games.find(g => g.id === gameId));
 
-    const { deleteGame, logHours, addMission, toggleMission, deleteMission, updateGame, addStory, deleteStory } = useGameActions();
+    const { deleteGame, logHours, addMission, toggleMission, deleteMission, updateGame } = useGameActions();
     const { setGameReview, toggleReviewPending } = useGameReviewActions();
-    const addNote = useNotesStore(s => s.addNote);
-    const [activeTab, setActiveTab] = useState<'QUESTS' | 'LOG' | 'DETAILS' | 'REVIEW' | 'STORIES'>('STORIES');
-
-    // Story Input
-    const [storyContent, setStoryContent] = useState('');
-    const [storyTranslated, setStoryTranslated] = useState('');
-    const [storyArc, setStoryArc] = useState('');
-    const [storyImageUrl, setStoryImageUrl] = useState('');
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, text: string } | null>(null);
+    const [activeTab, setActiveTab] = useState<'QUESTS' | 'LOG' | 'DETAILS' | 'REVIEW'>('QUESTS');
 
     // Mission Input
     const [newMissionTitle, setNewMissionTitle] = useState('');
@@ -82,12 +72,11 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         setImgError(false);
     }, [watchedCoverUrl]);
 
-    // Close context menu on click outside
-    useEffect(() => {
-        const handleClickOutside = () => setContextMenu(null);
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, []);
+    // Early return se o jogo não existir mais
+    if (!game) {
+        return null;
+    }
+
 
     const handleAddMission = (e: React.FormEvent) => {
         e.preventDefault();
@@ -102,69 +91,6 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         if (isNaN(hours) || hours <= 0) return;
         logHours(game.id, hours);
         setHoursInput('');
-    };
-
-    const handleAddStory = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!storyContent.trim() && !storyImageUrl.trim()) return;
-
-        try {
-            incrementPendingWrites();
-            addStory(game.id, {
-                content: storyContent,
-                translatedContent: storyTranslated,
-                arc: storyArc,
-                imageUrl: storyImageUrl
-            });
-            setStoryContent('');
-            setStoryTranslated('');
-            setStoryArc('');
-            setStoryImageUrl('');
-        } finally {
-            decrementPendingWrites();
-        }
-    };
-
-    const handleDeleteStory = async (storyId: string) => {
-        try {
-            incrementPendingWrites();
-            deleteStory(game.id, storyId);
-        } finally {
-            decrementPendingWrites();
-        }
-    };
-
-    const handleContextMenu = (e: React.MouseEvent) => {
-        const selection = window.getSelection();
-        const text = selection?.toString().trim();
-        if (text) {
-            e.preventDefault();
-            setContextMenu({ x: e.clientX, y: e.clientY, text });
-        }
-    };
-
-    const handleStudyLater = async () => {
-        if (contextMenu?.text) {
-            try {
-                incrementPendingWrites();
-                const newNote: Note = {
-                    id: generateId(),
-                    title: `[${game.title}] Estudar Depois`,
-                    content: contextMenu.text,
-                    color: 'blue',
-                    tags: [],
-                    isPinned: false,
-                    pinnedToTags: [],
-                    createdAt: Date.now(),
-                    updatedAt: Date.now()
-                };
-                addNote(newNote);
-                alert('Adicionado às notas para estudar depois!');
-            } finally {
-                decrementPendingWrites();
-            }
-        }
-        setContextMenu(null);
     };
 
     const handleSaveReview = () => {
@@ -187,27 +113,8 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         });
     };
 
-    // Early return se o jogo não existir mais, após todos os hooks
-    if (!game) {
-        return null;
-    }
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
-            {contextMenu && (
-                <div
-                    className="fixed z-[60] bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden py-1"
-                    style={{ left: contextMenu.x, top: contextMenu.y }}
-                >
-                    <button
-                        onClick={handleStudyLater}
-                        className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2"
-                    >
-                        <BookOpen size={16} className="text-blue-400" />
-                        Estudar Depois
-                    </button>
-                </div>
-            )}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col md:flex-row">
 
                 {/* Sidebar / Cover */}
@@ -259,17 +166,17 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
 
                     {/* Header & Tabs */}
                     <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-                        <div className="flex gap-1 bg-slate-950 p-1 rounded-lg overflow-x-auto">
-                            {(['STORIES', 'QUESTS', 'LOG', 'DETAILS', 'REVIEW'] as const).map((tab) => (
+                        <div className="flex gap-1 bg-slate-950 p-1 rounded-lg">
+                            {(['QUESTS', 'LOG', 'DETAILS', 'REVIEW'] as const).map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab
+                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === tab
                                         ? 'bg-purple-600 text-white shadow-lg'
                                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                                         }`}
                                 >
-                                    {tab === 'QUESTS' ? 'Missões' : tab === 'LOG' ? 'Tempo' : tab === 'DETAILS' ? 'Detalhes' : tab === 'STORIES' ? 'Histórias' : 'Resenha'}
+                                    {tab === 'QUESTS' ? 'Missões' : tab === 'LOG' ? 'Tempo' : tab === 'DETAILS' ? 'Detalhes' : 'Resenha'}
                                 </button>
                             ))}
                         </div>
@@ -280,135 +187,6 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
 
                     {/* Tab Content */}
                     <div className="flex-1 overflow-y-auto p-6">
-
-                        {activeTab === 'STORIES' && (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <BookOpen className="text-blue-500" size={20} />
-                                        Sistema de Histórias
-                                    </h3>
-                                </div>
-
-                                <form onSubmit={handleAddStory} className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs text-slate-500 mb-1">Arco do Jogo (Opcional)</label>
-                                            <input
-                                                type="text"
-                                                value={storyArc}
-                                                onChange={(e) => setStoryArc(e.target.value)}
-                                                placeholder="Ex: Capítulo 1, Arco do Vulcão..."
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-slate-500 mb-1">URL da Imagem (Opcional)</label>
-                                            <div className="flex gap-2">
-                                                <div className="relative flex-1">
-                                                    <ImageIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                                                    <input
-                                                        type="text"
-                                                        value={storyImageUrl}
-                                                        onChange={(e) => setStoryImageUrl(e.target.value)}
-                                                        placeholder="Cole a URL ou arraste imagem aqui..."
-                                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs text-slate-500 mb-1">Conteúdo Original</label>
-                                            <textarea
-                                                value={storyContent}
-                                                onChange={(e) => setStoryContent(e.target.value)}
-                                                placeholder="Texto da história..."
-                                                className="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-slate-500 mb-1">Tradução (Opcional)</label>
-                                            <textarea
-                                                value={storyTranslated}
-                                                onChange={(e) => setStoryTranslated(e.target.value)}
-                                                placeholder="Versão traduzida..."
-                                                className="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-end">
-                                        <button
-                                            type="submit"
-                                            disabled={!storyContent.trim() && !storyImageUrl.trim()}
-                                            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                            <Plus size={16} />
-                                            Adicionar História
-                                        </button>
-                                    </div>
-                                </form>
-
-                                <div className="space-y-4" onContextMenu={handleContextMenu}>
-                                    {(!game.stories || game.stories.length === 0) ? (
-                                        <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-800 rounded-xl">
-                                            Nenhuma história registrada ainda.
-                                        </div>
-                                    ) : (
-                                        game.stories.slice().reverse().map(story => (
-                                            <div key={story.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
-                                                <div className="bg-slate-950 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-slate-500">
-                                                            {new Date(story.createdAt).toLocaleDateString()}
-                                                        </span>
-                                                        {story.arc && (
-                                                            <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">
-                                                                {story.arc}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleDeleteStory(story.id)}
-                                                        className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded transition-opacity"
-                                                        aria-label={`Excluir história ${story.arc || story.id}`}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                                <div className="p-4">
-                                                    {story.imageUrl && (
-                                                        <img
-                                                            src={story.imageUrl}
-                                                            alt="Story content"
-                                                            className="w-full max-h-64 object-contain bg-slate-950 rounded-lg mb-4"
-                                                            onError={(e) => {
-                                                                (e.target as HTMLImageElement).style.display = 'none';
-                                                            }}
-                                                        />
-                                                    )}
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        {story.content && (
-                                                            <div className="text-sm text-slate-300 whitespace-pre-wrap selection:bg-purple-500/30">
-                                                                {story.content}
-                                                            </div>
-                                                        )}
-                                                        {story.translatedContent && (
-                                                            <div className="text-sm text-slate-400 whitespace-pre-wrap border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-4 selection:bg-purple-500/30">
-                                                                {story.translatedContent}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
 
                         {activeTab === 'QUESTS' && (
                             <div className="space-y-6">

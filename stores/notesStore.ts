@@ -51,7 +51,6 @@ interface NotesState {
     // Internal sync methods
     _syncToFirestore: () => void;
     _hydrateFromFirestore: (data: { notes: Note[]; tags: Tag[] } | null) => void;
-    _hydrateNotesFromSubcollection: (notes: Note[]) => void;
     _reset: () => void;
 }
 
@@ -238,7 +237,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         const fallback = data || readLocalBackup();
-        const { tags: localTags, _initialized } = get();
+        const { notes: localNotes, tags: localTags, _initialized } = get();
 
         if (!fallback) {
             set((state) => {
@@ -248,11 +247,36 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             return;
         }
 
-        // Subcollections update themselves via subscribeToSubcollection
-        // So we only merge tags from global store update
+        const remoteNotes = fallback.notes || [];
         const remoteTags = fallback.tags || [];
 
+        console.log('[notesStore] _hydrateFromFirestore:', {
+            remoteNotes: remoteNotes.length,
+            localNotes: localNotes.length,
+            _initialized
+        });
+
+        // Se já foi inicializado, fazer merge inteligente para evitar sobrescrever dados locais pendentes
         if (_initialized) {
+            // Merge notes: comparar updatedAt para decidir qual versão manter
+            const remoteNoteMap = new Map(remoteNotes.map((n: Note) => [n.id, n]));
+            const localNoteIds = new Set(localNotes.map(n => n.id));
+
+            const mergedNotes = localNotes.map(localNote => {
+                const remoteNote = remoteNoteMap.get(localNote.id);
+                if (!remoteNote) return localNote; // Nova nota local, manter
+                // Remoto mais recente = usar remoto, senão manter local
+                return remoteNote.updatedAt > localNote.updatedAt ? remoteNote : localNote;
+            });
+
+            // Adicionar notas remotas que não existem localmente
+            remoteNotes.forEach((rn: Note) => {
+                if (!localNoteIds.has(rn.id)) {
+                    mergedNotes.push(rn);
+                }
+            });
+
+            // Merge tags: similar lógica
             const remoteTagMap = new Map(remoteTags.map((t: Tag) => [t.id, t]));
             const localTagIds = new Set(localTags.map(t => t.id));
 
@@ -269,26 +293,19 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             });
 
             set((state) => {
+                state.notes = deduplicateById(mergedNotes);
                 state.tags = deduplicateById(mergedTags);
                 state.isLoading = false;
             });
         } else {
+            // Primeira hidratação: usar dados remotos diretamente
             set((state) => {
-                // Initialize notes with local backup or initial fallback until subcollection overrides it
-                if (fallback.notes && state.notes.length === 0) {
-                    state.notes = deduplicateById(fallback.notes || []);
-                }
+                state.notes = deduplicateById(remoteNotes);
                 state.tags = deduplicateById(remoteTags);
                 state.isLoading = false;
                 state._initialized = true;
             });
         }
-    },
-
-    _hydrateNotesFromSubcollection: (remoteNotes: Note[]) => {
-        set((state) => {
-            state.notes = deduplicateById(remoteNotes);
-        });
     },
 
     _reset: () => {
