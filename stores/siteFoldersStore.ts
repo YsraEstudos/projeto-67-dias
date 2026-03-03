@@ -17,6 +17,13 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     });
 };
 
+const getMaxOrderForSite = (folders: SiteFolder[], siteId: string): number => {
+    return folders.reduce((max, f) =>
+        f.siteId === siteId ? (f.order > max ? f.order : max) : max,
+        -1
+    );
+};
+
 interface SiteFoldersState {
     folders: SiteFolder[];
     isLoading: boolean;
@@ -54,10 +61,7 @@ export const useSiteFoldersStore = create<SiteFoldersState>()((set, get) => ({
     addFolder: (folder) => {
         const state = get();
         // Auto-calculate order within site
-        const maxOrder = state.folders.reduce((max, f) =>
-            f.siteId === folder.siteId ? (f.order > max ? f.order : max) : max,
-            -1
-        );
+        const maxOrder = getMaxOrderForSite(state.folders, folder.siteId);
         const folderWithOrder = { ...folder, order: maxOrder + 1 };
         set({ folders: [...state.folders, folderWithOrder] });
         get()._syncToFirestore();
@@ -83,10 +87,7 @@ export const useSiteFoldersStore = create<SiteFoldersState>()((set, get) => ({
 
     moveFolder: (folderId, newSiteId) => {
         set((state) => {
-            const maxOrder = state.folders.reduce((max, f) =>
-                f.siteId === newSiteId ? (f.order > max ? f.order : max) : max,
-                -1
-            );
+            const maxOrder = getMaxOrderForSite(state.folders, newSiteId);
 
             return {
                 folders: state.folders.map(f =>
