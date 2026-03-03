@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Link as LinkIcon, Trash2, Youtube, FileText, Sparkles, AlertCircle } from 'lucide-react';
+import { sanitizeUrl } from '../../utils/urlUtils';
 import { SkillResource, Prompt, PromptCategory } from '../../types';
 import { PromptSelectorModal } from './PromptSelectorModal';
 import { PromptPreviewModal } from './PromptPreviewModal';
@@ -162,7 +163,7 @@ export const ResourcesVault: React.FC<ResourcesVaultProps> = ({
                                     </span>
                                 ) : (
                                     <a
-                                        href={res.url}
+                                        href={sanitizeUrl(res.url)}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="text-sm text-blue-400 hover:underline truncate block font-medium"

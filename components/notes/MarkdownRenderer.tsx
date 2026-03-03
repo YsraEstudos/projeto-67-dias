@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { sanitizeUrl } from '../../utils/urlUtils';
 
 interface MarkdownRendererProps {
     content: string;
@@ -43,7 +44,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
         ),
         a: ({ href, children }: any) => (
             <a
-                href={href}
+                href={sanitizeUrl(href)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors"

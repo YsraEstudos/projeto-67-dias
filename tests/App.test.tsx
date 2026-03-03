@@ -95,7 +95,7 @@ vi.mock('../stores', () => {
         useSkillsStore: createStoreMock({}),
         useReadingStore: createStoreMock({ books: [] }),
         useJournalStore: createStoreMock({}),
-        useNotesStore: createStoreMock({}),
+        useNotesStore: createStoreMock({ _hydrateNotesFromSubcollection: mockFn() }),
         useSundayStore: createStoreMock({}),
         useGamesStore: createStoreMock({}),
         useLinksStore: createStoreMock({}),
@@ -114,6 +114,10 @@ vi.mock('../stores/firestoreSync', () => ({
         // Call immediately with empty data to trigger checkAllHydrated
         setTimeout(() => callback({}), 0);
         return vi.fn(); // Return unsubscribe function
+    }),
+    subscribeToSubcollection: vi.fn((collectionName: string, callback: (data: any[]) => void) => {
+        setTimeout(() => callback([]), 0);
+        return vi.fn();
     }),
     writeToFirestore: vi.fn(),
     getCurrentUserId: vi.fn(() => '123'),

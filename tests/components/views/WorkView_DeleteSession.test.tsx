@@ -40,44 +40,21 @@ vi.mock('../../../services/firebase', () => ({
 }));
 
 // Mock useWorkStore with isLoading: false to prevent skeleton from showing
-vi.mock('../../../stores', () => ({
-    useUIStore: (selector: any) => {
-        const state = {
-            setActiveView: vi.fn(),
-        };
-        return typeof selector === 'function' ? selector(state) : state;
-    },
-    useWorkStore: (selector: any) => {
-        const state = {
-            isLoading: false,
-            goal: 300,
-            currentCount: 150,
-            preBreakCount: 0,
-            startTime: '08:00',
-            endTime: '17:00',
-            breakTime: '12:00',
-            paceMode: 'remaining' as const,
-            history: [],
-            goals: { weekly: 100, ultra: 500, anki: 15, ncm: 20 },
-            studySubjects: [],
-            studySchedules: [],
-            setGoal: vi.fn(),
-            setCurrentCount: vi.fn(),
-            setPreBreakCount: vi.fn(),
-            setStartTime: vi.fn(),
-            setEndTime: vi.fn(),
-            setBreakTime: vi.fn(),
-            setPaceMode: vi.fn(),
-            addSession: vi.fn(),
-            deleteSession: vi.fn(),
-            setGoals: vi.fn(),
-            setStudySubjects: vi.fn(),
-            setSchedules: vi.fn(),
-            getCurrentWeekGoal: vi.fn(() => 100),
-        };
-        return typeof selector === 'function' ? selector(state) : state;
-    }
-}));
+vi.mock('../../../stores', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../../stores')>();
+    const mocks = await import('../../mocks/storeMocks');
+    return {
+        ...actual,
+        useWorkStore: (selector: any) => {
+            const state = mocks.createWorkStoreMock();
+            return typeof selector === 'function' ? selector(state) : state;
+        },
+        useUIStore: (selector: any) => {
+            const state = mocks.createUIStoreMock();
+            return typeof selector === 'function' ? selector(state) : state;
+        }
+    };
+});
 
 vi.mock('firebase/firestore', () => ({
     doc: vi.fn(),

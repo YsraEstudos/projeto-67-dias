@@ -16,8 +16,7 @@ vi.mock('../../../components/notes/FloatingToolbar', () => ({
 // Mock htmlToMarkdown and markdownToHtml
 vi.mock('../../../utils/markdownUtils', () => ({
     htmlToMarkdown: (html: string) => html.replace(/<[^>]*>/g, ''),
-    markdownToHtml: (md: string) => md,
-    insertTextAtSelection: vi.fn(),
+    markdownToHtml: (md: string) => md
 }));
 
 describe('EditableMarkdown', () => {

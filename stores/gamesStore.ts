@@ -3,7 +3,7 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { Game, GameLog, GameMission, GameFolder, CENTRAL_FOLDER_ID, CENTRAL_FOLDER_NAME } from '../types';
+import { Game, GameLog, GameMission, GameFolder, GameStory, CENTRAL_FOLDER_ID, CENTRAL_FOLDER_NAME } from '../types';
 import { generateId } from '../utils/generateId';
 import { writeToFirestore } from './firestoreSync';
 
@@ -38,6 +38,11 @@ interface GamesState {
 
     logHours: (gameId: string, hours: number, date?: string) => void;
 
+    // Stories Actions
+    addStory: (gameId: string, story: Omit<GameStory, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    updateStory: (gameId: string, storyId: string, updates: { content?: string; translatedContent?: string; imageUrl?: string; arc?: string; }) => void;
+    deleteStory: (gameId: string, storyId: string) => void;
+
     setGameReview: (gameId: string, review: string) => void;
     toggleReviewPending: (gameId: string) => void;
     clearForRestart: () => void;
@@ -62,6 +67,7 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
                 ...gameData,
                 missions: [],
                 history: [],
+                stories: [],
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             };
@@ -195,6 +201,68 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
             game.history.push(newLog);
             game.hoursPlayed += hours;
             game.updatedAt = Date.now();
+        });
+        get()._syncToFirestore();
+    },
+
+    addStory: (gameId, storyData) => {
+        // Bloquear imagens em base64/data URI para não exceder limites do Firestore
+        if (storyData.imageUrl && storyData.imageUrl.trim().toLowerCase().startsWith('data:')) {
+            alert('Imagens em base64 não são permitidas. Por favor, insira uma URL de imagem válida.');
+            return;
+        }
+
+        set((state) => {
+            const game = state.games.find(g => g.id === gameId);
+            if (!game) return;
+            if (!game.stories) game.stories = [];
+
+            const newStory: GameStory = {
+                id: generateId(),
+                ...storyData,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            };
+            game.stories.push(newStory);
+            game.updatedAt = Date.now();
+        });
+        get()._syncToFirestore();
+    },
+
+    updateStory: (gameId, storyId, updates) => {
+        // Bloquear imagens em base64/data URI
+        if (updates.imageUrl && updates.imageUrl.trim().toLowerCase().startsWith('data:')) {
+            alert('Imagens em base64 não são permitidas. Por favor, insira uma URL de imagem válida.');
+            return;
+        }
+
+        set((state) => {
+            const game = state.games.find(g => g.id === gameId);
+            if (!game || !game.stories) return;
+            const story = game.stories.find(s => s.id === storyId);
+            if (story) {
+                // Copia apenas os campos permitidos
+                if (updates.content !== undefined) story.content = updates.content;
+                if (updates.translatedContent !== undefined) story.translatedContent = updates.translatedContent;
+                if (updates.imageUrl !== undefined) story.imageUrl = updates.imageUrl;
+                if (updates.arc !== undefined) story.arc = updates.arc;
+
+                story.updatedAt = Date.now();
+                game.updatedAt = Date.now();
+            }
+        });
+        get()._syncToFirestore();
+    },
+
+    deleteStory: (gameId, storyId) => {
+        set((state) => {
+            const game = state.games.find(g => g.id === gameId);
+            if (!game || !game.stories) return;
+            const storyIdx = game.stories.findIndex(s => s.id === storyId);
+            if (storyIdx !== -1) {
+                game.stories.splice(storyIdx, 1);
+                game.updatedAt = Date.now();
+            }
         });
         get()._syncToFirestore();
     },

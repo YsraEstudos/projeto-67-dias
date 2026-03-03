@@ -64,10 +64,11 @@ export const useWorkMetrics = ({
         // Time Remaining Calculation
         let minutesRemaining = 0;
         if (status !== 'FINISHED') {
-            minutesRemaining = Math.max(0, endMins - currentMins);
+            const effectiveCurrentMins = Math.max(currentMins, startMins);
+            minutesRemaining = Math.max(0, endMins - effectiveCurrentMins);
             // If currently before break end, subtract the remaining break time from work time
-            if (currentMins < breakEndMins) {
-                const breakMinutesLeft = Math.max(0, breakEndMins - Math.max(currentMins, breakStartMins));
+            if (effectiveCurrentMins < breakEndMins) {
+                const breakMinutesLeft = Math.max(0, breakEndMins - Math.max(effectiveCurrentMins, breakStartMins));
                 minutesRemaining -= breakMinutesLeft;
             }
         }
