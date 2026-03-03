@@ -5,6 +5,7 @@ import { gameSchema, GameFormData, GameFormInput } from '../../schemas';
 import { X, Clock, Trophy, Trash2, Save, Plus, Check, AlertCircle, PencilLine, Bookmark, BookOpen, Image as ImageIcon } from 'lucide-react';
 import { Game, GameStatus, Note } from '../../types';
 import { useGameActions, useGameReviewActions, useGamesStore, useNotesStore } from '../../stores';
+import { incrementPendingWrites, decrementPendingWrites } from '../../stores/firestoreSync';
 import { generateId } from '../../utils/generateId';
 
 interface GameDetailsModalProps {
@@ -103,19 +104,34 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         setHoursInput('');
     };
 
-    const handleAddStory = (e: React.FormEvent) => {
+    const handleAddStory = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!storyContent.trim() && !storyImageUrl.trim()) return;
-        addStory(game.id, {
-            content: storyContent,
-            translatedContent: storyTranslated,
-            arc: storyArc,
-            imageUrl: storyImageUrl
-        });
-        setStoryContent('');
-        setStoryTranslated('');
-        setStoryArc('');
-        setStoryImageUrl('');
+
+        try {
+            incrementPendingWrites();
+            addStory(game.id, {
+                content: storyContent,
+                translatedContent: storyTranslated,
+                arc: storyArc,
+                imageUrl: storyImageUrl
+            });
+            setStoryContent('');
+            setStoryTranslated('');
+            setStoryArc('');
+            setStoryImageUrl('');
+        } finally {
+            decrementPendingWrites();
+        }
+    };
+
+    const handleDeleteStory = async (storyId: string) => {
+        try {
+            incrementPendingWrites();
+            deleteStory(game.id, storyId);
+        } finally {
+            decrementPendingWrites();
+        }
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -127,21 +143,26 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         }
     };
 
-    const handleStudyLater = () => {
+    const handleStudyLater = async () => {
         if (contextMenu?.text) {
-            const newNote: Note = {
-                id: generateId(),
-                title: `[${game.title}] Estudar Depois`,
-                content: contextMenu.text,
-                color: 'blue',
-                tags: [],
-                isPinned: false,
-                pinnedToTags: [],
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-            };
-            addNote(newNote);
-            alert('Adicionado às notas para estudar depois!');
+            try {
+                incrementPendingWrites();
+                const newNote: Note = {
+                    id: generateId(),
+                    title: `[${game.title}] Estudar Depois`,
+                    content: contextMenu.text,
+                    color: 'blue',
+                    tags: [],
+                    isPinned: false,
+                    pinnedToTags: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                addNote(newNote);
+                alert('Adicionado às notas para estudar depois!');
+            } finally {
+                decrementPendingWrites();
+            }
         }
         setContextMenu(null);
     };
@@ -351,8 +372,9 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
                                                         )}
                                                     </div>
                                                     <button
-                                                        onClick={() => deleteStory(game.id, story.id)}
-                                                        className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onClick={() => handleDeleteStory(story.id)}
+                                                        className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded transition-opacity"
+                                                        aria-label={`Excluir história ${story.arc || story.id}`}
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>

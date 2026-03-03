@@ -207,7 +207,7 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
 
     addStory: (gameId, storyData) => {
         // Bloquear imagens em base64/data URI para não exceder limites do Firestore
-        if (storyData.imageUrl && storyData.imageUrl.startsWith('data:')) {
+        if (storyData.imageUrl && storyData.imageUrl.trim().toLowerCase().startsWith('data:')) {
             alert('Imagens em base64 não são permitidas. Por favor, insira uma URL de imagem válida.');
             return;
         }
@@ -231,7 +231,7 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
 
     updateStory: (gameId, storyId, updates) => {
         // Bloquear imagens em base64/data URI
-        if (updates.imageUrl && updates.imageUrl.startsWith('data:')) {
+        if (updates.imageUrl && updates.imageUrl.trim().toLowerCase().startsWith('data:')) {
             alert('Imagens em base64 não são permitidas. Por favor, insira uma URL de imagem válida.');
             return;
         }
