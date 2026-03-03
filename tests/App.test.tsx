@@ -64,8 +64,13 @@ vi.mock('../stores', () => {
             return typeof selector === 'function' ? selector(state) : state;
         }),
         useConfigStore: createStoreMock({ config: { startDate: new Date().toISOString(), userName: 'Test' }, setConfig: mockFn() }),
-        useWorkStore: createStoreMock({ currentCount: 0, goal: 300 }),
+        useWorkStore: createStoreMock({ currentCount: 0, goal: 300, getCurrentWeekGoal: () => 100 }),
         useHabitsStore: createStoreMock({ tasks: [] }),
+        useSiteCategoriesStore: createStoreMock({ categories: [], _hydrateFromFirestore: vi.fn() }),
+        useSitesStore: createStoreMock({ sites: [], _hydrateFromFirestore: vi.fn() }),
+        useSiteFoldersStore: createStoreMock({ folders: [], _hydrateFromFirestore: vi.fn() }),
+        useSundayTimerStore: createStoreMock({ _hydrateFromFirestore: vi.fn() }),
+        useGoalsStore: createStoreMock({ goals: [], _hydrateFromFirestore: vi.fn() }),
         useStreakStore: Object.assign(
             mockFn((selector: any) => {
                 const state = {

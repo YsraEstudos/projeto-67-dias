@@ -41,6 +41,12 @@ vi.mock('../../../services/firebase', () => ({
 
 // Mock useWorkStore with isLoading: false to prevent skeleton from showing
 vi.mock('../../../stores', () => ({
+    useUIStore: (selector: any) => {
+        const state = {
+            setActiveView: vi.fn(),
+        };
+        return typeof selector === 'function' ? selector(state) : state;
+    },
     useWorkStore: (selector: any) => {
         const state = {
             isLoading: false,
@@ -67,6 +73,7 @@ vi.mock('../../../stores', () => ({
             setGoals: vi.fn(),
             setStudySubjects: vi.fn(),
             setSchedules: vi.fn(),
+            getCurrentWeekGoal: vi.fn(() => 100),
         };
         return typeof selector === 'function' ? selector(state) : state;
     }

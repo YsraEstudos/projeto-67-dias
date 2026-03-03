@@ -13,9 +13,11 @@ vi.mock('../../../components/notes/FloatingToolbar', () => ({
     FloatingToolbar: () => <div data-testid="floating-toolbar" />
 }));
 
-// Mock htmlToMarkdown
+// Mock htmlToMarkdown and markdownToHtml
 vi.mock('../../../utils/markdownUtils', () => ({
-    htmlToMarkdown: (html: string) => html.replace(/<[^>]*>/g, '')
+    htmlToMarkdown: (html: string) => html.replace(/<[^>]*>/g, ''),
+    markdownToHtml: (md: string) => md,
+    insertTextAtSelection: vi.fn(),
 }));
 
 describe('EditableMarkdown', () => {
@@ -27,15 +29,16 @@ describe('EditableMarkdown', () => {
 
     describe('Rendering', () => {
         it('renders with content', () => {
-            render(
+            const { container } = render(
                 <EditableMarkdown
                     content="# Hello World"
                     onChange={mockOnChange}
                 />
             );
 
-            expect(screen.getByTestId('markdown-renderer')).toBeInTheDocument();
-            expect(screen.getByTestId('markdown-renderer')).toHaveTextContent('# Hello World');
+            const editableDiv = container.querySelector('[contenteditable="true"]');
+            expect(editableDiv).toBeInTheDocument();
+            expect(editableDiv).toHaveTextContent('# Hello World');
         });
 
         it('renders placeholder when content is empty', () => {

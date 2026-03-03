@@ -102,7 +102,7 @@ describe('FullRoadmapEditor Component', () => {
             />
         );
 
-        fireEvent.click(screen.getByText('Exportar PDF'));
+        fireEvent.click(screen.getByTitle('Exportar como PDF'));
 
         expect(printMock).toHaveBeenCalledTimes(1);
     });

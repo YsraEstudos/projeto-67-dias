@@ -45,7 +45,8 @@ describe('JournalView', () => {
         it('renders the journal sidebar with entries', () => {
             render(<JournalView />);
 
-            expect(screen.getByText('Diário')).toBeInTheDocument();
+            const headings = screen.getAllByText('Diário');
+            expect(headings.length).toBeGreaterThan(0);
             expect(screen.getByText('Test journal entry content')).toBeInTheDocument();
         });
 
@@ -86,11 +87,16 @@ describe('JournalView', () => {
     });
 
     describe('Entry Creation', () => {
-        it('calls addEntry when new entry button is clicked', () => {
+        it('calls addEntry when new entry button is clicked', async () => {
             render(<JournalView />);
 
-            const newEntryButton = screen.getByTitle('Nova Entrada');
-            fireEvent.click(newEntryButton);
+            const createNewEntryButtons = screen.getAllByRole('button').filter(button => button.textContent?.includes('Criar nova entrada') || button.getAttribute('title') === 'Nova Entrada');
+            expect(createNewEntryButtons.length).toBeGreaterThan(0);
+            fireEvent.click(createNewEntryButtons[0]);
+
+            // Now a modal opens, we need to click the 'Texto' button
+            const textEntryButton = await screen.findByText(/^Texto$/i);
+            fireEvent.click(textEntryButton);
 
             expect(mockAddEntry).toHaveBeenCalledWith(
                 expect.objectContaining({
