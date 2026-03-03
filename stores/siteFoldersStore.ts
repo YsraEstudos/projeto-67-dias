@@ -54,10 +54,10 @@ export const useSiteFoldersStore = create<SiteFoldersState>()((set, get) => ({
     addFolder: (folder) => {
         const state = get();
         // Auto-calculate order within site
-        const foldersInSite = state.folders.filter(f => f.siteId === folder.siteId);
-        const maxOrder = foldersInSite.length > 0
-            ? Math.max(...foldersInSite.map(f => f.order))
-            : -1;
+        const maxOrder = state.folders.reduce((max, f) =>
+            f.siteId === folder.siteId ? (f.order > max ? f.order : max) : max,
+            -1
+        );
         const folderWithOrder = { ...folder, order: maxOrder + 1 };
         set({ folders: [...state.folders, folderWithOrder] });
         get()._syncToFirestore();
@@ -83,10 +83,10 @@ export const useSiteFoldersStore = create<SiteFoldersState>()((set, get) => ({
 
     moveFolder: (folderId, newSiteId) => {
         set((state) => {
-            const foldersInNewSite = state.folders.filter(f => f.siteId === newSiteId);
-            const maxOrder = foldersInNewSite.length > 0
-                ? Math.max(...foldersInNewSite.map(f => f.order))
-                : -1;
+            const maxOrder = state.folders.reduce((max, f) =>
+                f.siteId === newSiteId ? (f.order > max ? f.order : max) : max,
+                -1
+            );
 
             return {
                 folders: state.folders.map(f =>
