@@ -81,11 +81,12 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         setImgError(false);
     }, [watchedCoverUrl]);
 
-    // Early return se o jogo não existir mais
-    if (!game) {
-        return null;
-    }
-
+    // Close context menu on click outside
+    useEffect(() => {
+        const handleClickOutside = () => setContextMenu(null);
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
 
     const handleAddMission = (e: React.FormEvent) => {
         e.preventDefault();
@@ -145,13 +146,6 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
         setContextMenu(null);
     };
 
-    // Close context menu on click outside
-    useEffect(() => {
-        const handleClickOutside = () => setContextMenu(null);
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, []);
-
     const handleSaveReview = () => {
         setGameReview(game.id, reviewText);
     };
@@ -171,6 +165,11 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ gameId, onCl
             coverUrl: data.coverUrl || undefined,
         });
     };
+
+    // Early return se o jogo não existir mais, após todos os hooks
+    if (!game) {
+        return null;
+    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">

@@ -40,7 +40,7 @@ interface GamesState {
 
     // Stories Actions
     addStory: (gameId: string, story: Omit<GameStory, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    updateStory: (gameId: string, storyId: string, updates: Partial<GameStory>) => void;
+    updateStory: (gameId: string, storyId: string, updates: { content?: string; translatedContent?: string; imageUrl?: string; arc?: string; }) => void;
     deleteStory: (gameId: string, storyId: string) => void;
 
     setGameReview: (gameId: string, review: string) => void;
@@ -206,6 +206,12 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
     },
 
     addStory: (gameId, storyData) => {
+        // Bloquear imagens em base64/data URI para não exceder limites do Firestore
+        if (storyData.imageUrl && storyData.imageUrl.startsWith('data:')) {
+            alert('Imagens em base64 não são permitidas. Por favor, insira uma URL de imagem válida.');
+            return;
+        }
+
         set((state) => {
             const game = state.games.find(g => g.id === gameId);
             if (!game) return;
@@ -224,12 +230,23 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
     },
 
     updateStory: (gameId, storyId, updates) => {
+        // Bloquear imagens em base64/data URI
+        if (updates.imageUrl && updates.imageUrl.startsWith('data:')) {
+            alert('Imagens em base64 não são permitidas. Por favor, insira uma URL de imagem válida.');
+            return;
+        }
+
         set((state) => {
             const game = state.games.find(g => g.id === gameId);
             if (!game || !game.stories) return;
             const story = game.stories.find(s => s.id === storyId);
             if (story) {
-                Object.assign(story, updates);
+                // Copia apenas os campos permitidos
+                if (updates.content !== undefined) story.content = updates.content;
+                if (updates.translatedContent !== undefined) story.translatedContent = updates.translatedContent;
+                if (updates.imageUrl !== undefined) story.imageUrl = updates.imageUrl;
+                if (updates.arc !== undefined) story.arc = updates.arc;
+
                 story.updatedAt = Date.now();
                 game.updatedAt = Date.now();
             }
