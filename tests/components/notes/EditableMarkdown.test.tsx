@@ -15,7 +15,8 @@ vi.mock('../../../components/notes/FloatingToolbar', () => ({
 
 // Mock htmlToMarkdown
 vi.mock('../../../utils/markdownUtils', () => ({
-    htmlToMarkdown: (html: string) => html.replace(/<[^>]*>/g, '')
+    htmlToMarkdown: (html: string) => html.replace(/<[^>]*>/g, ''),
+    markdownToHtml: (md: string) => md
 }));
 
 describe('EditableMarkdown', () => {
@@ -27,15 +28,16 @@ describe('EditableMarkdown', () => {
 
     describe('Rendering', () => {
         it('renders with content', () => {
-            render(
+            const { container } = render(
                 <EditableMarkdown
                     content="# Hello World"
                     onChange={mockOnChange}
                 />
             );
 
-            expect(screen.getByTestId('markdown-renderer')).toBeInTheDocument();
-            expect(screen.getByTestId('markdown-renderer')).toHaveTextContent('# Hello World');
+            // EditableMarkdown now renders content directly in contentEditable
+            const editableDiv = container.querySelector('[contenteditable="true"]');
+            expect(editableDiv).toHaveTextContent('# Hello World');
         });
 
         it('renders placeholder when content is empty', () => {

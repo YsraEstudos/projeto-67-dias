@@ -6,7 +6,7 @@
  * - No more manual LocalStorage cache management
  * - No more manual offline queue - Firestore SDK handles it
  */
-import { doc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, onSnapshot, Unsubscribe, collection, query } from 'firebase/firestore';
 import { db, auth } from '../services/firebase';
 import { incrementWrites, incrementReads, isQuotaExceeded, notifyQuotaListeners } from '../utils/firestoreQuota';
 
@@ -26,19 +26,20 @@ const getWriteIdentity = (userId: string, collectionKey: string): string => `${u
 
 // Default debounce for non-critical stores.
 // 12s dramatically reduces write volume while preserving cross-device sync.
-const WRITE_DEBOUNCE_MS = 12000;
+const WRITE_DEBOUNCE_MS = 15000;
 
 // Store-specific debounce overrides for responsiveness where needed
 const STORE_DEBOUNCE_OVERRIDES: Record<string, number> = {
     // Keep project/session-critical flows more responsive
-    p67_project_config: 2500,
-    p67_work_store: 4000,
-    p67_tool_timer: 1500,
+    p67_project_config: 5000,
+    p67_work_store: 10000,
+    p67_tool_timer: 5000,
 
     // Text-heavy modules can use a longer window safely
-    p67_notes_store: 15000,
-    p67_prompts_store: 15000,
-    p67_links_store: 15000,
+    p67_notes_store: 25000,
+    p67_prompts_store: 25000,
+    p67_links_store: 25000,
+    p67_weekly_agenda: 25000,
 };
 
 // Track last written data per collection to avoid duplicate writes
@@ -46,8 +47,8 @@ const STORE_DEBOUNCE_OVERRIDES: Record<string, number> = {
 const lastWrittenData = new Map<string, string>();
 
 // Reduced debounce for realtime stores (timers) that need instant sync across devices
-// 200ms is fast enough for realtime UX while still preventing excessive writes
-export const REALTIME_DEBOUNCE_MS = 200;
+// Increased to 1500ms to reduce excessive writes when toggling quickly
+export const REALTIME_DEBOUNCE_MS = 1500;
 
 // Rate limiter to prevent billing spikes (max 24 writes/min globally)
 const MAX_WRITES_PER_MINUTE = 24;
@@ -318,4 +319,119 @@ export const __resetForTesting = () => {
     lastWrittenData.clear();
     pendingWriteCount = 0;
     pendingWriteListeners.length = 0;
+};
+
+/**
+ * Subcollection operations
+ * These bypass the local state debounce and write directly,
+ * as single item updates are already small payloads.
+ */
+export const writeItemToSubcollection = async (
+    collectionKey: string,
+    itemId: string,
+    data: any
+): Promise<void> => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+        console.warn('[Firestore] Cannot write without authenticated user');
+        return;
+    }
+
+    if (isQuotaExceeded()) {
+        console.warn('[Firestore] Daily quota exceeded (20k ops). Write blocked.');
+        return;
+    }
+
+    try {
+        pendingWriteCount++;
+        notifyPendingListeners();
+
+        const cleanedData = removeUndefined(data);
+        const docRef = doc(db, 'users', userId, collectionKey, itemId);
+
+        await setDoc(docRef, {
+            ...cleanedData,
+            _updatedAt: Date.now()
+        });
+
+        incrementWrites();
+        notifyQuotaListeners();
+    } catch (error) {
+        console.error(`[Firestore] Failed to write item ${itemId} to ${collectionKey}:`, error);
+    } finally {
+        pendingWriteCount--;
+        notifyPendingListeners();
+    }
+};
+
+export const deleteItemFromSubcollection = async (
+    collectionKey: string,
+    itemId: string
+): Promise<void> => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+        console.warn('[Firestore] Cannot delete without authenticated user');
+        return;
+    }
+
+    if (isQuotaExceeded()) {
+        console.warn('[Firestore] Daily quota exceeded (20k ops). Delete blocked.');
+        return;
+    }
+
+    try {
+        pendingWriteCount++;
+        notifyPendingListeners();
+
+        const docRef = doc(db, 'users', userId, collectionKey, itemId);
+        await deleteDoc(docRef);
+
+        incrementWrites();
+        notifyQuotaListeners();
+    } catch (error) {
+        console.error(`[Firestore] Failed to delete item ${itemId} from ${collectionKey}:`, error);
+    } finally {
+        pendingWriteCount--;
+        notifyPendingListeners();
+    }
+};
+
+export const subscribeToSubcollection = <T>(
+    collectionKey: string,
+    onData: (data: T[]) => void,
+    onError?: (error: Error) => void
+): Unsubscribe => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+        console.warn('[Firestore] Cannot subscribe without authenticated user');
+        return () => { };
+    }
+
+    const colRef = collection(db, 'users', userId, collectionKey);
+    const q = query(colRef);
+
+    return onSnapshot(
+        q,
+        (snapshot) => {
+            if (!snapshot.metadata?.fromCache && !snapshot.metadata?.hasPendingWrites) {
+                // Approximate read cost: 1 per document returned
+                for (let i = 0; i < snapshot.docs.length; i++) {
+                     incrementReads();
+                }
+                notifyQuotaListeners();
+            }
+
+            const items: T[] = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                delete data._updatedAt; // Remove internal metadata
+                items.push(data as T);
+            });
+            onData(items);
+        },
+        (error) => {
+            console.error(`[Firestore] Subcollection subscription error for ${collectionKey}:`, error);
+            onError?.(error);
+        }
+    );
 };
