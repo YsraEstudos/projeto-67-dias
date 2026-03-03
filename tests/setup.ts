@@ -58,6 +58,17 @@ vi.mock('firebase/firestore', () => {
     };
 });
 
+vi.mock('firebase/storage', () => {
+    const storageRef = { fullPath: 'mock/storage/path' };
+    return {
+        getStorage: vi.fn(() => ({ type: 'storage' })),
+        ref: vi.fn(() => storageRef),
+        uploadBytes: vi.fn(() => Promise.resolve({ ref: storageRef })),
+        getDownloadURL: vi.fn(() => Promise.resolve('https://example.com/mock-story.jpg')),
+        deleteObject: vi.fn(() => Promise.resolve()),
+    };
+});
+
 // Mock LocalStorage
 const localStorageMock = (function () {
     let store: Record<string, string> = {};
@@ -79,4 +90,14 @@ const localStorageMock = (function () {
 
 Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
+});
+
+Object.defineProperty(window.URL, 'createObjectURL', {
+    writable: true,
+    value: vi.fn(() => 'blob:mock-url'),
+});
+
+Object.defineProperty(window.URL, 'revokeObjectURL', {
+    writable: true,
+    value: vi.fn(),
 });

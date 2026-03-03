@@ -742,8 +742,11 @@ export interface GameStory {
   id: string;
   content: string;               // Original text
   translatedContent?: string;    // Translated text
-  imageUrl?: string;             // Story image URL or base64
+  imageUrl?: string;             // Story image URL
+  imageStoragePath?: string;     // Firebase Storage path for uploaded images
   arc?: string;                  // Game arc (e.g., "Capítulo 1", "Arco do Vulcão")
+  originalLanguage?: string;     // Original language code or label
+  translatedLanguage?: string;   // Translated language code or label
   createdAt: number;
   updatedAt: number;
 }

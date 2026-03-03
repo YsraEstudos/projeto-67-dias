@@ -39,8 +39,8 @@ interface GamesState {
     logHours: (gameId: string, hours: number, date?: string) => void;
 
     // Stories Actions
-    addStory: (gameId: string, story: Omit<GameStory, 'id' | 'createdAt' | 'updatedAt'>) => void;
-    updateStory: (gameId: string, storyId: string, updates: { content?: string; translatedContent?: string; imageUrl?: string; arc?: string; }) => void;
+    addStory: (gameId: string, story: Omit<GameStory, 'createdAt' | 'updatedAt'>) => void;
+    updateStory: (gameId: string, storyId: string, updates: Partial<Pick<GameStory, 'content' | 'translatedContent' | 'imageUrl' | 'imageStoragePath' | 'arc' | 'originalLanguage' | 'translatedLanguage'>>) => void;
     deleteStory: (gameId: string, storyId: string) => void;
 
     setGameReview: (gameId: string, review: string) => void;
@@ -218,7 +218,7 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
             if (!game.stories) game.stories = [];
 
             const newStory: GameStory = {
-                id: generateId(),
+                id: storyData.id || generateId(),
                 ...storyData,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -246,6 +246,9 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
                 if (updates.translatedContent !== undefined) story.translatedContent = updates.translatedContent;
                 if (updates.imageUrl !== undefined) story.imageUrl = updates.imageUrl;
                 if (updates.arc !== undefined) story.arc = updates.arc;
+                if (updates.imageStoragePath !== undefined) story.imageStoragePath = updates.imageStoragePath;
+                if (updates.originalLanguage !== undefined) story.originalLanguage = updates.originalLanguage;
+                if (updates.translatedLanguage !== undefined) story.translatedLanguage = updates.translatedLanguage;
 
                 story.updatedAt = Date.now();
                 game.updatedAt = Date.now();
@@ -337,4 +340,3 @@ export const useGamesStore = create<GamesState>()(immer((set, get) => ({
         });
     }
 })));
-

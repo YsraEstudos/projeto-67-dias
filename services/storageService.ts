@@ -117,3 +117,50 @@ export async function deleteAllDrawingsForEntry(
     const deletePromises = storagePaths.map(path => deleteDrawing(path));
     await Promise.allSettled(deletePromises);
 }
+
+/**
+ * Uploads a game story image to Firebase Storage.
+ */
+export async function uploadGameStoryImage(
+    gameId: string,
+    storyId: string,
+    file: File
+): Promise<DrawingUploadResult> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+        throw new Error('Usuário não autenticado');
+    }
+
+    const originalDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Falha ao ler arquivo de imagem'));
+        reader.readAsDataURL(file);
+    });
+
+    const compressedDataUrl = await compressImage(originalDataUrl, 1600, 0.86);
+    const response = await fetch(compressedDataUrl);
+    const blob = await response.blob();
+
+    const storagePath = `game-stories/${userId}/${gameId}/${storyId}.jpg`;
+    const storageRef = ref(storage, storagePath);
+
+    await uploadBytes(storageRef, blob, {
+        contentType: 'image/jpeg',
+        customMetadata: {
+            uploadedAt: new Date().toISOString(),
+            source: 'game-story'
+        }
+    });
+
+    const url = await getDownloadURL(storageRef);
+
+    return { url, storagePath };
+}
+
+/**
+ * Deletes a game story image from Firebase Storage.
+ */
+export async function deleteGameStoryImage(storagePath: string): Promise<void> {
+    await deleteDrawing(storagePath);
+}

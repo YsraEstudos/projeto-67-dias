@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
-import { Plus, Search, Filter, Gamepad2, Trophy, Clock, FolderPlus, ChevronRight, Home, PencilLine } from 'lucide-react';
+import { Plus, Search, Filter, Gamepad2, Trophy, Clock, FolderPlus, ChevronRight, Home, PencilLine, BookOpenText } from 'lucide-react';
 import { useGames, useGameFolders, useGameFolderActions, useConfigStore } from '../../stores';
 import { GameStatus, Game, CENTRAL_FOLDER_ID } from '../../types';
 import { GameCard } from '../games/GameCard';
 import { FolderCard, FOLDER_COLORS } from '../games/FolderCard';
+import { StoriesPanel } from '../games/stories/StoriesPanel';
 import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
 import { calculateGamesProgress } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
@@ -34,6 +35,7 @@ const GamesView: React.FC = () => {
     const [selectedGame, setSelectedGame] = useState<Game | null>(null);
     const [statusFilter, setStatusFilter] = useState<GameStatus | 'ALL'>('ALL');
     const [showPendingReviews, setShowPendingReviews] = useState(false);
+    const [showStoriesPanel, setShowStoriesPanel] = useState(false);
 
     // Sort folders: Central folder always first
     const sortedFolders = useMemo(() => {
@@ -223,6 +225,7 @@ const GamesView: React.FC = () => {
                         <button
                             onClick={() => {
                                 setShowPendingReviews(!showPendingReviews);
+                                setShowStoriesPanel(false);
                                 setCurrentFolderId(null);
                             }}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors border ${showPendingReviews
@@ -232,6 +235,21 @@ const GamesView: React.FC = () => {
                         >
                             <PencilLine size={16} />
                             <span className="font-medium">Resenhas Pendentes</span>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setShowStoriesPanel((value) => !value);
+                                setShowPendingReviews(false);
+                                setCurrentFolderId(null);
+                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors border ${showStoriesPanel
+                                ? 'bg-blue-500/15 text-blue-300 border-blue-500/40 shadow-[0_0_0_1px_rgba(59,130,246,0.2)]'
+                                : 'text-slate-400 border-transparent hover:text-white hover:bg-slate-800'
+                                }`}
+                        >
+                            <BookOpenText size={16} />
+                            <span className="font-medium">Histórias</span>
                         </button>
 
                         {currentFolder && (
@@ -294,6 +312,12 @@ const GamesView: React.FC = () => {
                         </select>
                     </div>
                 </div>
+
+                {showStoriesPanel && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        <StoriesPanel mode="global" />
+                    </div>
+                )}
 
             </div>
 
