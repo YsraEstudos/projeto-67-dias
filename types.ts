@@ -738,6 +738,16 @@ export interface GameLog {
   hoursPlayed: number;
 }
 
+export interface GameStory {
+  id: string;
+  content: string;               // Original text
+  translatedContent?: string;    // Translated text
+  imageUrl?: string;             // Story image URL or base64
+  arc?: string;                  // Game arc (e.g., "Capítulo 1", "Arco do Vulcão")
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Game {
   id: string;
   title: string;
@@ -754,6 +764,7 @@ export interface Game {
 
   missions: GameMission[];
   history: GameLog[];
+  stories?: GameStory[]; // Sistema de Histórias
 
   notes?: string;
 

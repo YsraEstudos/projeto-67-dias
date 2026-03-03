@@ -114,6 +114,24 @@ export const subscribeToPendingWrites = (listener: () => void): (() => void) => 
 };
 
 /**
+ * Increment manual pending write count (useful for external async operations)
+ */
+export const incrementPendingWrites = (): void => {
+    pendingWriteCount++;
+    notifyPendingListeners();
+};
+
+/**
+ * Decrement manual pending write count (useful for external async operations)
+ */
+export const decrementPendingWrites = (): void => {
+    if (pendingWriteCount > 0) {
+        pendingWriteCount--;
+        notifyPendingListeners();
+    }
+};
+
+/**
  * Get current pending write count
  */
 export const getPendingWriteCount = (): number => pendingWriteCount;
