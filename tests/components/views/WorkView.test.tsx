@@ -52,6 +52,9 @@ vi.mock('../../../stores', () => ({
             goals: { weekly: 100, ultra: 500, anki: 15, ncm: 20 },
             studySubjects: [],
             studySchedules: [],
+            weeklyGoals: {},
+            getCurrentWeekGoal: vi.fn(() => 300),
+            setWeeklyGoal: vi.fn(),
             setGoal: vi.fn(),
             setCurrentCount: vi.fn(),
             setPreBreakCount: vi.fn(),
@@ -64,6 +67,12 @@ vi.mock('../../../stores', () => ({
             setGoals: vi.fn(),
             setStudySubjects: vi.fn(),
             setSchedules: vi.fn(),
+        };
+        return typeof selector === 'function' ? selector(state) : state;
+    },
+    useUIStore: (selector: any) => {
+        const state = {
+            setActiveView: vi.fn()
         };
         return typeof selector === 'function' ? selector(state) : state;
     }
