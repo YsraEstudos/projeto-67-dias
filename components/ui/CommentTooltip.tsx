@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageSquare, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { sanitizeUrl } from '../../utils/urlUtils';
 
 interface LinkItem {
     id: string;
@@ -104,7 +105,7 @@ const CommentTooltip: React.FC<CommentTooltipProps> = ({ comment, links = [], cl
                 return (
                     <a
                         key={index}
-                        href={part}
+                        href={sanitizeUrl(part)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -228,7 +229,7 @@ const CommentTooltip: React.FC<CommentTooltipProps> = ({ comment, links = [], cl
                             {links.map((link) => (
                                 <a
                                     key={link.id}
-                                    href={link.url}
+                                    href={sanitizeUrl(link.url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
