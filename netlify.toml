@@ -1,6 +1,8 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  # Ignore the api directory since it's meant for Vercel Serverless Functions
+  functions = "netlify/functions"
 
 [[redirects]]
   from = "/*"
