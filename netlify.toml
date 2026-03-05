@@ -1,12 +1,12 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  # Explicitly disable netlify functions for api/
-  functions = "netlify/functions"
+  # Ignore api changes
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF . ':!api'"
 
 [build.environment]
   NODE_VERSION = "18"
-  # Let Netlify know not to look for python functions if it still tries
+  # Ensure we only install node modules
   NETLIFY_USE_YARN = "false"
   NPM_FLAGS = "--legacy-peer-deps"
 
