@@ -3,7 +3,7 @@
  */
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth } from './firebase';
-import { compressImage } from '../utils/imageUtils';
+import { compressImage, dataURLtoBlob } from '../utils/imageUtils';
 
 // Initialize Storage
 const storage = getStorage();
@@ -72,7 +72,7 @@ export async function uploadDrawing(
 
 /**
  * Uploads a drawing from a data URL (base64)
- * Compresses the image before uploading
+ * Passes the image to our high-quality Python/Vercel compressor
  */
 export async function uploadDrawingFromDataUrl(
     entryId: string,
@@ -80,13 +80,34 @@ export async function uploadDrawingFromDataUrl(
     dataUrl: string,
     maxWidth: number = 1920
 ): Promise<DrawingUploadResult> {
-    // Compress image first
+    // 1. Initial Client-side safeguard resize (if needed, to avoid Vercel's 4.5MB limit)
     const compressedDataUrl = await compressImage(dataUrl, maxWidth, 0.85);
 
-    // Convert to blob
-    const response = await fetch(compressedDataUrl);
-    const blob = await response.blob();
+    // 2. Convert base64 safely without using fetch()
+    const blob = dataURLtoBlob(compressedDataUrl);
 
+    // 3. Send to advanced Python Serverless Compressor
+    try {
+        const formData = new FormData();
+        formData.append("file", blob, "image.jpg");
+
+        const compressRes = await fetch("/api/compress", {
+            method: "POST",
+            body: formData,
+        });
+
+        if (compressRes.ok) {
+            const optimizedBlob = await compressRes.blob();
+            // Optional: You could update the storagePath extension here if desired
+            return uploadDrawing(entryId, pageId, optimizedBlob);
+        } else {
+            console.warn("Python API compression failed. Falling back to client-side blob.");
+        }
+    } catch (error) {
+         console.warn("Python API compression error. Falling back to client-side blob.", error);
+    }
+
+    // Fallback if API fails
     return uploadDrawing(entryId, pageId, blob);
 }
 
@@ -139,8 +160,23 @@ export async function uploadGameStoryImage(
     });
 
     const compressedDataUrl = await compressImage(originalDataUrl, 1600, 0.86);
-    const response = await fetch(compressedDataUrl);
-    const blob = await response.blob();
+    let blob = dataURLtoBlob(compressedDataUrl);
+
+    try {
+        const formData = new FormData();
+        formData.append("file", blob, "image.jpg");
+        const compressRes = await fetch("/api/compress", {
+            method: "POST",
+            body: formData,
+        });
+        if (compressRes.ok) {
+            blob = await compressRes.blob();
+        } else {
+             console.warn("Python API compression failed. Falling back to client-side blob.");
+        }
+    } catch (e) {
+         console.warn("Python API compression error. Falling back to client-side blob.", e);
+    }
 
     const storagePath = `game-stories/${userId}/${gameId}/${storyId}.jpg`;
     const storageRef = ref(storage, storagePath);
