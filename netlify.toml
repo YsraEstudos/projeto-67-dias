@@ -1,16 +1,19 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  # Ignore the api directory since it's meant for Vercel Serverless Functions
+  # Explicitly disable netlify functions for api/
   functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "18"
+  # Let Netlify know not to look for python functions if it still tries
+  NETLIFY_USE_YARN = "false"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build.environment]
-  NODE_VERSION = "18"
 
 # Security Headers
 [[headers]]
