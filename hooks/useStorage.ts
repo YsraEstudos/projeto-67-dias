@@ -106,24 +106,39 @@ export function useStorage<T>(
     // Gerenciar autenticação - PRIMEIRO useEffect que roda
     useEffect(() => {
         if (!firebaseSupported) {
-            setStoredValue(getLocalStorageValue(null));
-            setAuthChecked(true);
+            const localValue = getLocalStorageValue(null);
+            setStoredValue(prev => {
+                try {
+                    if (JSON.stringify(prev) === JSON.stringify(localValue)) return prev;
+                } catch (e) {}
+                return localValue;
+            });
+            setAuthChecked(prev => prev !== true ? true : prev);
             isInitializingRef.current = false;
             return () => { };
         }
 
         const unsubscribe = onAuthStateChanged(auth as Parameters<typeof onAuthStateChanged>[0], (user) => {
             const newUserId = user?.uid ?? null;
+            const newUseFirebase = !!user;
 
             // FIX INFINITE LOOP: Only update state if changed, and decouple logic
-            setUserId(newUserId);
-            setUseFirebase(!!user);
+            setUserId(prev => prev !== newUserId ? newUserId : prev);
+            setUseFirebase(prev => prev !== newUseFirebase ? newUseFirebase : prev);
 
             // Only force load from local storage immediately if not yet checked
             if (isInitializingRef.current) {
                 const localValue = getLocalStorageValue(newUserId);
-                setStoredValue(localValue);
-                setAuthChecked(true);
+                setStoredValue(prev => {
+                    try {
+                        if (JSON.stringify(prev) === JSON.stringify(localValue)) return prev;
+                    } catch (e) {
+                        // fallback if stringify fails
+                    }
+                    return localValue;
+                });
+
+                setAuthChecked(prev => prev !== true ? true : prev);
 
                 setTimeout(() => {
                     isInitializingRef.current = false;
@@ -138,7 +153,13 @@ export function useStorage<T>(
     useEffect(() => {
         if (!authChecked || isInitializingRef.current) return;
 
-        setStoredValue(getLocalStorageValue(userId));
+        const localValue = getLocalStorageValue(userId);
+        setStoredValue(prev => {
+            try {
+                if (JSON.stringify(prev) === JSON.stringify(localValue)) return prev;
+            } catch (e) {}
+            return localValue;
+        });
     }, [userId, getLocalStorageValue, authChecked]);
 
     // Sincronizar com Firebase quando usuário está autenticado
