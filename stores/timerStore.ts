@@ -7,6 +7,8 @@ import { writeToFirestore } from './firestoreSync';
 
 const STORE_KEY = 'p67_tool_timer';
 
+export const DEFAULT_POMODORO_SECONDS = 25 * 60; // 25 minutes in seconds
+
 const DEFAULT_TIMER: GlobalTimerState = {
     mode: 'STOPWATCH',
     status: 'IDLE',

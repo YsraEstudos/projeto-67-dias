@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Timer } from 'lucide-react';
 import { useTimerStore } from '../stores';
+import { DEFAULT_POMODORO_SECONDS } from '../stores/timerStore';
 
 interface TimerWidgetProps {
     onClick: () => void;
@@ -17,7 +18,7 @@ export const TimerWidget: React.FC<TimerWidgetProps> = React.memo(({ onClick }) 
     useEffect(() => {
         // Safe-guard: If loaded state has 0 duration (legacy bug), reset to default 25m
         if (timer.mode === 'TIMER' && timer.status === 'IDLE' && timer.totalDuration === 0) {
-            setTimer({ totalDuration: 25 * 60 * 1000, label: 'Pomodoro' });
+            setTimer({ totalDuration: DEFAULT_POMODORO_SECONDS, label: 'Pomodoro' });
         }
 
         const update = () => {
