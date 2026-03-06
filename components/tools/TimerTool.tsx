@@ -5,6 +5,7 @@ import { useTimerStore } from '../../stores';
 import { formatTimeDisplay } from './utils/timeUtils';
 import { TimerProgressRing } from './TimerProgressRing';
 import { StopwatchDisplay } from './StopwatchDisplay';
+import { DEFAULT_POMODORO_SECONDS } from '../../stores/timerStore';
 
 
 export const TimerTool: React.FC = () => {
@@ -55,7 +56,7 @@ export const TimerTool: React.FC = () => {
 
         // Safe-guard for 0 duration
         if (timerState.mode === 'TIMER' && timerState.status === 'IDLE' && timerState.totalDuration === 0) {
-            setTimerState(prev => ({ ...prev, totalDuration: 25 * 60 * 1000, label: 'Pomodoro' }));
+            setTimerState(prev => ({ ...prev, totalDuration: DEFAULT_POMODORO_SECONDS, label: 'Pomodoro' }));
         }
 
         // Run immediately and then interval
@@ -137,7 +138,7 @@ export const TimerTool: React.FC = () => {
             startTime: null,
             endTime: null,
             accumulated: 0,
-            totalDuration: minutes * 60 * 1000,
+            totalDuration: minutes * 60,
             label
         });
     };
