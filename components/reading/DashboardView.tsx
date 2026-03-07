@@ -62,7 +62,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMod
                 </div>
 
                 {/* Column Content */}
-                <div className="p-3 flex-1 overflow-y-auto scrollbar-thin grid grid-cols-1 2xl:grid-cols-2 gap-3 content-start">
+                <div className={`p-3 flex-1 overflow-y-auto scrollbar-thin grid grid-cols-1 ${viewMode === 'grid' ? '2xl:grid-cols-2' : ''} gap-3 content-start`}>
                     {columnBooks.length === 0 && (
                         <div className="h-32 col-span-full flex items-center justify-center text-slate-600 text-sm italic border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/20 m-2">
                             Arraste livros aqui
