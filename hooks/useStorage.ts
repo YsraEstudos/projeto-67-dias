@@ -23,6 +23,15 @@ export {
 
 let warnedUseStorage = false;
 
+function isJsonEqual(a: any, b: any, key: string): boolean {
+    try {
+        return JSON.stringify(a) === JSON.stringify(b);
+    } catch (e) {
+        console.warn(`[useStorage] serialization/compare failed for key "${key}"`, e, { a, b });
+        return false;
+    }
+}
+
 /**
  * Hook híbrido que usa Firebase Firestore quando online e LocalStorage como fallback
  * Sincroniza automaticamente entre dispositivos quando possível
@@ -108,9 +117,7 @@ export function useStorage<T>(
         if (!firebaseSupported) {
             const localValue = getLocalStorageValue(null);
             setStoredValue(prev => {
-                try {
-                    if (JSON.stringify(prev) === JSON.stringify(localValue)) return prev;
-                } catch (e) {}
+                if (isJsonEqual(prev, localValue, key)) return prev;
                 return localValue;
             });
             setAuthChecked(prev => prev !== true ? true : prev);
@@ -126,15 +133,10 @@ export function useStorage<T>(
             setUserId(prev => prev !== newUserId ? newUserId : prev);
             setUseFirebase(prev => prev !== newUseFirebase ? newUseFirebase : prev);
 
-            // Only force load from local storage immediately if not yet checked
             if (isInitializingRef.current) {
                 const localValue = getLocalStorageValue(newUserId);
                 setStoredValue(prev => {
-                    try {
-                        if (JSON.stringify(prev) === JSON.stringify(localValue)) return prev;
-                    } catch (e) {
-                        // fallback if stringify fails
-                    }
+                    if (isJsonEqual(prev, localValue, key)) return prev;
                     return localValue;
                 });
 
@@ -155,9 +157,7 @@ export function useStorage<T>(
 
         const localValue = getLocalStorageValue(userId);
         setStoredValue(prev => {
-            try {
-                if (JSON.stringify(prev) === JSON.stringify(localValue)) return prev;
-            } catch (e) {}
+            if (isJsonEqual(prev, localValue, key)) return prev;
             return localValue;
         });
     }, [userId, getLocalStorageValue, authChecked]);
