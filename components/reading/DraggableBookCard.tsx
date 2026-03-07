@@ -261,11 +261,11 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                 onDragStart={(e) => onDragStart(e, book.id)}
                 onClick={() => { setShowMenu(false); onSelect(book); }}
                 onContextMenu={handleContextMenu}
-                className={`group book-card-premium rounded-2xl shadow-lg cursor-pointer active:cursor-grabbing flex touch-manipulation ${isGrid ? 'flex-col' : 'flex-row h-32 items-center'
+                className={`group book-card-premium rounded-2xl shadow-lg cursor-pointer active:cursor-grabbing flex touch-manipulation ${isGrid ? 'flex-col h-full' : 'flex-row h-32 items-center'
                     }`}
             >
                 {/* Cover */}
-                <div className={`bg-slate-900 flex-shrink-0 overflow-hidden relative ${isGrid ? 'aspect-[2/3] w-full border-b border-slate-700/30 rounded-t-2xl' : 'h-full aspect-[2/3] border-r border-slate-700/30 rounded-l-2xl'
+                <div className={`bg-slate-900 flex-shrink-0 overflow-hidden relative ${isGrid ? 'aspect-[2/3] w-full max-h-[300px] border-b border-slate-700/30 rounded-t-2xl' : 'h-full aspect-[2/3] border-r border-slate-700/30 rounded-l-2xl'
                     }`}>
                     {/* Skeleton loader */}
                     {!imageLoaded && book.coverUrl && (
