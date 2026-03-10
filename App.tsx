@@ -551,6 +551,7 @@ const App: React.FC = () => {
         icon: Flame,
         color: 'text-orange-400',
         stats: notificationCount > 0 ? '!' : undefined,
+        statsAlert: notificationCount > 0,
       },
       {
         id: ViewState.JOURNAL,
