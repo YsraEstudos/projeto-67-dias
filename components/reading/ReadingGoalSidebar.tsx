@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Book as IBook, ProjectConfig } from '../../types';
 import { Target, BookOpen, AlertTriangle, TrendingUp, Clock, Flame, Book } from 'lucide-react';
 import { calculateReadingDailyPlan, getTodayPlan, getCurrentPhase } from '../../utils/readingPrediction';
@@ -10,6 +10,27 @@ interface ReadingGoalSidebarProps {
 }
 
 const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ books, projectConfig }) => {
+    const [goalMode, setGoalMode] = useState<'TEXT' | 'AUDIO'>('TEXT');
+
+    const hasTextBooks = useMemo(
+        () => books.some(book => book.status === 'READING' && book.unit !== 'HOURS'),
+        [books]
+    );
+
+    const hasAudioBooks = useMemo(
+        () => books.some(book => book.status === 'READING' && book.unit === 'HOURS'),
+        [books]
+    );
+
+    useEffect(() => {
+        if (goalMode === 'AUDIO' && !hasAudioBooks && hasTextBooks) {
+            setGoalMode('TEXT');
+        }
+
+        if (goalMode === 'TEXT' && !hasTextBooks && hasAudioBooks) {
+            setGoalMode('AUDIO');
+        }
+    }, [goalMode, hasAudioBooks, hasTextBooks]);
 
     const goalStats = useMemo(() => {
         // Usar constantes centralizadas - 67 para display, 63 para cálculo
@@ -24,7 +45,13 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
         const daysRemaining = Math.max(1, EFFECTIVE_DAYS - daysElapsed);
 
         // Get books in READING status
-        const readingBooks = books.filter(b => b.status === 'READING');
+        const readingBooks = books.filter(b => {
+            if (b.status !== 'READING') {
+                return false;
+            }
+
+            return goalMode === 'AUDIO' ? b.unit === 'HOURS' : b.unit !== 'HOURS';
+        });
 
         // Calculate total remaining pages/chapters
         const totalRemaining = readingBooks.reduce((acc, book) => {
@@ -76,7 +103,7 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
             urgencyLevel,
             displayDays: DISPLAY_DAYS
         };
-    }, [books, projectConfig.startDate]);
+    }, [books, goalMode, projectConfig.startDate]);
 
     if (goalStats.readingCount === 0) {
         return (
@@ -119,6 +146,28 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
 
             {/* Main Stat */}
             <div className="p-5 text-center border-b border-slate-700/50 bg-gradient-to-b from-slate-900/50 to-transparent">
+                {(hasTextBooks && hasAudioBooks) && (
+                    <div className="inline-flex p-1 bg-slate-900/80 border border-slate-700/60 rounded-lg mb-4">
+                        <button
+                            onClick={() => setGoalMode('TEXT')}
+                            className={`px-3 py-1 text-[11px] rounded-md font-semibold transition-colors ${goalMode === 'TEXT'
+                                ? 'bg-indigo-500 text-white'
+                                : 'text-slate-300 hover:text-white'
+                                }`}
+                        >
+                            Páginas/Capítulos
+                        </button>
+                        <button
+                            onClick={() => setGoalMode('AUDIO')}
+                            className={`px-3 py-1 text-[11px] rounded-md font-semibold transition-colors ${goalMode === 'AUDIO'
+                                ? 'bg-indigo-500 text-white'
+                                : 'text-slate-300 hover:text-white'
+                                }`}
+                        >
+                            Tempo para ouvir
+                        </button>
+                    </div>
+                )}
                 <div className="text-5xl font-bold text-white mb-1 tracking-tight">
                     <span className={`${goalStats.urgencyLevel === 'high' ? 'text-red-400' :
                         goalStats.urgencyLevel === 'medium' ? 'text-orange-400' :
@@ -128,10 +177,10 @@ const ReadingGoalSidebar: React.FC<ReadingGoalSidebarProps> = React.memo(({ book
                     </span>
                 </div>
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">
-                    páginas/capítulos por dia
+                    {goalMode === 'AUDIO' ? 'horas por dia' : 'páginas/capítulos por dia'}
                 </p>
                 <p className="text-[10px] text-slate-600 mt-1">
-                    Total restante: {goalStats.totalRemaining}
+                    Total restante: {goalStats.totalRemaining} {goalMode === 'AUDIO' ? 'h' : ''}
                 </p>
             </div>
 
