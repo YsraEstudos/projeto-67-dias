@@ -15,7 +15,8 @@ import {
   LogOut,
   Timer,
   CalendarCheck,
-  Gamepad2
+  Gamepad2,
+  Trophy
 } from 'lucide-react';
 import { ViewState, DashboardCardProps, OrganizeTask } from './types';
 import { Card } from './components/Card';
@@ -75,6 +76,7 @@ const SettingsView = React.lazy(() => import('./components/views/SettingsView'))
 const LinksView = React.lazy(() => import('./components/views/LinksView'));
 const SundayView = React.lazy(() => import('./components/views/SundayView'));
 const GamesView = React.lazy(() => import('./components/views/GamesView'));
+const ConcursoView = React.lazy(() => import('./components/views/ConcursoView'));
 
 // --- Floating Timer Widget (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
@@ -429,6 +431,7 @@ const App: React.FC = () => {
       [ViewState.TOOLS]: 'Ferramentas',
       [ViewState.SETTINGS]: 'Configurações',
       [ViewState.GAMES]: 'Jogos',
+      [ViewState.CONCURSO]: 'Concurso',
     };
     return labels[view] || view;
   }, []);
@@ -588,6 +591,13 @@ const App: React.FC = () => {
         icon: Gamepad2,
         color: 'text-purple-400',
       },
+      {
+        id: ViewState.CONCURSO,
+        title: 'Concurso',
+        subtitle: 'Aguardando projeto',
+        icon: Trophy,
+        color: 'text-purple-400',
+      },
     ];
   }, [notificationCount, workCurrentCount, workGoal, readingStats]);
 
@@ -621,6 +631,7 @@ const App: React.FC = () => {
       case ViewState.LINKS: content = <LinksView />; break;
       case ViewState.SUNDAY: content = <SundayView />; break;
       case ViewState.GAMES: content = <GamesView />; break;
+      case ViewState.CONCURSO: content = <ConcursoView />; break;
       default: content = <div>View not found</div>;
     }
 
