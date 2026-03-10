@@ -5,8 +5,17 @@ import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport
 import { useAppContext } from '../app/AppContext';
 
 export const SettingsPage = () => {
-  const { state, dayPlans, runManualBackup, connectBackupFile, importSnapshot, exportSnapshot } =
-    useAppContext();
+  const {
+    state,
+    dayPlans,
+    runManualBackup,
+    connectBackupFile,
+    importSnapshot,
+    exportSnapshot,
+    cloudSync,
+    connectGoogleCloud,
+    syncToCloudNow,
+  } = useAppContext();
   const [message, setMessage] = useState<string>('');
 
   const onImportFile = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -60,6 +69,24 @@ export const SettingsPage = () => {
     }
   };
 
+  const handleGoogleConnect = async (): Promise<void> => {
+    try {
+      await connectGoogleCloud();
+      setMessage('Conta Google conectada. O plano sera salvo automaticamente na nuvem.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao conectar conta Google.');
+    }
+  };
+
+  const handleCloudSyncNow = async (): Promise<void> => {
+    try {
+      await syncToCloudNow();
+      setMessage('Sincronizacao com a nuvem concluida.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.');
+    }
+  };
+
   return (
     <section className="page">
       <header className="page-header">
@@ -71,6 +98,30 @@ export const SettingsPage = () => {
       </header>
 
       <div className="grid-2">
+        <article className="panel">
+          <h3>Gmail e sincronizacao</h3>
+          <p>
+            Status: <span className={`sync-badge sync-${cloudSync.status}`}>{cloudSync.status}</span>
+          </p>
+          <p>Conta conectada: {cloudSync.email ?? 'nenhuma conta Google conectada'}</p>
+          <p>Ultima sincronizacao: {cloudSync.lastSyncedAt ?? 'ainda nao enviada'}</p>
+          <p>Ultima mudanca remota: {cloudSync.lastRemoteChangeAt ?? 'sem registro remoto'}</p>
+          <p>Erro atual: {cloudSync.error ?? 'sem erro'}</p>
+
+          <div className="button-row">
+            <button className="button" onClick={handleGoogleConnect}>
+              Conectar com Google
+            </button>
+            <button
+              className="button button-secondary"
+              onClick={handleCloudSyncNow}
+              disabled={cloudSync.status === 'local-only' || cloudSync.status === 'checking'}
+            >
+              Sincronizar agora
+            </button>
+          </div>
+        </article>
+
         <article className="panel">
           <h3>Persistência</h3>
           <p>Schema version: {state.schemaVersion}</p>
@@ -93,6 +144,10 @@ export const SettingsPage = () => {
           <p>Último erro: {state.meta.backup.lastBackupError ?? 'sem erro'}</p>
           <p>
             Fallback local: {state.meta.backup.lastFallbackSnapshotAt ?? 'nenhum'}
+          </p>
+          <p>
+            Mudancas do plano tambem sao enviadas automaticamente para sua conta Google quando ela
+            estiver conectada.
           </p>
 
           <div className="button-row">

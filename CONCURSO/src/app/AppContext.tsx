@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { updateChecklistValue } from './checklist';
+import { loadCloudSnapshot, saveCloudSnapshot } from './cloudStorage';
 import { AUTO_BACKUP_INTERVAL_MINUTES } from './constants';
 import {
   downloadSnapshot,
@@ -30,6 +31,7 @@ import {
 import { getTodayIsoDate } from './contentSubmatters';
 import { duplicateProjectWithNewIds } from './projects';
 import { buildSnapshot, loadStateSnapshot, saveStateSnapshot } from './storage';
+import { loginWithGoogle, subscribeToAuthChanges, type FirebaseUser } from '../../../services/firebase';
 import type {
   AnkiDailyLog,
   AppSnapshot,
@@ -489,6 +491,16 @@ interface AppContextValue {
   connectBackupFile: () => Promise<void>;
   importSnapshot: (snapshot: AppSnapshot) => void;
   exportSnapshot: () => void;
+  cloudSync: {
+    status: 'checking' | 'local-only' | 'connected' | 'syncing' | 'error';
+    email: string | null;
+    name: string | null;
+    lastSyncedAt: string | null;
+    lastRemoteChangeAt: string | null;
+    error: string | null;
+  };
+  connectGoogleCloud: () => Promise<void>;
+  syncToCloudNow: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -521,12 +533,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const backupHandleRef = useRef<FileSystemFileHandle | null>(null);
   const lastBackedTokenRef = useRef<number>(state.meta.changeToken);
   const lastAutoBackupTickRef = useRef<number>(0);
+  const stateRef = useRef(state);
+  const cloudUserRef = useRef<FirebaseUser | null>(null);
+  const hasLoadedCloudSnapshotRef = useRef(false);
+  const saveCloudTimeoutRef = useRef<number | null>(null);
+  const lastCloudSavedTokenRef = useRef<number>(state.meta.changeToken);
+  const lastCloudSavedAtRef = useRef<string | null>(null);
+  const [cloudSync, setCloudSync] = useReducer(
+    (
+      current: AppContextValue['cloudSync'],
+      patch: Partial<AppContextValue['cloudSync']>,
+    ): AppContextValue['cloudSync'] => ({
+      ...current,
+      ...patch,
+    }),
+    {
+      status: 'checking',
+      email: null,
+      name: null,
+      lastSyncedAt: null,
+      lastRemoteChangeAt: null,
+      error: null,
+    },
+  );
 
   useEffect(() => {
     if (lastAutoBackupTickRef.current === 0) {
       lastAutoBackupTickRef.current = Date.now();
     }
   }, []);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     saveStateSnapshot(state);
@@ -581,6 +620,105 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     [state],
   );
 
+  const syncSnapshotToCloud = useCallback(async (sourceState: AppState): Promise<void> => {
+    const user = cloudUserRef.current;
+    if (!user || user.isAnonymous) {
+      return;
+    }
+
+    setCloudSync({
+      status: 'syncing',
+      error: null,
+    });
+
+    const snapshot = buildSnapshot(sourceState);
+    await saveCloudSnapshot(user, snapshot);
+    lastCloudSavedTokenRef.current = sourceState.meta.changeToken;
+    lastCloudSavedAtRef.current = snapshot.exportedAt;
+    setCloudSync({
+      status: 'connected',
+      lastSyncedAt: snapshot.exportedAt,
+      lastRemoteChangeAt: sourceState.meta.lastChangedAt ?? snapshot.exportedAt,
+      error: null,
+    });
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthChanges(async (user) => {
+      cloudUserRef.current = user;
+      hasLoadedCloudSnapshotRef.current = false;
+
+      if (!user || user.isAnonymous) {
+        lastCloudSavedTokenRef.current = stateRef.current.meta.changeToken;
+        setCloudSync({
+          status: 'local-only',
+          email: null,
+          name: null,
+          error: null,
+          lastRemoteChangeAt: null,
+        });
+        return;
+      }
+
+      setCloudSync({
+        status: 'checking',
+        email: user.email ?? null,
+        name: user.displayName ?? null,
+        error: null,
+      });
+
+      try {
+        const remote = await loadCloudSnapshot(user.uid);
+        const localState = stateRef.current;
+        const localChangedAt = localState.meta.lastChangedAt ?? null;
+        const remoteChangedAt = remote.lastChangedAt;
+
+        if (
+          remote.snapshot?.appState &&
+          remoteChangedAt &&
+          (!localChangedAt || remoteChangedAt > localChangedAt)
+        ) {
+          const normalizedRemoteState = normalizeStateForCurrentPlan(remote.snapshot.appState);
+          dispatch({ type: 'import-state', state: normalizedRemoteState });
+          stateRef.current = normalizedRemoteState;
+          lastCloudSavedTokenRef.current = normalizedRemoteState.meta.changeToken;
+          lastCloudSavedAtRef.current = remote.snapshot.exportedAt;
+        } else {
+          lastCloudSavedTokenRef.current = localState.meta.changeToken;
+        }
+
+        hasLoadedCloudSnapshotRef.current = true;
+        setCloudSync({
+          status: 'connected',
+          email: user.email ?? null,
+          name: user.displayName ?? null,
+          lastSyncedAt: lastCloudSavedAtRef.current,
+          lastRemoteChangeAt: remoteChangedAt,
+          error: null,
+        });
+
+        if (!remote.snapshot || (localChangedAt && remoteChangedAt && localChangedAt > remoteChangedAt)) {
+          void syncSnapshotToCloud(stateRef.current).catch((error) => {
+            setCloudSync({
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
+            });
+          });
+        }
+      } catch (error) {
+        hasLoadedCloudSnapshotRef.current = true;
+        setCloudSync({
+          status: 'error',
+          email: user.email ?? null,
+          name: user.displayName ?? null,
+          error: error instanceof Error ? error.message : 'Falha ao carregar dados da nuvem.',
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [syncSnapshotToCloud]);
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       const hasNewChanges = state.meta.changeToken > lastBackedTokenRef.current;
@@ -605,6 +743,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     return () => window.clearInterval(timer);
   }, [persistSnapshot, state.meta.changeToken]);
+
+  useEffect(() => {
+    if (!cloudUserRef.current || cloudUserRef.current.isAnonymous || !hasLoadedCloudSnapshotRef.current) {
+      return;
+    }
+
+    if (lastCloudSavedTokenRef.current === state.meta.changeToken) {
+      return;
+    }
+
+    if (saveCloudTimeoutRef.current) {
+      window.clearTimeout(saveCloudTimeoutRef.current);
+    }
+
+    saveCloudTimeoutRef.current = window.setTimeout(() => {
+      void syncSnapshotToCloud(stateRef.current).catch((error) => {
+        setCloudSync({
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
+        });
+      });
+    }, 1200);
+
+    return () => {
+      if (saveCloudTimeoutRef.current) {
+        window.clearTimeout(saveCloudTimeoutRef.current);
+        saveCloudTimeoutRef.current = null;
+      }
+    };
+  }, [state.meta.changeToken, syncSnapshotToCloud]);
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -753,8 +921,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const snapshot = buildSnapshot(state);
         downloadSnapshot(snapshot, `concurso-export-${snapshot.exportedAt.slice(0, 10)}.json`);
       },
+      cloudSync,
+      connectGoogleCloud: async () => {
+        setCloudSync({
+          status: 'checking',
+          error: null,
+        });
+        await loginWithGoogle();
+      },
+      syncToCloudNow: async () => {
+        await syncSnapshotToCloud(stateRef.current);
+      },
     }),
-    [persistSnapshot, state],
+    [cloudSync, persistSnapshot, state, syncSnapshotToCloud],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

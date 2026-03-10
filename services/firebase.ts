@@ -10,9 +10,9 @@ import {
     GoogleAuthProvider,
     signInWithPopup,
     signInAnonymously,
-    onAuthStateChanged,
-    User as FirebaseUser
+    onAuthStateChanged
 } from "firebase/auth";
+import type { User as FirebaseUser } from "firebase/auth";
 import {
     initializeFirestore,
     persistentLocalCache,

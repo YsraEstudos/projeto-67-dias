@@ -1,5 +1,7 @@
+import { ArrowLeft } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { END_DATE, NAV_ITEMS, START_DATE } from '../app/constants';
+import { MAIN_SITE_URL } from '../app/mainSite';
 import { useAppContext } from '../app/AppContext';
 import { getChecklistProgressPercent } from '../app/progress';
 import { ProgressBar } from './ProgressBar';
@@ -22,6 +24,15 @@ export const AppShell = () => {
           <h1 className="brand-title">Plano TRT 4</h1>
           <p className="brand-subtitle">10/03/2026 a 02/11/2026</p>
         </div>
+
+        <button
+          type="button"
+          className="back-home-button"
+          onClick={() => window.location.assign(MAIN_SITE_URL)}
+        >
+          <ArrowLeft size={16} />
+          Voltar ao Projeto 67 Dias
+        </button>
 
         <nav className="nav-list" aria-label="Navegacao principal">
           {NAV_ITEMS.map((item) => (
@@ -73,6 +84,16 @@ export const AppShell = () => {
 
           <div className="topbar-progress">
             <ProgressBar value={dayProgress} label="Conclusão do dia" compact />
+          </div>
+
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => window.location.assign(MAIN_SITE_URL)}
+            >
+              Voltar ao site principal
+            </button>
           </div>
         </header>
 
