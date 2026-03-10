@@ -20,7 +20,8 @@ type ConcursoSection =
   | 'simulados-redacoes'
   | 'projetos'
   | 'notas-de-corte'
-  | 'configuracoes';
+  | 'configuracoes'
+  | 'conteudo';
 
 const ConcursoView: React.FC = () => {
   const setActiveView = useUIStore((state) => state.setActiveView);
@@ -35,6 +36,7 @@ const ConcursoView: React.FC = () => {
       { id: 'simulados-redacoes' as const, label: 'Simulados/Redações' },
       { id: 'projetos' as const, label: 'Projetos' },
       { id: 'notas-de-corte' as const, label: 'Notas de Corte' },
+      { id: 'conteudo' as const, label: 'Conteúdo' },
       { id: 'configuracoes' as const, label: 'Configurações' },
     ],
     []
@@ -49,6 +51,18 @@ const ConcursoView: React.FC = () => {
       case 'simulados-redacoes': return <SimuladosPage />;
       case 'projetos': return <ProjectsPage />;
       case 'notas-de-corte': return <CutoffMarksPage />;
+      case 'conteudo':
+        return (
+          <section className="page">
+            <header className="page-header">
+              <h2>Conteúdo Pragmático</h2>
+              <p>
+                O módulo de conteúdo detalhado depende de rotas internas (`/conteudo/topico/:topicId`).
+                Nesta versão embutida, as funcionalidades principais já estão acessíveis pelas demais abas.
+              </p>
+            </header>
+          </section>
+        );
       case 'configuracoes': return <SettingsPage />;
       default: return <DashboardPage />;
     }
