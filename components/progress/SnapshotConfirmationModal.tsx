@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Clock, AlertCircle, Check, X, Edit2,
-    Flame, GraduationCap, BookOpen, CheckCircle2, PenLine
+    Flame, GraduationCap, BookOpen, CheckCircle2, PenLine, Link2, Globe
 } from 'lucide-react';
 import { WeeklySnapshot } from '../../types';
 
@@ -167,6 +167,46 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                                 >
                                     <Edit2 size={14} />
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Sites/Links */}
+                        <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-slate-700">
+                            <div className="flex items-center gap-3">
+                                <Globe size={20} className="text-cyan-400" />
+                                <div>
+                                    <div className="text-sm font-medium text-white">Sites/Links</div>
+                                    <div className="text-xs text-slate-500">Atividade semanal no hub</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-sm font-bold text-white">{metrics.sitesUpdated || 0} sites</div>
+                                <div className="text-xs text-cyan-300">{metrics.linksClicked || 0} cliques</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Score Composition */}
+                    <div className="p-4 bg-slate-900/70 rounded-xl border border-slate-700 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-white">Componentes do Score</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">Contabilizados</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                            <span className="px-2 py-1 rounded-lg bg-orange-500/10 text-orange-300">Hábitos 32%</span>
+                            <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300">Skills 24%</span>
+                            <span className="px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-300">Leitura 18%</span>
+                            <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-300">Tarefas 8%</span>
+                            <span className="px-2 py-1 rounded-lg bg-purple-500/10 text-purple-300">Games 8%</span>
+                            <span className="px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-300">Sites/Links 10%</span>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-700">
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <Link2 size={12} />
+                                <span>
+                                    Não contabilizado no score: qualidade textual do diário (somente quantidade de entradas entra no cálculo via melhorias).
+                                </span>
                             </div>
                         </div>
                     </div>

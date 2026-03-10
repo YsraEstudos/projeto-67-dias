@@ -168,6 +168,7 @@ export interface OrganizeTask {
   id: string;
   title: string;
   isCompleted: boolean;
+  completedAt?: number;
   isArchived: boolean;
   category: string;
   dueDate?: string;
@@ -581,6 +582,10 @@ export interface WeeklyMetrics {
   gamesHoursPlayed: number;   // horas jogadas na semana
   gamesCompleted: number;     // jogos zerados na semana
   gamesReviewed: number;      // resenhas escritas na semana
+
+  // Sites/Links (Hub de conhecimento)
+  sitesUpdated?: number;      // sites alterados na semana
+  linksClicked?: number;      // links revisitados na semana
 }
 
 // Comparação de evolução entre semanas
@@ -589,6 +594,7 @@ export interface WeeklyEvolution {
   skillsChange: number;       // minutos diferença
   readingChange: number;      // páginas diferença
   gamesChange?: number;       // horas diferença (optional because it's new)
+  linksChange?: number;       // cliques diferença (optional because it's new)
   overallScore: number;       // 0-100 score calculado
   trend: 'UP' | 'DOWN' | 'STABLE';
 }

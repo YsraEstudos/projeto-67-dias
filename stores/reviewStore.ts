@@ -14,6 +14,56 @@ const DEFAULT_REVIEW_DATA: JourneyReviewData = {
     lastSnapshotWeek: 0
 };
 
+
+const normalizeSnapshot = (snapshot: WeeklySnapshot): WeeklySnapshot => ({
+    ...snapshot,
+    metrics: {
+        habitsCompleted: snapshot.metrics?.habitsCompleted ?? 0,
+        habitsTotal: snapshot.metrics?.habitsTotal ?? 0,
+        habitConsistency: snapshot.metrics?.habitConsistency ?? 0,
+        booksProgress: snapshot.metrics?.booksProgress ?? 0,
+        booksCompleted: snapshot.metrics?.booksCompleted ?? 0,
+        skillMinutes: snapshot.metrics?.skillMinutes ?? 0,
+        skillsProgressed: snapshot.metrics?.skillsProgressed ?? [],
+        tasksCompleted: snapshot.metrics?.tasksCompleted ?? 0,
+        journalEntries: snapshot.metrics?.journalEntries ?? 0,
+        gamesHoursPlayed: snapshot.metrics?.gamesHoursPlayed ?? 0,
+        gamesCompleted: snapshot.metrics?.gamesCompleted ?? 0,
+        gamesReviewed: snapshot.metrics?.gamesReviewed ?? 0,
+        sitesUpdated: snapshot.metrics?.sitesUpdated ?? 0,
+        linksClicked: snapshot.metrics?.linksClicked ?? 0,
+    },
+    evolution: snapshot.evolution
+        ? {
+            habitsChange: snapshot.evolution.habitsChange ?? 0,
+            skillsChange: snapshot.evolution.skillsChange ?? 0,
+            readingChange: snapshot.evolution.readingChange ?? 0,
+            gamesChange: snapshot.evolution.gamesChange ?? 0,
+            linksChange: snapshot.evolution.linksChange ?? 0,
+            overallScore: snapshot.evolution.overallScore ?? 0,
+            trend: snapshot.evolution.trend ?? 'STABLE',
+        }
+        : undefined,
+    status: snapshot.status || 'CONFIRMED',
+});
+
+const normalizeReviewData = (data: JourneyReviewData): JourneyReviewData => {
+    const deduplicatedSnapshots = (data.snapshots || []).reduce<WeeklySnapshot[]>((acc, snapshot) => {
+        if (acc.some(s => s.weekNumber === snapshot.weekNumber)) return acc;
+        acc.push(normalizeSnapshot(snapshot));
+        return acc;
+    }, []);
+
+    deduplicatedSnapshots.sort((a, b) => a.weekNumber - b.weekNumber);
+
+    return {
+        ...data,
+        snapshots: deduplicatedSnapshots,
+        improvements: data.improvements || [],
+        lastSnapshotWeek: data.lastSnapshotWeek || 0,
+    };
+};
+
 interface ReviewState {
     reviewData: JourneyReviewData;
     isLoading: boolean;
@@ -151,7 +201,7 @@ export const useReviewStore = create<ReviewState>()(immer((set, get) => ({
 
     setReviewData: (data) => {
         set((state) => {
-            state.reviewData = data;
+            state.reviewData = normalizeReviewData(data);
         });
         get()._syncToFirestore();
     },
@@ -167,17 +217,8 @@ export const useReviewStore = create<ReviewState>()(immer((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         if (data?.reviewData) {
-            // Deduplicate snapshots by weekNumber
-            let snapshots = data.reviewData.snapshots || [];
-            const seenWeeks = new Set<number>();
-            snapshots = snapshots.filter(s => {
-                if (seenWeeks.has(s.weekNumber)) return false;
-                seenWeeks.add(s.weekNumber);
-                return true;
-            });
-
             set((state) => {
-                state.reviewData = { ...data.reviewData, snapshots };
+                state.reviewData = normalizeReviewData(data.reviewData);
                 state.isLoading = false;
                 state._initialized = true;
             });

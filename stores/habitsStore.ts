@@ -163,7 +163,16 @@ export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
     updateTask: (id, updates) => {
         set((state) => {
             const task = state.tasks.find(t => t.id === id);
-            if (task) Object.assign(task, updates);
+            if (task) {
+                Object.assign(task, updates);
+
+                // Keep completion timestamp in sync for weekly review metrics
+                if (typeof updates.isCompleted === 'boolean') {
+                    task.completedAt = updates.isCompleted
+                        ? (task.completedAt || Date.now())
+                        : undefined;
+                }
+            }
         });
         get()._syncToFirestore();
     },
@@ -179,7 +188,10 @@ export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
     toggleTaskComplete: (id) => {
         set((state) => {
             const task = state.tasks.find(t => t.id === id);
-            if (task) task.isCompleted = !task.isCompleted;
+            if (task) {
+                task.isCompleted = !task.isCompleted;
+                task.completedAt = task.isCompleted ? Date.now() : undefined;
+            }
         });
         get()._syncToFirestore();
     },

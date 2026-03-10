@@ -11,6 +11,9 @@ import { useSkillsStore } from '../../stores/skillsStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useReviewStore } from '../../stores/reviewStore';
 import { useGamesStore } from '../../stores/gamesStore';
+import { useJournalStore } from '../../stores/journalStore';
+import { useSitesStore } from '../../stores/sitesStore';
+import { useLinksStore } from '../../stores/linksStore';
 import {
     Habit, Book, Skill, OrganizeTask, ProjectConfig,
     JourneyReviewData, WeeklySnapshot, ImprovementPoint
@@ -22,7 +25,8 @@ import {
     generateWeeklySnapshot,
     shouldGenerateSnapshot,
     detectImprovements,
-    generateFinalSummary
+    generateFinalSummary,
+    getWeekDateRange
 } from '../../services/weeklySnapshot';
 import { HabitsProgressSection } from '../progress/HabitsProgressSection';
 import { TasksProgressSection } from '../progress/TasksProgressSection';
@@ -58,6 +62,9 @@ const ProgressView: React.FC = () => {
     const skills = useSkillsStore((s) => s.skills);
     const config = useConfigStore((s) => s.config);
     const games = useGamesStore((s) => s.games);
+    const journalEntries = useJournalStore((s) => s.entries);
+    const sites = useSitesStore((s) => s.sites);
+    const links = useLinksStore((s) => s.links);
 
     // Review store - data and actions
     const reviewData = useReviewStore((s) => s.reviewData);
@@ -72,6 +79,24 @@ const ProgressView: React.FC = () => {
     const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [pendingSnapshot, setPendingSnapshot] = useState<WeeklySnapshot | null>(null);
+
+    const getWeeklyAuxMetrics = useCallback((weekNumber: number) => {
+        const { startDate: weekStart, endDate: weekEnd } = getWeekDateRange(config.startDate, weekNumber);
+        const weekStartTime = new Date(`${weekStart}T00:00:00`).getTime();
+        const weekEndTime = new Date(`${weekEnd}T23:59:59.999`).getTime();
+
+        const journalEntryCount = journalEntries.filter(
+            (entry) => entry.date >= weekStart && entry.date <= weekEnd
+        ).length;
+        const sitesUpdatedThisWeek = sites.filter(
+            (site) => site.updatedAt >= weekStartTime && site.updatedAt <= weekEndTime
+        ).length;
+        const linksClickedThisWeek = links.filter(
+            (link) => typeof link.lastClicked === 'number' && link.lastClicked >= weekStartTime && link.lastClicked <= weekEndTime
+        ).length;
+
+        return { journalEntryCount, sitesUpdatedThisWeek, linksClickedThisWeek };
+    }, [config.startDate, journalEntries, sites, links]);
 
     // Current Week calculation - Should persist across cycles for now?
     // User requested NON-RESET of data, so day continues counting if startDate is old.
@@ -167,7 +192,7 @@ const ProgressView: React.FC = () => {
                 ? reviewData.snapshots[reviewData.snapshots.length - 1]
                 : null;
 
-            const journalEntryCount = 0; // Would need journal data
+            const { journalEntryCount, sitesUpdatedThisWeek, linksClickedThisWeek } = getWeeklyAuxMetrics(currentWeek);
 
             const newSnapshot = generateWeeklySnapshot(
                 currentWeek,
@@ -178,6 +203,8 @@ const ProgressView: React.FC = () => {
                 tasks,
                 games,
                 journalEntryCount,
+                sitesUpdatedThisWeek,
+                linksClickedThisWeek,
                 previousSnapshot
             );
 
@@ -193,7 +220,14 @@ const ProgressView: React.FC = () => {
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentWeek, reviewData.lastSnapshotWeek, config.startDate, reviewData.snapshots.length, addSnapshotWithImprovements]);
+    }, [
+        currentWeek,
+        reviewData.lastSnapshotWeek,
+        config.startDate,
+        reviewData.snapshots.length,
+        getWeeklyAuxMetrics,
+        addSnapshotWithImprovements
+    ]);
 
     // --- HANDLERS ---
     const handleConfirmSnapshot = useCallback(() => {
@@ -508,6 +542,7 @@ const ProgressView: React.FC = () => {
                                 const previousSnapshot = reviewData.snapshots.length > 0
                                     ? reviewData.snapshots[reviewData.snapshots.length - 1]
                                     : null;
+                                const weeklyAuxMetrics = getWeeklyAuxMetrics(currentWeek);
 
                                 const newSnapshot = generateWeeklySnapshot(
                                     currentWeek,
@@ -517,7 +552,9 @@ const ProgressView: React.FC = () => {
                                     books,
                                     tasks,
                                     games,
-                                    0,
+                                    weeklyAuxMetrics.journalEntryCount,
+                                    weeklyAuxMetrics.sitesUpdatedThisWeek,
+                                    weeklyAuxMetrics.linksClickedThisWeek,
                                     previousSnapshot
                                 );
 

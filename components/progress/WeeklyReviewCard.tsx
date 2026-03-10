@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     TrendingUp, TrendingDown, Minus, Flame, BookOpen,
-    GraduationCap, CheckCircle2, Calendar, Star, Gamepad2
+    GraduationCap, CheckCircle2, Calendar, Star, Gamepad2, Globe
 } from 'lucide-react';
 import { WeeklySnapshot } from '../../types';
 
@@ -177,6 +177,16 @@ export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = React.memo(({
                         )}
                     </div>
                     <span className="text-lg font-bold text-white">{metrics.gamesHoursPlayed || 0}h</span>
+                </div>
+
+                {/* Sites/Links */}
+                <div className="bg-slate-900/50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Globe size={14} className="text-cyan-400" />
+                        <span className="text-xs text-slate-400">Sites/Links</span>
+                    </div>
+                    <div className="text-lg font-bold text-white">{metrics.linksClicked || 0} cliques</div>
+                    <div className="text-[10px] text-slate-500">{metrics.sitesUpdated || 0} sites atualizados</div>
                 </div>
             </div>
 
