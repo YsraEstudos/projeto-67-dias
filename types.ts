@@ -165,6 +165,7 @@ export interface OrganizeTask {
   id: string;
   title: string;
   isCompleted: boolean;
+  completedAt?: number;
   isArchived: boolean;
   category: string;
   dueDate?: string;

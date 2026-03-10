@@ -11,6 +11,7 @@ import { useSkillsStore } from '../../stores/skillsStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useReviewStore } from '../../stores/reviewStore';
 import { useGamesStore } from '../../stores/gamesStore';
+import { useJournalStore } from '../../stores/journalStore';
 import {
     Habit, Book, Skill, OrganizeTask, ProjectConfig,
     JourneyReviewData, WeeklySnapshot, ImprovementPoint
@@ -22,7 +23,8 @@ import {
     generateWeeklySnapshot,
     shouldGenerateSnapshot,
     detectImprovements,
-    generateFinalSummary
+    generateFinalSummary,
+    getWeekDateRange
 } from '../../services/weeklySnapshot';
 import { HabitsProgressSection } from '../progress/HabitsProgressSection';
 import { TasksProgressSection } from '../progress/TasksProgressSection';
@@ -58,6 +60,7 @@ const ProgressView: React.FC = () => {
     const skills = useSkillsStore((s) => s.skills);
     const config = useConfigStore((s) => s.config);
     const games = useGamesStore((s) => s.games);
+    const journalEntries = useJournalStore((s) => s.entries);
 
     // Review store - data and actions
     const reviewData = useReviewStore((s) => s.reviewData);
@@ -167,7 +170,10 @@ const ProgressView: React.FC = () => {
                 ? reviewData.snapshots[reviewData.snapshots.length - 1]
                 : null;
 
-            const journalEntryCount = 0; // Would need journal data
+            const { startDate: weekStart, endDate: weekEnd } = getWeekDateRange(config.startDate, currentWeek);
+            const journalEntryCount = journalEntries.filter(
+                (entry) => entry.date >= weekStart && entry.date <= weekEnd
+            ).length;
 
             const newSnapshot = generateWeeklySnapshot(
                 currentWeek,
@@ -193,7 +199,14 @@ const ProgressView: React.FC = () => {
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentWeek, reviewData.lastSnapshotWeek, config.startDate, reviewData.snapshots.length, addSnapshotWithImprovements]);
+    }, [
+        currentWeek,
+        reviewData.lastSnapshotWeek,
+        config.startDate,
+        reviewData.snapshots.length,
+        journalEntries,
+        addSnapshotWithImprovements
+    ]);
 
     // --- HANDLERS ---
     const handleConfirmSnapshot = useCallback(() => {
@@ -517,7 +530,12 @@ const ProgressView: React.FC = () => {
                                     books,
                                     tasks,
                                     games,
-                                    0,
+                                    (() => {
+                                        const { startDate: weekStart, endDate: weekEnd } = getWeekDateRange(config.startDate, currentWeek);
+                                        return journalEntries.filter(
+                                            (entry) => entry.date >= weekStart && entry.date <= weekEnd
+                                        ).length;
+                                    })(),
                                     previousSnapshot
                                 );
 

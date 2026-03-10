@@ -239,12 +239,31 @@ export function captureWeeklyMetrics(
     });
 
     // Livros: páginas lidas e livros completados na semana
-    // Nota: Como não temos histórico de leitura por data, usamos valores acumulados
-    const booksCompleted = books.filter(b => b.status === 'COMPLETED').length;
-    const booksProgress = books.reduce((sum, b) => sum + b.current, 0);
+    // Preferimos logs por data para evitar usar acumulado geral indevido.
+    const booksProgress = books.reduce((sum, b) => {
+        const weeklyPages = (b.logs || [])
+            .filter(log => log.date >= weekStart && log.date <= weekEnd)
+            .reduce((acc, log) => acc + log.pagesRead, 0);
+        return sum + weeklyPages;
+    }, 0);
+
+    // Sem completedAt em Book, usamos updatedAt como proxy temporal (mesma estratégia dos jogos)
+    const booksCompleted = books.filter(b =>
+        b.status === 'COMPLETED' &&
+        b.updatedAt >= weekStartTime &&
+        b.updatedAt <= weekEndTime
+    ).length;
 
     // Tarefas: completadas na semana
-    const tasksCompleted = tasks.filter(t => t.isCompleted && !t.isArchived).length;
+    const tasksCompleted = tasks.filter(t => {
+        if (!t.isCompleted || t.isArchived) return false;
+        if (typeof t.completedAt === 'number') {
+            return t.completedAt >= weekStartTime && t.completedAt <= weekEndTime;
+        }
+
+        // Fallback legacy: sem completedAt, usa createdAt para reduzir distorção
+        return t.createdAt >= weekStartTime && t.createdAt <= weekEndTime;
+    }).length;
 
     return {
         habitsCompleted,
