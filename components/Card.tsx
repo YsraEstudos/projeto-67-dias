@@ -9,6 +9,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
   icon: Icon,
   color,
   stats,
+  statsAlert,
   onClick,
   onAuxClick,
 }) => {
@@ -120,7 +121,12 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
 
       {stats && (
         <div className="relative z-10 flex justify-end items-center">
-          <span className="text-xs font-mono text-slate-500 bg-slate-900/70 px-3 py-1.5 rounded-lg border border-slate-700/50 group-hover:border-slate-600 group-hover:text-slate-300 transition-all duration-300">
+          <span
+            className={`text-xs font-mono px-3 py-1.5 rounded-lg border transition-all duration-300 ${statsAlert
+              ? 'text-red-400 bg-red-950/60 border-red-700/70 group-hover:text-red-300 group-hover:border-red-600'
+              : 'text-slate-500 bg-slate-900/70 border-slate-700/50 group-hover:border-slate-600 group-hover:text-slate-300'
+            }`}
+          >
             {stats}
           </span>
         </div>

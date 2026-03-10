@@ -89,6 +89,7 @@ export interface DashboardCardProps {
   icon: LucideIcon;
   color: string;
   stats?: string;
+  statsAlert?: boolean;
   notificationCount?: number;
   onClick: (view: ViewState) => void;
   onAuxClick?: (view: ViewState) => void;
