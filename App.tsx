@@ -594,7 +594,7 @@ const App: React.FC = () => {
       {
         id: ViewState.CONCURSO,
         title: 'Concurso',
-        subtitle: 'Aguardando projeto',
+        subtitle: 'Sistema disponível',
         icon: Trophy,
         color: 'text-purple-400',
       },
