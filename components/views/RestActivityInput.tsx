@@ -12,6 +12,8 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
     const [title, setTitle] = useState('');
     const [type, setType] = useState<'ONCE' | 'DAILY' | 'WEEKLY'>('DAILY');
     const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
+    const [hasSets, setHasSets] = useState(false);
+    const [totalSets, setTotalSets] = useState(3);
 
     const handleAdd = () => {
         if (!title.trim()) return;
@@ -23,11 +25,15 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
             title,
             type,
             specificDate: type === 'ONCE' ? dateString : undefined,
-            daysOfWeek: type === 'WEEKLY' ? selectedWeekDays : undefined
+            daysOfWeek: type === 'WEEKLY' ? selectedWeekDays : undefined,
+            totalSets: hasSets ? Math.max(1, totalSets) : undefined,
+            completedSets: hasSets ? 0 : undefined,
         });
 
         setTitle('');
         setSelectedWeekDays([]);
+        setHasSets(false);
+        setTotalSets(3);
     };
 
     return (
@@ -122,6 +128,32 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
                         )}
                     </div>
                 )}
+
+                <div className="bg-slate-900/60 rounded-xl border border-slate-700 p-3 space-y-2">
+                    <label className="flex items-center justify-between text-xs font-medium text-slate-300">
+                        <span>Tem séries?</span>
+                        <input
+                            type="checkbox"
+                            checked={hasSets}
+                            onChange={(e) => setHasSets(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
+                        />
+                    </label>
+
+                    {hasSets && (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <label className="text-xs text-slate-400">Quantidade de séries:</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={99}
+                                value={totalSets}
+                                onChange={(e) => setTotalSets(Number(e.target.value) || 1)}
+                                className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white focus:border-cyan-500 outline-none"
+                            />
+                        </div>
+                    )}
+                </div>
 
                 {/* Actions */}
                 <div className="flex gap-2">

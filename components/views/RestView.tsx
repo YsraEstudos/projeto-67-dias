@@ -81,6 +81,8 @@ const RestView: React.FC = () => {
             id: Date.now().toString(),
             title: data.title,
             isCompleted: false,
+            totalSets: data.totalSets,
+            completedSets: data.totalSets ? 0 : undefined,
             type: data.type,
             order: activities.length,
             specificDate: data.specificDate,

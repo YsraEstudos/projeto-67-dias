@@ -153,6 +153,8 @@ export interface RestActivity {
   id: string;
   title: string;
   isCompleted: boolean;
+  totalSets?: number;
+  completedSets?: number;
   type: 'DAILY' | 'WEEKLY' | 'ONCE';
   daysOfWeek?: number[];
   specificDate?: string;

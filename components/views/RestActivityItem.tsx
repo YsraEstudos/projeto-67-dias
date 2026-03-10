@@ -22,6 +22,10 @@ const RestActivityItem: React.FC<RestActivityItemProps> = React.memo(({
     onEdit,
     onDelete
 }) => {
+    const hasSets = Boolean(activity.totalSets && activity.totalSets > 0);
+    const totalSets = hasSets ? Math.max(1, activity.totalSets || 1) : 0;
+    const completedSets = hasSets ? Math.max(0, Math.min(activity.completedSets || 0, totalSets)) : 0;
+
     return (
         <div
             draggable
@@ -41,6 +45,7 @@ const RestActivityItem: React.FC<RestActivityItemProps> = React.memo(({
             {/* Checkbox */}
             <button
                 onClick={() => onToggleComplete(activity.id)}
+                title={hasSets ? `Marcar série (${completedSets}/${totalSets})` : 'Marcar atividade'}
                 className={`flex-shrink-0 transition-all duration-300 ${activity.isCompleted
                     ? 'text-cyan-500 scale-110'
                     : 'text-slate-600 hover:text-cyan-400'
@@ -54,6 +59,11 @@ const RestActivityItem: React.FC<RestActivityItemProps> = React.memo(({
                 <div className={`font-medium text-lg truncate transition-colors ${activity.isCompleted ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
                     {activity.title}
                 </div>
+                {hasSets && (
+                    <div className="text-xs text-cyan-400 mt-1 font-semibold">
+                        Séries: {completedSets}/{totalSets}
+                    </div>
+                )}
                 {(activity.notes || (activity.links && activity.links.length > 0)) && (
                     <CommentTooltip
                         comment={activity.notes || ''}
