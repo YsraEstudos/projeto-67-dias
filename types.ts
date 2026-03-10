@@ -15,6 +15,7 @@ export enum ViewState {
   TOOLS = 'TOOLS',
   SETTINGS = 'SETTINGS',
   GAMES = 'GAMES',
+  CONCURSO = 'CONCURSO',
 }
 
 // --- MOOD TRACKER ---
