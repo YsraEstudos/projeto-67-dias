@@ -90,7 +90,19 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
     toggleActivityComplete: (id) => {
         set((state) => {
             const activity = state.activities.find(a => a.id === id);
-            if (activity) activity.isCompleted = !activity.isCompleted;
+            if (!activity) return;
+
+            if (activity.totalSets && activity.totalSets > 0) {
+                const totalSets = Math.max(1, activity.totalSets);
+                const currentSets = Math.max(0, Math.min(activity.completedSets || 0, totalSets));
+                const nextSets = currentSets >= totalSets ? 0 : currentSets + 1;
+
+                activity.completedSets = nextSets;
+                activity.isCompleted = nextSets >= totalSets;
+                return;
+            }
+
+            activity.isCompleted = !activity.isCompleted;
         });
         get()._syncToFirestore();
     },
@@ -195,4 +207,3 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
         });
     }
 })));
-

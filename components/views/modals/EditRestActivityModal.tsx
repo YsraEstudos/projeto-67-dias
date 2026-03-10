@@ -15,6 +15,8 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
     const [notes, setNotes] = useState(activity.notes || '');
     const [type, setType] = useState(activity.type);
     const [daysOfWeek, setDaysOfWeek] = useState<number[]>(activity.daysOfWeek || []);
+    const [hasSets, setHasSets] = useState(Boolean(activity.totalSets && activity.totalSets > 0));
+    const [totalSets, setTotalSets] = useState(activity.totalSets || 3);
     const [links, setLinks] = useState<RestActivityLink[]>(activity.links || []);
     const [newLinkLabel, setNewLinkLabel] = useState('');
     const [newLinkUrl, setNewLinkUrl] = useState('');
@@ -27,13 +29,15 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
         notes: activity.notes || '',
         type: activity.type,
         daysOfWeek: activity.daysOfWeek || [],
+        hasSets: Boolean(activity.totalSets && activity.totalSets > 0),
+        totalSets: activity.totalSets || 3,
         links: activity.links || [],
     }), []);
 
     // Track unsaved changes
     const { hasChanges } = useUnsavedChanges({
         initialValue: initialValues,
-        currentValue: { title, notes, type, daysOfWeek, links },
+        currentValue: { title, notes, type, daysOfWeek, hasSets, totalSets, links },
     });
 
     // Intercept close to check for unsaved changes
@@ -87,6 +91,13 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
             type,
             daysOfWeek: type === 'WEEKLY' ? daysOfWeek : undefined,
             specificDate: type === 'ONCE' ? activity.specificDate : undefined,
+            totalSets: hasSets ? Math.max(1, totalSets) : undefined,
+            completedSets: hasSets
+                ? Math.min(activity.completedSets || 0, Math.max(1, totalSets))
+                : undefined,
+            isCompleted: hasSets
+                ? (activity.completedSets || 0) >= Math.max(1, totalSets)
+                : activity.isCompleted,
             links: links.length > 0 ? links : undefined
         };
 
@@ -118,6 +129,35 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none"
                                 placeholder="Ex: Alongamento..."
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Séries</label>
+                            <div className="bg-slate-950 rounded-xl border border-slate-700 p-3 space-y-2">
+                                <label className="flex items-center justify-between text-sm text-slate-300">
+                                    Esta atividade usa séries
+                                    <input
+                                        type="checkbox"
+                                        checked={hasSets}
+                                        onChange={(e) => setHasSets(e.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
+                                    />
+                                </label>
+
+                                {hasSets && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-400">Total de séries:</span>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={99}
+                                            value={totalSets}
+                                            onChange={(e) => setTotalSets(Number(e.target.value) || 1)}
+                                            className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white focus:border-cyan-500 outline-none"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Type */}
