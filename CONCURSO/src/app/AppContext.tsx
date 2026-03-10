@@ -9,7 +9,13 @@ import {
   type ReactNode,
 } from 'react';
 import { updateChecklistValue } from './checklist';
-import { loadCloudSnapshot, saveCloudSnapshot } from './cloudStorage';
+import {
+  type CloudUser,
+  loadCloudSnapshot,
+  loginWithGoogleCloud,
+  saveCloudSnapshot,
+  subscribeCloudAuthChanges,
+} from './cloudStorage';
 import { AUTO_BACKUP_INTERVAL_MINUTES } from './constants';
 import {
   downloadSnapshot,
@@ -31,7 +37,6 @@ import {
 import { getTodayIsoDate } from './contentSubmatters';
 import { duplicateProjectWithNewIds } from './projects';
 import { buildSnapshot, loadStateSnapshot, saveStateSnapshot } from './storage';
-import { loginWithGoogle, subscribeToAuthChanges, type FirebaseUser } from '../../../services/firebase';
 import type {
   AnkiDailyLog,
   AppSnapshot,
@@ -534,7 +539,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const lastBackedTokenRef = useRef<number>(state.meta.changeToken);
   const lastAutoBackupTickRef = useRef<number>(0);
   const stateRef = useRef(state);
-  const cloudUserRef = useRef<FirebaseUser | null>(null);
+  const cloudUserRef = useRef<CloudUser | null>(null);
   const hasLoadedCloudSnapshotRef = useRef(false);
   const saveCloudTimeoutRef = useRef<number | null>(null);
   const lastCloudSavedTokenRef = useRef<number>(state.meta.changeToken);
@@ -644,7 +649,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuthChanges(async (user) => {
+    let isDisposed = false;
+    let unsubscribe: () => void = () => {};
+
+    void subscribeCloudAuthChanges(async (user) => {
+      if (isDisposed) {
+        return;
+      }
+
       cloudUserRef.current = user;
       hasLoadedCloudSnapshotRef.current = false;
 
@@ -714,9 +726,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           error: error instanceof Error ? error.message : 'Falha ao carregar dados da nuvem.',
         });
       }
+    }).then((nextUnsubscribe) => {
+      if (isDisposed) {
+        nextUnsubscribe();
+        return;
+      }
+
+      unsubscribe = nextUnsubscribe;
     });
 
-    return () => unsubscribe();
+    return () => {
+      isDisposed = true;
+      unsubscribe();
+    };
   }, [syncSnapshotToCloud]);
 
   useEffect(() => {
@@ -927,10 +949,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           status: 'checking',
           error: null,
         });
-        await loginWithGoogle();
+        try {
+          await loginWithGoogleCloud();
+        } catch (error) {
+          setCloudSync({
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Falha ao conectar conta Google.',
+          });
+          throw error;
+        }
       },
       syncToCloudNow: async () => {
-        await syncSnapshotToCloud(stateRef.current);
+        try {
+          await syncSnapshotToCloud(stateRef.current);
+        } catch (error) {
+          setCloudSync({
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
+          });
+          throw error;
+        }
       },
     }),
     [cloudSync, persistSnapshot, state, syncSnapshotToCloud],
