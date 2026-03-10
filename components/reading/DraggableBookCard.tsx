@@ -100,7 +100,7 @@ const CompactBookCard: React.FC<{
         <div className="book-content">
             <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-slate-200 text-sm leading-tight truncate">
+                    <h4 className="font-bold text-slate-200 text-sm leading-tight break-words">
                         {book.title}
                     </h4>
                     <p className="text-xs text-slate-500 truncate">{book.author}</p>
@@ -172,6 +172,12 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
         Math.round((book.current / (book.total || 1)) * 100),
         [book.current, book.total]
     );
+
+    const unitLabel = book.unit === 'PAGES' ? 'pág' : book.unit === 'CHAPTERS' ? 'cap' : 'h';
+    const remaining = Math.max(book.total - (isInputFocused ? localProgress : book.current), 0);
+    const remainingLabel = book.unit === 'HOURS'
+        ? `${Math.round(remaining * 60)} min para ouvir`
+        : `${remaining} ${book.unit === 'PAGES' ? 'págs' : 'caps'} para ler`;
 
     // Sync with external changes (drag-drop, stepper buttons)
     useEffect(() => {
@@ -300,7 +306,7 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                 <div className={`flex-1 p-4 flex flex-col min-w-0 ${isGrid ? '' : 'h-full justify-between'}`}>
                     <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0 flex-1">
-                            <h4 className={`font-bold text-slate-100 leading-tight truncate mb-0.5 ${isGrid ? 'text-sm' : 'text-base'}`} title={book.title}>
+                            <h4 className={`font-bold text-slate-100 leading-tight mb-0.5 break-words ${isGrid ? 'text-sm' : 'text-base'}`} title={book.title}>
                                 {book.title}
                             </h4>
                             <p className="text-xs text-slate-500 truncate">{book.author}</p>
@@ -322,9 +328,10 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                 {/* Front Controls */}
                 <div className={`${isGrid ? 'px-4 pb-4' : 'pr-4 w-48'}`} onClick={e => e.stopPropagation()}>
                     <div className="flex justify-between items-center text-[11px] text-slate-400 mb-2">
-                        <span className="font-medium">{isInputFocused ? localProgress : book.current} / {book.total} {book.unit === 'PAGES' ? 'pág' : book.unit === 'CHAPTERS' ? 'cap' : 'h'}</span>
+                        <span className="font-medium">{isInputFocused ? localProgress : book.current} / {book.total} {unitLabel}</span>
                         <span className="font-bold text-indigo-400">{percentage}%</span>
                     </div>
+                    <div className="text-[10px] text-slate-500 mb-2 truncate" title={remainingLabel}>{remainingLabel}</div>
                     <ProgressBar current={isInputFocused ? localProgress : book.current} total={book.total} />
 
                     {/* Actions */}

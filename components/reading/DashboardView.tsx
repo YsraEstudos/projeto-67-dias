@@ -3,14 +3,12 @@ import { Book as IBook } from '../../types';
 import DraggableBookCard from './DraggableBookCard';
 import { BookOpen, Library, PauseCircle, CheckCircle2 } from 'lucide-react';
 
-// Column configuration - defined once, never recreated
+// Row configuration - defined once, never recreated
 const COLUMNS = [
     { title: "Lendo", status: 'READING' as const, Icon: BookOpen, color: "text-indigo-400" },
     { title: "Para Ler", status: 'TO_READ' as const, Icon: Library, color: "text-sky-400" },
     { title: "Pausados", status: 'PAUSED' as const, Icon: PauseCircle, color: "text-orange-400" },
     { title: "Concluídos", status: 'COMPLETED' as const, Icon: CheckCircle2, color: "text-green-400" },
-    // Show abandoned to satisfy status map and surface dropped books
-    { title: "Abandonados", status: 'ABANDONED' as const, Icon: PauseCircle, color: "text-rose-400" },
 ] as const;
 
 interface DashboardViewProps {
@@ -49,20 +47,20 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMod
         const isActive = status === 'READING';
 
         return (
-            <div
-                className={`flex flex-col h-full min-h-[350px] sm:min-h-[400px] rounded-2xl border overflow-hidden transition-all ${isActive ? 'bg-indigo-500/5 border-indigo-500/30' : 'bg-slate-800/30 border-slate-800/50'}`}
+            <section
+                className={`flex flex-col rounded-2xl border overflow-hidden transition-all ${isActive ? 'bg-indigo-500/5 border-indigo-500/30' : 'bg-slate-800/30 border-slate-800/50'}`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => onDropOnStatus(e, status)}
             >
-                {/* Column Header */}
+                {/* Row Header */}
                 <div className={`p-3 sm:p-4 border-b border-slate-700/50 flex items-center gap-2 sm:gap-3 ${color} bg-slate-800/80 backdrop-blur-sm sticky top-0 z-10`}>
                     <Icon size={18} className="sm:w-5 sm:h-5" />
                     <h3 className="font-bold text-slate-200 text-sm sm:text-base">{title}</h3>
                     <span className="ml-auto bg-slate-900/80 text-slate-400 text-xs px-2 py-0.5 rounded-full border border-slate-700/50 font-medium">{columnBooks.length}</span>
                 </div>
 
-                {/* Column Content */}
-                <div className={`p-3 flex-1 overflow-y-auto scrollbar-thin grid grid-cols-1 ${viewMode === 'grid' ? '2xl:grid-cols-2' : ''} gap-3 content-start`}>
+                {/* Row Content */}
+                <div className={`p-3 grid grid-cols-1 ${viewMode === 'grid' ? 'sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : ''} gap-3 content-start`}>
                     {columnBooks.length === 0 && (
                         <div className="h-32 col-span-full flex items-center justify-center text-slate-600 text-sm italic border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/20 m-2">
                             Arraste livros aqui
@@ -84,12 +82,12 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMod
                         />
                     ))}
                 </div>
-            </div>
+            </section>
         );
     };
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 h-full">
+        <div className="grid grid-cols-1 gap-4 sm:gap-5">
             {COLUMNS.map(({ title, status, Icon, color }) => (
                 <React.Fragment key={status}>
                     {renderColumn(title, status, Icon, color)}
