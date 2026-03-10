@@ -18,6 +18,13 @@ const ConcursoView: React.FC = () => {
         Voltar para o painel
       </button>
 
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8">
+        <p className="text-sm uppercase tracking-[0.28em] text-cyan-400/80">Modulo externo</p>
+        <h2 className="mt-3 text-2xl font-semibold text-slate-100">Painel do concurso integrado ao Projeto 67 Dias</h2>
+        <p className="mt-3 max-w-2xl text-sm text-slate-400">
+          Este atalho leva voce direto para o site do concurso com dashboard, plano diario, conteudo, anki e metas.
+        </p>
+      </div>
       <ConcursoPlaceholderButton />
     </div>
   );

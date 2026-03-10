@@ -1,5 +1,3 @@
-import React from 'react';
-
 type CutoffMark = {
     concurso: string;
     cargo: string;

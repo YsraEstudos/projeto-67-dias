@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ExternalLink, FileText, Search, Trophy, CheckCircle2, Circle, BarChart3 } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { stripMarkdown } from '../../utils/markdownPreview';
+import { CONCURSO_APP_URL } from './constants';
 
 import analiseFccTiRaw from '../../CONCURSO/Notas de corte/Analise_Notas_Corte_FCC_TI.md?raw';
 import planoCorrecaoRaw from '../../CONCURSO/Notas de corte/Plano_de_Correcao_TI.md?raw';
@@ -145,6 +146,21 @@ export const ConcursoPlaceholderButton: React.FC = () => {
       </div>
 
       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-400/20 bg-slate-950/70 p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300/80">App principal</p>
+            <p className="mt-1 text-sm text-slate-300">Abrir o painel TRT 4 com dashboard, plano diário, conteúdo e metas.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.assign(CONCURSO_APP_URL)}
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-400/20"
+          >
+            Abrir sistema do concurso
+            <ExternalLink size={15} />
+          </button>
+        </div>
+
         <label className="relative block">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input

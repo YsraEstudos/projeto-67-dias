@@ -33,6 +33,7 @@ import { ConflictModal } from './components/modals/ConflictModal';
 import { TabBar } from './components/shared/TabBar';
 import { useTabStore } from './stores/tabStore';
 import { useNavigationHistory } from './hooks/useNavigationHistory';
+import { CONCURSO_APP_URL } from './components/concurso/constants';
 
 // Services
 import { calculateCurrentDay, getDaysUntilStart } from './services/weeklySnapshot';
@@ -438,6 +439,11 @@ const App: React.FC = () => {
 
   // --- CARD CLICK HANDLERS ---
   const handleCardClick = useCallback((view: ViewState) => {
+    if (view === ViewState.CONCURSO) {
+      window.location.assign(CONCURSO_APP_URL);
+      return;
+    }
+
     // Find if there's already a tab with this view
     const existingTab = tabs.find(t => t.view === view);
 
@@ -459,6 +465,11 @@ const App: React.FC = () => {
   }, [tabs, setActiveTab, setActiveView, addTab, pushNavigation, getViewLabel]);
 
   const handleCardMiddleClick = useCallback((view: ViewState) => {
+    if (view === ViewState.CONCURSO) {
+      window.open(CONCURSO_APP_URL, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     // Always create a new tab
     addTab(view, getViewLabel(view));
     setActiveView(view);
@@ -594,7 +605,7 @@ const App: React.FC = () => {
       {
         id: ViewState.CONCURSO,
         title: 'Concurso',
-        subtitle: 'Sistema disponível',
+        subtitle: 'Abrir painel TRT 4',
         icon: Trophy,
         color: 'text-purple-400',
       },
