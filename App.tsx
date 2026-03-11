@@ -235,6 +235,7 @@ const App: React.FC = () => {
 
     const unsubscribers: (() => void)[] = [];
     const hydratedStores = new Set<string>();
+    const HYDRATION_TIMEOUT_MS = 12000;
     const storeSubscriptions = [
       {
         key: 'p67_project_config',
@@ -338,12 +339,36 @@ const App: React.FC = () => {
       }
     };
 
+    const hydrationTimeout = window.setTimeout(() => {
+      if (hydratedStores.size < totalStores) {
+        const missingStores = storeSubscriptions
+          .map(({ key }) => key)
+          .filter((key) => !hydratedStores.has(key));
+
+        console.warn('[App] Hydration timeout reached. Continuing with partial data.', {
+          hydrated: hydratedStores.size,
+          totalStores,
+          missingStores,
+        });
+
+        setIsDataReady(true);
+      }
+    }, HYDRATION_TIMEOUT_MS);
+
     // Subscribe to all stores and hydrate with _hydrateFromFirestore
     storeSubscriptions.forEach(({ key, hydrate }) => {
-      unsubscribers.push(subscribeToDocument(key, (data: any) => {
-        hydrate(data);
-        checkAllHydrated(key);
-      }));
+      unsubscribers.push(subscribeToDocument(
+        key,
+        (data: any) => {
+          hydrate(data);
+          checkAllHydrated(key);
+        },
+        (error) => {
+          console.error(`[App] Failed to hydrate ${key}, falling back to empty state.`, error);
+          hydrate(null);
+          checkAllHydrated(key);
+        }
+      ));
     });
 
     // Special case for subcollection-based stores (like Notes)
@@ -354,6 +379,7 @@ const App: React.FC = () => {
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
 
     return () => {
+      window.clearTimeout(hydrationTimeout);
       unsubscribers.forEach(unsub => unsub());
       console.log('[App] Unsubscribed from all stores');
     };
