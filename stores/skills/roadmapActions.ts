@@ -34,12 +34,15 @@ export const createRoadmapActions = (set: SkillsSet, get: SkillsGet): RoadmapAct
         set((state) => {
             const skill = state.skills.find(s => s.id === skillId);
             if (!skill) return;
+            const completedAt = Date.now();
 
             // Recursive function to toggle item in nested subtasks
             const toggleItem = (items: SkillRoadmapItem[]): boolean => {
                 for (const item of items) {
                     if (item.id === itemId) {
-                        item.isCompleted = !item.isCompleted;
+                        const nextCompleted = !item.isCompleted;
+                        item.isCompleted = nextCompleted;
+                        item.completedAt = nextCompleted ? completedAt : undefined;
                         return true;
                     }
                     if (item.subTasks && toggleItem(item.subTasks)) {

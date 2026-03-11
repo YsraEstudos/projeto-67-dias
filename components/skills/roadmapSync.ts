@@ -50,18 +50,23 @@ export const syncRoadmapState = (
         // 1. Update or Add Nodes based on Tasks
         flattenedRoadmapItems.forEach(task => {
             const existingNode = visualNodesMap.get(task.id);
-            if (existingNode) {
-                // Update existing node
-                if (existingNode.title !== task.title || existingNode.isCompleted !== task.isCompleted) {
-                    const nodeIndex = newVisualNodes.findIndex(n => n.id === task.id);
-                    if (nodeIndex !== -1) {
-                        newVisualNodes[nodeIndex] = {
-                            ...newVisualNodes[nodeIndex],
-                            title: task.title,
-                            isCompleted: task.isCompleted,
-                            type: task.type === 'SECTION' ? 'section' : newVisualNodes[nodeIndex].type
-                        };
-                    }
+                if (existingNode) {
+                    // Update existing node
+                    if (
+                        existingNode.title !== task.title ||
+                        existingNode.isCompleted !== task.isCompleted ||
+                        existingNode.completedAt !== task.completedAt
+                    ) {
+                        const nodeIndex = newVisualNodes.findIndex(n => n.id === task.id);
+                        if (nodeIndex !== -1) {
+                            newVisualNodes[nodeIndex] = {
+                                ...newVisualNodes[nodeIndex],
+                                title: task.title,
+                                isCompleted: task.isCompleted,
+                                completedAt: task.completedAt,
+                                type: task.type === 'SECTION' ? 'section' : newVisualNodes[nodeIndex].type
+                            };
+                        }
                 }
             } else {
                 // Create new node
@@ -79,7 +84,8 @@ export const syncRoadmapState = (
                     type: task.type === 'SECTION' ? 'section' : 'main',
                     x: startX,
                     y: startY,
-                    isCompleted: task.isCompleted
+                    isCompleted: task.isCompleted,
+                    completedAt: task.completedAt,
                 };
                 newVisualNodes.push(newNode);
 
@@ -118,6 +124,7 @@ export const syncRoadmapState = (
                                 ...item,
                                 title: node.title,
                                 isCompleted: node.isCompleted,
+                                completedAt: node.completedAt,
                                 // We don't change type easily back from visual to task type structure yet
                             };
                         }
@@ -136,6 +143,7 @@ export const syncRoadmapState = (
                     id: node.id,
                     title: node.title,
                     isCompleted: node.isCompleted,
+                    completedAt: node.completedAt,
                     type: node.type === 'section' ? 'SECTION' : 'TASK'
                 };
                 newRoadmap.push(newTask);

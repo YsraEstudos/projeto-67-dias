@@ -34,6 +34,7 @@ const STORE_DEBOUNCE_OVERRIDES: Record<string, number> = {
     p67_project_config: 5000,
     p67_work_store: 10000,
     p67_tool_timer: 5000,
+    p67_competition_store: 10000,
 
     // Text-heavy modules can use a longer window safely
     p67_notes_store: 25000,

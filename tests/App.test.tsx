@@ -15,8 +15,12 @@ vi.mock('../components/views/SkillsView', () => ({ default: () => <div data-test
 vi.mock('../components/views/SettingsView', () => ({ default: () => <div data-testid="settings-view">Settings View</div> }));
 vi.mock('../components/views/LinksView', () => ({ default: () => <div data-testid="links-view">Links View</div> }));
 vi.mock('../components/views/SundayView', () => ({ default: () => <div data-testid="sunday-view">Sunday View</div> }));
+vi.mock('../components/views/ConcursoView', () => ({ default: () => <div data-testid="concurso-view">Concurso View</div> }));
 vi.mock('../components/views/AuthView', () => ({
     AuthView: () => <div data-testid="auth-view">Auth View</div>
+}));
+vi.mock('../hooks/useCompetitionTracker', () => ({
+    useCompetitionTracker: vi.fn(),
 }));
 
 const mockUseAuth = vi.fn();
@@ -54,17 +58,18 @@ vi.mock('../stores', () => {
     );
 
     return {
-        useUIStore: mockFn((selector: any) => {
-            const state = {
-                activeView: 'DASHBOARD',
-                isMenuOpen: false,
-                setActiveView: mockFn(),
-                setMenuOpen: mockFn()
-            };
-            return typeof selector === 'function' ? selector(state) : state;
-        }),
+        useUIStore: mockFn((selector: any) => (
+            typeof selector === 'function' ? selector(mockUIState) : mockUIState
+        )),
         useConfigStore: createStoreMock({ config: { startDate: new Date().toISOString(), userName: 'Test' }, setConfig: mockFn() }),
-        useWorkStore: createStoreMock({ currentCount: 0, goal: 300, getCurrentWeekGoal: () => 100 }),
+        useWorkStore: createStoreMock({
+            currentCount: 0,
+            goal: 300,
+            history: [],
+            tasks: [],
+            availableGoals: [],
+            getCurrentWeekGoal: () => 100
+        }),
         useHabitsStore: createStoreMock({ tasks: [] }),
         useSiteCategoriesStore: createStoreMock({ categories: [], _hydrateFromFirestore: vi.fn() }),
         useSitesStore: createStoreMock({ sites: [], _hydrateFromFirestore: vi.fn() }),
@@ -104,6 +109,15 @@ vi.mock('../stores', () => {
         useReviewStore: createStoreMock({}),
         useWaterStore: createStoreMock({}),
         useTimerStore: createStoreMock({ timer: { display: '00:00' }, setTimer: mockFn() }),
+        useCompetitionStore: createStoreMock({
+            competition: {
+                competitionStartedAt: null,
+                engineVersion: '2026.03.11.1',
+                roster: [],
+                dailyRecords: {},
+                lastSyncedDate: null,
+            }
+        }),
         clearAllStores: mockFn(),
     };
 });
@@ -211,6 +225,23 @@ describe('App Component', () => {
         // This test is skipped as it requires full store integration
         // Navigation tests should be implemented as e2e tests
         expect(true).toBe(true);
+    });
+
+    it('opens Concurso inside the app instead of redirecting away', async () => {
+        mockUseAuth.mockReturnValue(createAuthState({ user: mockUser }));
+
+        const { rerender } = render(<App />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Concurso')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Concurso'));
+        rerender(<App />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('concurso-view')).toBeInTheDocument();
+        });
     });
 
     it('logs out correctly', async () => {

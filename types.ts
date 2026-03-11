@@ -237,6 +237,7 @@ export interface SkillRoadmapItem {
   id: string;
   title: string;
   isCompleted: boolean;
+  completedAt?: number;
   type?: 'TASK' | 'SECTION';
   subTasks?: SkillRoadmapItem[];
 }
@@ -269,6 +270,7 @@ export interface VisualRoadmapNode {
   x: number;  // Posição X no canvas
   y: number;  // Posição Y no canvas
   isCompleted: boolean;
+  completedAt?: number;
   description?: string;
   children?: VisualRoadmapNode[]; // Para nós expandíveis
 }
@@ -997,3 +999,60 @@ export const DEFAULT_TIME_SLOTS: TimeSlotConfig[] = [
   { id: 'slot3', startHour: 14, endHour: 16 },
   { id: 'slot4', startHour: 16, endHour: 17 },
 ];
+
+// --- COMPETITION SYSTEM ---
+
+export type CompetitionCategoryId =
+  | 'questoes'
+  | 'habitos'
+  | 'tarefas'
+  | 'skillTree'
+  | 'leitura'
+  | 'extras';
+
+export interface CompetitionScoreBreakdown {
+  id: CompetitionCategoryId;
+  label: string;
+  points: number;
+  maxPoints: number;
+  remainingPoints: number;
+  summary: string;
+  priority: number;
+}
+
+export interface CompetitionDailyRecord {
+  date: string;                         // YYYY-MM-DD
+  projectDay: number;
+  score: number;
+  maxScore: number;                     // Effective max possible for the day
+  theoreticalMaxScore: number;          // Fixed system ceiling (1000)
+  remainingScore: number;
+  breakdown: CompetitionScoreBreakdown[];
+  updatedAt: number;
+}
+
+export interface CompetitionRival {
+  id: string;
+  name: string;
+  archetype: string;
+  description: string;
+  basePower: number;
+  volatility: number;
+  favoredCategories: CompetitionCategoryId[];
+  weakCategories: CompetitionCategoryId[];
+  taunts: string[];
+  clutchWindow?: {
+    startDay: number;
+    endDay: number;
+    bonus: number;
+  };
+  recoveryBoost?: number;
+}
+
+export interface CompetitionState {
+  competitionStartedAt: number | null;
+  engineVersion: string;
+  roster: CompetitionRival[];
+  dailyRecords: Record<string, CompetitionDailyRecord>;
+  lastSyncedDate: string | null;
+}

@@ -25,7 +25,7 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, clearAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, useCompetitionStore, clearAllStores } from './stores';
 import { subscribeToDocument, subscribeToSubcollection, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
@@ -33,7 +33,7 @@ import { ConflictModal } from './components/modals/ConflictModal';
 import { TabBar } from './components/shared/TabBar';
 import { useTabStore } from './stores/tabStore';
 import { useNavigationHistory } from './hooks/useNavigationHistory';
-import { CONCURSO_APP_URL } from './components/concurso/constants';
+import { useCompetitionTracker } from './hooks/useCompetitionTracker';
 
 // Services
 import { calculateCurrentDay, getDaysUntilStart } from './services/weeklySnapshot';
@@ -319,6 +319,10 @@ const App: React.FC = () => {
       {
         key: 'p67_goals_store',
         hydrate: (data: any) => useGoalsStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_competition_store',
+        hydrate: (data: any) => useCompetitionStore.getState()._hydrateFromFirestore(data)
       }
     ];
     const totalStores = storeSubscriptions.length;
@@ -384,6 +388,11 @@ const App: React.FC = () => {
   const daysUntilStart = useMemo(() => getDaysUntilStart(config.startDate), [config.startDate]);
   const hasStarted = currentDay > 0;
 
+  useCompetitionTracker({
+    enabled: Boolean(user?.id) && isDataReady,
+    startDate: config.startDate,
+  });
+
   // Optimization: Calculate notifications directly in selector to avoid re-renders
   const notificationCount = useHabitsStore((state) => {
     try {
@@ -439,11 +448,6 @@ const App: React.FC = () => {
 
   // --- CARD CLICK HANDLERS ---
   const handleCardClick = useCallback((view: ViewState) => {
-    if (view === ViewState.CONCURSO) {
-      window.location.assign(CONCURSO_APP_URL);
-      return;
-    }
-
     // Find if there's already a tab with this view
     const existingTab = tabs.find(t => t.view === view);
 
@@ -465,11 +469,6 @@ const App: React.FC = () => {
   }, [tabs, setActiveTab, setActiveView, addTab, pushNavigation, getViewLabel]);
 
   const handleCardMiddleClick = useCallback((view: ViewState) => {
-    if (view === ViewState.CONCURSO) {
-      window.open(CONCURSO_APP_URL, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
     // Always create a new tab
     addTab(view, getViewLabel(view));
     setActiveView(view);

@@ -93,6 +93,26 @@ export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
         set((state) => {
             const book = state.books.find(b => b.id === id);
             if (book) {
+                const delta = current - book.current;
+                const today = getTodayISO();
+
+                if (!book.logs) book.logs = [];
+
+                if (delta !== 0) {
+                    const existingLog = book.logs.find(log => log.date === today);
+
+                    if (existingLog) {
+                        existingLog.pagesRead = Math.max(0, existingLog.pagesRead + delta);
+                    } else if (delta > 0) {
+                        book.logs.push({
+                            id: generateUUID(),
+                            date: today,
+                            pagesRead: delta,
+                            bookId: id
+                        });
+                    }
+                }
+
                 book.current = current;
                 if (current >= book.total) book.status = 'COMPLETED';
             }

@@ -140,18 +140,39 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
 
     // Item Handlers
     const toggleRoadmapItem = (itemId: string) => {
-        onUpdate(roadmap.map(i => i.id === itemId ? { ...i, isCompleted: !i.isCompleted } : i));
+        const completedAt = Date.now();
+        onUpdate(roadmap.map(i => (
+            i.id === itemId
+                ? {
+                    ...i,
+                    isCompleted: !i.isCompleted,
+                    completedAt: !i.isCompleted ? completedAt : undefined,
+                }
+                : i
+        )));
     };
 
     // Subtask toggle with auto-complete parent logic
     const toggleSubTask = (parentId: string, subTaskId: string) => {
+        const completedAt = Date.now();
         onUpdate(roadmap.map(item => {
             if (item.id !== parentId || !item.subTasks) return item;
             const updatedSubs = item.subTasks.map(sub =>
-                sub.id === subTaskId ? { ...sub, isCompleted: !sub.isCompleted } : sub
+                sub.id === subTaskId
+                    ? {
+                        ...sub,
+                        isCompleted: !sub.isCompleted,
+                        completedAt: !sub.isCompleted ? completedAt : undefined,
+                    }
+                    : sub
             );
             const allSubsComplete = updatedSubs.every(s => s.isCompleted);
-            return { ...item, subTasks: updatedSubs, isCompleted: allSubsComplete };
+            return {
+                ...item,
+                subTasks: updatedSubs,
+                isCompleted: allSubsComplete,
+                completedAt: allSubsComplete ? completedAt : undefined,
+            };
         }));
     };
 
@@ -241,8 +262,15 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     // Visual roadmap handlers
     const handleToggleVisualNode = (nodeId: string) => {
         if (!visualRoadmap || !onUpdateVisual) return;
+        const completedAt = Date.now();
         const updatedNodes = visualRoadmap.nodes.map(n =>
-            n.id === nodeId ? { ...n, isCompleted: !n.isCompleted } : n
+            n.id === nodeId
+                ? {
+                    ...n,
+                    isCompleted: !n.isCompleted,
+                    completedAt: !n.isCompleted ? completedAt : undefined,
+                }
+                : n
         );
         onUpdateVisual({ ...visualRoadmap, nodes: updatedNodes });
     };
