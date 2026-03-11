@@ -54,7 +54,7 @@ const PROJECT_DURATION_DAYS = 67;
  * This triggers automatic cache invalidation to prevent stale data issues
  * Format: YYYY.MM.DD.revision (e.g., 2024.12.27.1)
  */
-const APP_SCHEMA_VERSION = '2026.03.03.1';  // 2026-03-03: Expanded game stories with uploads, languages, and notes integration
+const APP_SCHEMA_VERSION = '2026.03.11.2';  // 2026-03-11: Internal competition arena replaces Concurso dashboard redirect
 const SCHEMA_VERSION_KEY = 'p67_schema_version';
 
 
@@ -604,7 +604,7 @@ const App: React.FC = () => {
       {
         id: ViewState.CONCURSO,
         title: 'Concurso',
-        subtitle: 'Abrir painel TRT 4',
+        subtitle: 'Arena interna + materiais',
         icon: Trophy,
         color: 'text-purple-400',
       },
@@ -828,7 +828,7 @@ const App: React.FC = () => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.1
+          versão 1.2
         </span>
       </footer>
 
