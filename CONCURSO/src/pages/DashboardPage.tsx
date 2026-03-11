@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppContext } from '../app/AppContext';
+import { buildGradesSummary, buildReviewQueue } from '../app/contentSubmatters';
 import {
   buildExamProgressTotals,
   countCompletedItemById,
@@ -26,7 +28,7 @@ const findNextEventDate = (
 };
 
 export const DashboardPage = () => {
-  const { state, dayPlans, dayPlansByDate, monthlyTargets } = useAppContext();
+  const { state, dayPlans, dayPlansByDate, monthlyTargets, topics } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
 
@@ -73,6 +75,16 @@ export const DashboardPage = () => {
       state.ankiStats.newCardsAdded,
     ],
   );
+  const contentGrades = useMemo(
+    () => buildGradesSummary(state.topicSubmattersByTopic),
+    [state.topicSubmattersByTopic],
+  );
+  const contentReviewQueue = useMemo(
+    () => buildReviewQueue(state.topicSubmattersByTopic, topics),
+    [state.topicSubmattersByTopic, topics],
+  );
+  const reviewNowCount = contentReviewQueue.filter((item) => item.needsReview).length;
+  const reviewPreview = contentReviewQueue.filter((item) => item.needsReview).slice(0, 3);
 
   return (
     <section className="page">
@@ -182,6 +194,67 @@ export const DashboardPage = () => {
           </p>
         </article>
       </div>
+
+      <article className="panel review-widget dashboard-review-widget" data-testid="dashboard-content-review-widget">
+        <div className="review-widget-header">
+          <div>
+            <p className="review-widget-kicker">Conteúdo pragmático</p>
+            <h3>Mapa rápido de revisão do edital</h3>
+            <p className="review-widget-copy">
+              Veja quantas submatérias estão frágeis, o que está sem revisar e entre direto na fila
+              de revisão.
+            </p>
+          </div>
+          <Link className="button" to="/conteudo?focus=review-now">
+            Abrir fila de revisão
+          </Link>
+        </div>
+
+        <div className="review-widget-metrics">
+          <article className="review-widget-metric">
+            <span className="review-widget-metric-label">Total de submatérias</span>
+            <strong className="review-widget-metric-value">{contentGrades.total}</strong>
+          </article>
+          <article className="review-widget-metric review-widget-metric-alert">
+            <span className="review-widget-metric-label">Revisar agora</span>
+            <strong className="review-widget-metric-value" data-testid="dashboard-review-now-count">
+              {reviewNowCount}
+            </strong>
+          </article>
+        </div>
+
+        <div className="grade-pill-row" data-testid="dashboard-grade-distribution">
+          {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
+            <div
+              key={grade}
+              className={`grade-pill grade-pill-${grade.toLowerCase()} grade-pill-animated`}
+              style={{ animationDelay: `${index * 90}ms` }}
+            >
+              <span className="grade-pill-letter">{grade}</span>
+              <span className="grade-pill-count">{contentGrades.byGrade[grade]}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="review-widget-preview-list">
+          {reviewPreview.map((item) => (
+            <Link
+              key={item.submatterId}
+              className="review-widget-preview"
+              to={`/conteudo/topico/${item.topicId}?submatter=${item.submatterId}`}
+            >
+              <span className={`grade-dot grade-dot-${item.grade.toLowerCase()}`} aria-hidden="true" />
+              <span className="review-widget-preview-body">
+                <strong>{item.submatterTitle}</strong>
+                <span>
+                  {item.topicTitle} ·{' '}
+                  {item.daysSinceReview === null ? 'sem revisão' : `${item.daysSinceReview} dia(s)`}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </article>
     </section>
   );
 };

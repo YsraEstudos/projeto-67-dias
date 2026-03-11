@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { appReducer } from '../app/AppContext';
 import {
   buildGradesSummary,
+  buildReviewQueue,
   buildStaleSummary,
+  buildTopicRollups,
   migrateTopicSubmattersFromLegacy,
 } from '../app/contentSubmatters';
 import { createInitialState } from '../app/seed';
@@ -80,6 +82,43 @@ describe('content submatters summaries', () => {
     expect(stale.byDays[7]).toBe(3);
     expect(stale.byDays[15]).toBe(2);
     expect(stale.byDays[30]).toBe(2);
+  });
+
+  it('prioriza fila por pior nota e mais tempo sem revisar', () => {
+    const queue = buildReviewQueue(
+      {
+        topic1: [
+          submatter('a', { title: 'A', grade: 'C', lastReviewedAt: '2026-02-20' }),
+          submatter('b', { title: 'B', grade: 'E', lastReviewedAt: '2026-02-24' }),
+          submatter('c', { title: 'C', grade: 'E', lastReviewedAt: null }),
+        ],
+      },
+      [sampleTopic('topic1', 'Topico 1')],
+      '2026-02-26',
+    );
+
+    expect(queue.map((item) => item.submatterId)).toEqual(['c', 'b', 'a']);
+    expect(queue[0].needsReview).toBe(true);
+    expect(queue[0].staleBucket).toBe('unreviewed');
+  });
+
+  it('gera rollups por topico com pior nota e contagem para revisar agora', () => {
+    const rollups = buildTopicRollups(
+      {
+        topic1: [
+          submatter('a', { grade: 'A', lastReviewedAt: '2026-02-26' }),
+          submatter('b', { grade: 'D', lastReviewedAt: '2026-02-20' }),
+          submatter('c', { grade: 'D', lastReviewedAt: null }),
+        ],
+      },
+      [sampleTopic('topic1', 'Topico 1')],
+      '2026-02-26',
+    );
+
+    expect(rollups.topic1.worstGrade).toBe('D');
+    expect(rollups.topic1.dominantGrade).toBe('D');
+    expect(rollups.topic1.reviewNowCount).toBe(2);
+    expect(rollups.topic1.unreviewedCount).toBe(1);
   });
 });
 

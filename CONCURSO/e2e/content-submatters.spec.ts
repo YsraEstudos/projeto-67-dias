@@ -1,22 +1,24 @@
 import { expect, test } from '@playwright/test';
 
 test('conteudo com notas A-E e pagina de submaterias', async ({ page }) => {
-  await page.goto('/conteudo');
+  await page.goto('/concurso/#/conteudo');
 
   await expect(page.getByRole('heading', { name: 'Conteúdo Pragmático' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Matriz de cobertura' })).toHaveCount(0);
+  await expect(page.getByTestId('content-grade-overview')).toBeVisible();
+  await expect(page.getByTestId('review-queue-list')).toBeVisible();
 
-  const firstTopicLink = page.locator('.topic-title-link').first();
-  const firstTopicText = await firstTopicLink.innerText();
-  await firstTopicLink.click();
+  await page.getByTestId('content-quick-filters').getByRole('button', { name: 'Revisar agora' }).click();
+  const firstQueueItem = page.locator('[data-testid="review-queue-list"] a').first();
+  await expect(firstQueueItem).toBeVisible();
+  await firstQueueItem.click();
 
-  await expect(page).toHaveURL(/\/conteudo\/topico\//);
-  await expect(page.getByRole('heading', { name: firstTopicText, exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/concurso\/#\/conteudo\/topico\//);
+  await expect(page.getByTestId('submatter-card-list')).toBeVisible();
 
-  const beforeCount = await page.locator('[data-testid="submatter-table-body"] tr').count();
+  const beforeCount = await page.locator('.submatter-card').count();
 
   await page.getByTestId('submatter-create-title').fill('Pré-processamento aplicado em base X');
-  await page.locator('form').getByLabel('Nota').selectOption('A');
+  await page.locator('form').getByRole('button', { name: 'A', exact: true }).click();
   await page.locator('form').getByLabel('Última revisão').fill('2026-02-26');
   await page
     .locator('form')
@@ -28,23 +30,27 @@ test('conteudo com notas A-E e pagina de submaterias', async ({ page }) => {
     .fill('Ação: refazer 20 questões e criar 3 cards.');
   await page.getByTestId('submatter-create-submit').click();
 
+  const createdCardTitle = page.locator('input[value="Pré-processamento aplicado em base X"]');
+  const createdCard = page.locator('.submatter-card').filter({ has: createdCardTitle });
+  await expect(createdCard).toBeVisible();
+  await createdCard.getByRole('button', { name: 'B', exact: true }).click();
+  await createdCard.getByRole('button', { name: 'Hoje' }).click();
+  await expect(createdCard.locator('input[type="date"]')).not.toHaveValue('');
+
+  await page.getByRole('button', { name: 'Tabela avançada' }).click();
   const rows = page.locator('[data-testid="submatter-table-body"] tr');
   await expect(rows).toHaveCount(beforeCount + 1);
-  const createdRow = rows.nth(beforeCount);
-  await expect(createdRow.locator('input').first()).toHaveValue('Pré-processamento aplicado em base X');
-
-  await createdRow.locator('select').first().selectOption('B');
-  await createdRow.getByRole('button', { name: 'Hoje' }).click();
-  await expect(createdRow.locator('select').first()).toHaveValue('B');
-
-  await createdRow.getByRole('button', { name: 'Excluir' }).click();
-  await expect(page.locator('[data-testid="submatter-table-body"] tr')).toHaveCount(beforeCount);
-
-  await page.getByRole('link', { name: 'Voltar para Conteúdo' }).click();
-  await expect(page).toHaveURL('/conteudo');
-  await expect(page.getByRole('heading', { name: 'Matriz de cobertura' })).toHaveCount(0);
+  await expect(
+    page.locator('[data-testid="submatter-table-body"] input[value="Pré-processamento aplicado em base X"]'),
+  ).toBeVisible();
 
   await page.reload();
-  await page.locator('.topic-title-link', { hasText: firstTopicText }).first().click();
-  await expect(page.locator('[data-testid="submatter-table-body"] tr')).toHaveCount(beforeCount);
+  await page.getByRole('button', { name: 'Tabela avançada' }).click();
+  await expect(
+    page.locator('[data-testid="submatter-table-body"] input[value="Pré-processamento aplicado em base X"]'),
+  ).toBeVisible();
+
+  await page.getByRole('link', { name: 'Voltar para Conteúdo' }).click();
+  await expect(page).toHaveURL(/\/concurso\/#\/conteudo$/);
+  await expect(page.getByTestId('review-queue-list')).toBeVisible();
 });

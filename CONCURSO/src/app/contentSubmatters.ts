@@ -1,5 +1,5 @@
 import { TOPIC_STALE_BUCKETS_DAYS } from './constants';
-import type { TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
+import type { SubjectKey, TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
 
 const nowIsoDate = (): string => new Date().toISOString().slice(0, 10);
 
@@ -83,6 +83,39 @@ export interface TopicStaleSummary {
   byDays: Record<number, number>;
 }
 
+export interface TopicReviewQueueItem {
+  topicId: string;
+  topicTitle: string;
+  subject: SubjectKey;
+  submatterId: string;
+  submatterTitle: string;
+  grade: TopicGrade;
+  lastReviewedAt: string | null;
+  daysSinceReview: number | null;
+  staleBucket: 'unreviewed' | 'fresh' | 'warning' | 'critical';
+  needsReview: boolean;
+}
+
+export interface TopicRollup {
+  topicId: string;
+  total: number;
+  byGrade: Record<TopicGrade, number>;
+  worstGrade: TopicGrade | null;
+  dominantGrade: TopicGrade | null;
+  reviewNowCount: number;
+  staleCount: number;
+  criticalStaleCount: number;
+  unreviewedCount: number;
+}
+
+const GRADE_SEVERITY: Record<TopicGrade, number> = {
+  A: 0,
+  B: 1,
+  C: 2,
+  D: 3,
+  E: 4,
+};
+
 const createEmptyGrades = (): Record<TopicGrade, number> => ({
   A: 0,
   B: 0,
@@ -114,6 +147,92 @@ const daysBetween = (fromIsoDate: string, toIsoDate: string): number => {
   return Math.floor(diff / 86_400_000);
 };
 
+export const getSubmatterReviewAgeDays = (
+  submatter: Pick<TopicSubmatter, 'lastReviewedAt'>,
+  referenceDate = nowIsoDate(),
+): number | null => {
+  if (!submatter.lastReviewedAt) {
+    return null;
+  }
+
+  return Math.max(0, daysBetween(submatter.lastReviewedAt, referenceDate));
+};
+
+export const getSubmatterStaleBucket = (
+  submatter: Pick<TopicSubmatter, 'lastReviewedAt'>,
+  referenceDate = nowIsoDate(),
+): TopicReviewQueueItem['staleBucket'] => {
+  const daysSinceReview = getSubmatterReviewAgeDays(submatter, referenceDate);
+
+  if (daysSinceReview === null) {
+    return 'unreviewed';
+  }
+
+  if (daysSinceReview > 15) {
+    return 'critical';
+  }
+
+  if (daysSinceReview > 7) {
+    return 'warning';
+  }
+
+  return 'fresh';
+};
+
+export const shouldReviewSubmatterNow = (
+  submatter: Pick<TopicSubmatter, 'grade' | 'lastReviewedAt'>,
+  referenceDate = nowIsoDate(),
+): boolean => {
+  const daysSinceReview = getSubmatterReviewAgeDays(submatter, referenceDate);
+
+  if (daysSinceReview === null) {
+    return true;
+  }
+
+  if (submatter.grade === 'E' || submatter.grade === 'D') {
+    return true;
+  }
+
+  if (submatter.grade === 'C' && daysSinceReview > 7) {
+    return true;
+  }
+
+  return daysSinceReview > 15;
+};
+
+const compareByPriority = (
+  left: Pick<TopicReviewQueueItem, 'grade' | 'daysSinceReview' | 'staleBucket' | 'topicTitle' | 'submatterTitle'>,
+  right: Pick<TopicReviewQueueItem, 'grade' | 'daysSinceReview' | 'staleBucket' | 'topicTitle' | 'submatterTitle'>,
+): number => {
+  const severityDiff = GRADE_SEVERITY[right.grade] - GRADE_SEVERITY[left.grade];
+  if (severityDiff !== 0) {
+    return severityDiff;
+  }
+
+  const leftAge = left.daysSinceReview ?? Number.POSITIVE_INFINITY;
+  const rightAge = right.daysSinceReview ?? Number.POSITIVE_INFINITY;
+  if (rightAge !== leftAge) {
+    return rightAge - leftAge;
+  }
+
+  if (left.staleBucket !== right.staleBucket) {
+    const staleOrder = {
+      unreviewed: 3,
+      critical: 2,
+      warning: 1,
+      fresh: 0,
+    } as const;
+    return staleOrder[right.staleBucket] - staleOrder[left.staleBucket];
+  }
+
+  const topicDiff = left.topicTitle.localeCompare(right.topicTitle, 'pt-BR');
+  if (topicDiff !== 0) {
+    return topicDiff;
+  }
+
+  return left.submatterTitle.localeCompare(right.submatterTitle, 'pt-BR');
+};
+
 export const buildStaleSummary = (
   topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
   referenceDate = nowIsoDate(),
@@ -141,6 +260,111 @@ export const buildStaleSummary = (
   }
 
   return { byDays };
+};
+
+export const buildReviewQueue = (
+  topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
+  topics: TopicNode[],
+  referenceDate = nowIsoDate(),
+): TopicReviewQueueItem[] => {
+  const topicMap = topics.reduce<Record<string, TopicNode>>((accumulator, topic) => {
+    accumulator[topic.id] = topic;
+    return accumulator;
+  }, {});
+
+  return Object.entries(topicSubmattersByTopic)
+    .flatMap(([topicId, submatters]) => {
+      const topic = topicMap[topicId];
+      if (!topic || !topic.isLeaf) {
+        return [];
+      }
+
+      return submatters.map<TopicReviewQueueItem>((submatter) => ({
+        topicId,
+        topicTitle: topic.title,
+        subject: topic.subject,
+        submatterId: submatter.id,
+        submatterTitle: submatter.title,
+        grade: submatter.grade,
+        lastReviewedAt: submatter.lastReviewedAt,
+        daysSinceReview: getSubmatterReviewAgeDays(submatter, referenceDate),
+        staleBucket: getSubmatterStaleBucket(submatter, referenceDate),
+        needsReview: shouldReviewSubmatterNow(submatter, referenceDate),
+      }));
+    })
+    .sort(compareByPriority);
+};
+
+const pickWorstGrade = (byGrade: Record<TopicGrade, number>): TopicGrade | null => {
+  const gradesDescending: TopicGrade[] = ['E', 'D', 'C', 'B', 'A'];
+  return gradesDescending.find((grade) => byGrade[grade] > 0) ?? null;
+};
+
+const pickDominantGrade = (byGrade: Record<TopicGrade, number>): TopicGrade | null => {
+  const gradesDescending: TopicGrade[] = ['E', 'D', 'C', 'B', 'A'];
+
+  return gradesDescending.reduce<TopicGrade | null>((best, candidate) => {
+    if (!best) {
+      return byGrade[candidate] > 0 ? candidate : null;
+    }
+
+    if (byGrade[candidate] > byGrade[best]) {
+      return candidate;
+    }
+
+    return best;
+  }, null);
+};
+
+export const buildTopicRollups = (
+  topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
+  topics: TopicNode[],
+  referenceDate = nowIsoDate(),
+): Record<string, TopicRollup> => {
+  return topics.reduce<Record<string, TopicRollup>>((accumulator, topic) => {
+    if (!topic.isLeaf) {
+      return accumulator;
+    }
+
+    const submatters = topicSubmattersByTopic[topic.id] ?? [];
+    const byGrade = createEmptyGrades();
+    let reviewNowCount = 0;
+    let staleCount = 0;
+    let criticalStaleCount = 0;
+    let unreviewedCount = 0;
+
+    for (const submatter of submatters) {
+      byGrade[submatter.grade] += 1;
+
+      const staleBucket = getSubmatterStaleBucket(submatter, referenceDate);
+      if (staleBucket === 'warning' || staleBucket === 'critical' || staleBucket === 'unreviewed') {
+        staleCount += 1;
+      }
+      if (staleBucket === 'critical') {
+        criticalStaleCount += 1;
+      }
+      if (staleBucket === 'unreviewed') {
+        unreviewedCount += 1;
+      }
+      if (shouldReviewSubmatterNow(submatter, referenceDate)) {
+        reviewNowCount += 1;
+      }
+    }
+
+    accumulator[topic.id] = {
+      topicId: topic.id,
+      total: submatters.length,
+      byGrade,
+      worstGrade: pickWorstGrade(byGrade),
+      dominantGrade: pickDominantGrade(byGrade),
+      reviewNowCount,
+      staleCount,
+      criticalStaleCount,
+      unreviewedCount,
+    };
+
+    return accumulator;
+  }, {});
 };
 
 export const getTodayIsoDate = (): string => nowIsoDate();
