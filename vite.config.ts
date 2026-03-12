@@ -11,6 +11,12 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: true, // Expõe para a rede local
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+        },
+      },
     },
     plugins: [
       react(),

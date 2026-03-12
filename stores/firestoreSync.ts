@@ -7,8 +7,9 @@
  * - No more manual offline queue - Firestore SDK handles it
  */
 import { doc, setDoc, deleteDoc, onSnapshot, Unsubscribe, collection, query } from 'firebase/firestore';
-import { db, auth } from '../services/firebase';
+import { db, auth, getLocalAuthSessionUser } from '../services/firebase';
 import { incrementWrites, incrementReads, isQuotaExceeded, notifyQuotaListeners } from '../utils/firestoreQuota';
+import { getStorageKeyForUser, readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
 
 // Debounce writes to avoid excessive Firestore calls during rapid typing
 type PendingWrite = {
@@ -21,8 +22,73 @@ type PendingWrite = {
 };
 
 const writeTimeouts = new Map<string, PendingWrite>();
+const LOCAL_SYNC_EVENT = 'p67-local-sync';
+
+type LocalSyncDetail = {
+    collectionKey: string;
+    userId: string;
+};
 
 const getWriteIdentity = (userId: string, collectionKey: string): string => `${userId}:${collectionKey}`;
+const isLocalSyncMode = (): boolean => Boolean(getLocalAuthSessionUser());
+
+const readLocalValue = <T>(collectionKey: string, userId: string, fallback: T): T => {
+    const raw = readNamespacedStorage(collectionKey, userId);
+    if (!raw) return fallback;
+
+    try {
+        return JSON.parse(raw) as T;
+    } catch {
+        return fallback;
+    }
+};
+
+const emitLocalSync = (collectionKey: string, userId: string) => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent<LocalSyncDetail>(LOCAL_SYNC_EVENT, {
+        detail: { collectionKey, userId }
+    }));
+};
+
+const writeLocalValue = (collectionKey: string, userId: string, value: unknown) => {
+    writeNamespacedStorage(collectionKey, JSON.stringify(value), userId);
+    emitLocalSync(collectionKey, userId);
+};
+
+const subscribeToLocalValue = <T>(
+    collectionKey: string,
+    userId: string,
+    readValue: () => T,
+    onData: (data: T) => void
+): Unsubscribe => {
+    const emit = () => onData(readValue());
+    emit();
+
+    if (typeof window === 'undefined') {
+        return () => { };
+    }
+
+    const namespacedKey = getStorageKeyForUser(collectionKey, userId);
+    const handleStorage = (event: StorageEvent) => {
+        if (event.key === namespacedKey || event.key === collectionKey) {
+            emit();
+        }
+    };
+    const handleLocalSync = (event: Event) => {
+        const detail = (event as CustomEvent<LocalSyncDetail>).detail;
+        if (detail?.collectionKey === collectionKey && detail?.userId === userId) {
+            emit();
+        }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(LOCAL_SYNC_EVENT, handleLocalSync as EventListener);
+
+    return () => {
+        window.removeEventListener('storage', handleStorage);
+        window.removeEventListener(LOCAL_SYNC_EVENT, handleLocalSync as EventListener);
+    };
+};
 
 // Default debounce for non-critical stores.
 // 12s dramatically reduces write volume while preserving cross-device sync.
@@ -149,6 +215,10 @@ export const isFullySynced = (): boolean => pendingWriteCount === 0;
 export const getCurrentUserId = (): string | null => {
     const liveUid = auth.currentUser?.uid;
     if (liveUid) return liveUid;
+
+    const localAuthUid = getLocalAuthSessionUser()?.uid;
+    if (localAuthUid) return localAuthUid;
+
     // Fallback: use cached UID saved by useAuth for early hydration / edge timing
     if (typeof window !== 'undefined') {
         const cached = window.localStorage.getItem('p67_last_uid');
@@ -232,6 +302,12 @@ export const writeToFirestore = <T extends object>(
 
     // Clean data before writing (removes undefined which Firestore rejects)
     const cleanedData = removeUndefined(data);
+
+    if (isLocalSyncMode()) {
+        writeLocalValue(collectionKey, userId, cleanedData);
+        return;
+    }
+
     const payload: PendingWrite['payload'] = { userId, collectionKey, data: cleanedData };
     const writeIdentity = getWriteIdentity(userId, collectionKey);
 
@@ -277,6 +353,15 @@ export const subscribeToDocument = <T>(
     if (!userId) {
         console.warn('[Firestore] Cannot subscribe without authenticated user');
         return () => { };
+    }
+
+    if (isLocalSyncMode()) {
+        return subscribeToLocalValue(
+            collectionKey,
+            userId,
+            () => readLocalValue<T | null>(collectionKey, userId, null),
+            onData
+        );
     }
 
     const docRef = doc(db, 'users', userId, 'data', collectionKey);
@@ -356,6 +441,15 @@ export const writeItemToSubcollection = async (
         return;
     }
 
+    if (isLocalSyncMode()) {
+        const cleanedData = removeUndefined(data);
+        const currentItems = readLocalValue<any[]>(collectionKey, userId, []);
+        const nextItems = currentItems.filter((item) => item?.id !== itemId);
+        nextItems.push(cleanedData);
+        writeLocalValue(collectionKey, userId, nextItems);
+        return;
+    }
+
     if (isQuotaExceeded()) {
         console.warn('[Firestore] Daily quota exceeded (20k ops). Write blocked.');
         return;
@@ -393,6 +487,16 @@ export const deleteItemFromSubcollection = async (
         return;
     }
 
+    if (isLocalSyncMode()) {
+        const currentItems = readLocalValue<any[]>(collectionKey, userId, []);
+        writeLocalValue(
+            collectionKey,
+            userId,
+            currentItems.filter((item) => item?.id !== itemId)
+        );
+        return;
+    }
+
     if (isQuotaExceeded()) {
         console.warn('[Firestore] Daily quota exceeded (20k ops). Delete blocked.');
         return;
@@ -424,6 +528,15 @@ export const subscribeToSubcollection = <T>(
     if (!userId) {
         console.warn('[Firestore] Cannot subscribe without authenticated user');
         return () => { };
+    }
+
+    if (isLocalSyncMode()) {
+        return subscribeToLocalValue(
+            collectionKey,
+            userId,
+            () => readLocalValue<T[]>(collectionKey, userId, []),
+            onData
+        );
     }
 
     const colRef = collection(db, 'users', userId, collectionKey);

@@ -57,6 +57,7 @@ const getErrorMessage = (errorCode: string): string => {
         'auth/cancelled-popup-request': 'Login cancelado.',
         'auth/popup-blocked': 'Pop-up bloqueado. Permita pop-ups para fazer login com Google.',
         'auth/invalid-api-key': 'Chave da API inválida. Verifique VITE_FIREBASE_API_KEY.',
+        'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Chave da API inválida. Verifique VITE_FIREBASE_API_KEY.',
         'auth/app-not-authorized': 'Domínio não autorizado no Firebase. Inclua-o em Authentication > Configurações.',
         'auth/project-not-found': 'Projeto Firebase não encontrado. Confira VITE_FIREBASE_PROJECT_ID.',
         'auth/invalid-app-id': 'App ID inválido. Revise VITE_FIREBASE_APP_ID.',

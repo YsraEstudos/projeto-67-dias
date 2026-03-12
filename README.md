@@ -25,6 +25,21 @@ O **Projeto 67 Dias** é uma aplicação web "Single Page Application" (SPA) que
 - **Lazy Loading:** Otimização de performance via `React.lazy` e `Suspense`.
 - **Mobile First:** Interface touchscreen otimizada, garantindo que ações de hover sejam acessíveis em dispositivos móveis.
 
+## ▶️ Rodando Localmente
+
+No Windows, use `install-and-run.bat`, `run-dev.bat` ou `start-local.bat`.
+
+Esse fluxo agora:
+- garante/cria o `.env.local` automaticamente
+- cria um `.venv` Python local
+- instala as dependências do frontend e da API
+- sobe a API FastAPI em `http://127.0.0.1:8000`
+- sobe o Vite em `http://127.0.0.1:3000`
+
+Durante o desenvolvimento, o Vite faz proxy de `/api/*` para a API Python local, então recursos como compressão de imagem funcionam antes do deploy.
+
+Se o `.env.local` ainda estiver incompleto, o script interrompe a execução e abre o arquivo para revisão.
+
 
 ## 📂 Estrutura de Arquivos
 

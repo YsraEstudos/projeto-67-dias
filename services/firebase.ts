@@ -12,12 +12,20 @@ import {
     signInAnonymously,
     onAuthStateChanged
 } from "firebase/auth";
-import type { User as FirebaseUser } from "firebase/auth";
+import type { User as FirebaseSdkUser } from "firebase/auth";
 import {
     initializeFirestore,
     persistentLocalCache,
     persistentMultipleTabManager
 } from "firebase/firestore";
+
+export interface FirebaseUser {
+    uid: string;
+    displayName: string | null;
+    email: string | null;
+    photoURL: string | null;
+    isAnonymous: boolean;
+}
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -68,6 +76,115 @@ export const db = initializeFirestore(app, {
 
 // Google Provider
 const googleProvider = new GoogleAuthProvider();
+const LOCAL_AUTH_STORAGE_KEY = 'p67_local_auth_user';
+const LOCAL_AUTH_EVENT = 'p67-local-auth-changed';
+const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
+
+const isBrowser = typeof window !== 'undefined';
+
+const normalizeAuthUser = (user: FirebaseSdkUser | FirebaseUser): FirebaseUser => ({
+    uid: user.uid,
+    displayName: user.displayName ?? null,
+    email: user.email ?? null,
+    photoURL: user.photoURL ?? null,
+    isAnonymous: Boolean(user.isAnonymous)
+});
+
+const readLocalAuthUser = (): FirebaseUser | null => {
+    if (!isBrowser) return null;
+
+    try {
+        const raw = window.localStorage.getItem(LOCAL_AUTH_STORAGE_KEY);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.uid !== 'string' || !parsed.uid.trim()) {
+            return null;
+        }
+
+        return normalizeAuthUser({
+            uid: parsed.uid,
+            displayName: typeof parsed.displayName === 'string' ? parsed.displayName : null,
+            email: typeof parsed.email === 'string' ? parsed.email : null,
+            photoURL: typeof parsed.photoURL === 'string' ? parsed.photoURL : null,
+            isAnonymous: true,
+        });
+    } catch {
+        return null;
+    }
+};
+
+let localAuthUser: FirebaseUser | null = readLocalAuthUser();
+
+const emitLocalAuthChange = () => {
+    if (!isBrowser) return;
+    window.dispatchEvent(new CustomEvent(LOCAL_AUTH_EVENT));
+};
+
+const persistLocalAuthUser = (user: FirebaseUser | null) => {
+    localAuthUser = user;
+
+    if (!isBrowser) return;
+
+    if (user) {
+        window.localStorage.setItem(LOCAL_AUTH_STORAGE_KEY, JSON.stringify(user));
+    } else {
+        window.localStorage.removeItem(LOCAL_AUTH_STORAGE_KEY);
+    }
+
+    emitLocalAuthChange();
+};
+
+const getErrorCode = (error: unknown): string =>
+    String((error as { code?: unknown })?.code ?? '').toLowerCase();
+
+const isLocalDevEnvironment = (): boolean =>
+    import.meta.env.DEV &&
+    isBrowser &&
+    LOCAL_DEV_HOSTS.has(window.location.hostname);
+
+const shouldUseLocalGuestFallback = (error: unknown): boolean => {
+    if (!isLocalDevEnvironment()) return false;
+
+    const errorCode = getErrorCode(error);
+    return [
+        'auth/invalid-api-key',
+        'auth/api-key-not-valid.-please-pass-a-valid-api-key.',
+        'auth/invalid-config',
+        'auth/app-not-authorized',
+        'auth/project-not-found',
+        'auth/invalid-app-id',
+        'auth/operation-not-allowed'
+    ].includes(errorCode);
+};
+
+const createLocalGuestSession = (): FirebaseUser => {
+    const existingSession = readLocalAuthUser();
+    if (existingSession) {
+        localAuthUser = existingSession;
+        return existingSession;
+    }
+
+    const sessionId = isBrowser && typeof window.crypto?.randomUUID === 'function'
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const guestUser: FirebaseUser = {
+        uid: `local-guest-${sessionId}`,
+        displayName: 'Convidado local',
+        email: null,
+        photoURL: null,
+        isAnonymous: true
+    };
+
+    persistLocalAuthUser(guestUser);
+    return guestUser;
+};
+
+export const getLocalAuthSessionUser = (): FirebaseUser | null => {
+    localAuthUser = readLocalAuthUser();
+    return localAuthUser;
+};
 
 // --- AUTH FUNCTIONS ---
 
@@ -89,10 +206,24 @@ export const loginWithGoogle = async () => {
 };
 
 export const loginAsGuest = async () => {
-    return signInAnonymously(auth);
+    try {
+        return await signInAnonymously(auth);
+    } catch (error) {
+        if (shouldUseLocalGuestFallback(error)) {
+            console.warn('[Firebase] Anonymous auth unavailable locally. Falling back to local guest session.');
+            return { user: createLocalGuestSession() };
+        }
+
+        throw error;
+    }
 };
 
 export const logout = async () => {
+    if (getLocalAuthSessionUser()) {
+        persistLocalAuthUser(null);
+        return;
+    }
+
     return signOut(auth);
 };
 
@@ -101,7 +232,41 @@ export const resetPassword = async (email: string) => {
 };
 
 export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => void) => {
-    return onAuthStateChanged(auth, callback);
-};
+    let firebaseUser: FirebaseSdkUser | null = auth.currentUser;
 
-export type { FirebaseUser };
+    const emitResolvedUser = () => {
+        const localUser = getLocalAuthSessionUser();
+        if (localUser) {
+            callback(localUser);
+            return;
+        }
+
+        callback(firebaseUser ? normalizeAuthUser(firebaseUser) : null);
+    };
+
+    const handleLocalAuthUpdate = () => {
+        localAuthUser = readLocalAuthUser();
+        emitResolvedUser();
+    };
+
+    if (isBrowser) {
+        window.addEventListener(LOCAL_AUTH_EVENT, handleLocalAuthUpdate as EventListener);
+        window.addEventListener('storage', handleLocalAuthUpdate);
+    }
+
+    emitResolvedUser();
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        firebaseUser = user;
+        emitResolvedUser();
+    });
+
+    return () => {
+        unsubscribe();
+
+        if (isBrowser) {
+            window.removeEventListener(LOCAL_AUTH_EVENT, handleLocalAuthUpdate as EventListener);
+            window.removeEventListener('storage', handleLocalAuthUpdate);
+        }
+    };
+};
