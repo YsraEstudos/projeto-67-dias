@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -6,6 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
+  const enableDevPwa = env.VITE_ENABLE_PWA_DEV === 'true';
+  const concursoShellPath = path.resolve(__dirname, 'public', 'concurso', 'index.html');
 
   return {
     server: {
@@ -19,12 +22,33 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      {
+        name: 'serve-concurso-public-shell',
+        apply: 'serve',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            const requestPath = req.url?.split('?')[0];
+
+            // On Windows, the /concurso route can accidentally resolve to the
+            // source app folder "CONCURSO". We force the public shell here so
+            // local dev matches the deployed /concurso static bundle.
+            if (requestPath === '/concurso' || requestPath === '/concurso/') {
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'text/html; charset=utf-8');
+              res.end(fs.readFileSync(concursoShellPath, 'utf8'));
+              return;
+            }
+
+            next();
+          });
+        },
+      },
       react(),
       // PWA requer HTTPS válido (produção) ou localhost (dev)
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
-          enabled: true, // Habilita PWA em modo dev (injecta manifest e SW)
+          enabled: enableDevPwa, // Evita conflitos do SW com a subrota /concurso/ durante o desenvolvimento local
         },
         manifest: {
           id: '/',
