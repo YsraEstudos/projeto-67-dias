@@ -7,11 +7,11 @@ describe('anki projection', () => {
       targetCards: 4500,
       newCardsPerActiveDay: 25,
       alreadyAdded: 0,
-      referenceDate: '2026-03-10',
+      referenceDate: '2026-03-14',
     });
 
     expect(projection.activeDaysNeeded).toBe(180);
     expect(projection.estimatedFinishDate).toBeTruthy();
-    expect(projection.estimatedFinishDate).toBe('2026-10-05');
+    expect(projection.estimatedFinishDate).toBe('2026-10-09');
   });
 });

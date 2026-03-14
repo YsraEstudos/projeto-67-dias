@@ -5,22 +5,22 @@ describe('buildDayPlans', () => {
   const plans = buildDayPlans();
   const byDate = Object.fromEntries(plans.map((plan) => [plan.date, plan]));
 
-  it('gera a janela completa entre 10/03 e 19/11', () => {
-    expect(plans).toHaveLength(255);
-    expect(plans[0]?.date).toBe('2026-03-10');
+  it('gera a janela completa entre 14/03 e 19/11', () => {
+    expect(plans).toHaveLength(251);
+    expect(plans[0]?.date).toBe('2026-03-14');
     expect(plans[plans.length - 1]?.date).toBe('2026-11-19');
   });
 
-  it('aplica plano manual no início com conteúdo deslocado de 23/02 para 10/03', () => {
-    const firstDay = byDate['2026-03-10'];
+  it('mantem o primeiro dia visivel em 14/03 ja dentro da trilha manual', () => {
+    const firstDay = byDate['2026-03-14'];
     expect(firstDay?.planMode).toBe('manual');
-    expect(firstDay?.manualBlocks?.[0]?.title).toContain('HTML semântico + forms');
+    expect(firstDay?.manualBlocks?.[0]?.title).toContain('Redes: TCP/IP + IPv4 + ARP');
     expect(firstDay?.weekNumber).toBe(1);
   });
 
   it('mantém domingos como descanso fixo dentro da janela manual', () => {
     const sundaysInWindow = plans.filter(
-      (plan) => plan.date >= '2026-03-10' && plan.date <= '2026-11-19' && plan.isRestDay,
+      (plan) => plan.date >= '2026-03-14' && plan.date <= '2026-11-19' && plan.isRestDay,
     );
 
     expect(sundaysInWindow.length).toBeGreaterThan(0);

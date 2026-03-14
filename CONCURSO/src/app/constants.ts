@@ -13,7 +13,7 @@ import type {
 
 export const SCHEMA_VERSION = 5;
 
-export const START_DATE = '2026-03-10';
+export const START_DATE = '2026-03-14';
 export const END_DATE = '2026-11-19';
 
 export const SUBJECT_ORDER: SubjectKey[] = ['portugues', 'rlm', 'legislacao', 'especificos'];

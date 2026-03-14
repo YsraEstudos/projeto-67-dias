@@ -13,7 +13,7 @@ describe('anki beginner helpers', () => {
       targetCards: 100,
       newCardsPerActiveDay: 10,
       alreadyAdded: 0,
-      referenceDate: '2026-03-10',
+      referenceDate: '2026-03-14',
     });
 
     const withSaturdayPause = calculateAnkiProjection({
@@ -21,11 +21,11 @@ describe('anki beginner helpers', () => {
       newCardsPerActiveDay: 10,
       alreadyAdded: 0,
       pauseWeekdays: [6],
-      referenceDate: '2026-03-10',
+      referenceDate: '2026-03-14',
     });
 
-    expect(withoutPause.estimatedFinishDate).toBe('2026-03-20');
-    expect(withSaturdayPause.estimatedFinishDate).toBe('2026-03-23');
+    expect(withoutPause.estimatedFinishDate).toBe('2026-03-25');
+    expect(withSaturdayPause.estimatedFinishDate).toBe('2026-03-27');
   });
 
   it('usa data base max(hoje, START_DATE)', () => {
@@ -55,8 +55,8 @@ describe('anki beginner helpers', () => {
   });
 
   it('conta dias ativos até setembro com pausas', () => {
-    const noPause = countActiveDaysAvailableToSeptember([], '2026-03-10');
-    const withPauses = countActiveDaysAvailableToSeptember([3, 6], '2026-03-10');
+    const noPause = countActiveDaysAvailableToSeptember([], '2026-03-14');
+    const withPauses = countActiveDaysAvailableToSeptember([3, 6], '2026-03-14');
 
     expect(noPause).toBeGreaterThan(withPauses);
     expect(withPauses).toBeGreaterThan(0);
