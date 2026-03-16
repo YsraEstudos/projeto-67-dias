@@ -11,7 +11,7 @@ test('fluxo principal: roteiro manual e checklist diário', async ({ page }) => 
   const dateInput = page.locator('input[type="date"]');
   await dateInput.fill('2026-03-14');
   await expect(
-    page.getByTestId('daily-manual-blocks').getByText('Redes: TCP/IP + IPv4 + ARP'),
+    page.getByTestId('daily-manual-blocks').getByText('Web: HTML semântico + forms'),
   ).toBeVisible();
 
   const questionsInput = page.getByTestId('check-objective-questions');
@@ -21,6 +21,6 @@ test('fluxo principal: roteiro manual e checklist diário', async ({ page }) => 
   await dateInput.fill('2026-05-30');
   await expect(page.getByText('Realocado do domingo')).toBeVisible();
 
-  await dateInput.fill('2026-03-20');
+  await dateInput.fill('2026-03-25');
   await expect(page.getByTestId('check-redacao')).toBeVisible();
 });

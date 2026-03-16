@@ -25,7 +25,7 @@ interface ManualWeekTemplate {
   days: ManualDayTemplate[];
 }
 
-export const MANUAL_PLAN_START_DATE = '2026-03-10';
+export const MANUAL_PLAN_START_DATE = '2026-03-14';
 export const MANUAL_PLAN_END_DATE = '2026-11-19';
 
 const MANUAL_WEEK_TEMPLATES: ManualWeekTemplate[] = [
@@ -4563,14 +4563,39 @@ const MANUAL_WEEK_TEMPLATES: ManualWeekTemplate[] = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const addStudyDaysSkippingSundays = (startDate: string, studyDayOffset: number): string => {
+  let current = parseIsoDate(startDate);
+
+  if (studyDayOffset === 0) {
+    return toIsoDate(current);
+  }
+
+  let remaining = studyDayOffset;
+
+  while (remaining > 0) {
+    current = new Date(current.getTime() + DAY_MS);
+    if (current.getUTCDay() === 0) {
+      continue;
+    }
+
+    remaining -= 1;
+  }
+
+  return toIsoDate(current);
+};
+
 const buildDateForWeekday = (
   weekNumber: number,
   weekday: ManualDayTemplate['weekday'],
   startDate?: string,
 ): string => {
-  const start = parseIsoDate(startDate ?? MANUAL_PLAN_START_DATE);
-  const offset = startDate ? weekday - 1 : (weekNumber - 1) * 7 + (weekday - 1);
-  return toIsoDate(new Date(start.getTime() + offset * DAY_MS));
+  if (startDate) {
+    const start = parseIsoDate(startDate);
+    return toIsoDate(new Date(start.getTime() + (weekday - 1) * DAY_MS));
+  }
+
+  const studyDayOffset = (weekNumber - 1) * 6 + (weekday - 1);
+  return addStudyDaysSkippingSundays(MANUAL_PLAN_START_DATE, studyDayOffset);
 };
 
 const mapAreaToSubject = (area: string): SubjectKey | null => {

@@ -11,10 +11,10 @@ describe('buildDayPlans', () => {
     expect(plans[plans.length - 1]?.date).toBe('2026-11-19');
   });
 
-  it('mantem o primeiro dia visivel em 14/03 ja dentro da trilha manual', () => {
+  it('mantem o primeiro dia visivel em 14/03 como o primeiro bloco manual real', () => {
     const firstDay = byDate['2026-03-14'];
     expect(firstDay?.planMode).toBe('manual');
-    expect(firstDay?.manualBlocks?.[0]?.title).toContain('Redes: TCP/IP + IPv4 + ARP');
+    expect(firstDay?.manualBlocks?.[0]?.title).toContain('Web: HTML semântico + forms');
     expect(firstDay?.weekNumber).toBe(1);
   });
 
@@ -35,8 +35,8 @@ describe('buildDayPlans', () => {
   });
 
   it('usa 40 questões nos dias com redação extra', () => {
-    expect(byDate['2026-03-20']?.targets.objectiveQuestions).toBe(40);
-    expect(byDate['2026-03-20']?.hasRedacao).toBe(true);
+    expect(byDate['2026-03-25']?.targets.objectiveQuestions).toBe(40);
+    expect(byDate['2026-03-25']?.hasRedacao).toBe(true);
   });
 
   it('mantém plano manual até o fim da janela em 19/11/2026', () => {

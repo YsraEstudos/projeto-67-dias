@@ -11,15 +11,15 @@ describe('monthly goals', () => {
     const may = targets.find((target) => target.monthKey === '2026-05');
 
     expect(march).toEqual({ monthKey: '2026-03', simulados: 0, redacoes: 2 });
-    expect(april).toEqual({ monthKey: '2026-04', simulados: 0, redacoes: 4 });
-    expect(may).toEqual({ monthKey: '2026-05', simulados: 1, redacoes: 4 });
+    expect(april).toEqual({ monthKey: '2026-04', simulados: 2, redacoes: 7 });
+    expect(may).toEqual({ monthKey: '2026-05', simulados: 2, redacoes: 6 });
   });
 
   it('mantém totais globais coerentes com o plano híbrido', () => {
     const totalSimulados = targets.reduce((sum, row) => sum + row.simulados, 0);
     const totalRedacoes = targets.reduce((sum, row) => sum + row.redacoes, 0);
 
-    expect(totalSimulados).toBe(13);
-    expect(totalRedacoes).toBe(33);
+    expect(totalSimulados).toBe(16);
+    expect(totalRedacoes).toBe(38);
   });
 });
