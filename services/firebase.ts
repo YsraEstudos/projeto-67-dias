@@ -249,7 +249,17 @@ export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => 
             return;
         }
 
-        callback(firebaseUser ? normalizeAuthUser(firebaseUser) : null);
+        if (firebaseUser) {
+            callback(normalizeAuthUser(firebaseUser));
+            return;
+        }
+
+        const hasCachedFirebaseUid =
+            isBrowser && Boolean(window.localStorage.getItem('p67_last_uid'));
+
+        if (!hasCachedFirebaseUid) {
+            callback(null);
+        }
     };
 
     const handleLocalAuthUpdate = () => {
