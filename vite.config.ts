@@ -4,7 +4,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
   const enableDevPwa = env.VITE_ENABLE_PWA_DEV === 'true';
@@ -14,6 +14,30 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: true, // Expõe para a rede local
+      hmr: {
+        host: '127.0.0.1',
+        protocol: 'ws',
+      },
+      watch: {
+        // OneDrive on Windows can delay or swallow filesystem events for TSX
+        // files. Polling keeps local UI updates reliable during development.
+        usePolling: true,
+        interval: 300,
+        awaitWriteFinish: {
+          stabilityThreshold: 200,
+          pollInterval: 100,
+        },
+        ignored: [
+          '**/.git/**',
+          '**/.venv/**',
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/dev-dist/**',
+          '**/coverage/**',
+          '**/test-results/**',
+          '**/CONCURSO/**',
+        ],
+      },
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8000',
@@ -43,9 +67,20 @@ export default defineConfig(({ mode }) => {
           });
         },
       },
+      {
+        name: 'relax-csp-for-vite-dev',
+        apply: 'serve',
+        transformIndexHtml(html) {
+          return html.replace(
+            /<meta http-equiv="Content-Security-Policy"[\s\S]*?>/,
+            `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://*.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' https://actions.google.com; connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:* https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google-analytics.com https://www.googletagmanager.com https://generativelanguage.googleapis.com https://apis.google.com https://economia.awesomeapi.com.br;">`,
+          );
+        },
+      },
       react(),
       // PWA requer HTTPS válido (produção) ou localhost (dev)
       VitePWA({
+        injectRegister: 'script',
         registerType: 'autoUpdate',
         devOptions: {
           enabled: enableDevPwa, // Evita conflitos do SW com a subrota /concurso/ durante o desenvolvimento local
@@ -86,7 +121,9 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          globIgnores: ['concurso/**/*'],
           navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/concurso(?:\/|$)/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com/,
@@ -106,9 +143,15 @@ export default defineConfig(({ mode }) => {
       })
     ],
     resolve: {
+      dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'scheduler'],
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    optimizeDeps: {
+      // Keep Vite focused on the root app entry. Without this, it also crawls
+      // the nested CONCURSO/index.html and can prebundle a second React copy.
+      entries: ['index.html'],
     },
     build: {
       rollupOptions: {

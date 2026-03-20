@@ -3,6 +3,8 @@ import type { FormEvent } from 'react';
 import { useAppContext } from '../app/AppContext';
 import { subjectLabel } from '../app/formatters';
 import type { CorrectionStatus, SubjectKey } from '../app/types';
+import { PageIntro } from '../components/PageIntro';
+import { SectionCard } from '../components/SectionCard';
 
 interface FormState {
   topicId: string;
@@ -60,12 +62,14 @@ export const CorrectionsPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header">
-        <h2>Links de Correção</h2>
-        <p>Cadastro manual por tópico com marcação de card Anki existente.</p>
-      </header>
+      <PageIntro
+        kicker="Inbox operacional"
+        title="Links de Correção"
+        description="Cadastro manual por tópico com marcação de card Anki existente e tratamento rápido por status."
+      />
 
-      <form className="panel form-grid" onSubmit={onSubmit}>
+      <SectionCard as="div" kicker="Cadastro" title="Novo link de correção">
+      <form className="form-grid" onSubmit={onSubmit}>
         <label className="field-label">
           Tópico
           <select
@@ -151,9 +155,9 @@ export const CorrectionsPage = () => {
           Adicionar link
         </button>
       </form>
+      </SectionCard>
 
-      <div className="panel controls-row">
-        <h3>Lista de correções</h3>
+      <SectionCard className="controls-row" kicker="Filtro" title="Lista de correções">
         <select
           className="input"
           value={subjectFilter}
@@ -165,9 +169,9 @@ export const CorrectionsPage = () => {
           <option value="legislacao">Legislação</option>
           <option value="especificos">Específicos</option>
         </select>
-      </div>
+      </SectionCard>
 
-      <div className="panel table-wrap">
+      <SectionCard className="table-wrap" kicker="Fila" title="Correções cadastradas">
         <table className="table">
           <thead>
             <tr>
@@ -240,7 +244,7 @@ export const CorrectionsPage = () => {
             ) : null}
           </tbody>
         </table>
-      </div>
+      </SectionCard>
     </section>
   );
 };

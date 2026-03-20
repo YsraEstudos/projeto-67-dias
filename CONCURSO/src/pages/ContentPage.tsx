@@ -1,53 +1,65 @@
-import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useAppContext } from '../app/AppContext';
-import { TOPIC_STALE_BUCKETS_DAYS } from '../app/constants';
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ChevronDown, BookOpen, Calculator, Scale, Briefcase } from "lucide-react";
+import { useAppContext } from "../app/AppContext";
+import { getManualTopicSearchAliases } from "../data/manualDailyPlan";
+import { TOPIC_STALE_BUCKETS_DAYS } from "../app/constants";
+import { MAIN_SITE_URL } from "../app/mainSite";
+import { buildManualPlanSummary } from "../app/manualPlanContentRefs";
+import { getChecklistProgressPercent } from "../app/progress";
 import {
   buildGradesSummary,
   buildReviewQueue,
   buildStaleSummary,
   buildTopicRollups,
-} from '../app/contentSubmatters';
-import { subjectLabel, topicGradeLabel } from '../app/formatters';
-import type { SubjectKey, TopicGrade, TopicSubmatter } from '../app/types';
+} from "../app/contentSubmatters";
+import { downloadTheoreticalContentsBundle } from "../app/contentTheoreticalDownloads";
+import { buildTheoreticalContentProgress } from "../app/contentTheoreticalFiles";
+import { subjectLabel, workActivityLabel } from "../app/formatters";
+import { getTopicDisplayTitle, getTopicSearchText } from "../app/topics";
+import type { SubjectKey, TopicGrade, TopicSubmatter } from "../app/types";
 
-type QuickFilter = 'all' | 'review-now' | 'stale' | 'unreviewed' | TopicGrade;
+type QuickFilter = "all" | "review-now" | "stale" | "unreviewed" | TopicGrade;
 
-type FilterChip = {
+type FilterChipProps = {
   key: QuickFilter;
   label: string;
-  tone?: 'neutral' | 'danger';
 };
 
-const FILTER_CHIPS: FilterChip[] = [
-  { key: 'all', label: 'Tudo' },
-  { key: 'review-now', label: 'Revisar agora', tone: 'danger' },
-  { key: 'A', label: 'A' },
-  { key: 'B', label: 'B' },
-  { key: 'C', label: 'C' },
-  { key: 'D', label: 'D' },
-  { key: 'E', label: 'E' },
-  { key: 'unreviewed', label: 'Sem revisão' },
-  { key: 'stale', label: 'Mais antigas' },
+const FILTER_CHIPS: FilterChipProps[] = [
+  { key: "all", label: "Tudo" },
+  { key: "review-now", label: "Revisar agora" },
+  { key: "A", label: "A" },
+  { key: "B", label: "B" },
+  { key: "C", label: "C" },
+  { key: "D", label: "D" },
+  { key: "E", label: "E" },
+  { key: "unreviewed", label: "Sem revisão" },
+  { key: "stale", label: "Mais antigas" },
 ];
 
 const resolveInitialQuickFilter = (value: string | null): QuickFilter => {
-  if (value === 'review-now') {
-    return 'review-now';
-  }
-
-  return 'all';
+  if (value === "review-now") return "review-now";
+  return "all";
 };
 
-const matchesSearch = (topicTitle: string, submatters: TopicSubmatter[], normalizedSearch: string): boolean => {
-  if (!normalizedSearch) {
-    return true;
-  }
+const matchesSearch = (
+  topicSearchText: string,
+  manualAliases: string[],
+  submatters: TopicSubmatter[],
+  normalizedSearch: string,
+): boolean => {
+  if (!normalizedSearch) return true;
+  const normalizedTopicSearchText = topicSearchText.toLowerCase();
+  const matchesOfficialTopic = normalizedTopicSearchText.includes(normalizedSearch);
+  const matchesManualAlias = manualAliases.some((alias) => alias.toLowerCase().includes(normalizedSearch));
+  const isSpecificManualQuery =
+    normalizedSearch.length >= 8 ||
+    normalizedSearch.includes(':') ||
+    normalizedSearch.split(/\s+/).filter(Boolean).length >= 2;
 
-  if (topicTitle.toLowerCase().includes(normalizedSearch)) {
-    return true;
-  }
-
+  if (matchesOfficialTopic) return true;
+  if (matchesManualAlias && isSpecificManualQuery) return true;
   return submatters.some((submatter) =>
     [submatter.title, submatter.errorNote, submatter.actionNote].some((value) =>
       value.toLowerCase().includes(normalizedSearch),
@@ -59,41 +71,72 @@ const matchesQuickFilter = (
   filter: QuickFilter,
   submatters: TopicSubmatter[],
   reviewQueueById: Map<string, ReturnType<typeof buildReviewQueue>[number]>,
+  topicCurrentGrade: TopicGrade,
 ): boolean => {
-  if (filter === 'all') {
-    return true;
+  if (filter === "all") return true;
+  if (
+    filter === "A" ||
+    filter === "B" ||
+    filter === "C" ||
+    filter === "D" ||
+    filter === "E"
+  ) {
+    return topicCurrentGrade === filter;
   }
-
   return submatters.some((submatter) => {
     const queueItem = reviewQueueById.get(submatter.id);
-    if (!queueItem) {
-      return false;
-    }
-
-    if (filter === 'review-now') {
-      return queueItem.needsReview;
-    }
-
-    if (filter === 'stale') {
-      return queueItem.staleBucket === 'warning' || queueItem.staleBucket === 'critical';
-    }
-
-    if (filter === 'unreviewed') {
-      return queueItem.staleBucket === 'unreviewed';
-    }
-
-    return submatter.grade === filter;
+    if (!queueItem) return false;
+    if (filter === "review-now") return queueItem.needsReview;
+    if (filter === "stale")
+      return (
+        queueItem.staleBucket === "warning" ||
+        queueItem.staleBucket === "critical"
+      );
+    return queueItem.staleBucket === "unreviewed";
   });
 };
 
+const getSubjectIcon = (subject: string) => {
+  switch (subject) {
+    case "portugues": return <BookOpen size={18} />;
+    case "rlm": return <Calculator size={18} />;
+    case "legislacao": return <Scale size={18} />;
+    case "especificos": return <Briefcase size={18} />;
+    default: return <BookOpen size={18} />;
+  }
+};
+
 export const ContentPage = () => {
-  const { topics, state } = useAppContext();
+  const { topics, state, dayPlansByDate, setSelectedDate } = useAppContext();
   const [searchParams] = useSearchParams();
-  const [search, setSearch] = useState('');
-  const [subjectFilter, setSubjectFilter] = useState<'all' | SubjectKey>('all');
+  const [search, setSearch] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState<"all" | SubjectKey>("all");
+  const [downloadError, setDownloadError] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(() =>
-    resolveInitialQuickFilter(searchParams.get('focus')),
+    resolveInitialQuickFilter(searchParams.get("focus")),
   );
+
+  // States for the Subject Acordion
+  const [expandedSubjects, setExpandedSubjects] = useState<
+    Record<string, boolean>
+  >({});
+
+  const record = state.dailyRecords[state.selectedDate];
+  const dayPlan = dayPlansByDate[state.selectedDate];
+  const dayProgress = record
+    ? getChecklistProgressPercent(record.checklist)
+    : 0;
+
+  const manualSummary = dayPlan?.manualBlocks
+    ? buildManualPlanSummary(dayPlan.manualBlocks)
+    : "";
+  const dayPlanTitle = dayPlan?.isRestDay
+    ? "Domingo de descanso"
+    : dayPlan?.planMode === "manual"
+      ? `Semana ${dayPlan.weekNumber ?? "-"} | ${manualSummary ?? "Roteiro manual"}`
+      : `${subjectLabel(dayPlan?.subjects[0] ?? "portugues")} + ${subjectLabel(
+          dayPlan?.subjects[1] ?? "rlm",
+        )} | ${workActivityLabel(dayPlan?.workActivity ?? "programacao")}`;
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -114,43 +157,26 @@ export const ContentPage = () => {
     [state.topicSubmattersByTopic, topics],
   );
 
+  const lessonProgressByTopic = useMemo(
+    () =>
+      topics.reduce<
+        Record<string, ReturnType<typeof buildTheoreticalContentProgress>>
+      >((accumulator, topic) => {
+        if (topic.isLeaf) {
+          accumulator[topic.id] = buildTheoreticalContentProgress(
+            state.theoreticalContents,
+            topic.id,
+          );
+        }
+        return accumulator;
+      }, {}),
+    [state.theoreticalContents, topics],
+  );
+
   const reviewQueueById = useMemo(
     () => new Map(reviewQueue.map((item) => [item.submatterId, item])),
     [reviewQueue],
   );
-
-  const filteredReviewQueue = useMemo(() => {
-    return reviewQueue.filter((item) => {
-      if (!item.needsReview) {
-        return false;
-      }
-
-      if (subjectFilter !== 'all' && item.subject !== subjectFilter) {
-        return false;
-      }
-
-      if (
-        normalizedSearch &&
-        !`${item.topicTitle} ${item.submatterTitle}`.toLowerCase().includes(normalizedSearch)
-      ) {
-        return false;
-      }
-
-      if (quickFilter === 'all' || quickFilter === 'review-now') {
-        return true;
-      }
-
-      if (quickFilter === 'stale') {
-        return item.staleBucket === 'warning' || item.staleBucket === 'critical';
-      }
-
-      if (quickFilter === 'unreviewed') {
-        return item.staleBucket === 'unreviewed';
-      }
-
-      return item.grade === quickFilter;
-    });
-  }, [normalizedSearch, quickFilter, reviewQueue, subjectFilter]);
 
   const groupedSections = useMemo(() => {
     const sectionTopics = topics.filter((topic) => !topic.isLeaf);
@@ -158,25 +184,48 @@ export const ContentPage = () => {
     return sectionTopics
       .map((section) => {
         const children = topics
-          .filter((topic) => topic.parentId === section.id)
-          .filter((topic) => topic.isLeaf)
-          .filter((topic) => subjectFilter === 'all' || topic.subject === subjectFilter)
+          .filter((topic) => topic.parentId === section.id && topic.isLeaf)
+          .filter(
+            (topic) =>
+              subjectFilter === "all" || topic.subject === subjectFilter,
+          )
           .filter((topic) => {
             const submatters = state.topicSubmattersByTopic[topic.id] ?? [];
+            const currentGrade = topicRollups[topic.id]?.currentGrade ?? "E";
             return (
-              matchesSearch(topic.title, submatters, normalizedSearch) &&
-              matchesQuickFilter(quickFilter, submatters, reviewQueueById)
+              matchesSearch(
+                getTopicSearchText(topic),
+                getManualTopicSearchAliases(topic.id),
+                submatters,
+                normalizedSearch,
+              ) &&
+              matchesQuickFilter(
+                quickFilter,
+                submatters,
+                reviewQueueById,
+                currentGrade,
+              )
             );
           })
-          .map((topic) => ({
-            topic,
-            rollup: topicRollups[topic.id],
-          }));
+          .map((topic) => ({ topic, rollup: topicRollups[topic.id] }));
 
-        return { section, children };
+        const summary = children.reduce(
+          (accumulator, { topic, rollup }) => {
+            accumulator.reviewNow += rollup?.reviewNowCount ?? 0;
+            accumulator.pendingLessons +=
+              lessonProgressByTopic[topic.id]?.pendingCount ?? 0;
+            if ((rollup?.currentGrade ?? "E") === "E")
+              accumulator.criticalTopics += 1;
+            return accumulator;
+          },
+          { reviewNow: 0, pendingLessons: 0, criticalTopics: 0 },
+        );
+
+        return { section, children, summary };
       })
       .filter((item) => item.children.length > 0);
   }, [
+    lessonProgressByTopic,
     normalizedSearch,
     quickFilter,
     reviewQueueById,
@@ -187,203 +236,317 @@ export const ContentPage = () => {
   ]);
 
   const reviewNowCount = reviewQueue.filter((item) => item.needsReview).length;
-  const staleCount = reviewQueue.filter(
-    (item) => item.staleBucket === 'warning' || item.staleBucket === 'critical',
+  const unreviewedCount = reviewQueue.filter(
+    (item) => item.staleBucket === "unreviewed",
   ).length;
-  const unreviewedCount = reviewQueue.filter((item) => item.staleBucket === 'unreviewed').length;
+  const hasTheoreticalContent = state.theoreticalContents.length > 0;
+
+  const handleGlobalDownload = async (): Promise<void> => {
+    try {
+      await downloadTheoreticalContentsBundle({
+        scope: { kind: "global" },
+        items: state.theoreticalContents,
+        topics,
+        topicSubmattersByTopic: state.topicSubmattersByTopic,
+      });
+      setDownloadError("");
+    } catch (error) {
+      setDownloadError(
+        error instanceof Error
+          ? error.message
+          : "Falha ao baixar o conteúdo teórico.",
+      );
+    }
+  };
+
+  const toggleSubject = (id: string) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [id]: prev[id] === false ? true : false,
+    }));
+  };
 
   return (
-    <section className="page">
-      <header className="page-header">
-        <h2>Conteúdo Pragmático</h2>
-        <p>
-          A visão agora começa pelas fraquezas: notas A-E, fila de revisão e tópicos mais
-          pressionados para você agir rápido.
-        </p>
-      </header>
-
-      <section className="panel review-hero">
-        <div className="review-hero-header">
-          <div>
-            <p className="review-widget-kicker">Visão geral do edital</p>
-            <h3>Painel de revisão imediata</h3>
-            <p className="review-widget-copy">
-              O foco é enxergar rápido o que está ruim, o que está parado e onde concentrar a próxima
-              revisão.
-            </p>
+    <div id="view-dashboard" className="view-container">
+      {/* DAILY PLAN BANNER */}
+      <div className="daily-plan-banner">
+        <div className="plan-info-group">
+          <div className="plan-data">
+            <span>Dia Selecionado</span>
+            <input
+              type="date"
+              className="date-input"
+              value={state.selectedDate}
+              aria-label="Dia Selecionado"
+              min="2024-01-01"
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
           </div>
-
-          <div className="review-hero-aside">
-            <div className="review-hero-stat">
-              <span className="review-hero-stat-label">Total</span>
-              <strong>{gradesSummary.total}</strong>
-            </div>
-            <div className="review-hero-stat review-hero-stat-alert">
-              <span className="review-hero-stat-label">Revisar agora</span>
-              <strong data-testid="content-review-now-total">{reviewNowCount}</strong>
-            </div>
+          <div className="plan-data">
+            <span>Plano do Dia</span>
+            <span>{dayPlanTitle}</span>
+          </div>
+          <div className="plan-data">
+            <span>Conclusão</span>
+            <span className="plan-progress">
+              {Math.round(dayProgress)}%
+            </span>
           </div>
         </div>
-
-        <div className="review-grade-grid" data-testid="content-grade-overview">
-          {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
-            <article
-              key={grade}
-              className={`review-grade-card review-grade-card-${grade.toLowerCase()}`}
-              style={{ animationDelay: `${index * 70}ms` }}
-            >
-              <span className="review-grade-label">{topicGradeLabel(grade)}</span>
-              <strong className="review-grade-value">{gradesSummary.byGrade[grade]}</strong>
-            </article>
-          ))}
-        </div>
-
-        <div className="review-signal-row">
-          <article className="review-signal-card">
-            <span className="review-signal-label">Sem revisão</span>
-            <strong>{unreviewedCount}</strong>
-          </article>
-          <article className="review-signal-card">
-            <span className="review-signal-label">Mais antigas</span>
-            <strong>{staleCount}</strong>
-          </article>
-          <article className="review-signal-card review-signal-card-wide">
-            <span className="review-signal-label">Buckets de atraso</span>
-            <strong>
-              {TOPIC_STALE_BUCKETS_DAYS.map((days) => `>${days}d ${staleSummary.byDays[days]}`).join(' · ')}
-            </strong>
-          </article>
-        </div>
-      </section>
-
-      <div className="panel controls-row">
-        <input
-          className="input"
-          placeholder="Buscar tópico, submatéria, erro ou ação..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <select
-          className="input"
-          value={subjectFilter}
-          onChange={(event) => setSubjectFilter(event.target.value as 'all' | SubjectKey)}
+        <button
+          className="btn-outline"
+          onClick={() => window.location.assign(MAIN_SITE_URL)}
         >
-          <option value="all">Todas as matérias</option>
-          <option value="portugues">Português</option>
-          <option value="rlm">RLM</option>
-          <option value="legislacao">Legislação</option>
-          <option value="especificos">Específicos</option>
-        </select>
+          Voltar ao site principal
+        </button>
       </div>
 
-      <div className="filter-chip-row" data-testid="content-quick-filters">
-        {FILTER_CHIPS.map((chip) => (
-          <button
-            key={chip.key}
-            type="button"
-            className={`filter-chip ${
-              quickFilter === chip.key ? 'filter-chip-active' : ''
-            } ${chip.tone === 'danger' ? 'filter-chip-danger' : ''}`}
-            onClick={() => setQuickFilter(chip.key)}
-          >
-            {chip.label}
-          </button>
-        ))}
+      {/* HEADER */}
+      <div className="page-header">
+        <div className="header-title">
+          <h1>Conteúdo Programático</h1>
+          <p>
+            A visão agora começa pelas fraquezas: notas A-E, fila de revisão e
+            tópicos mais pressionados para você agir rápido.
+          </p>
+        </div>
+        <button
+          className="btn-primary"
+          disabled={!hasTheoreticalContent}
+          onClick={() => void handleGlobalDownload()}
+        >
+          Baixar todo conteúdo teórico
+        </button>
       </div>
+      {downloadError && (
+        <p className="download-error">
+          {downloadError}
+        </p>
+      )}
 
-      <section className="panel review-queue-panel">
-        <div className="review-section-head">
-          <div>
-            <p className="review-widget-kicker">Revisar agora</p>
-            <h3>Fila priorizada por pior nota e mais tempo sem revisão</h3>
+      {/* DASHBOARD METRICS */}
+      <div className="dashboard-grid">
+        {/* Totais */}
+        <div className="metric-card">
+          <div className="metric-card-title">
+            <span>Visão Geral do Edital</span>
           </div>
-          <span className="review-queue-counter">{filteredReviewQueue.length} item(ns)</span>
-        </div>
-
-        <div className="review-queue-list" data-testid="review-queue-list">
-          {filteredReviewQueue.slice(0, 8).map((item) => (
-            <Link
-              key={item.submatterId}
-              className={`review-queue-item review-queue-item-${item.grade.toLowerCase()}`}
-              to={`/conteudo/topico/${item.topicId}?submatter=${item.submatterId}`}
-            >
-              <div className="review-queue-grade">
-                <span className={`grade-dot grade-dot-${item.grade.toLowerCase()}`} aria-hidden="true" />
-                <strong>{item.grade}</strong>
-              </div>
-              <div className="review-queue-copy">
-                <strong>{item.submatterTitle}</strong>
-                <span>
-                  {item.topicTitle} · {subjectLabel(item.subject)}
-                </span>
-              </div>
-              <div className="review-queue-meta">
-                <span>{item.daysSinceReview === null ? 'Sem revisão' : `${item.daysSinceReview} dia(s)`}</span>
-                <span>{item.staleBucket === 'critical' ? 'Crítico' : item.staleBucket === 'warning' ? 'Atrasado' : 'Prioridade'}</span>
-              </div>
-            </Link>
-          ))}
-
-          {filteredReviewQueue.length === 0 ? (
-            <p className="review-empty-state">Nenhum item da fila bate com os filtros atuais.</p>
-          ) : null}
-        </div>
-      </section>
-
-      <div className="accordion-list" data-testid="topic-rollup-list">
-        {groupedSections.map(({ section, children }) => (
-          <details className="panel" open key={section.id}>
-            <summary>
-              {section.title} ({children.length})
-            </summary>
-            <div className="topic-rollup-list">
-              {children.map(({ topic, rollup }) => (
-                <article className="topic-rollup-card" key={topic.id}>
-                  <div className="topic-rollup-head">
-                    <div>
-                      <Link className="topic-title topic-title-link" to={`/conteudo/topico/${topic.id}`}>
-                        {topic.title}
-                      </Link>
-                      <p className="projects-card-meta">
-                        {subjectLabel(topic.subject)} · {rollup?.total ?? 0} submatéria(s)
-                      </p>
-                    </div>
-                    <div className="topic-rollup-badges">
-                      {rollup?.worstGrade ? (
-                        <span className={`grade-pill grade-pill-${rollup.worstGrade.toLowerCase()}`}>
-                          Pior: {rollup.worstGrade}
-                        </span>
-                      ) : null}
-                      {rollup?.dominantGrade ? (
-                        <span className={`grade-pill grade-pill-${rollup.dominantGrade.toLowerCase()}`}>
-                          Domina: {rollup.dominantGrade}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="topic-rollup-stats">
-                    <span>Revisar agora: {rollup?.reviewNowCount ?? 0}</span>
-                    <span>Mais antigas: {rollup?.staleCount ?? 0}</span>
-                    <span>Sem revisão: {rollup?.unreviewedCount ?? 0}</span>
-                  </div>
-
-                  <div className="topic-rollup-grade-strip">
-                    {(['A', 'B', 'C', 'D', 'E'] as const).map((grade) => (
-                      <span
-                        key={grade}
-                        className={`topic-rollup-grade topic-rollup-grade-${grade.toLowerCase()}`}
-                      >
-                        {grade}: {rollup?.byGrade[grade] ?? 0}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-              ))}
+          <div className="totals-group">
+            <div className="tot-box">
+              <h4>{gradesSummary.total}</h4>
+              <span>Total submatérias</span>
             </div>
-          </details>
-        ))}
+            <div className="tot-box highlight">
+              <h4>{reviewNowCount}</h4>
+              <span>Revisar Agora</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Grades */}
+        <div className="metric-card">
+          <div className="metric-card-title">
+            <span>Painel de Notas (A-E)</span>
+          </div>
+          <div className="grades-container">
+            {(["A", "B", "C", "D", "E"] as const).map((grade) => (
+              <div key={grade} className={`grade-box g-${grade.toLowerCase()}`}>
+                <span className="g-label">{grade}</span>
+                <span className="g-val">{gradesSummary.byGrade[grade]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Atrasos */}
+        <div className="metric-card">
+          <div className="metric-card-title">
+            <span>Sem Revisão ({unreviewedCount})</span>
+            <span>Atrasos</span>
+          </div>
+          <div className="delay-list">
+            {TOPIC_STALE_BUCKETS_DAYS.map((days) => (
+              <div key={days} className="delay-item">
+                <span>&gt; {days} dias</span>
+                <span>{staleSummary.byDays[days]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </section>
+
+      {/* FILTERS & SEARCH */}
+      <div className="filters-section">
+        <div className="search-row">
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Buscar tópico, submatéria, erro ou ação..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="filter-select"
+            aria-label="Filtrar por matéria"
+            value={subjectFilter}
+            onChange={(e) =>
+              setSubjectFilter(e.target.value as "all" | SubjectKey)
+            }
+          >
+            <option value="all">Todas as matérias</option>
+            <option value="portugues">Português</option>
+            <option value="rlm">RLM</option>
+            <option value="legislacao">Legislação</option>
+            <option value="especificos">Específicos</option>
+          </select>
+        </div>
+        <div className="chips-row" data-testid="content-quick-filters">
+          {FILTER_CHIPS.map((chip) => (
+            <button
+              key={chip.key}
+              className={`chip ${quickFilter === chip.key ? "active" : ""}`}
+              onClick={() => setQuickFilter(chip.key)}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* TOPIC LIST */}
+      <div className="list-header">
+        <h3>AÇÕES Mapeadas — Fila priorizada por matéria e nota</h3>
+        <span>
+          {groupedSections.reduce((acc, curr) => acc + curr.children.length, 0)}{" "}
+          tópico(s) visíveis
+        </span>
+      </div>
+
+      {groupedSections.length === 0 ? (
+        <div className="empty-topic-list">
+          Nenhum tópico encontrado para os filtros atuais.
+        </div>
+      ) : (
+        groupedSections.map(({ section, children, summary }) => {
+          const isExpanded = expandedSubjects[section.id] !== false; // Default true
+          return (
+            <div className="subject-group" key={section.id}>
+              <div
+                className={`subject-header ${isExpanded ? "expanded" : ""}`}
+                onClick={() => toggleSubject(section.id)}
+              >
+                <div className="subject-header-title-group">
+                  <ChevronDown className={`caret-icon ${isExpanded ? "expanded" : "collapsed"}`} size={18} />
+                  <div className={`subject-icon-box subject-color-${section.subject}`}>
+                    {getSubjectIcon(section.subject)}
+                  </div>
+                  <h4>{section.title}</h4>
+                </div>
+                <div className="subject-header-stats">
+                  {summary.reviewNow > 0 && (
+                    <span className="stat-badge review-badge">
+                      Revisar: {summary.reviewNow}
+                    </span>
+                  )}
+                  {summary.criticalTopics > 0 && (
+                    <span className="stat-badge critical-badge">
+                      Nota E: {summary.criticalTopics}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {isExpanded &&
+                children.map(({ topic, rollup }) => {
+                  const topicGrade = rollup?.currentGrade ?? "E";
+                  return (
+                    <article className="topic-row" key={topic.id}>
+                      <Link
+                        to={`/conteudo/topico/${topic.id}`}
+                        className="topic-link-wrapper"
+                        aria-label={getTopicDisplayTitle(topic)}
+                      >
+                        <div className="topic-main">
+                          <div className="topic-info">
+                            <div
+                              className={`status-indicator grade-${topicGrade.toLowerCase()}`}
+                            />
+                            <div className="topic-text">
+                              <h5>{getTopicDisplayTitle(topic)}</h5>
+                              <p>
+                                {subjectLabel(topic.subject)} •{" "}
+                                {rollup?.total ?? 0} submatéria(s)
+                              </p>
+                            </div>
+                          </div>
+                          <div className="topic-badges">
+                            <span
+                              className={`badge ${topicGrade === "E" ? "alert" : ""}`}
+                            >
+                              Nota atual {topicGrade}
+                            </span>
+                            {rollup?.dominantGrade && (
+                              <span className="badge">
+                                Domina: {rollup.dominantGrade}
+                              </span>
+                            )}
+                            {(rollup?.unreviewedCount ?? 0) > 0 && (
+                              <span className="badge">Sem revisão</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="topic-stats-bar">
+                          <div className="mini-stats">
+                            <div className="ms-item">
+                              Revisar agora:{" "}
+                              <strong>{rollup?.reviewNowCount ?? 0}</strong>
+                            </div>
+                            <div className="ms-item">
+                              Mais antigas:{" "}
+                              <strong>{rollup?.staleCount ?? 0}</strong>
+                            </div>
+                            <div className="ms-item">
+                              Aulas feitas:{" "}
+                              <strong>
+                                {lessonProgressByTopic[topic.id]
+                                  ?.reviewedCount ?? 0}
+                              </strong>
+                            </div>
+                            <div className="ms-item">
+                              Aulas pendentes:{" "}
+                              <strong>
+                                {lessonProgressByTopic[topic.id]
+                                  ?.pendingCount ?? 0}
+                              </strong>
+                            </div>
+                          </div>
+                          <div className="mini-grades">
+                            {(["A", "B", "C", "D", "E"] as const).map(
+                              (grade) => {
+                                const count = rollup?.byGrade[grade] ?? 0;
+                                const isActive = count > 0;
+                                return (
+                                  <div
+                                    key={grade}
+                                    className={`mg-item ${isActive ? (grade === "E" ? "active-e" : "active-other") : ""}`}
+                                  >
+                                    <span>{grade}:</span>
+                                    <span>{count}</span>
+                                  </div>
+                                );
+                              },
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    </article>
+                  );
+                })}
+            </div>
+          );
+        })
+      )}
+    </div>
   );
 };

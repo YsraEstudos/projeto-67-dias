@@ -1,8 +1,13 @@
 import type { ChangeEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppContext } from '../app/AppContext';
 import { getChecklistProgressPercent } from '../app/progress';
 import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/formatters';
+import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
+import type { ManualBlock } from '../app/types';
+import { PageIntro } from '../components/PageIntro';
 import { ProgressBar } from '../components/ProgressBar';
+import { SectionCard } from '../components/SectionCard';
 
 export const DailyPlanPage = () => {
   const { state, dayPlansByDate, updateChecklistItem, setDailyNote } = useAppContext();
@@ -22,13 +27,7 @@ export const DailyPlanPage = () => {
   const optionalItems = record.checklist.filter((item) => !item.required);
   const requiredDone = requiredItems.filter((item) => item.status === 'concluido').length;
 
-  const fallbackBlocks: Array<{
-    id: string;
-    area: string;
-    title: string;
-    detail: string;
-    movedFromSunday?: boolean;
-  }> = [
+  const fallbackBlocks: ManualBlock[] = [
     {
       id: 'auto-subject-1',
       area: 'Matéria',
@@ -80,46 +79,44 @@ export const DailyPlanPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header daily-header">
-        <div>
-          <p className="daily-kicker">Roteiro diário executável</p>
-          <h2>Plano Diário</h2>
-          <p>Checklist personalizado por dia, com foco em execução e evidência.</p>
-        </div>
+      <PageIntro
+        className="daily-header"
+        kicker="Roteiro diário executável"
+        title="Plano Diário"
+        description="Checklist personalizado por dia, com foco em execução, evidência e leitura operacional."
+        meta={
+          <div className="daily-meta-grid">
+            <article className="daily-meta-card">
+              <p className="daily-meta-label">Data</p>
+              <p className="daily-meta-value">{formatIsoDatePtBr(state.selectedDate)}</p>
+            </article>
+            <article className="daily-meta-card">
+              <p className="daily-meta-label">Modo</p>
+              <p className="daily-meta-value">
+                {dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
+              </p>
+            </article>
+            <article className="daily-meta-card">
+              <p className="daily-meta-label">Semana / Evento</p>
+              <p className="daily-meta-value">
+                {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
+              </p>
+              <p className="daily-meta-note">{eventLabel}</p>
+            </article>
+          </div>
+        }
+      />
 
-        <div className="daily-meta-grid">
-          <article className="daily-meta-card">
-            <p className="daily-meta-label">Data</p>
-            <p className="daily-meta-value">{formatIsoDatePtBr(state.selectedDate)}</p>
-          </article>
-          <article className="daily-meta-card">
-            <p className="daily-meta-label">Modo</p>
-            <p className="daily-meta-value">
-              {dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
-            </p>
-          </article>
-          <article className="daily-meta-card">
-            <p className="daily-meta-label">Semana / Evento</p>
-            <p className="daily-meta-value">
-              {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
-            </p>
-            <p className="daily-meta-note">{eventLabel}</p>
-          </article>
-        </div>
-      </header>
-
-      <div className="panel daily-progress-panel">
+      <SectionCard className="daily-progress-panel" kicker="Conclusão" title="Progresso oficial do dia">
         <div className="daily-progress-head">
-          <p className="daily-progress-title">Progresso oficial do dia</p>
           <p className="daily-progress-subtitle">
             Obrigatórios concluídos: {requiredDone}/{requiredItems.length}
           </p>
         </div>
         <ProgressBar value={progress} label="Progresso oficial do dia" />
-      </div>
+      </SectionCard>
 
-      <div className="panel daily-roadmap">
-        <h3>Roteiro do dia</h3>
+      <SectionCard className="daily-roadmap" kicker="Sequência" title="Roteiro do dia">
         {dayPlan.isRestDay ? (
           <p>Domingo configurado como descanso fixo, sem pendência obrigatória.</p>
         ) : (
@@ -134,14 +131,30 @@ export const DailyPlanPage = () => {
                 </div>
                 <p className="daily-block-title">{block.title}</p>
                 <p className="daily-block-detail">{block.detail}</p>
+                {block.contentRefs?.length ? (
+                  <div className="daily-block-detail">
+                    <p className="daily-block-detail">
+                      <strong>Conteúdo programático:</strong> {getManualBlockContentSummary(block)}
+                    </p>
+                    {block.contentTargets?.length ? (
+                      <ul>
+                        {block.contentTargets.map((target) => (
+                          <li key={target.topicId}>
+                            <Link to={target.path}>{target.title}</Link>
+                            {target.sectionTitle ? ` (${target.sectionTitle})` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
-      <div className="panel daily-checklist-panel" data-testid="daily-checklist">
-        <h3>Checklist do dia</h3>
+      <SectionCard className="daily-checklist-panel" data-testid="daily-checklist" kicker="Controle" title="Checklist do dia">
 
         <p className="daily-checklist-title">Obrigatórios</p>
         <div className="checklist">
@@ -240,10 +253,9 @@ export const DailyPlanPage = () => {
             </div>
           </>
         ) : null}
-      </div>
+      </SectionCard>
 
-      <div className="panel daily-notes-panel">
-        <h3>Notas de evidência do dia</h3>
+      <SectionCard className="daily-notes-panel" kicker="Registro" title="Notas de evidência do dia">
         <textarea
           className="textarea"
           rows={5}
@@ -251,7 +263,7 @@ export const DailyPlanPage = () => {
           value={record.notes}
           onChange={(event) => setDailyNote(state.selectedDate, event.target.value)}
         />
-      </div>
+      </SectionCard>
     </section>
   );
 };

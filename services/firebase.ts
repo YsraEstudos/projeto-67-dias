@@ -18,6 +18,7 @@ import {
     persistentLocalCache,
     persistentMultipleTabManager
 } from "firebase/firestore";
+import type { Firestore } from "firebase/firestore";
 
 export interface FirebaseUser {
     uid: string;
@@ -67,12 +68,20 @@ const app = initializeApp(firebaseConfig);
 // Export services
 export const auth = getAuth(app);
 
-// FIRESTORE: Configuração de cache persistente (substitui enableMultiTabIndexedDbPersistence deprecado)
-export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
-});
+let firestoreInstance: Firestore | null = null;
+
+try {
+    // FIRESTORE: Configuração de cache persistente (substitui enableMultiTabIndexedDbPersistence deprecado)
+    firestoreInstance = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+        })
+    });
+} catch (error) {
+    console.warn('[Firebase] Firestore indisponível neste ambiente. O app seguirá em modo local.', error);
+}
+
+export const db = firestoreInstance;
 
 // Google Provider
 const googleProvider = new GoogleAuthProvider();
@@ -138,13 +147,12 @@ const persistLocalAuthUser = (user: FirebaseUser | null) => {
 const getErrorCode = (error: unknown): string =>
     String((error as { code?: unknown })?.code ?? '').toLowerCase();
 
-const isLocalDevEnvironment = (): boolean =>
-    import.meta.env.DEV &&
+const isLocalHostEnvironment = (): boolean =>
     isBrowser &&
     LOCAL_DEV_HOSTS.has(window.location.hostname);
 
 const shouldUseLocalGuestFallback = (error: unknown): boolean => {
-    if (!isLocalDevEnvironment()) return false;
+    if (!isLocalHostEnvironment()) return false;
 
     const errorCode = getErrorCode(error);
     return [

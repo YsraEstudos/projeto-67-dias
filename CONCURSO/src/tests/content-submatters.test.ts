@@ -14,6 +14,7 @@ const sampleTopic = (id: string, title: string): TopicNode => ({
   id,
   subject: 'especificos',
   title,
+  displayTitle: undefined,
   sourceRef: 'ref',
   parentId: 'sec-x',
   isLeaf: true,
@@ -51,6 +52,22 @@ describe('content submatters migration', () => {
     expect(migrated.t3[0].grade).toBe('E');
     expect(migrated.t1[0].errorNote).toBe('bom');
     expect(migrated.t1[0].lastReviewedAt).toBe('2026-02-20');
+  });
+
+  it('usa o nome padronizado quando o tópico tiver displayTitle', () => {
+    const leafTopics = [
+      {
+        ...sampleTopic(
+          'architecture',
+          'Arquitetura de computadores: processador, memória principal/secundária e dispositivos de E/S.',
+        ),
+        displayTitle: 'Arquitetura: CPU, memória e I/O',
+      },
+    ];
+
+    const migrated = migrateTopicSubmattersFromLegacy(leafTopics, {});
+
+    expect(migrated.architecture[0].title).toBe('Arquitetura: CPU, memória e I/O');
   });
 });
 

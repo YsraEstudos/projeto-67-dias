@@ -2,11 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth } from '../../services/firebase';
 
+const { getLocalAuthSessionUserMock } = vi.hoisted(() => ({
+    getLocalAuthSessionUserMock: vi.fn(() => null),
+}));
+
+const TEST_DEBOUNCE_MS = 300;
+
 // Mock firestoreSync module internals for testing - APENAS DEPENDÊNCIAS, não o próprio módulo
 vi.mock('../../services/firebase', () => ({
     auth: {
         currentUser: null
     },
+    getLocalAuthSessionUser: getLocalAuthSessionUserMock,
     // db is already mocked globally or we can mock it here if specific instance needed
     db: {}
 }));
@@ -29,6 +36,7 @@ describe('firestoreSync', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.clearAllMocks();
+        getLocalAuthSessionUserMock.mockReturnValue(null);
         // Reset localStorage mock
         window.localStorage.clear();
         // Reset internal module state
@@ -91,14 +99,14 @@ describe('firestoreSync', () => {
             (auth as any).currentUser = null;
             window.localStorage.removeItem('p67_last_uid');
 
-            writeToFirestore('test_collection', { foo: 'bar' });
+            writeToFirestore('test_collection', { foo: 'bar' }, TEST_DEBOUNCE_MS);
             vi.advanceTimersByTime(500);
 
             expect(setDoc).not.toHaveBeenCalled();
         });
 
         it('should debounce writes and call setDoc after delay', async () => {
-            writeToFirestore('test_collection', { foo: 'bar' });
+            writeToFirestore('test_collection', { foo: 'bar' }, TEST_DEBOUNCE_MS);
 
             // Before debounce expires
             expect(setDoc).not.toHaveBeenCalled();
@@ -120,12 +128,12 @@ describe('firestoreSync', () => {
         });
 
         it('should cancel previous write when new write arrives within debounce', async () => {
-            writeToFirestore('test_collection', { version: 1 });
+            writeToFirestore('test_collection', { version: 1 }, TEST_DEBOUNCE_MS);
 
             // Wait 100ms (within debounce window)
             vi.advanceTimersByTime(100);
 
-            writeToFirestore('test_collection', { version: 2 });
+            writeToFirestore('test_collection', { version: 2 }, TEST_DEBOUNCE_MS);
 
             // Wait for full debounce
             vi.advanceTimersByTime(350);
@@ -149,7 +157,7 @@ describe('firestoreSync', () => {
                     also: undefined,
                     keep: 'this'
                 }
-            });
+            }, TEST_DEBOUNCE_MS);
 
             vi.advanceTimersByTime(350);
             await vi.runAllTimersAsync();
@@ -168,8 +176,8 @@ describe('firestoreSync', () => {
         });
 
         it('should handle concurrent writes to different collections', async () => {
-            writeToFirestore('collection_a', { a: 1 });
-            writeToFirestore('collection_b', { b: 2 });
+            writeToFirestore('collection_a', { a: 1 }, TEST_DEBOUNCE_MS);
+            writeToFirestore('collection_b', { b: 2 }, TEST_DEBOUNCE_MS);
 
             vi.advanceTimersByTime(350);
             await vi.runAllTimersAsync();
@@ -183,7 +191,7 @@ describe('firestoreSync', () => {
             vi.mocked(setDoc).mockRejectedValueOnce(new Error('Network error'));
             const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
-            writeToFirestore('test_fail', { data: 1 });
+            writeToFirestore('test_fail', { data: 1 }, TEST_DEBOUNCE_MS);
 
             vi.advanceTimersByTime(350);
             await vi.runAllTimersAsync();
@@ -200,7 +208,7 @@ describe('firestoreSync', () => {
 
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
-            writeToFirestore('test_circular', circular);
+            writeToFirestore('test_circular', circular, TEST_DEBOUNCE_MS);
 
             vi.advanceTimersByTime(350);
             await vi.runAllTimersAsync();
@@ -317,8 +325,8 @@ describe('firestoreSync', () => {
         });
 
         it('should execute all pending writes immediately', async () => {
-            writeToFirestore('collection_1', { a: 1 });
-            writeToFirestore('collection_2', { b: 2 });
+            writeToFirestore('collection_1', { a: 1 }, TEST_DEBOUNCE_MS);
+            writeToFirestore('collection_2', { b: 2 }, TEST_DEBOUNCE_MS);
 
             // Flush before debounce expires
             flushPendingWrites();
@@ -328,7 +336,7 @@ describe('firestoreSync', () => {
         });
 
         it('should not duplicate writes after flush', async () => {
-            writeToFirestore('test_collection', { data: 'test' });
+            writeToFirestore('test_collection', { data: 'test' }, TEST_DEBOUNCE_MS);
 
             flushPendingWrites();
             await vi.runAllTimersAsync();
@@ -360,7 +368,7 @@ describe('firestoreSync', () => {
         });
 
         it('isFullySynced should return false during debounce', () => {
-            writeToFirestore('test', { data: 1 });
+            writeToFirestore('test', { data: 1 }, TEST_DEBOUNCE_MS);
             // During debounce window, there's a pending timeout
             expect(isFullySynced()).toBe(false);
         });
@@ -369,7 +377,7 @@ describe('firestoreSync', () => {
             const listener = vi.fn();
             const unsubscribe = subscribeToPendingWrites(listener);
 
-            writeToFirestore('test', { data: 1 });
+            writeToFirestore('test', { data: 1 }, TEST_DEBOUNCE_MS);
             vi.advanceTimersByTime(350);
             await vi.runAllTimersAsync();
 
@@ -386,7 +394,7 @@ describe('firestoreSync', () => {
 
             listener.mockClear();
 
-            writeToFirestore('test', { data: 1 });
+            writeToFirestore('test', { data: 1 }, TEST_DEBOUNCE_MS);
             vi.advanceTimersByTime(350);
             await vi.runAllTimersAsync();
 
@@ -406,27 +414,27 @@ describe('firestoreSync', () => {
         });
 
         it('pendingWriteCount should NOT double-increment for replaced writes', () => {
-            writeToFirestore('same_collection', { version: 1 });
+            writeToFirestore('same_collection', { version: 1 }, TEST_DEBOUNCE_MS);
             expect(getPendingWriteCount()).toBe(1);
 
             // Replace with new write (within debounce window)
-            writeToFirestore('same_collection', { version: 2 });
+            writeToFirestore('same_collection', { version: 2 }, TEST_DEBOUNCE_MS);
 
             // Should still be 1, not 2
             expect(getPendingWriteCount()).toBe(1);
         });
 
         it('pendingWriteCount should track multiple different collections separately', () => {
-            writeToFirestore('collection_a', { a: 1 });
-            writeToFirestore('collection_b', { b: 2 });
-            writeToFirestore('collection_c', { c: 3 });
+            writeToFirestore('collection_a', { a: 1 }, TEST_DEBOUNCE_MS);
+            writeToFirestore('collection_b', { b: 2 }, TEST_DEBOUNCE_MS);
+            writeToFirestore('collection_c', { c: 3 }, TEST_DEBOUNCE_MS);
 
             expect(getPendingWriteCount()).toBe(3);
         });
 
         it('isFullySynced should return true after all writes complete', async () => {
-            writeToFirestore('test_a', { a: 1 });
-            writeToFirestore('test_b', { b: 2 });
+            writeToFirestore('test_a', { a: 1 }, TEST_DEBOUNCE_MS);
+            writeToFirestore('test_b', { b: 2 }, TEST_DEBOUNCE_MS);
 
             expect(isFullySynced()).toBe(false);
 
@@ -441,7 +449,7 @@ describe('firestoreSync', () => {
             const listener = vi.fn();
             subscribeToPendingWrites(listener);
 
-            writeToFirestore('test', { data: 1 });
+            writeToFirestore('test', { data: 1 }, TEST_DEBOUNCE_MS);
 
             // Listener should be called immediately (not after debounce)
             expect(listener).toHaveBeenCalledTimes(1);

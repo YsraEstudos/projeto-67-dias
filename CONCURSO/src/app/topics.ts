@@ -1,6 +1,24 @@
 import { SUBJECT_ORDER } from './constants';
 import type { TopicNode, TopicPriority, TopicSeedSection, CoverageMatrixRow, SubjectKey } from './types';
 
+const TOPIC_DISPLAY_TITLE_OVERRIDES: Record<string, string> = {
+  'Arquitetura de computadores: processador, memória principal/secundária e dispositivos de E/S.':
+    'Arquitetura: CPU, memória e I/O',
+  'Lei 8.112/1990: disposições preliminares.': 'Lei 8.112: visão geral',
+  'Lei 8.112/1990: provimento, vacância, remoção, redistribuição e substituição.':
+    'Lei 8.112: provimento, vacância, remoção e redistribuição',
+  'Banco de dados relacional e modelagem E-R.': 'BD: modelo relacional + ER + chaves',
+  'Gerência de memória: endereçamento, memória virtual, paginação e segmentação.':
+    'Memória virtual e paginação',
+  'Redes: meios de transmissão, Ethernet, Wireless, VLAN e LACP.':
+    'Redes: Ethernet, Wireless, VLAN e LACP',
+  'Modelo TCP/IP v4 e v6: ARP, IP, TCP e UDP.': 'Redes: TCP/IP, IPv4/IPv6, ARP, TCP e UDP',
+  'Protocolos: DNS, DHCP, LDAP, NTP, SMTP, Syslog e HTTP.':
+    'Redes: DNS, DHCP, LDAP, NTP, SMTP, Syslog e HTTP',
+  'Conceitos de confidencialidade, integridade, disponibilidade, autenticação e não-repúdio.':
+    'Segurança: CIA, autenticação e não repúdio',
+};
+
 const normalizeForId = (value: string): string =>
   value
     .normalize('NFD')
@@ -25,6 +43,14 @@ const inferPriority = (subject: SubjectKey, item: string): TopicPriority => {
   return 'media';
 };
 
+export const getTopicDisplayTitle = (topic: Pick<TopicNode, 'title' | 'displayTitle'>): string =>
+  topic.displayTitle ?? topic.title;
+
+export const getTopicSearchText = (topic: Pick<TopicNode, 'title' | 'displayTitle'>): string => {
+  const displayTitle = getTopicDisplayTitle(topic);
+  return displayTitle === topic.title ? topic.title : `${displayTitle} ${topic.title}`;
+};
+
 export const buildTopicsFromSeeds = (sections: TopicSeedSection[]): TopicNode[] => {
   const topics: TopicNode[] = [];
 
@@ -45,6 +71,7 @@ export const buildTopicsFromSeeds = (sections: TopicSeedSection[]): TopicNode[] 
         id: `item-${section.id}-${index + 1}-${normalizeForId(item).slice(0, 40)}`,
         subject: section.subject,
         title: item,
+        displayTitle: TOPIC_DISPLAY_TITLE_OVERRIDES[item],
         sourceRef: section.sourceRef,
         parentId: sectionId,
         isLeaf: true,

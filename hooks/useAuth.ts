@@ -177,7 +177,15 @@ export function useAuth(): AuthState & AuthActions {
         try {
             const result = await loginAsGuest();
             console.log('[useAuth] Guest login successful:', result.user?.uid);
-            // Auth state listener will update the user
+            if (result.user) {
+                localStorage.setItem('p67_last_uid', result.user.uid);
+                loginInProgress.current = false;
+                setState({
+                    user: firebaseUserToAppUser(result.user),
+                    loading: false,
+                    error: null
+                });
+            }
         } catch (error: any) {
             console.error('[useAuth] Guest login failed:', error.code, error.message);
             loginInProgress.current = false;

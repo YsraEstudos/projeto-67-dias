@@ -6,12 +6,15 @@ import {
   SCHEMA_VERSION,
   START_DATE,
 } from './constants';
+import { DEFAULT_MOBILE_PINNED_NAV, sanitizeMobilePinnedNav } from './mobileNavigation';
 import { buildDayPlans, buildDayPlansByDate, buildMonthlyTargetsFromDayPlans } from './schedule';
 import { buildCoverageMatrix, buildTopicsFromSeeds, mapExpectedCoverage } from './topics';
-import type { AppState, ChecklistItem, TopicProgress } from './types';
+import { getTopicDisplayTitle } from './topics';
+import type { AppState, ChecklistItem, DayPlan, ExamWritingMonthlyTarget, TopicProgress } from './types';
 import { TOPIC_SECTIONS } from '../data/topicSeeds';
 import { normalizeProject } from './projects';
 import { migrateTopicSubmattersFromLegacy, normalizeTopicSubmatter } from './contentSubmatters';
+import { normalizeTheoreticalContentItem } from './contentTheoreticalFiles';
 
 const normalizePauseWeekdays = (
   pauseWeekdays: AppState['ankiConfig']['pauseWeekdays'] | undefined,
@@ -62,13 +65,44 @@ export const LEAF_TOPICS = TOPICS.filter((topic) => topic.isLeaf);
 export const EXPECTED_COVERAGE = mapExpectedCoverage(TOPIC_SECTIONS);
 export const COVERAGE_MATRIX = buildCoverageMatrix(TOPICS, EXPECTED_COVERAGE);
 
-const resolveInitialDate = (): string => {
+const normalizePlanStartDate = (value: unknown): string => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return START_DATE;
+  }
+
+  if (value < START_DATE) {
+    return START_DATE;
+  }
+
+  if (value > END_DATE) {
+    return END_DATE;
+  }
+
+  return value;
+};
+
+export interface PlanRuntime {
+  dayPlans: DayPlan[];
+  dayPlansByDate: Record<string, DayPlan>;
+  monthlyTargets: ExamWritingMonthlyTarget[];
+}
+
+export const buildPlanRuntime = (planStartDate: string): PlanRuntime => {
+  const dayPlans = buildDayPlans(planStartDate);
+  return {
+    dayPlans,
+    dayPlansByDate: buildDayPlansByDate(dayPlans),
+    monthlyTargets: buildMonthlyTargetsFromDayPlans(dayPlans),
+  };
+};
+
+const resolveInitialDate = (planStartDate: string): string => {
   const todayIso = new Date().toISOString().slice(0, 10);
-  if (todayIso >= START_DATE && todayIso <= END_DATE) {
+  if (todayIso >= planStartDate && todayIso <= END_DATE) {
     return todayIso;
   }
 
-  return START_DATE;
+  return planStartDate;
 };
 
 const createTopicProgress = (): Record<string, TopicProgress> =>
@@ -81,8 +115,8 @@ const createTopicProgress = (): Record<string, TopicProgress> =>
     return accumulator;
   }, {});
 
-const createDailyRecords = () =>
-  DAY_PLANS.reduce<AppState['dailyRecords']>((accumulator, dayPlan) => {
+const createDailyRecords = (dayPlans: DayPlan[]) =>
+  dayPlans.reduce<AppState['dailyRecords']>((accumulator, dayPlan) => {
     accumulator[dayPlan.date] = {
       date: dayPlan.date,
       checklist: createChecklistTemplate(dayPlan),
@@ -94,6 +128,28 @@ const createDailyRecords = () =>
 const createTopicSubmatters = (
   topicProgress: Record<string, TopicProgress>,
 ): AppState['topicSubmattersByTopic'] => migrateTopicSubmattersFromLegacy(LEAF_TOPICS, topicProgress);
+
+const alignTopicSubmatterTitles = (
+  topicSubmattersByTopic: AppState['topicSubmattersByTopic'],
+): AppState['topicSubmattersByTopic'] =>
+  LEAF_TOPICS.reduce<AppState['topicSubmattersByTopic']>((accumulator, topic) => {
+    const current = topicSubmattersByTopic[topic.id] ?? [];
+    const displayTitle = getTopicDisplayTitle(topic);
+
+    accumulator[topic.id] = current.map((item) => {
+      const normalized = normalizeTopicSubmatter(item);
+      if (normalized.title !== topic.title || displayTitle === topic.title) {
+        return normalized;
+      }
+
+      return {
+        ...normalized,
+        title: displayTitle,
+      };
+    });
+
+    return accumulator;
+  }, {});
 
 const mergeChecklistForCurrentPlan = (
   template: ChecklistItem[],
@@ -123,8 +179,8 @@ const mergeChecklistForCurrentPlan = (
   });
 };
 
-const normalizeDailyRecords = (state: AppState): AppState['dailyRecords'] => {
-  return DAY_PLANS.reduce<AppState['dailyRecords']>((accumulator, dayPlan) => {
+const normalizeDailyRecords = (state: AppState, dayPlans: DayPlan[]): AppState['dailyRecords'] => {
+  return dayPlans.reduce<AppState['dailyRecords']>((accumulator, dayPlan) => {
     const templateChecklist = createChecklistTemplate(dayPlan);
     const previousRecord = state.dailyRecords?.[dayPlan.date];
 
@@ -138,15 +194,25 @@ const normalizeDailyRecords = (state: AppState): AppState['dailyRecords'] => {
   }, {});
 };
 
-export const createInitialState = (): AppState => {
+export const createInitialState = (planStartDate: string = START_DATE): AppState => {
+  const normalizedPlanStartDate = normalizePlanStartDate(planStartDate);
+  const runtime = buildPlanRuntime(normalizedPlanStartDate);
   const topicProgress = createTopicProgress();
 
   return {
     schemaVersion: SCHEMA_VERSION,
-    selectedDate: resolveInitialDate(),
+    planSettings: {
+      startDate: normalizedPlanStartDate,
+      startDateChangeCount: 0,
+    },
+    shellUi: {
+      mobilePinnedNav: [...DEFAULT_MOBILE_PINNED_NAV],
+    },
+    selectedDate: resolveInitialDate(normalizedPlanStartDate),
     topicProgress,
     topicSubmattersByTopic: createTopicSubmatters(topicProgress),
-    dailyRecords: createDailyRecords(),
+    theoreticalContents: [],
+    dailyRecords: createDailyRecords(runtime.dayPlans),
     correctionLinks: [],
     projects: [],
     ankiConfig: {
@@ -177,8 +243,10 @@ export const createInitialState = (): AppState => {
 };
 
 export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
-  const fallback = createInitialState();
-  const dailyRecords = normalizeDailyRecords(state);
+  const planStartDate = normalizePlanStartDate(state.planSettings?.startDate);
+  const fallback = createInitialState(planStartDate);
+  const runtime = buildPlanRuntime(planStartDate);
+  const dailyRecords = normalizeDailyRecords(state, runtime.dayPlans);
 
   const topicProgress = { ...fallback.topicProgress };
   for (const topicId of Object.keys(topicProgress)) {
@@ -188,16 +256,16 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
     }
   }
 
-  const selectedDate = dailyRecords[state.selectedDate] ? state.selectedDate : resolveInitialDate();
+  const selectedDate = dailyRecords[state.selectedDate] ? state.selectedDate : resolveInitialDate(planStartDate);
 
   const topicSubmattersByTopic = (() => {
     const legacyProgress = state.topicProgress ?? fallback.topicProgress;
     const migratedFallback = migrateTopicSubmattersFromLegacy(LEAF_TOPICS, legacyProgress);
     if (!state.topicSubmattersByTopic) {
-      return migratedFallback;
+      return alignTopicSubmatterTitles(migratedFallback);
     }
 
-    return LEAF_TOPICS.reduce<AppState['topicSubmattersByTopic']>((accumulator, topic) => {
+    const normalized = LEAF_TOPICS.reduce<AppState['topicSubmattersByTopic']>((accumulator, topic) => {
       const current = state.topicSubmattersByTopic?.[topic.id];
       if (!Array.isArray(current) || current.length === 0) {
         accumulator[topic.id] = migratedFallback[topic.id];
@@ -207,15 +275,29 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
       accumulator[topic.id] = current.map((item) => normalizeTopicSubmatter(item));
       return accumulator;
     }, {});
+
+    return alignTopicSubmatterTitles(normalized);
   })();
 
   return {
     ...fallback,
     ...state,
     schemaVersion: SCHEMA_VERSION,
+    planSettings: {
+      startDate: planStartDate,
+      startDateChangeCount: Number.isFinite(state.planSettings?.startDateChangeCount)
+        ? Math.max(0, Math.round(state.planSettings.startDateChangeCount))
+        : 0,
+    },
+    shellUi: {
+      mobilePinnedNav: sanitizeMobilePinnedNav(state.shellUi?.mobilePinnedNav),
+    },
     selectedDate,
     topicProgress,
     topicSubmattersByTopic,
+    theoreticalContents: Array.isArray(state.theoreticalContents)
+      ? state.theoreticalContents.map((item) => normalizeTheoreticalContentItem(item))
+      : fallback.theoreticalContents,
     dailyRecords,
     correctionLinks: Array.isArray(state.correctionLinks) ? state.correctionLinks : fallback.correctionLinks,
     projects: Array.isArray(state.projects)
@@ -241,4 +323,3 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
     },
   };
 };
-

@@ -1,0 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+:root {
+  color-scheme: dark;
+  --bg-base: #050505;
+  --bg-surface: #0e0e0e;
+  --bg-elevated: #151515;
+  --bg-highlight: #1a1a1a;
+  --bg-glass: rgba(14, 14, 14, 0.85);
+  --text-main: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
+  --text-dark: #71717a;
+  --border-subtle: #27272a;
+  --border-strong: #3f3f46;
+  --accent-primary: #ffffff;
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 10px 40px rgba(0, 0, 0, 0.8);
+  --grade-a: #10b981;
+  --grade-b: #3b82f6;
+  --grade-c: #f59e0b;
+  --grade-d: #f97316;
+  --grade-e: #ef4444;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 100px;
+  --max-content: 1200px;
+  --font-display: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0.9, 0.2, 1);
+  --duration-fast: 140ms;
+  --duration-base: 260ms;
+  --duration-slow: 540ms;
+}

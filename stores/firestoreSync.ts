@@ -31,6 +31,7 @@ type LocalSyncDetail = {
 
 const getWriteIdentity = (userId: string, collectionKey: string): string => `${userId}:${collectionKey}`;
 const isLocalSyncMode = (): boolean => Boolean(getLocalAuthSessionUser());
+const isFirestoreAvailable = (): boolean => Boolean(db);
 
 const readLocalValue = <T>(collectionKey: string, userId: string, fallback: T): T => {
     const raw = readNamespacedStorage(collectionKey, userId);
@@ -308,6 +309,12 @@ export const writeToFirestore = <T extends object>(
         return;
     }
 
+    if (!isFirestoreAvailable()) {
+        console.warn(`[Firestore] Indisponível. Gravando ${collectionKey} somente no armazenamento local.`);
+        writeLocalValue(collectionKey, userId, cleanedData);
+        return;
+    }
+
     const payload: PendingWrite['payload'] = { userId, collectionKey, data: cleanedData };
     const writeIdentity = getWriteIdentity(userId, collectionKey);
 
@@ -356,6 +363,15 @@ export const subscribeToDocument = <T>(
     }
 
     if (isLocalSyncMode()) {
+        return subscribeToLocalValue(
+            collectionKey,
+            userId,
+            () => readLocalValue<T | null>(collectionKey, userId, null),
+            onData
+        );
+    }
+
+    if (!isFirestoreAvailable()) {
         return subscribeToLocalValue(
             collectionKey,
             userId,
@@ -450,6 +466,15 @@ export const writeItemToSubcollection = async (
         return;
     }
 
+    if (!isFirestoreAvailable()) {
+        const cleanedData = removeUndefined(data);
+        const currentItems = readLocalValue<any[]>(collectionKey, userId, []);
+        const nextItems = currentItems.filter((item) => item?.id !== itemId);
+        nextItems.push(cleanedData);
+        writeLocalValue(collectionKey, userId, nextItems);
+        return;
+    }
+
     if (isQuotaExceeded()) {
         console.warn('[Firestore] Daily quota exceeded (20k ops). Write blocked.');
         return;
@@ -497,6 +522,16 @@ export const deleteItemFromSubcollection = async (
         return;
     }
 
+    if (!isFirestoreAvailable()) {
+        const currentItems = readLocalValue<any[]>(collectionKey, userId, []);
+        writeLocalValue(
+            collectionKey,
+            userId,
+            currentItems.filter((item) => item?.id !== itemId)
+        );
+        return;
+    }
+
     if (isQuotaExceeded()) {
         console.warn('[Firestore] Daily quota exceeded (20k ops). Delete blocked.');
         return;
@@ -531,6 +566,15 @@ export const subscribeToSubcollection = <T>(
     }
 
     if (isLocalSyncMode()) {
+        return subscribeToLocalValue(
+            collectionKey,
+            userId,
+            () => readLocalValue<T[]>(collectionKey, userId, []),
+            onData
+        );
+    }
+
+    if (!isFirestoreAvailable()) {
         return subscribeToLocalValue(
             collectionKey,
             userId,

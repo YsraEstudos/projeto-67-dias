@@ -25,28 +25,46 @@ import {
   writeSnapshotToHandle,
 } from './backup';
 import {
+  buildPlanRuntime,
   COVERAGE_MATRIX,
-  DAY_PLANS,
-  DAY_PLANS_BY_DATE,
   LEAF_TOPICS,
-  MONTHLY_TARGETS_FROM_DAY_PLANS,
   TOPICS,
   createInitialState,
   normalizeStateForCurrentPlan,
 } from './seed';
 import { getTodayIsoDate } from './contentSubmatters';
+import {
+  createPastedMarkdownFile,
+  getNextTheoreticalContentOrder,
+  getPastedMarkdownLabel,
+  inferTheoreticalContentKind,
+  moveTheoreticalContent,
+  reorderTheoreticalContent,
+  toggleTheoreticalContentCompleted,
+} from './contentTheoreticalFiles';
+import { saveTheoreticalContentBinary, removeTheoreticalContentBinary } from './contentTheoreticalFileStore';
 import { duplicateProjectWithNewIds } from './projects';
 import { buildSnapshot, loadStateSnapshot, saveStateSnapshot } from './storage';
+import {
+  insertMobilePinnedNavAt,
+  moveMobilePinnedNav,
+  removeMobilePinnedNav,
+  sanitizeMobilePinnedNav,
+  type NavPath,
+} from './mobileNavigation';
 import type {
   AnkiDailyLog,
   AppSnapshot,
   AppState,
   CorrectionLink,
+  DayPlan,
   ExamWritingMonthlyTarget,
   ProjectRequirement,
   ProjectStatus,
   StudyProject,
   TechnologyKey,
+  TheoreticalContentItem,
+  TheoreticalContentOwnerType,
   TopicGrade,
   TopicSubmatter,
   TopicStatus,
@@ -65,6 +83,7 @@ const markChanged = (state: AppState): AppState => ({
 
 type Action =
   | { type: 'set-selected-date'; date: string }
+  | { type: 'set-plan-start-date'; startDate: string }
   | { type: 'update-checklist-item'; date: string; itemId: string; done: number }
   | { type: 'set-daily-note'; date: string; notes: string }
   | { type: 'set-topic-status'; topicId: string; status: TopicStatus }
@@ -83,6 +102,27 @@ type Action =
       submatterId: string;
       reviewedAt: string;
     }
+  | { type: 'add-theoretical-content'; item: TheoreticalContentItem }
+  | {
+      type: 'move-theoretical-content';
+      ownerType: TheoreticalContentOwnerType;
+      ownerId: string;
+      itemId: string;
+      direction: 'up' | 'down';
+    }
+  | {
+      type: 'reorder-theoretical-content';
+      ownerType: TheoreticalContentOwnerType;
+      ownerId: string;
+      itemId: string;
+      targetItemId: string;
+    }
+  | {
+      type: 'set-theoretical-content-completed';
+      itemId: string;
+      completedAt: string | null;
+    }
+  | { type: 'remove-theoretical-content'; itemId: string }
   | { type: 'add-correction-link'; link: CorrectionLink }
   | {
       type: 'update-correction-link';
@@ -109,6 +149,10 @@ type Action =
   | { type: 'set-anki-config'; patch: Partial<AppState['ankiConfig']> }
   | { type: 'set-anki-stats'; patch: Partial<AppState['ankiStats']> }
   | { type: 'upsert-anki-daily-log'; log: AnkiDailyLog }
+  | { type: 'set-mobile-pinned-nav'; paths: string[] }
+  | { type: 'pin-mobile-nav-item'; path: string; targetIndex?: number }
+  | { type: 'remove-mobile-nav-item'; path: string }
+  | { type: 'move-mobile-nav-item'; path: string; targetIndex: number }
   | { type: 'import-state'; state: AppState }
   | {
       type: 'record-backup';
@@ -136,6 +180,82 @@ export const appReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'set-selected-date': {
       return { ...state, selectedDate: action.date };
+    }
+    case 'set-mobile-pinned-nav': {
+      const nextPaths = sanitizeMobilePinnedNav(action.paths);
+      if (nextPaths.join('|') === state.shellUi.mobilePinnedNav.join('|')) {
+        return state;
+      }
+
+      return markChanged({
+        ...state,
+        shellUi: {
+          ...state.shellUi,
+          mobilePinnedNav: nextPaths,
+        },
+      });
+    }
+    case 'pin-mobile-nav-item': {
+      const nextPaths = insertMobilePinnedNavAt(
+        state.shellUi.mobilePinnedNav,
+        action.path,
+        action.targetIndex ?? state.shellUi.mobilePinnedNav.length,
+      );
+      if (nextPaths.join('|') === state.shellUi.mobilePinnedNav.join('|')) {
+        return state;
+      }
+
+      return markChanged({
+        ...state,
+        shellUi: {
+          ...state.shellUi,
+          mobilePinnedNav: nextPaths,
+        },
+      });
+    }
+    case 'remove-mobile-nav-item': {
+      const nextPaths = removeMobilePinnedNav(state.shellUi.mobilePinnedNav, action.path);
+      if (nextPaths.join('|') === state.shellUi.mobilePinnedNav.join('|')) {
+        return state;
+      }
+
+      return markChanged({
+        ...state,
+        shellUi: {
+          ...state.shellUi,
+          mobilePinnedNav: nextPaths,
+        },
+      });
+    }
+    case 'move-mobile-nav-item': {
+      const nextPaths = moveMobilePinnedNav(state.shellUi.mobilePinnedNav, action.path, action.targetIndex);
+      if (nextPaths.join('|') === state.shellUi.mobilePinnedNav.join('|')) {
+        return state;
+      }
+
+      return markChanged({
+        ...state,
+        shellUi: {
+          ...state.shellUi,
+          mobilePinnedNav: nextPaths,
+        },
+      });
+    }
+    case 'set-plan-start-date': {
+      if (action.startDate === state.planSettings.startDate) {
+        return state;
+      }
+
+      return markChanged(
+        normalizeStateForCurrentPlan({
+          ...state,
+          planSettings: {
+            ...state.planSettings,
+            startDate: action.startDate,
+            startDateChangeCount: state.planSettings.startDateChangeCount + 1,
+          },
+        }),
+      );
     }
     case 'update-checklist-item': {
       const record = state.dailyRecords[action.date];
@@ -274,6 +394,49 @@ export const appReducer = (state: AppState, action: Action): AppState => {
               : submatter,
           ),
         },
+      });
+    }
+    case 'add-theoretical-content': {
+      return markChanged({
+        ...state,
+        theoreticalContents: [...state.theoreticalContents, action.item],
+      });
+    }
+    case 'move-theoretical-content': {
+      return markChanged({
+        ...state,
+        theoreticalContents: moveTheoreticalContent(state.theoreticalContents, {
+          ownerType: action.ownerType,
+          ownerId: action.ownerId,
+          itemId: action.itemId,
+          direction: action.direction,
+        }),
+      });
+    }
+    case 'reorder-theoretical-content': {
+      return markChanged({
+        ...state,
+        theoreticalContents: reorderTheoreticalContent(state.theoreticalContents, {
+          ownerType: action.ownerType,
+          ownerId: action.ownerId,
+          itemId: action.itemId,
+          targetItemId: action.targetItemId,
+        }),
+      });
+    }
+    case 'set-theoretical-content-completed': {
+      return markChanged({
+        ...state,
+        theoreticalContents: toggleTheoreticalContentCompleted(state.theoreticalContents, {
+          itemId: action.itemId,
+          completedAt: action.completedAt,
+        }),
+      });
+    }
+    case 'remove-theoretical-content': {
+      return markChanged({
+        ...state,
+        theoreticalContents: state.theoreticalContents.filter((item) => item.id !== action.itemId),
       });
     }
     case 'add-correction-link': {
@@ -434,13 +597,18 @@ export const appReducer = (state: AppState, action: Action): AppState => {
 
 interface AppContextValue {
   state: AppState;
-  dayPlans: typeof DAY_PLANS;
-  dayPlansByDate: typeof DAY_PLANS_BY_DATE;
+  dayPlans: DayPlan[];
+  dayPlansByDate: Record<string, DayPlan>;
   topics: typeof TOPICS;
   leafTopics: typeof LEAF_TOPICS;
   coverageMatrix: typeof COVERAGE_MATRIX;
   monthlyTargets: ExamWritingMonthlyTarget[];
+  setMobilePinnedNav: (paths: string[]) => void;
+  pinMobileNavItem: (path: NavPath, targetIndex?: number) => void;
+  removeMobileNavItem: (path: NavPath) => void;
+  moveMobileNavItem: (path: NavPath, targetIndex: number) => void;
   setSelectedDate: (date: string) => void;
+  setPlanStartDate: (date: string) => void;
   updateChecklistItem: (date: string, itemId: string, done: number) => void;
   setDailyNote: (date: string, notes: string) => void;
   setTopicStatus: (topicId: string, status: TopicStatus) => void;
@@ -462,6 +630,29 @@ interface AppContextValue {
   ) => void;
   removeTopicSubmatter: (topicId: string, submatterId: string) => void;
   markTopicSubmatterReviewedToday: (topicId: string, submatterId: string) => void;
+  addTheoreticalContent: (input: {
+    ownerType: TheoreticalContentOwnerType;
+    ownerId: string;
+    topicId: string;
+    submatterId: string | null;
+    files?: File[];
+    pastedMarkdown?: string;
+    pastedLabel?: string;
+  }) => Promise<void>;
+  moveTheoreticalContent: (
+    ownerType: TheoreticalContentOwnerType,
+    ownerId: string,
+    itemId: string,
+    direction: 'up' | 'down',
+  ) => void;
+  reorderTheoreticalContent: (
+    ownerType: TheoreticalContentOwnerType,
+    ownerId: string,
+    itemId: string,
+    targetItemId: string,
+  ) => void;
+  setTheoreticalContentCompleted: (itemId: string, completed: boolean) => void;
+  removeTheoreticalContent: (itemId: string, storageKey: string | null) => Promise<void>;
   addCorrectionLink: (input: Omit<CorrectionLink, 'id' | 'createdAt'>) => void;
   updateCorrectionLink: (
     id: string,
@@ -567,6 +758,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       lastAutoBackupTickRef.current = Date.now();
     }
   }, []);
+
+  const planRuntime = useMemo(
+    () => buildPlanRuntime(state.planSettings.startDate),
+    [state.planSettings.startDate],
+  );
 
   useEffect(() => {
     stateRef.current = state;
@@ -799,13 +995,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo<AppContextValue>(
     () => ({
       state,
-      dayPlans: DAY_PLANS,
-      dayPlansByDate: DAY_PLANS_BY_DATE,
+      dayPlans: planRuntime.dayPlans,
+      dayPlansByDate: planRuntime.dayPlansByDate,
       topics: TOPICS,
       leafTopics: LEAF_TOPICS,
       coverageMatrix: COVERAGE_MATRIX,
-      monthlyTargets: MONTHLY_TARGETS_FROM_DAY_PLANS,
+      monthlyTargets: planRuntime.monthlyTargets,
+      setMobilePinnedNav: (paths) => dispatch({ type: 'set-mobile-pinned-nav', paths }),
+      pinMobileNavItem: (path, targetIndex) => dispatch({ type: 'pin-mobile-nav-item', path, targetIndex }),
+      removeMobileNavItem: (path) => dispatch({ type: 'remove-mobile-nav-item', path }),
+      moveMobileNavItem: (path, targetIndex) => dispatch({ type: 'move-mobile-nav-item', path, targetIndex }),
       setSelectedDate: (date) => dispatch({ type: 'set-selected-date', date }),
+      setPlanStartDate: (date) => dispatch({ type: 'set-plan-start-date', startDate: date }),
       updateChecklistItem: (date, itemId, done) =>
         dispatch({ type: 'update-checklist-item', date, itemId, done }),
       setDailyNote: (date, notes) => dispatch({ type: 'set-daily-note', date, notes }),
@@ -845,6 +1046,92 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           submatterId,
           reviewedAt: getTodayIsoDate(),
         }),
+      addTheoreticalContent: async (input) => {
+        let nextOrder = getNextTheoreticalContentOrder(
+          stateRef.current.theoreticalContents,
+          input.ownerType,
+          input.ownerId,
+        );
+
+        const files = [...(input.files ?? [])];
+        if (input.pastedMarkdown && input.pastedMarkdown.trim().length > 0) {
+          files.push(
+            createPastedMarkdownFile({
+              markdown: input.pastedMarkdown,
+              fallbackLabel: input.pastedLabel ?? 'Aula colada',
+            }),
+          );
+        }
+
+        for (const file of files) {
+          const kind = inferTheoreticalContentKind(file.name, file.type);
+          if (!kind) {
+            throw new Error('Apenas arquivos .md e .pdf sao aceitos no conteudo teorico.');
+          }
+
+          const itemId = createId();
+          const timestamp = nowIso();
+          const storageKey = `theoretical-content-${itemId}`;
+          await saveTheoreticalContentBinary({ storageKey, file });
+          const itemLabel =
+            kind === 'markdown' && input.pastedMarkdown && files.length === 1
+              ? getPastedMarkdownLabel(input.pastedMarkdown, input.pastedLabel ?? 'Aula colada')
+              : file.name;
+          dispatch({
+            type: 'add-theoretical-content',
+            item: {
+              id: itemId,
+              ownerType: input.ownerType,
+              ownerId: input.ownerId,
+              topicId: input.topicId,
+              submatterId: input.submatterId,
+              filename: file.name,
+              label: itemLabel,
+              kind,
+              mimeType: file.type,
+              storageKey,
+              sizeBytes: file.size,
+              order: nextOrder,
+              completedAt: null,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            },
+          });
+          nextOrder += 1;
+        }
+      },
+      moveTheoreticalContent: (ownerType, ownerId, itemId, direction) =>
+        dispatch({
+          type: 'move-theoretical-content',
+          ownerType,
+          ownerId,
+          itemId,
+          direction,
+        }),
+      reorderTheoreticalContent: (ownerType, ownerId, itemId, targetItemId) =>
+        dispatch({
+          type: 'reorder-theoretical-content',
+          ownerType,
+          ownerId,
+          itemId,
+          targetItemId,
+        }),
+      setTheoreticalContentCompleted: (itemId, completed) =>
+        dispatch({
+          type: 'set-theoretical-content-completed',
+          itemId,
+          completedAt: completed ? getTodayIsoDate() : null,
+        }),
+      removeTheoreticalContent: async (itemId, storageKey) => {
+        if (storageKey) {
+          try {
+            await removeTheoreticalContentBinary(storageKey);
+          } catch (error) {
+            console.error('Falha ao remover arquivo teorico', error);
+          }
+        }
+        dispatch({ type: 'remove-theoretical-content', itemId });
+      },
       addCorrectionLink: (input) =>
         dispatch({
           type: 'add-correction-link',
@@ -971,7 +1258,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
       },
     }),
-    [cloudSync, persistSnapshot, state, syncSnapshotToCloud],
+    [cloudSync, persistSnapshot, planRuntime, state, syncSnapshotToCloud],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -985,5 +1272,4 @@ export const useAppContext = (): AppContextValue => {
 
   return context;
 };
-
 

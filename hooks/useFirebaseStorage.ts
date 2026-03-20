@@ -26,9 +26,16 @@ export function useFirebaseStorage<T>(
     const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const firestoreAvailable = Boolean(db);
 
     // Gerenciar autenticação
     useEffect(() => {
+        if (!firestoreAvailable) {
+            setLoading(false);
+            setError('Firestore indisponível neste ambiente local');
+            return () => { };
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (!user) {
@@ -46,11 +53,11 @@ export function useFirebaseStorage<T>(
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [firestoreAvailable]);
 
     // Carregar dados iniciais e configurar listener em tempo real
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !firestoreAvailable) return;
 
         setLoading(true);
         const docRef = doc(db, 'users', userId, 'data', key);
@@ -89,13 +96,18 @@ export function useFirebaseStorage<T>(
         );
 
         return () => unsubscribe();
-    }, [userId, key, initialValue]);
+    }, [userId, key, initialValue, firestoreAvailable]);
 
     // Função para atualizar valor
     const setValue = useCallback(
         async (value: T | ((val: T) => T)) => {
             if (!userId) {
                 console.warn('Tentando salvar sem usuário autenticado');
+                return;
+            }
+
+            if (!firestoreAvailable) {
+                setError('Firestore indisponível neste ambiente local');
                 return;
             }
 
@@ -122,7 +134,7 @@ export function useFirebaseStorage<T>(
                 // O listener irá restaurar o valor correto do servidor
             }
         },
-        [userId, key, storedValue]
+        [userId, key, storedValue, firestoreAvailable]
     );
 
     return [storedValue, setValue, { loading, error }];

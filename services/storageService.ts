@@ -16,6 +16,23 @@ export interface DrawingUploadResult {
     storagePath: string;   // Path for deletion
 }
 
+type UploadTarget = {
+    contentType: string;
+    extension: string;
+};
+
+const resolveUploadTarget = (blob: Blob): UploadTarget => {
+    if (blob.type === 'image/webp') {
+        return { contentType: 'image/webp', extension: 'webp' };
+    }
+
+    if (blob.type === 'image/png') {
+        return { contentType: 'image/png', extension: 'png' };
+    }
+
+    return { contentType: 'image/jpeg', extension: 'jpg' };
+};
+
 /**
  * Converts a canvas to a compressed Blob
  */
@@ -55,11 +72,12 @@ export async function uploadDrawing(
         throw new Error('Usuário não autenticado');
     }
 
-    const storagePath = `drawings/${userId}/${entryId}/${pageId}.jpg`;
+    const uploadTarget = resolveUploadTarget(blob);
+    const storagePath = `drawings/${userId}/${entryId}/${pageId}.${uploadTarget.extension}`;
     const storageRef = ref(storage, storagePath);
 
     await uploadBytes(storageRef, blob, {
-        contentType: 'image/jpeg',
+        contentType: uploadTarget.contentType,
         customMetadata: {
             uploadedAt: new Date().toISOString(),
         }
@@ -98,7 +116,6 @@ export async function uploadDrawingFromDataUrl(
 
         if (compressRes.ok) {
             const optimizedBlob = await compressRes.blob();
-            // Optional: You could update the storagePath extension here if desired
             return uploadDrawing(entryId, pageId, optimizedBlob);
         } else {
             console.warn("Python API compression failed. Falling back to client-side blob.");
@@ -178,11 +195,12 @@ export async function uploadGameStoryImage(
          console.warn("Python API compression error. Falling back to client-side blob.", e);
     }
 
-    const storagePath = `game-stories/${userId}/${gameId}/${storyId}.jpg`;
+    const uploadTarget = resolveUploadTarget(blob);
+    const storagePath = `game-stories/${userId}/${gameId}/${storyId}.${uploadTarget.extension}`;
     const storageRef = ref(storage, storagePath);
 
     await uploadBytes(storageRef, blob, {
-        contentType: 'image/jpeg',
+        contentType: uploadTarget.contentType,
         customMetadata: {
             uploadedAt: new Date().toISOString(),
             source: 'game-story'

@@ -1,6 +1,8 @@
 import { useAppContext } from '../app/AppContext';
 import { countCompletedItemById } from '../app/progress';
 import { formatIsoDatePtBr } from '../app/formatters';
+import { PageIntro } from '../components/PageIntro';
+import { SectionCard } from '../components/SectionCard';
 
 export const SimuladosPage = () => {
   const { state, dayPlans, updateChecklistItem, monthlyTargets } = useAppContext();
@@ -14,31 +16,29 @@ export const SimuladosPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header">
-        <h2>Simulados e Redações</h2>
-        <p>Metas mensais derivadas automaticamente do cronograma diário executável.</p>
-      </header>
+      <PageIntro
+        kicker="Calendário operacional"
+        title="Simulados e Redações"
+        description="Metas mensais, cadência real e eventos efetivos derivados automaticamente do cronograma diário."
+      />
 
       <div className="grid-2">
-        <article className="panel">
-          <h3>Meta total</h3>
+        <SectionCard as="article" kicker="Volume" title="Meta total">
           <p>
             Simulados: <strong>{totalSimuladosDone}/{totalSimuladosTarget}</strong>
           </p>
           <p>
             Redações: <strong>{totalRedacoesDone}/{totalRedacoesTarget}</strong>
           </p>
-        </article>
+        </SectionCard>
 
-        <article className="panel">
-          <h3>Regra operacional</h3>
+        <SectionCard as="article" kicker="Operação" title="Regra operacional">
           <p>Dia de simulado: questões objetivas podem ser substituídas.</p>
           <p>Dias de redação seguem a meta específica definida no plano daquela data.</p>
-        </article>
+        </SectionCard>
       </div>
 
-      <div className="panel table-wrap">
-        <h3>Cadência mensal oficial</h3>
+      <SectionCard className="table-wrap" kicker="Cadência" title="Cadência mensal oficial">
         <table className="table">
           <thead>
             <tr>
@@ -61,10 +61,9 @@ export const SimuladosPage = () => {
             ))}
           </tbody>
         </table>
-      </div>
+      </SectionCard>
 
-      <div className="panel">
-        <h3>Calendário efetivo de eventos</h3>
+      <SectionCard kicker="Timeline" title="Calendário efetivo de eventos">
         <div className="event-list">
           {eventDays.map((day) => {
             const record = state.dailyRecords[day.date];
@@ -111,7 +110,7 @@ export const SimuladosPage = () => {
             );
           })}
         </div>
-      </div>
+      </SectionCard>
     </section>
   );
 };

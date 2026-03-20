@@ -1,4 +1,10 @@
 import { parseIsoDate, toIsoDate } from '../app/dateUtils';
+import { START_DATE } from '../app/constants';
+import {
+  getManualBlockContentSummary,
+  resolveManualBlockContentRefs,
+  resolveManualBlockContentTargets,
+} from '../app/manualPlanContentRefs';
 import type { ManualBlock, ManualChecklistSpecItem, SubjectKey } from '../app/types';
 
 export interface ManualDayOverride {
@@ -25,7 +31,7 @@ interface ManualWeekTemplate {
   days: ManualDayTemplate[];
 }
 
-export const MANUAL_PLAN_START_DATE = '2026-03-14';
+export const MANUAL_PLAN_START_DATE = START_DATE;
 export const MANUAL_PLAN_END_DATE = '2026-11-19';
 
 const MANUAL_WEEK_TEMPLATES: ManualWeekTemplate[] = [
@@ -4563,39 +4569,29 @@ const MANUAL_WEEK_TEMPLATES: ManualWeekTemplate[] = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const addStudyDaysSkippingSundays = (startDate: string, studyDayOffset: number): string => {
-  let current = parseIsoDate(startDate);
+const buildWeekActiveDates = (planStartDate: string, weekNumber: number): string[] => {
+  const start = parseIsoDate(planStartDate);
+  const weekStart = new Date(start.getTime() + (weekNumber - 1) * 7 * DAY_MS);
+  const activeDates: string[] = [];
 
-  if (studyDayOffset === 0) {
-    return toIsoDate(current);
-  }
-
-  let remaining = studyDayOffset;
-
-  while (remaining > 0) {
-    current = new Date(current.getTime() + DAY_MS);
+  for (let offset = 0; offset < 7; offset += 1) {
+    const current = new Date(weekStart.getTime() + offset * DAY_MS);
     if (current.getUTCDay() === 0) {
       continue;
     }
-
-    remaining -= 1;
+    activeDates.push(toIsoDate(current));
   }
 
-  return toIsoDate(current);
+  return activeDates;
 };
 
 const buildDateForWeekday = (
   weekNumber: number,
   weekday: ManualDayTemplate['weekday'],
-  startDate?: string,
+  planStartDate: string,
 ): string => {
-  if (startDate) {
-    const start = parseIsoDate(startDate);
-    return toIsoDate(new Date(start.getTime() + (weekday - 1) * DAY_MS));
-  }
-
-  const studyDayOffset = (weekNumber - 1) * 6 + (weekday - 1);
-  return addStudyDaysSkippingSundays(MANUAL_PLAN_START_DATE, studyDayOffset);
+  const activeDates = buildWeekActiveDates(planStartDate, weekNumber);
+  return activeDates[Math.max(0, weekday - 1)] ?? activeDates[activeDates.length - 1];
 };
 
 const mapAreaToSubject = (area: string): SubjectKey | null => {
@@ -4650,10 +4646,12 @@ const buildManualChecklistSpec = (
 ): ManualChecklistSpecItem[] => {
   const checklist: ManualChecklistSpecItem[] = blocks.map((block, index) => {
     const detailSuffix = block.detail ? ` - ${block.detail}` : '';
+    const refsSummary = getManualBlockContentSummary(block);
+    const contentSuffix = refsSummary ? ` | Conteúdo programático: ${refsSummary}` : '';
 
     return {
       id: `manual-block-${index + 1}`,
-      label: `${block.area}: ${block.title}${detailSuffix}`,
+      label: `${block.area}: ${block.title}${detailSuffix}${contentSuffix}`,
       kind: 'boolean',
       target: 1,
       unit: 'ok',
@@ -4698,15 +4696,21 @@ const buildManualChecklistSpec = (
   return checklist;
 };
 
-export const buildManualDayOverrides = (): Record<string, ManualDayOverride> => {
+export const buildManualDayOverrides = (
+  planStartDate: string = MANUAL_PLAN_START_DATE,
+): Record<string, ManualDayOverride> => {
   return MANUAL_WEEK_TEMPLATES.reduce<Record<string, ManualDayOverride>>((accumulator, week) => {
     for (const day of week.days) {
-      const date = buildDateForWeekday(week.weekNumber, day.weekday, week.startDate);
+      const date = buildDateForWeekday(week.weekNumber, day.weekday, planStartDate);
       const hasSimulado = day.hasSimulado ?? false;
       const hasRedacao = day.hasRedacao ?? false;
       const objectiveQuestions = day.objectiveQuestions ?? (hasSimulado ? 0 : 50);
 
-      const manualBlocks = day.blocks.map((block) => ({ ...block }));
+      const manualBlocks = day.blocks.map((block) => ({
+        ...block,
+        contentTargets: resolveManualBlockContentTargets(block),
+        contentRefs: resolveManualBlockContentRefs(block),
+      }));
 
       accumulator[date] = {
         weekNumber: week.weekNumber,
@@ -4729,3 +4733,26 @@ export const buildManualDayOverrides = (): Record<string, ManualDayOverride> => 
 };
 
 export const MANUAL_WEEK_COUNT = MANUAL_WEEK_TEMPLATES.length;
+
+export const MANUAL_TOPIC_SEARCH_ALIASES_BY_ID = MANUAL_WEEK_TEMPLATES.reduce<Record<string, string[]>>(
+  (accumulator, week) => {
+    for (const day of week.days) {
+      for (const block of day.blocks) {
+        const aliases = [`${block.area} ${block.title}`, block.title, block.detail, `${block.title} ${block.detail}`]
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+        for (const target of resolveManualBlockContentTargets(block)) {
+          const current = accumulator[target.topicId] ?? [];
+          accumulator[target.topicId] = Array.from(new Set([...current, ...aliases]));
+        }
+      }
+    }
+
+    return accumulator;
+  },
+  {},
+);
+
+export const getManualTopicSearchAliases = (topicId: string): string[] =>
+  MANUAL_TOPIC_SEARCH_ALIASES_BY_ID[topicId] ?? [];

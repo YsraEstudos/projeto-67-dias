@@ -101,11 +101,12 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
         setIsProcessing(true);
         try {
             const data: Record<string, any> = {};
+            const firestoreAvailable = Boolean(db);
 
             for (const key of selectedKeys) {
                 let value: any = null;
 
-                if (userId) {
+                if (userId && firestoreAvailable) {
                     const ref = doc(db, 'users', userId, 'data', key);
                     const snap = await getDoc(ref);
                     if (snap.exists()) {
@@ -187,7 +188,8 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({ isOpen
         }
 
         setIsProcessing(true);
-        const batch = userId ? writeBatch(db) : null;
+        const firestoreAvailable = Boolean(db);
+        const batch = userId && firestoreAvailable ? writeBatch(db) : null;
         let hasUpdates = false;
 
         try {

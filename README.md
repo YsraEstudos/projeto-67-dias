@@ -1,101 +1,140 @@
-# Projeto 67 Dias - Dashboard de Produtividade
+# Projeto 67 Dias
 
-Um painel de controle de vida abrangente focado em produtividade, hábitos e bem-estar, construído com React, Tailwind CSS e Recharts.
+Repositório principal do painel de produtividade "Projeto 67 Dias" e do app standalone `CONCURSO`, usado para o plano de estudos do TRT 4.
 
-## 🚀 Visão Geral
+## Visão geral
 
-O **Projeto 67 Dias** é uma aplicação web "Single Page Application" (SPA) que funciona como um hub central para diversas micro-ferramentas:
-- **Trabalho:** Gerenciador de tarefas focado.
-- **Descanso:** Temporizadores Pomodoro e exercícios de respiração.
-- **Ferramentas:** Utilitários como calculadora e conversores.
-- **Progresso:** Visualização de dados com gráficos.
-- **Leitura:** Acompanhamento de livros.
+Este repositório tem duas frentes que convivem no mesmo workspace:
 
-## 🛠 Tecnologias
+- App raiz em `/`: SPA principal de produtividade, hábitos, leitura, diário, progresso, jogos e arena interna de concurso.
+- App `CONCURSO/`: SPA independente do plano TRT 4, publicada em `/concurso` e também acessível a partir do card `Concurso` no dashboard principal.
 
-- **React 19+**: Core do frontend.
-- **Tailwind CSS**: Estilização utilitária (Tema Dark/Slate).
-- **Lucide React**: Ícones consistentes e leves.
-- **Recharts**: Biblioteca de gráficos para visualização de dados.
-- **@dnd-kit**: Drag-and-drop acessível para reordenação de itens.
-- **Zustand**: Gerenciamento de estado leve e reativo.
-- **Zod**: Validação de schemas para formulários e importação de dados.
-- **Firebase**: Autenticação e Firestore para persistência.
-- **Metas Extras:** Sistema integrado para converter tempo ocioso em produtividade, permitindo selecionar e completar tarefas/hábitos menores durante sessões de trabalho.
-- **Lazy Loading:** Otimização de performance via `React.lazy` e `Suspense`.
-- **Mobile First:** Interface touchscreen otimizada, garantindo que ações de hover sejam acessíveis em dispositivos móveis.
+## App raiz
 
-## ▶️ Rodando Localmente
+### Módulos do dashboard
 
-No Windows, use `install-and-run.bat`, `run-dev.bat` ou `start-local.bat`.
+- `Trabalho`
+- `Ajeitar Rápido`
+- `Meus Links`
+- `Leitura`
+- `Habilidades (Skill Tree)`
+- `Hábitos & Tarefas`
+- `Diário & Reflexões`
+- `Progresso & Revisão`
+- `Planejador de Descansos`
+- `Ferramentas`
+- `Central de Jogos`
+- `Concurso`
 
-Esse fluxo agora:
-- garante/cria o `.env.local` automaticamente
-- cria um `.venv` Python local
-- instala as dependências do frontend e da API
-- sobe a API FastAPI em `http://127.0.0.1:8000`
-- sobe o Vite em `http://127.0.0.1:3000`
+### Arquitetura atual
 
-Durante o desenvolvimento, o Vite faz proxy de `/api/*` para a API Python local, então recursos como compressão de imagem funcionam antes do deploy.
+- SPA React 19 + Vite + TypeScript.
+- Navegação dirigida por estado em `App.tsx`; o app raiz não usa `react-router`.
+- Estado segmentado por domínio com Zustand em `stores/`.
+- Sincronização Firestore-first via `stores/firestoreSync.ts`.
+- Cache persistente multiaba do Firestore via `persistentLocalCache` + `persistentMultipleTabManager`.
+- Autenticação com email/senha, Google e convidado; em desenvolvimento local existe fallback para convidado local quando a autenticação anônima do Firebase não está disponível.
+- PWA via `vite-plugin-pwa`.
+- API Python em `api/compress.py` para compressão avançada de imagens quando o fluxo precisa enviar arquivos ao Firebase Storage.
 
-Se o `.env.local` ainda estiver incompleto, o script interrompe a execução e abre o arquivo para revisão.
+### Sincronização e persistência
 
+- Debounce padrão de escrita: `15s`.
+- Overrides por store para fluxos mais sensíveis: `5s`, `10s` ou `25s`, conforme o domínio.
+- Stores de tempo real usam janela reduzida de `1.5s`.
+- Não existe mais a dependência antiga de um cache manual global em `localStorage`; o fluxo principal é Firestore + cache local do SDK.
 
-## 📂 Estrutura de Arquivos
+## App `CONCURSO`
 
+O diretório `CONCURSO/` contém o app standalone do plano TRT 4.
+
+- Usa React 19 + React Router + TypeScript.
+- Período atual do plano: `14/03/2026` a `19/11/2026`.
+- O app raiz possui uma view interna de concurso com duas frentes:
+  - `Competição`: arena interna dentro do próprio dashboard principal.
+  - `Materiais`: ponte para o app standalone e arquivos auxiliares.
+- O `Conteúdo Pragmático` do standalone agora também organiza conteúdo teórico `.md` e `.pdf` por matéria e submatéria, com download `.zip` por contexto e global.
+
+### Relação entre `CONCURSO/` e `/concurso`
+
+- O código-fonte do app standalone fica em `CONCURSO/src`.
+- A rota `/concurso` servida pelo app raiz usa a cópia estática em `public/concurso`.
+- Em desenvolvimento local, `vite.config.ts` força `/concurso` a usar `public/concurso/index.html` para refletir exatamente o bundle estático publicado.
+- Sempre que o app standalone for alterado, rode o build dentro de `CONCURSO/` e sincronize a saída para `public/concurso/`.
+
+## Rodando localmente
+
+### Fluxo recomendado no Windows
+
+Use o script da raiz:
+
+- `start-local.bat`
+
+Esse fluxo prepara `.env.local`, instala dependências do frontend e da API local, sobe a API FastAPI em `http://127.0.0.1:8000` e o Vite raiz em `http://127.0.0.1:3000`.
+
+### App raiz manualmente
+
+```bash
+npm install
+npm run dev
 ```
-/
-├── index.html              # Ponto de entrada
-├── index.tsx               # Renderização do React Root
-├── App.tsx                 # Layout Principal, Roteamento (State-based) e Lazy Loading
-├── types.ts                # Definições de Tipos TypeScript e Enums
-├── components/
-│   ├── Card.tsx            # Componente de cartão do Dashboard (Memoized)
-│   ├── shared/             # Componentes reutilizáveis
-│   │   ├── Loading.tsx     # Spinner de carregamento
-│   │   └── Placeholder.tsx # View genérica para telas em construção
-│   └── views/              # Micro-apps (Carregados sob demanda)
-│       ├── WorkView.tsx
-│       ├── RestView.tsx
-│       ├── ToolsView.tsx
-│       ├── ReadingView.tsx
-│       └── ProgressView.tsx
+
+Observação: sem a API local em `127.0.0.1:8000`, fluxos que dependem de `/api/compress` ficam sem o passo avançado de compressão, embora exista fallback cliente em alguns casos.
+
+### App `CONCURSO` manualmente
+
+```bash
+cd CONCURSO
+npm install
+npm run dev
 ```
 
-## ⚡ Performance
+O servidor standalone usa HTTPS local na porta `5173` e base `/concurso/`.
 
-O projeto utiliza **Code Splitting**. As views (Trabalho, Descanso, etc.) não são carregadas no bundle inicial. Elas são baixadas apenas quando o usuário clica no cartão correspondente no dashboard, garantindo um carregamento inicial extremamente rápido.
+## Build e publicação
 
-## 🔄 Sincronização Firestore
+### App raiz
 
-A aplicação usa uma arquitetura **Firestore-first** com sincronização em tempo real:
+```bash
+npm run build
+npm test
+```
 
-### Fluxo de Dados
-1. **Writes**: Todas as mutações passam por `writeToFirestore()` com debounce de 300ms
-2. **Reads**: Subscriptions via `onSnapshot` mantêm dados sempre atualizados
-3. **Offline**: SDK do Firebase gerencia cache IndexedDB automaticamente
+Deploy principal:
 
-### Indicador de Sincronização
-O `SyncStatusIndicator` no header mostra:
-- 🔵 **Sincronizando...** - Writes pendentes sendo processados
-- ✅ **Salvo** - Todos os dados sincronizados
-- ⚪ **Offline** - Sem conexão (writes serão enviados quando online)
+- `netlify.toml`: build do app raiz e headers de segurança.
+- `vercel.json`: rewrite de SPA e encaminhamento de `/api/*` para `api/compress.py`.
 
-### Stores Zustand
-Cada store (`habitsStore`, `linksStore`, etc.) segue o padrão:
-- `_syncToFirestore()` - Envia estado para nuvem (debounced)
-- `_hydrateFromFirestore()` - Recebe dados da nuvem (via subscription)
-- `_initialized` flag evita overwrites acidentais durante hidratação
+### App `CONCURSO`
 
-### Versionamento de Schema
-Para evitar dados obsoletos após deploys, o arquivo `App.tsx` possui a constante `APP_SCHEMA_VERSION`. Ao ser incrementada, o app limpa automaticamente o cache local do usuário.
+```bash
+cd CONCURSO
+npm run build
+```
 
-## 🎨 Design System
+Depois do build, sincronize o conteúdo gerado com `public/concurso/` para que a rota publicada `/concurso` fique alinhada com o código mais recente.
 
-- **Fundo**: Slate-950 (`#020617`)
-- **Cartões/Surface**: Slate-800 (`#1e293b`) com bordas Slate-700.
-- **Acentos**: Cores vibrantes (Cyan, Orange, Purple) usadas para categorizar as áreas da vida.
-- **Tipografia**: Inter (Google Fonts).
+## Variáveis de ambiente
 
----
-Desenvolvido para o desafio de 67 dias.
+Obrigatórias para o app raiz:
+
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+
+Opcional:
+
+- `VITE_FIREBASE_MEASUREMENT_ID`
+
+`VITE_GEMINI_API_KEY` ainda aparece no helper `scripts/ensure-local-env.ps1` como chave opcional legada, mas não é dependência ativa do runtime atual.
+
+## Mapa de documentação
+
+- `AI_CONTEXT.md`: visão técnica curta e atualizada para manutenção.
+- `CONCURSO/README.md`: funcionamento e publicação do app standalone do concurso.
+- `COMPRESSION_DOCS.md`: fluxos atuais de compressão de imagem.
+- `PLANO_AUDITORIA_PROGRESSO_REVISAO.md`: status atual da auditoria de métricas semanais.
+- `ROADMAP_AI_GUIDE.md`: regras e estrutura do roadmap assistido por IA.

@@ -1,75 +1,54 @@
-# Plano de Correção — Progresso e Revisão
+# Auditoria de Progresso e Revisao
 
-## Diagnóstico rápido
-Após revisar o fluxo de `ProgressView` + `weeklySnapshot`, há lacunas importantes entre a lógica real do app e o que é exibido no Progresso/Revisão:
+Status atualizado da auditoria do fluxo `ProgressView` + `weeklySnapshot`.
 
-1. **Sites/Links não entram nas métricas semanais**
-   - O snapshot semanal considera hábitos, skills, leitura, tarefas, jogos e diário.
-   - Não há captura de uso/progresso do módulo de Sites/Links.
+## O que ja foi corrigido
 
-2. **Diário está fixo como zero no snapshot**
-   - `journalEntryCount` está hardcoded como `0` no fluxo de geração.
-   - Isso força “Sem Reflexões no Diário” mesmo quando há uso real do diário.
+### Diario
 
-3. **Métricas “semanais” parcialmente acumuladas**
-   - Leitura usa valor acumulado total (`books.current`) por limitação de histórico por data.
-   - Tarefas usam total concluído geral, não recorte semanal real.
+O snapshot semanal ja considera quantidade real de entradas do diario na semana. O hardcode antigo em zero nao representa mais o estado atual.
 
-4. **Confirmação/Revisão não cobre todos os domínios do app**
-   - Modal/Card exibem subconjunto de módulos.
-   - Falta transparência para o usuário sobre o que está (ou não está) sendo pontuado.
+### Sites e links
 
----
+O fluxo atual ja injeta no snapshot semanal os contadores de:
 
-## Plano proposto (priorizado)
+- sites atualizados na semana
+- links clicados na semana
 
-### Fase 1 — Correção de precisão (alto impacto)
-1. **Conectar Diário real ao snapshot**
-   - Ler entradas da `journalStore` e calcular quantidade da semana atual.
-   - Remover `journalEntryCount = 0` hardcoded.
+### Leitura
 
-2. **Tornar tarefas realmente semanais**
-   - Adicionar campo de data de conclusão (se necessário) e filtrar por intervalo da semana.
-   - Ajustar cálculo em `captureWeeklyMetrics`.
+O resumo semanal ja usa `logs` de leitura para calcular progresso semanal de livros, em vez de depender apenas do valor acumulado total.
 
-3. **Leitura semanal real**
-   - Persistir histórico de leitura por dia/sessão (páginas lidas por data).
-   - Trocar cálculo acumulado por soma no intervalo semanal.
+### Tarefas
 
-### Fase 2 — Cobertura de módulos (visibilidade completa)
-4. **Adicionar Sites/Links no modelo de snapshot**
-   - Estender `WeeklyMetrics` com campos de Sites/Links (ex.: links adicionados, revisitados, categorizados).
-   - Atualizar `calculateOverallScore` e pesos com versão de migração.
+O recorte semanal de tarefas passou a considerar `completedAt` e, quando necessario, fallback em `createdAt`.
 
-5. **Exibir claramente o que conta no score**
-   - Incluir seção “Componentes do Score” no `SnapshotConfirmationModal` e no card semanal.
-   - Mostrar módulos não contabilizados (badge “não incluído”).
+## Como o fluxo funciona hoje
 
-### Fase 3 — Confiabilidade e migração
-6. **Migração de snapshots antigos**
-   - Estratégia backward-compatible para snapshots sem campos novos.
-   - Defaults seguros para evitar quebra de UI/gráficos.
+- `ProgressView` calcula contadores da semana atual a partir das stores carregadas.
+- `generateWeeklySnapshot` recebe esses contadores e monta o snapshot persistido.
+- `weeklySnapshot.ts` ainda agrega algumas metricas a partir do estado atual e do historico disponivel.
 
-7. **Cobertura de testes**
-   - Testes unitários para `captureWeeklyMetrics` com recorte semanal real.
-   - Testes de integração para confirmação de snapshot exibindo todos os módulos.
-   - Regressão para impedir retorno de valores hardcoded.
+## O que ainda merece atencao
 
-### Fase 4 — UX de revisão
-8. **Painel de auditoria de dados por semana**
-   - Exibir “origem do dado” por métrica (store/campo/período).
-   - Ajudar usuário a confiar no resultado da revisão.
+### Nem toda metrica nasce no mesmo ponto
 
-9. **Alertas de inconsistência**
-   - Sinalizar quando algum módulo não possui histórico suficiente para cálculo semanal correto.
+Sites e links entram no snapshot pelo fluxo de geracao final, nao por uma captura unica e centralizada dentro de `captureWeeklyMetrics`.
 
----
+### Alguns dominios ainda dependem de proxy temporal
 
-## Critérios de aceite
-- Progresso/Revisão exibem **todos os módulos definidos como parte da jornada**.
-- Cada métrica semanal usa dados com recorte temporal real (sem acumulado indevido).
-- Usuário consegue identificar com clareza:
-  - o que conta no score,
-  - o que não conta,
-  - e por quê.
-- Testes automatizados cobrindo geração de snapshot e renderização das métricas.
+Quando um modulo nao possui historico detalhado por evento, parte da leitura do "que aconteceu nesta semana" ainda depende de timestamps como `updatedAt`.
+
+### Transparencia da pontuacao pode melhorar
+
+A revisao semanal ainda pode explicar melhor para o usuario:
+
+- o que conta no score
+- o que nao conta
+- qual foi a origem de cada metrica
+
+## Proximos passos recomendados
+
+1. Centralizar mais campos do snapshot em uma etapa unica de captura semanal.
+2. Exibir na UI quais modulos entram no score e quais sao apenas informativos.
+3. Adicionar testes de regressao para impedir retorno de hardcodes antigos.

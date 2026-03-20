@@ -9,7 +9,6 @@ import { enumerateDateRange, getWeekday, isSunday, monthKeyOf } from './dateUtil
 import type { DayPlan, DayTargets, ExamWritingMonthlyTarget, SubjectKey } from './types';
 import {
   buildManualDayOverrides,
-  MANUAL_PLAN_END_DATE,
   MANUAL_PLAN_START_DATE,
 } from '../data/manualDailyPlan';
 
@@ -124,8 +123,8 @@ const buildTargets = (isRestDay: boolean, hasSimulado: boolean, hasRedacao: bool
   };
 };
 
-const buildAutomaticDayPlans = (): DayPlan[] => {
-  const allDates = enumerateDateRange(START_DATE, END_DATE);
+const buildAutomaticDayPlans = (planStartDate: string = START_DATE): DayPlan[] => {
+  const allDates = enumerateDateRange(planStartDate, END_DATE);
   const activeDates = allDates.filter((date) => !isSunday(date));
   const { simuladoDates, redacaoDates } = buildEventDistribution(activeDates);
 
@@ -176,11 +175,14 @@ const buildManualTargets = (objectiveQuestions: number): DayTargets => ({
   objectiveQuestions,
 });
 
-const applyManualOverrides = (automaticPlans: DayPlan[]): DayPlan[] => {
-  const manualOverrides = buildManualDayOverrides();
+const applyManualOverrides = (
+  automaticPlans: DayPlan[],
+  planStartDate: string = START_DATE,
+): DayPlan[] => {
+  const manualOverrides = buildManualDayOverrides(planStartDate);
 
   return automaticPlans.map((plan) => {
-    if (plan.date < MANUAL_PLAN_START_DATE || plan.date > MANUAL_PLAN_END_DATE) {
+    if (plan.date < planStartDate || plan.date < MANUAL_PLAN_START_DATE) {
       return plan;
     }
 
@@ -207,9 +209,9 @@ const applyManualOverrides = (automaticPlans: DayPlan[]): DayPlan[] => {
   });
 };
 
-export const buildDayPlans = (): DayPlan[] => {
-  const automaticPlans = buildAutomaticDayPlans();
-  return applyManualOverrides(automaticPlans);
+export const buildDayPlans = (planStartDate: string = START_DATE): DayPlan[] => {
+  const automaticPlans = buildAutomaticDayPlans(planStartDate);
+  return applyManualOverrides(automaticPlans, planStartDate);
 };
 
 export const buildMonthlyTargetsFromDayPlans = (

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createInitialState, normalizeStateForCurrentPlan } from '../app/seed';
+import { appReducer } from '../app/AppContext';
+import { createInitialState, normalizeStateForCurrentPlan, TOPICS } from '../app/seed';
+import { DEFAULT_MOBILE_PINNED_NAV } from '../app/mobileNavigation';
 import { buildSnapshot, loadStateSnapshot, saveStateSnapshot } from '../app/storage';
 import { FALLBACK_BACKUP_KEY, STORAGE_KEY } from '../app/constants';
 
@@ -53,6 +55,7 @@ describe('snapshot storage', () => {
     const state = createInitialState();
     const legacyLike = {
       ...state,
+      planSettings: { ...state.planSettings },
       ankiConfig: { ...state.ankiConfig },
       ankiStats: {
         newCardsAdded: 10,
@@ -62,9 +65,110 @@ describe('snapshot storage', () => {
 
     delete (legacyLike.ankiConfig as { pauseWeekdays?: unknown }).pauseWeekdays;
     delete (legacyLike.ankiStats as { dailyLogs?: unknown }).dailyLogs;
+    delete (legacyLike as { planSettings?: unknown }).planSettings;
+    delete (legacyLike as { shellUi?: unknown }).shellUi;
 
     const normalized = normalizeStateForCurrentPlan(legacyLike);
+    expect(normalized.planSettings.startDate).toBe('2026-03-14');
+    expect(normalized.planSettings.startDateChangeCount).toBe(0);
+    expect(normalized.shellUi.mobilePinnedNav).toEqual(DEFAULT_MOBILE_PINNED_NAV);
     expect(normalized.ankiConfig.pauseWeekdays).toEqual([]);
     expect(normalized.ankiStats.dailyLogs).toEqual({});
+  });
+
+  it('normaliza mobilePinnedNav com deduplicacao, validacao e limite maximo', () => {
+    const state = createInitialState();
+    state.shellUi.mobilePinnedNav = [
+      '/',
+      '/plano-diario',
+      '/plano-diario',
+      '/conteudo',
+      '/anki',
+      '/simulados-redacoes',
+      '/configuracoes',
+      '/correcoes',
+      '/rota-invalida',
+    ];
+
+    const normalized = normalizeStateForCurrentPlan(state);
+
+    expect(normalized.shellUi.mobilePinnedNav).toEqual([
+      '/',
+      '/plano-diario',
+      '/conteudo',
+      '/anki',
+      '/simulados-redacoes',
+      '/configuracoes',
+    ]);
+  });
+
+  it('recalcula o plano e contabiliza alteracoes ao mudar a data de inicio', () => {
+    const state = createInitialState();
+
+    const updated = appReducer(state, {
+      type: 'set-plan-start-date',
+      startDate: '2026-03-21',
+    });
+
+    expect(updated.planSettings.startDate).toBe('2026-03-21');
+    expect(updated.planSettings.startDateChangeCount).toBe(1);
+    expect(updated.selectedDate).toBe('2026-03-21');
+    expect(updated.dailyRecords['2026-03-21']).toBeDefined();
+    expect(updated.dailyRecords['2026-03-14']).toBeUndefined();
+  });
+
+  it('alinha o titulo da submateria padrao com o nome padronizado do topico', () => {
+    const state = createInitialState();
+    const architectureTopic = TOPICS.find(
+      (topic) =>
+        topic.isLeaf &&
+        topic.title ===
+          'Arquitetura de computadores: processador, memória principal/secundária e dispositivos de E/S.',
+    );
+
+    expect(architectureTopic).toBeDefined();
+    if (!architectureTopic) {
+      return;
+    }
+
+    state.topicSubmattersByTopic[architectureTopic.id] = [
+      {
+        ...state.topicSubmattersByTopic[architectureTopic.id][0],
+        title: architectureTopic.title,
+      },
+    ];
+
+    const normalized = normalizeStateForCurrentPlan(state);
+
+    expect(normalized.topicSubmattersByTopic[architectureTopic.id][0].title).toBe(
+      'Arquitetura: CPU, memória e I/O',
+    );
+  });
+
+  it('persiste a ordem dos atalhos mobile ao pinar, mover e remover', () => {
+    const state = createInitialState();
+
+    const pinned = appReducer(state, {
+      type: 'remove-mobile-nav-item',
+      path: '/configuracoes',
+    });
+    const inserted = appReducer(pinned, {
+      type: 'pin-mobile-nav-item',
+      path: '/correcoes',
+      targetIndex: 1,
+    });
+    const moved = appReducer(inserted, {
+      type: 'move-mobile-nav-item',
+      path: '/correcoes',
+      targetIndex: 0,
+    });
+
+    expect(moved.shellUi.mobilePinnedNav[0]).toBe('/correcoes');
+
+    const removed = appReducer(moved, {
+      type: 'remove-mobile-nav-item',
+      path: '/correcoes',
+    });
+    expect(removed.shellUi.mobilePinnedNav).not.toContain('/correcoes');
   });
 });

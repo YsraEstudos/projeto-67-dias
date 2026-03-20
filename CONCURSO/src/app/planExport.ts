@@ -1,5 +1,6 @@
 import { parseIsoDate } from './dateUtils';
 import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from './formatters';
+import { getManualBlockContentSummary } from './manualPlanContentRefs';
 import type { DayPlan } from './types';
 
 const escapeHtml = (value: string): string =>
@@ -52,7 +53,11 @@ const visibleBlocks = (plan: DayPlan): string[] => {
   if (plan.planMode === 'manual' && plan.manualBlocks && plan.manualBlocks.length > 0) {
     return plan.manualBlocks.map((block) => {
       const movedSuffix = block.movedFromSunday ? ' [realocado do domingo]' : '';
-      return `${block.area}: ${block.title} - ${block.detail}${movedSuffix}`;
+      const contentSuffix = (() => {
+        const refsSummary = getManualBlockContentSummary(block);
+        return refsSummary ? ` | Conteúdo programático: ${refsSummary}` : '';
+      })();
+      return `${block.area}: ${block.title} - ${block.detail}${contentSuffix}${movedSuffix}`;
     });
   }
 

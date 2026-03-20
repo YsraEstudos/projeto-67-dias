@@ -6,7 +6,7 @@ type FirestoreModule = typeof import('firebase/firestore');
 type FirebaseServicesModule = typeof import('../../../services/firebase');
 
 type FirebaseBridge = {
-  db: FirebaseServicesModule['db'];
+  db: NonNullable<FirebaseServicesModule['db']>;
   loginWithGoogle: FirebaseServicesModule['loginWithGoogle'];
   subscribeToAuthChanges: FirebaseServicesModule['subscribeToAuthChanges'];
   doc: FirestoreModule['doc'];
@@ -35,13 +35,15 @@ export type CloudUser = {
   isAnonymous: boolean;
 };
 
+type CloudUserSource = Pick<CloudUser, 'uid' | 'email' | 'displayName' | 'isAnonymous'>;
+
 let firebaseBridgePromise: Promise<FirebaseBridge | null> | null = null;
 let firebaseBridgeError: string | null = null;
 
 const getCloudErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error && error.message ? error.message : fallback;
 
-const mapCloudUser = (user: Awaited<ReturnType<FirebaseServicesModule['loginWithGoogle']>>['user']): CloudUser => ({
+const mapCloudUser = (user: CloudUserSource): CloudUser => ({
   uid: user.uid,
   email: user.email ?? null,
   displayName: user.displayName ?? null,
@@ -54,15 +56,22 @@ const loadFirebaseBridge = async (): Promise<FirebaseBridge | null> => {
       import('firebase/firestore'),
       import('../../../services/firebase'),
     ])
-      .then(([firestore, firebaseServices]) => ({
-        db: firebaseServices.db,
-        loginWithGoogle: firebaseServices.loginWithGoogle,
-        subscribeToAuthChanges: firebaseServices.subscribeToAuthChanges,
-        doc: firestore.doc,
-        getDoc: firestore.getDoc,
-        serverTimestamp: firestore.serverTimestamp,
-        setDoc: firestore.setDoc,
-      }))
+      .then(([firestore, firebaseServices]) => {
+        if (!firebaseServices.db) {
+          firebaseBridgeError = 'Firestore indisponivel neste ambiente.';
+          return null;
+        }
+
+        return {
+          db: firebaseServices.db,
+          loginWithGoogle: firebaseServices.loginWithGoogle,
+          subscribeToAuthChanges: firebaseServices.subscribeToAuthChanges,
+          doc: firestore.doc,
+          getDoc: firestore.getDoc,
+          serverTimestamp: firestore.serverTimestamp,
+          setDoc: firestore.setDoc,
+        };
+      })
       .catch((error) => {
         firebaseBridgeError = getCloudErrorMessage(
           error,

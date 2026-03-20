@@ -54,7 +54,7 @@ const PROJECT_DURATION_DAYS = 67;
  * This triggers automatic cache invalidation to prevent stale data issues
  * Format: YYYY.MM.DD.revision (e.g., 2024.12.27.1)
  */
-const APP_SCHEMA_VERSION = '2026.03.11.2';  // 2026-03-11: Internal competition arena replaces Concurso dashboard redirect
+const APP_SCHEMA_VERSION = '2026.03.17.3';  // 2026-03-17: Refresh root PWA caches and stop the root SW from versioning /concurso
 const SCHEMA_VERSION_KEY = 'p67_schema_version';
 
 

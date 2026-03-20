@@ -11,7 +11,7 @@ import type {
   WorkActivity,
 } from './types';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 7;
 
 export const START_DATE = '2026-03-14';
 export const END_DATE = '2026-11-19';
@@ -72,15 +72,15 @@ export const FALLBACK_BACKUP_KEY = 'concurso.study.auto-backup.fallback';
 export const AUTO_BACKUP_INTERVAL_MINUTES = 10;
 
 export const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/plano-diario', label: 'Plano Diário' },
-  { to: '/conteudo', label: 'Conteúdo Pragmático' },
-  { to: '/anki', label: 'Anki & FSRS' },
-  { to: '/correcoes', label: 'Links de Correção' },
-  { to: '/simulados-redacoes', label: 'Simulados e Redações' },
-  { to: '/projetos', label: 'Projetos' },
-  { to: '/notas-de-corte', label: 'Notas de Corte' },
-  { to: '/configuracoes', label: 'Configurações' },
+  { to: '/', label: 'Dashboard', shortLabel: 'Painel' },
+  { to: '/plano-diario', label: 'Plano Diário', shortLabel: 'Plano' },
+  { to: '/conteudo', label: 'Conteúdo Pragmático', shortLabel: 'Conteúdo' },
+  { to: '/anki', label: 'Anki & FSRS', shortLabel: 'Anki' },
+  { to: '/correcoes', label: 'Links de Correção', shortLabel: 'Correções' },
+  { to: '/simulados-redacoes', label: 'Simulados e Redações', shortLabel: 'Simulados' },
+  { to: '/projetos', label: 'Projetos', shortLabel: 'Projetos' },
+  { to: '/notas-de-corte', label: 'Notas de Corte', shortLabel: 'Cortes' },
+  { to: '/configuracoes', label: 'Configurações', shortLabel: 'Config' },
 ] as const;
 
 export const PROJECT_TECHNOLOGIES: Array<{ key: TechnologyKey; label: string }> = [
@@ -133,3 +133,5 @@ export const TOPIC_GRADE_LABELS: Record<TopicGrade, string> = {
 };
 
 export const TOPIC_STALE_BUCKETS_DAYS = [7, 15, 30] as const;
+
+export const THEORETICAL_CONTENT_ACCEPT = '.md,.pdf,application/pdf,text/markdown';

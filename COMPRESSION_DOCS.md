@@ -1,35 +1,73 @@
-# Advanced Image Compression Architecture
+# Fluxos de Compressao de Imagens
 
-This document describes the image compression workflow used in this project, designed specifically to address Vercel's limitations, fix Content Security Policy (CSP) errors, and maintain high visual quality using a Python Serverless backend.
+Documentacao atualizada dos fluxos de imagem realmente usados no projeto.
 
-## Why this Architecture?
+## 1. Existem dois pipelines diferentes
 
-1. **CSP Fix:** Browsers block using `fetch()` on `data:` URLs if not explicitly allowed by the `connect-src` policy. We avoid modifying the CSP by replacing `fetch(data:...)` with a custom memory-based base64-to-Blob converter (`dataURLtoBlob`).
-2. **Vercel's Payload Limit:** Vercel limits Serverless Function request payloads to **4.5 MB** on the Hobby tier. High-resolution images from modern phones can easily exceed this size, causing a 413 Payload Too Large error.
-3. **Advanced WebP Compression:** While JavaScript/Canvas can compress JPEGs, Python's `Pillow` library provides superior algorithms to convert and optimize images into the `WebP` format, giving a much smaller file size for the same visual quality.
+### Pipeline A: imagens inline em notas
 
-## The Workflow
+Usado no editor de notas.
 
-1. **Client-side Interception & Safeguard (Vite/React)**
-   - When the user uploads an image or drawing, it is first evaluated on the frontend.
-   - We use the `compressImage` utility to resize the image using an HTML5 Canvas. This acts as a *safeguard*. Even if the user uploads a 10MB image, the canvas quickly resizes it down to a manageable size (e.g., max 1920px width), ensuring the output is well under Vercel's 4.5MB limit.
-   - The result is a Base64 data string.
+- Compressao no cliente com `compressImage(dataUrl, 800, 0.8)`
+- Resultado final embutido em markdown/base64
+- Nao envia arquivo para Firebase Storage
+- Nao depende da API Python
 
-2. **Safe Blob Conversion**
-   - The Base64 string is converted directly to a `Blob` in memory using `dataURLtoBlob()`. This completely bypasses the browser's `fetch()` API, guaranteeing no CSP violations.
+Esse fluxo existe para manter anotacoes rapidas leves e autocontidas.
 
-3. **Backend Optimization (Vercel Python Serverless)**
-   - The client sends the safe `Blob` to our custom `/api/compress` endpoint.
-   - The API (built with FastAPI and Pillow) loads the image into memory.
-   - It normalizes the image (converting RGBA to RGB if needed to prevent WebP/JPEG artifacts).
-   - It performs an advanced optimization pass and converts the image to WebP (`quality=85`, `optimize=True`).
-   - The ultra-compressed WebP file is sent back to the client.
+### Pipeline B: drawings e imagens de historias de jogos
 
-4. **Upload to Firebase Storage**
-   - The client receives the highly optimized WebP file from the Python API.
-   - The client then uploads this final file directly to Firebase Storage.
-   - *Fallback Mechanism:* If the Vercel API is down, times out, or errors out, the client catches the error and automatically uploads the initial client-side compressed Blob, ensuring the user's workflow is never interrupted.
+Usado quando a imagem precisa ir para Firebase Storage.
 
-## Environment Requirements
-- This project utilizes the `@vercel/python` and `@vercel/vite` builders via `vercel.json`.
-- When deploying to Vercel, the Python function inside `/api` will be automatically provisioned as a serverless function.
+Etapas atuais:
+
+1. Resize inicial no cliente com `compressImage`
+2. Conversao segura de data URL para `Blob` com `dataURLtoBlob`
+3. Tentativa de otimizar o blob em `/api/compress`
+4. Upload do resultado ao Firebase Storage
+5. Fallback para o blob cliente se a API falhar
+
+## 2. Onde cada parte mora
+
+- Cliente:
+  - `utils/imageUtils.ts`
+  - `services/storageService.ts`
+  - `components/notes/NoteEditor.tsx`
+- API:
+  - `api/compress.py`
+
+## 3. O que a API faz hoje
+
+`api/compress.py`:
+
+- aceita `multipart/form-data`
+- valida `content_type` de imagem
+- usa Pillow para abrir o arquivo
+- devolve `image/webp`
+- usa `quality=85` com `optimize=True`
+
+Tambem existe `GET /api/health` para verificacao simples da API local.
+
+## 4. Motivacao da arquitetura
+
+- Evitar payloads gigantes indo direto para o backend
+- Manter um fallback local quando a API estiver indisponivel
+- Melhorar compressao final para imagens que vao ao Storage
+- Evitar uso de `fetch(data:...)` ao converter base64 para blob
+
+## 5. Desenvolvimento local
+
+No app raiz, o Vite faz proxy de `/api/*` para `http://127.0.0.1:8000`.
+
+Se a API Python local nao estiver rodando:
+
+- o pipeline das notas continua funcionando
+- fluxos com upload ao Storage dependem do fallback cliente
+
+## 6. Observacao importante para manutencao
+
+O endpoint `/api/compress` ja devolve `WebP`. Ao mexer no fluxo de upload, mantenha alinhados:
+
+- extensao do arquivo salvo
+- `contentType` enviado ao Firebase Storage
+- expectativas de exibicao e remocao pelo `storagePath`

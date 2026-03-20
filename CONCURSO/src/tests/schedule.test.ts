@@ -11,10 +11,12 @@ describe('buildDayPlans', () => {
     expect(plans[plans.length - 1]?.date).toBe('2026-11-19');
   });
 
-  it('mantem o primeiro dia visivel em 14/03 como o primeiro bloco manual real', () => {
+  it('mantem o primeiro dia visivel em 14/03 ja dentro da trilha manual', () => {
     const firstDay = byDate['2026-03-14'];
     expect(firstDay?.planMode).toBe('manual');
     expect(firstDay?.manualBlocks?.[0]?.title).toContain('Web: HTML semântico + forms');
+    expect((firstDay?.manualBlocks?.[0]?.contentRefs?.length ?? 0) > 0).toBe(true);
+    expect(firstDay?.manualBlocks?.[0]?.contentTargets?.[0]?.path).toMatch(/^\/conteudo\/topico\/item-/);
     expect(firstDay?.weekNumber).toBe(1);
   });
 
@@ -29,19 +31,40 @@ describe('buildDayPlans', () => {
   });
 
   it('realoca eventos de domingo para sábado com bloco marcado', () => {
-    const movedSaturday = byDate['2026-05-30'];
-    expect(movedSaturday?.planMode).toBe('manual');
-    expect(movedSaturday?.manualBlocks?.some((block) => block.movedFromSunday)).toBe(true);
+    const movedDay = plans.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.movedFromSunday),
+    );
+
+    expect(movedDay?.planMode).toBe('manual');
+    expect(movedDay?.manualBlocks?.some((block) => block.movedFromSunday)).toBe(true);
   });
 
   it('usa 40 questões nos dias com redação extra', () => {
-    expect(byDate['2026-03-25']?.targets.objectiveQuestions).toBe(40);
-    expect(byDate['2026-03-25']?.hasRedacao).toBe(true);
+    const redacaoDay = plans.find(
+      (plan) => plan.planMode === 'manual' && plan.hasRedacao && plan.targets.objectiveQuestions === 40,
+    );
+
+    expect(redacaoDay).toBeDefined();
   });
 
   it('mantém plano manual até o fim da janela em 19/11/2026', () => {
     expect(byDate['2026-11-19']?.planMode).toBe('manual');
-    expect(byDate['2026-11-19']?.weekNumber).toBe(39);
+    expect(byDate['2026-11-19']?.weekNumber).toBe(36);
     expect(byDate['2026-11-20']).toBeUndefined();
+  });
+
+  it('garante referencias oficiais para todo bloco manual de estudo', () => {
+    const studyBlocks = plans
+      .filter((plan) => plan.planMode === 'manual')
+      .flatMap((plan) => plan.manualBlocks ?? [])
+      .filter((block) =>
+        ['PT', 'PT (FCC)', 'PT + Redação', 'RLM', 'Legis', 'TI'].some((area) =>
+          block.area.startsWith(area),
+        ),
+      );
+
+    expect(studyBlocks.length).toBeGreaterThan(0);
+    expect(studyBlocks.every((block) => (block.contentRefs?.length ?? 0) > 0)).toBe(true);
+    expect(studyBlocks.every((block) => (block.contentTargets?.length ?? 0) > 0)).toBe(true);
   });
 });

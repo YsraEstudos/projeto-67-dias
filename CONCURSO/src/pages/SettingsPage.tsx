@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { parseSnapshotFile, supportsFileSystemAccess } from '../app/backup';
+import { END_DATE, START_DATE } from '../app/constants';
+import { formatIsoDatePtBr } from '../app/formatters';
 import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport';
 import { useAppContext } from '../app/AppContext';
+import { PageIntro } from '../components/PageIntro';
+import { SectionCard } from '../components/SectionCard';
 
 export const SettingsPage = () => {
   const {
     state,
     dayPlans,
+    setPlanStartDate,
     runManualBackup,
     connectBackupFile,
     importSnapshot,
@@ -69,6 +74,16 @@ export const SettingsPage = () => {
     }
   };
 
+  const handlePlanStartDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    const nextStartDate = event.target.value;
+    if (!nextStartDate || nextStartDate === state.planSettings.startDate) {
+      return;
+    }
+
+    setPlanStartDate(nextStartDate);
+    setMessage(`Início do plano atualizado para ${formatIsoDatePtBr(nextStartDate)}.`);
+  };
+
   const handleGoogleConnect = async (): Promise<void> => {
     try {
       await connectGoogleCloud();
@@ -89,17 +104,33 @@ export const SettingsPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header">
-        <h2>Configurações e Backup</h2>
-        <p>
-          Persistência local com export/import JSON e rotina automática de backup a cada 10 minutos quando
-          houver mudanças.
-        </p>
-      </header>
+      <PageIntro
+        kicker="Manutenção do sistema"
+        title="Configurações e Backup"
+        description="Persistência local, sincronização na nuvem, exportação e recuperação do plano em um centro de manutenção mais legível."
+      />
 
       <div className="grid-2">
-        <article className="panel">
-          <h3>Gmail e sincronizacao</h3>
+        <SectionCard as="article" kicker="Cronograma" title="Início do plano de estudos">
+          <label className="field-label">
+            Data de início do plano
+            <input
+              className="input"
+              type="date"
+              min={START_DATE}
+              max={END_DATE}
+              value={state.planSettings.startDate}
+              onChange={handlePlanStartDateChange}
+            />
+          </label>
+          <p>Janela oficial do edital: de {formatIsoDatePtBr(state.planSettings.startDate)} até {formatIsoDatePtBr(END_DATE)}.</p>
+          <p>
+            O cronograma diário é recalculado a partir dessa data e mantém a prova em {formatIsoDatePtBr(END_DATE)}.
+          </p>
+          <p>Alterações já feitas: {state.planSettings.startDateChangeCount}</p>
+        </SectionCard>
+
+        <SectionCard as="article" kicker="Nuvem" title="Gmail e sincronização">
           <p>
             Status: <span className={`sync-badge sync-${cloudSync.status}`}>{cloudSync.status}</span>
           </p>
@@ -120,10 +151,9 @@ export const SettingsPage = () => {
               Sincronizar agora
             </button>
           </div>
-        </article>
+        </SectionCard>
 
-        <article className="panel">
-          <h3>Persistência</h3>
+        <SectionCard as="article" kicker="Snapshot" title="Persistência">
           <p>Schema version: {state.schemaVersion}</p>
           <p>Change token: {state.meta.changeToken}</p>
           <p>Última alteração: {state.meta.lastChangedAt ?? 'nenhuma'}</p>
@@ -134,10 +164,9 @@ export const SettingsPage = () => {
             Importar snapshot JSON
             <input className="input" type="file" accept="application/json" onChange={onImportFile} />
           </label>
-        </article>
+        </SectionCard>
 
-        <article className="panel">
-          <h3>Backup automático</h3>
+        <SectionCard as="article" kicker="Proteção" title="Backup automático">
           <p>Intervalo: {state.meta.backup.autoBackupIntervalMinutes} minutos</p>
           <p>Último backup: {state.meta.backup.lastBackupAt ?? 'ainda não executado'}</p>
           <p>Modo: {state.meta.backup.lastBackupMode ?? 'sem modo'}</p>
@@ -162,10 +191,9 @@ export const SettingsPage = () => {
               Conectar arquivo de backup (Edge)
             </button>
           </div>
-        </article>
+        </SectionCard>
 
-        <article className="panel">
-          <h3>Exportar plano completo</h3>
+        <SectionCard as="article" kicker="Saída" title="Exportar plano completo">
           <p>Gere um arquivo com o cronograma completo do período atual.</p>
 
           <div className="button-row">
@@ -176,10 +204,10 @@ export const SettingsPage = () => {
               Baixar plano em PDF
             </button>
           </div>
-        </article>
+        </SectionCard>
       </div>
 
-      {message ? <div className="panel message-box">{message}</div> : null}
+      {message ? <SectionCard className="message-box">{message}</SectionCard> : null}
     </section>
   );
 };

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "sync:concurso": "node scripts/publish-concurso.mjs",
+    "build:concurso:published": "npm --prefix CONCURSO run build && node scripts/publish-concurso.mjs && vite build",
     "preview": "vite preview",
     "test": "vitest"
   },

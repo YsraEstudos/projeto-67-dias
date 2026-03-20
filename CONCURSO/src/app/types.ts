@@ -31,6 +31,8 @@ export type RequirementDifficulty = 'simples' | 'media' | 'dificil';
 export type TopicPriority = 'alta' | 'media' | 'baixa';
 export type TopicStatus = 'nao_iniciado' | 'em_progresso' | 'acertado';
 export type TopicGrade = 'A' | 'B' | 'C' | 'D' | 'E';
+export type TheoreticalContentKind = 'markdown' | 'pdf';
+export type TheoreticalContentOwnerType = 'topic' | 'submatter';
 
 export interface TopicSeedSection {
   id: string;
@@ -44,6 +46,7 @@ export interface TopicNode {
   id: string;
   subject: SubjectKey;
   title: string;
+  displayTitle?: string;
   sourceRef: string;
   parentId: string | null;
   isLeaf: boolean;
@@ -67,15 +70,44 @@ export interface TopicSubmatter {
   updatedAt: string;
 }
 
+export interface TheoreticalContentItem {
+  id: string;
+  ownerType: TheoreticalContentOwnerType;
+  ownerId: string;
+  topicId: string;
+  submatterId: string | null;
+  filename: string;
+  label: string;
+  kind: TheoreticalContentKind;
+  mimeType: string;
+  storageKey: string;
+  sizeBytes: number;
+  order: number;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type WorkActivity = 'programacao' | 'questoes_matematica' | 'raciocinio_logico';
 
 export type PlanMode = 'manual' | 'auto';
+
+export interface ManualContentTarget {
+  topicId: string;
+  title: string;
+  sourceTitle: string;
+  sectionTitle: string;
+  sourceRef: string;
+  path: string;
+}
 
 export interface ManualBlock {
   id: string;
   area: string;
   title: string;
   detail: string;
+  contentRefs?: string[];
+  contentTargets?: ManualContentTarget[];
   movedFromSunday?: boolean;
 }
 
@@ -217,11 +249,23 @@ export interface MetaState {
   backup: BackupMeta;
 }
 
+export interface PlanSettings {
+  startDate: string;
+  startDateChangeCount: number;
+}
+
+export interface ShellUiState {
+  mobilePinnedNav: string[];
+}
+
 export interface AppState {
   schemaVersion: number;
+  planSettings: PlanSettings;
+  shellUi: ShellUiState;
   selectedDate: string;
   topicProgress: Record<string, TopicProgress>;
   topicSubmattersByTopic: Record<string, TopicSubmatter[]>;
+  theoreticalContents: TheoreticalContentItem[];
   dailyRecords: Record<string, DailyRecord>;
   correctionLinks: CorrectionLink[];
   projects: StudyProject[];

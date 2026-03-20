@@ -82,6 +82,10 @@ function readLocalStorageData(key: string, userId: string): any | null {
  * Migrate a single store from LocalStorage to Firestore
  */
 async function migrateStore(key: string, userId: string): Promise<boolean> {
+    if (!db) {
+        return false;
+    }
+
     try {
         const docRef = doc(db, 'users', userId, 'data', key);
 

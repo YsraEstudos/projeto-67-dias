@@ -5,7 +5,9 @@ import { ANKI_PAUSE_WEEKDAY_OPTIONS, FSRS_IFRAME_SRC } from '../app/constants';
 import { ankiPauseWeekdayLabel, formatIsoDatePtBr } from '../app/formatters';
 import type { AnkiPauseWeekday } from '../app/types';
 import { MetricCard } from '../components/MetricCard';
+import { PageIntro } from '../components/PageIntro';
 import { ProgressBar } from '../components/ProgressBar';
+import { SectionCard } from '../components/SectionCard';
 
 const getTodayIso = (): string => new Date().toISOString().slice(0, 10);
 
@@ -24,11 +26,13 @@ export const AnkiPage = () => {
         newCardsPerActiveDay: state.ankiConfig.newCardsPerActiveDay,
         alreadyAdded: state.ankiStats.newCardsAdded,
         pauseWeekdays: state.ankiConfig.pauseWeekdays,
+        referenceDate: state.planSettings.startDate,
       }),
     [
       state.ankiConfig.additionalCardsTarget,
       state.ankiConfig.newCardsPerActiveDay,
       state.ankiConfig.pauseWeekdays,
+      state.planSettings.startDate,
       state.ankiStats.newCardsAdded,
     ],
   );
@@ -74,25 +78,21 @@ export const AnkiPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header">
-        <h2>Anki & FSRS</h2>
-        <p>
-          Fluxo simples para iniciantes: ajuste sua meta, registre sessões e acompanhe seu progresso sem entrar nos
-          parâmetros avançados.
-        </p>
-      </header>
+      <PageIntro
+        kicker="Memória e revisão"
+        title="Anki & FSRS"
+        description="Painel de consistência para ajustar meta, registrar sessões e acompanhar o ritmo sem se perder nos parâmetros avançados."
+      />
 
-      <article className="panel anki-beginner-panel">
-        <h3>Comece por aqui</h3>
+      <SectionCard as="article" className="anki-beginner-panel" kicker="Guia rápido" title="Comece por aqui">
         <ol className="anki-beginner-steps">
           <li>Defina a meta total e quantos novos cards quer por dia ativo.</li>
           <li>Marque os dias de pausa (domingo já é descanso fixo).</li>
           <li>Registre sua sessão diária para atualizar progresso e consistência.</li>
         </ol>
-      </article>
+      </SectionCard>
 
-      <article className="panel anki-beginner-controls">
-        <h3>Controles simples</h3>
+      <SectionCard as="article" className="anki-beginner-controls" kicker="Controle operacional" title="Controles simples">
         <div className="grid-2">
           <label className="field-label">
             Meta total de novos cards
@@ -138,23 +138,26 @@ export const AnkiPage = () => {
           </div>
           <p className="anki-beginner-help">Domingo permanece automaticamente sem meta de novos cards.</p>
         </fieldset>
-      </article>
+      </SectionCard>
 
       <div className="grid-4">
         <MetricCard
+          kicker="Meta"
           title="Cards adicionados"
           value={`${state.ankiStats.newCardsAdded}/${state.ankiConfig.additionalCardsTarget}`}
           subtitle="progresso da meta"
           emphasis="green"
         />
-        <MetricCard title="Revisões acumuladas" value={`${state.ankiStats.reviewsDone}`} emphasis="blue" />
+        <MetricCard kicker="Volume" title="Revisões acumuladas" value={`${state.ankiStats.reviewsDone}`} emphasis="blue" />
         <MetricCard
+          kicker="Constância"
           title="Consistência (7 dias)"
           value={`${consistency.consistencyPercent}%`}
           subtitle={`${consistency.loggedDays}/${consistency.plannedActiveDays} dias ativos com registro`}
           emphasis="orange"
         />
         <MetricCard
+          kicker="Projeção"
           title="Previsão de término"
           value={projection.estimatedFinishDate ? formatIsoDatePtBr(projection.estimatedFinishDate) : 'Fora da janela'}
           subtitle={`${projection.activeDaysNeeded} dias ativos necessários`}
@@ -162,8 +165,7 @@ export const AnkiPage = () => {
         />
       </div>
 
-      <article className="panel anki-beginner-summary">
-        <h3>Resumo essencial</h3>
+      <SectionCard as="article" className="anki-beginner-summary" kicker="Resumo" title="Resumo essencial">
         <ProgressBar value={cardsProgressPercent} label="Progresso da meta de novos cards" />
         <p>
           Restantes: <strong>{projection.remainingCards}</strong> cards.
@@ -178,14 +180,13 @@ export const AnkiPage = () => {
           <strong>
             {state.ankiConfig.pauseWeekdays.length > 0
               ? state.ankiConfig.pauseWeekdays.map((weekday) => ankiPauseWeekdayLabel(weekday)).join(', ')
-              : 'nenhuma'}
+            : 'nenhuma'}
           </strong>
           .
         </p>
-      </article>
+      </SectionCard>
 
-      <article className="panel anki-quicklog-panel">
-        <h3>Registro diário rápido</h3>
+      <SectionCard as="article" className="anki-quicklog-panel" kicker="Ação imediata" title="Registro diário rápido">
         <form className="anki-quicklog-form" onSubmit={handleRegisterSession} data-testid="anki-quicklog-form">
           <label className="field-label">
             Data
@@ -223,7 +224,7 @@ export const AnkiPage = () => {
             Registrar sessão
           </button>
         </form>
-      </article>
+      </SectionCard>
 
       <details className="panel anki-advanced-panel" data-testid="anki-advanced-panel">
         <summary>Ferramenta avançada FSRS</summary>

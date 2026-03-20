@@ -1,5 +1,6 @@
 import { TOPIC_STALE_BUCKETS_DAYS } from './constants';
 import type { SubjectKey, TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
+import { getTopicDisplayTitle } from './topics';
 
 const nowIsoDate = (): string => new Date().toISOString().slice(0, 10);
 
@@ -60,7 +61,7 @@ export const migrateTopicSubmattersFromLegacy = (
     accumulator[topic.id] = [
       {
         id: createSubmatterId(topic.id),
-        title: topic.title,
+        title: getTopicDisplayTitle(topic),
         grade: mapLegacyStatusToGrade(legacy?.status ?? 'nao_iniciado'),
         lastReviewedAt: toIsoDate(legacy?.updatedAt ?? null),
         errorNote: legacy?.evidenceNote ?? '',
@@ -100,6 +101,7 @@ export interface TopicRollup {
   topicId: string;
   total: number;
   byGrade: Record<TopicGrade, number>;
+  currentGrade: TopicGrade;
   worstGrade: TopicGrade | null;
   dominantGrade: TopicGrade | null;
   reviewNowCount: number;
@@ -123,6 +125,16 @@ const createEmptyGrades = (): Record<TopicGrade, number> => ({
   D: 0,
   E: 0,
 });
+
+export const getTopicCurrentGrade = (submatters: TopicSubmatter[]): TopicGrade => {
+  const byGrade = createEmptyGrades();
+
+  for (const submatter of submatters) {
+    byGrade[submatter.grade] += 1;
+  }
+
+  return pickWorstGrade(byGrade) ?? 'E';
+};
 
 export const buildGradesSummary = (
   topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
@@ -281,7 +293,7 @@ export const buildReviewQueue = (
 
       return submatters.map<TopicReviewQueueItem>((submatter) => ({
         topicId,
-        topicTitle: topic.title,
+        topicTitle: getTopicDisplayTitle(topic),
         subject: topic.subject,
         submatterId: submatter.id,
         submatterTitle: submatter.title,
@@ -355,6 +367,7 @@ export const buildTopicRollups = (
       topicId: topic.id,
       total: submatters.length,
       byGrade,
+      currentGrade: getTopicCurrentGrade(submatters),
       worstGrade: pickWorstGrade(byGrade),
       dominantGrade: pickDominantGrade(byGrade),
       reviewNowCount,

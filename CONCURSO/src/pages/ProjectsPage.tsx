@@ -34,7 +34,9 @@ import type {
   TechnologyKey,
 } from '../app/types';
 import { MetricCard } from '../components/MetricCard';
+import { PageIntro } from '../components/PageIntro';
 import { ProgressBar } from '../components/ProgressBar';
+import { SectionCard } from '../components/SectionCard';
 
 interface ProjectFormState {
   name: string;
@@ -220,32 +222,37 @@ export const ProjectsPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header">
-        <h2>Projetos</h2>
-        <p>Painel de projetos praticos por tecnologia, checklist, cobertura e ranking.</p>
-      </header>
+      <PageIntro
+        kicker="Workspace prático"
+        title="Projetos"
+        description="Painel de projetos práticos por tecnologia, checklist, cobertura e ranking em formato de workspace editorial."
+      />
 
       <div className="grid-4 projects-grid-5">
-        <MetricCard title="Projetos" value={`${state.projects.length}`} subtitle="Total cadastrado" emphasis="blue" />
+        <MetricCard kicker="Inventário" title="Projetos" value={`${state.projects.length}`} subtitle="Total cadastrado" emphasis="blue" />
         <MetricCard
+          kicker="Status"
           title="Em andamento"
           value={`${state.projects.filter((project) => project.status === 'em_andamento').length}`}
           subtitle="Status ativo"
           emphasis="orange"
         />
         <MetricCard
+          kicker="Entrega"
           title="Concluidos"
           value={`${state.projects.filter((project) => project.status === 'concluido').length}`}
           subtitle="Status finalizado"
           emphasis="green"
         />
         <MetricCard
+          kicker="Cobertura"
           title="Exigencias"
           value={`${overviewRequirements.done}/${overviewRequirements.total}`}
           subtitle={`${overviewRequirements.progressPercent}%`}
           emphasis="blue"
         />
         <MetricCard
+          kicker="Pontos"
           title="Pontos"
           value={`${overviewPoints.done}/${overviewPoints.total}`}
           subtitle="Gamificacao"
@@ -253,8 +260,7 @@ export const ProjectsPage = () => {
         />
       </div>
 
-      <div className="panel projects-creation-panel">
-        <h3>Novo projeto</h3>
+      <SectionCard className="projects-creation-panel" kicker="Criação" title="Novo projeto">
         <form className="form-grid" onSubmit={createNewProject}>
           <label className="field-label">
             Nome
@@ -340,10 +346,9 @@ export const ProjectsPage = () => {
             Criar via template
           </button>
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="panel projects-filter-panel">
-        <h3>Busca e filtros</h3>
+      <SectionCard className="projects-filter-panel" kicker="Consulta" title="Busca e filtros">
         <div className="projects-filter-grid">
           <input
             className="input"
@@ -387,11 +392,10 @@ export const ProjectsPage = () => {
             ))}
           </select>
         </div>
-      </div>
+      </SectionCard>
 
       <div className="projects-layout">
-        <div className="panel">
-          <h3>Lista de projetos ({filteredProjects.length})</h3>
+        <SectionCard title={`Lista de projetos (${filteredProjects.length})`} kicker="Fila">
           <div className="projects-list">
             {filteredProjects.map((project) => {
               const totals = getProjectRequirementTotals(project);
@@ -425,10 +429,9 @@ export const ProjectsPage = () => {
             })}
             {filteredProjects.length === 0 ? <p>Nenhum projeto encontrado.</p> : null}
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="panel">
-          <h3>Detalhe do projeto</h3>
+        <SectionCard title="Detalhe do projeto" kicker="Editor">
           {!selectedProject ? (
             <p>Selecione um projeto para editar.</p>
           ) : (
@@ -722,12 +725,11 @@ export const ProjectsPage = () => {
               </div>
             </div>
           )}
-        </div>
+        </SectionCard>
       </div>
 
       <div className="grid-2">
-        <div className="panel table-wrap">
-          <h3>Painel por tecnologia</h3>
+        <SectionCard className="table-wrap" kicker="Distribuição" title="Painel por tecnologia">
           <table className="table">
             <thead>
               <tr>
@@ -750,9 +752,8 @@ export const ProjectsPage = () => {
               ))}
             </tbody>
           </table>
-        </div>
-        <div className="panel table-wrap">
-          <h3>Ranking de projetos</h3>
+        </SectionCard>
+        <SectionCard className="table-wrap" kicker="Prioridade" title="Ranking de projetos">
           <table className="table">
             <thead>
               <tr>
@@ -778,7 +779,7 @@ export const ProjectsPage = () => {
               ) : null}
             </tbody>
           </table>
-        </div>
+        </SectionCard>
       </div>
     </section>
   );

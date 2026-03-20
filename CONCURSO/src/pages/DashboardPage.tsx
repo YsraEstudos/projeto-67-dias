@@ -9,9 +9,13 @@ import {
   getChecklistProgressPercent,
 } from '../app/progress';
 import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/formatters';
+import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
 import { calculateAnkiProjection } from '../app/anki';
+import { ActionButton } from '../components/ActionButton';
 import { MetricCard } from '../components/MetricCard';
+import { PageIntro } from '../components/PageIntro';
 import { ProgressBar } from '../components/ProgressBar';
+import { SectionCard } from '../components/SectionCard';
 
 const findNextEventDate = (
   fromDate: string,
@@ -67,11 +71,13 @@ export const DashboardPage = () => {
         newCardsPerActiveDay: state.ankiConfig.newCardsPerActiveDay,
         alreadyAdded: state.ankiStats.newCardsAdded,
         pauseWeekdays: state.ankiConfig.pauseWeekdays,
+        referenceDate: state.planSettings.startDate,
       }),
     [
       state.ankiConfig.additionalCardsTarget,
       state.ankiConfig.newCardsPerActiveDay,
       state.ankiConfig.pauseWeekdays,
+      state.planSettings.startDate,
       state.ankiStats.newCardsAdded,
     ],
   );
@@ -88,33 +94,37 @@ export const DashboardPage = () => {
 
   return (
     <section className="page">
-      <header className="page-header">
-        <h2>Dashboard de Execução</h2>
-        <p>
-          Controle diário, metas mensais e cobertura do edital com foco total no período oficial.
-        </p>
-      </header>
+      <PageIntro
+        kicker="Visão geral do plano"
+        title="Dashboard de Execução"
+        description="Controle diário, metas mensais e pressão real do edital com foco em prioridade e ritmo."
+        actions={<ActionButton to="/conteudo?focus=review-now">Abrir revisão crítica</ActionButton>}
+      />
 
       <div className="grid-4">
         <MetricCard
+          kicker="Hoje"
           title="Progresso do dia"
           value={`${progress}%`}
           subtitle={plan?.isRestDay ? 'Domingo de descanso' : formatIsoDatePtBr(state.selectedDate)}
           emphasis="blue"
         />
         <MetricCard
+          kicker="Meta ativa"
           title="Questões hoje"
           value={`${plan?.targets.objectiveQuestions ?? 0}`}
           subtitle={plan?.hasSimulado ? 'Substituído por simulado' : 'Meta ativa'}
           emphasis="orange"
         />
         <MetricCard
+          kicker="Memória"
           title="Cards restantes"
           value={`${ankiProjection.remainingCards}`}
           subtitle={`Término estimado: ${ankiProjection.estimatedFinishDate ?? 'fora da janela'}`}
           emphasis="green"
         />
         <MetricCard
+          kicker="Risco"
           title="Dias em atraso"
           value={`${overdueCount}`}
           subtitle="Dias anteriores com progresso < 100%"
@@ -122,8 +132,11 @@ export const DashboardPage = () => {
         />
       </div>
 
-      <div className="panel">
-        <h3>Plano do dia</h3>
+      <SectionCard
+        kicker="Foco de execução"
+        title="Plano do dia"
+        aside={<span className="eyebrow-badge">{plan?.hasSimulado || plan?.hasRedacao ? 'Evento especial' : 'Fluxo normal'}</span>}
+      >
         {plan?.isRestDay ? (
           <p>Domingo reservado para descanso e recuperação de energia.</p>
         ) : plan?.planMode === 'manual' ? (
@@ -132,9 +145,14 @@ export const DashboardPage = () => {
               Plano manual: <strong>Semana {plan.weekNumber ?? '-'}</strong>
             </p>
             {plan.manualBlocks?.slice(0, 3).map((block) => (
-              <p key={block.id}>
-                {block.area}: {block.title}
-              </p>
+              <div key={block.id}>
+                <p>
+                  {block.area}: {block.title}
+                </p>
+                {block.contentRefs?.length ? (
+                  <p>Conteúdo programático: {getManualBlockContentSummary(block)}</p>
+                ) : null}
+              </div>
             ))}
             <p>
               Simulado: {plan?.hasSimulado ? 'sim' : 'não'} | Redação: {plan?.hasRedacao ? 'sim' : 'não'}
@@ -153,11 +171,10 @@ export const DashboardPage = () => {
           </>
         )}
         <ProgressBar value={progress} label="Barra oficial do dia" />
-      </div>
+      </SectionCard>
 
       <div className="grid-2">
-        <article className="panel">
-          <h3>Metas mensais ({state.selectedDate.slice(0, 7)})</h3>
+        <SectionCard as="article" kicker="Cadência" title={`Metas mensais (${state.selectedDate.slice(0, 7)})`}>
           <p>
             Simulados: {monthSimuladosDone}/{monthTarget?.simulados ?? 0}
           </p>
@@ -176,10 +193,9 @@ export const DashboardPage = () => {
             }
             label="Cumprimento mensal"
           />
-        </article>
+        </SectionCard>
 
-        <article className="panel">
-          <h3>Metas totais do ciclo</h3>
+        <SectionCard as="article" kicker="Janela completa" title="Metas totais do ciclo">
           <p>
             Simulados: {totals.simuladosDone}/{totals.simuladosTarget}
           </p>
@@ -192,22 +208,22 @@ export const DashboardPage = () => {
           <p>
             Próxima redação: {nextRedacao ? formatIsoDatePtBr(nextRedacao) : 'sem data futura'}
           </p>
-        </article>
+        </SectionCard>
       </div>
 
-      <article className="panel review-widget dashboard-review-widget" data-testid="dashboard-content-review-widget">
+      <SectionCard
+        as="article"
+        className="review-widget dashboard-review-widget"
+        data-testid="dashboard-content-review-widget"
+        kicker="Conteúdo pragmático"
+        title="Mapa rápido de revisão do edital"
+        aside={<ActionButton to="/conteudo?focus=review-now">Abrir fila de revisão</ActionButton>}
+      >
         <div className="review-widget-header">
-          <div>
-            <p className="review-widget-kicker">Conteúdo pragmático</p>
-            <h3>Mapa rápido de revisão do edital</h3>
-            <p className="review-widget-copy">
-              Veja quantas submatérias estão frágeis, o que está sem revisar e entre direto na fila
-              de revisão.
-            </p>
-          </div>
-          <Link className="button" to="/conteudo?focus=review-now">
-            Abrir fila de revisão
-          </Link>
+          <p className="review-widget-copy">
+            Veja quantas submatérias estão frágeis, o que está sem revisar e entre direto na fila
+            de revisão.
+          </p>
         </div>
 
         <div className="review-widget-metrics">
@@ -254,7 +270,7 @@ export const DashboardPage = () => {
             </Link>
           ))}
         </div>
-      </article>
+      </SectionCard>
     </section>
   );
 };
