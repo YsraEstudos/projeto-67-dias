@@ -241,15 +241,27 @@ export const resetPassword = async (email: string) => {
 
 export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => void) => {
     let firebaseUser: FirebaseSdkUser | null = auth.currentUser;
+    let hasResolvedInitialState = false;
+    let fallbackTimeout: number | null = null;
+
+    const finalizeInitialResolution = () => {
+        hasResolvedInitialState = true;
+        if (fallbackTimeout !== null && isBrowser) {
+            window.clearTimeout(fallbackTimeout);
+            fallbackTimeout = null;
+        }
+    };
 
     const emitResolvedUser = () => {
         const localUser = getLocalAuthSessionUser();
         if (localUser) {
+            finalizeInitialResolution();
             callback(localUser);
             return;
         }
 
         if (firebaseUser) {
+            finalizeInitialResolution();
             callback(normalizeAuthUser(firebaseUser));
             return;
         }
@@ -258,6 +270,7 @@ export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => 
             isBrowser && Boolean(window.localStorage.getItem('p67_last_uid'));
 
         if (!hasCachedFirebaseUid) {
+            finalizeInitialResolution();
             callback(null);
         }
     };
@@ -274,6 +287,17 @@ export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => 
 
     emitResolvedUser();
 
+    if (isBrowser) {
+        fallbackTimeout = window.setTimeout(() => {
+            if (hasResolvedInitialState) return;
+
+            console.warn('[Firebase] Auth initialization timeout. Falling back to signed-out state.');
+            window.localStorage.removeItem('p67_last_uid');
+            finalizeInitialResolution();
+            callback(null);
+        }, 4000);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
         firebaseUser = user;
         emitResolvedUser();
@@ -281,6 +305,7 @@ export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => 
 
     return () => {
         unsubscribe();
+        finalizeInitialResolution();
 
         if (isBrowser) {
             window.removeEventListener(LOCAL_AUTH_EVENT, handleLocalAuthUpdate as EventListener);
