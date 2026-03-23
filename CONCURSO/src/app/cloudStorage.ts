@@ -11,6 +11,7 @@ type FirebaseBridge = {
   subscribeToAuthChanges: FirebaseServicesModule['subscribeToAuthChanges'];
   doc: FirestoreModule['doc'];
   getDoc: FirestoreModule['getDoc'];
+  onSnapshot: FirestoreModule['onSnapshot'];
   serverTimestamp: FirestoreModule['serverTimestamp'];
   setDoc: FirestoreModule['setDoc'];
 };
@@ -43,6 +44,17 @@ let firebaseBridgeError: string | null = null;
 const getCloudErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error && error.message ? error.message : fallback;
 
+const mapCloudSnapshotResult = (
+  data: Partial<CloudSnapshotRecord> | null | undefined,
+): CloudSnapshotResult => ({
+  snapshot: data?.snapshot ?? null,
+  lastChangedAt:
+    data?.lastChangedAt ??
+    data?.snapshot?.appState.meta.lastChangedAt ??
+    data?.snapshot?.exportedAt ??
+    null,
+});
+
 const mapCloudUser = (user: CloudUserSource): CloudUser => ({
   uid: user.uid,
   email: user.email ?? null,
@@ -68,6 +80,7 @@ const loadFirebaseBridge = async (): Promise<FirebaseBridge | null> => {
           subscribeToAuthChanges: firebaseServices.subscribeToAuthChanges,
           doc: firestore.doc,
           getDoc: firestore.getDoc,
+          onSnapshot: firestore.onSnapshot,
           serverTimestamp: firestore.serverTimestamp,
           setDoc: firestore.setDoc,
         };
@@ -121,15 +134,36 @@ export const loadCloudSnapshot = async (uid: string): Promise<CloudSnapshotResul
     return { snapshot: null, lastChangedAt: null };
   }
 
-  const data = record.data() as Partial<CloudSnapshotRecord>;
-  return {
-    snapshot: data.snapshot ?? null,
-    lastChangedAt:
-      data.lastChangedAt ??
-      data.snapshot?.appState.meta.lastChangedAt ??
-      data.snapshot?.exportedAt ??
-      null,
-  };
+  return mapCloudSnapshotResult(record.data() as Partial<CloudSnapshotRecord>);
+};
+
+export const subscribeCloudSnapshotChanges = async (
+  uid: string,
+  callback: (result: CloudSnapshotResult) => void,
+  onError?: (error: Error) => void,
+): Promise<() => void> => {
+  const bridge = await loadFirebaseBridge();
+  if (!bridge) {
+    callback({ snapshot: null, lastChangedAt: null });
+    return () => undefined;
+  }
+
+  return bridge.onSnapshot(
+    bridge.doc(bridge.db, CONCURSO_PLAN_COLLECTION, uid),
+    (record) => {
+      if (!record.exists()) {
+        callback({ snapshot: null, lastChangedAt: null });
+        return;
+      }
+
+      callback(mapCloudSnapshotResult(record.data() as Partial<CloudSnapshotRecord>));
+    },
+    (error) => {
+      const resolvedError =
+        error instanceof Error ? error : new Error('Falha ao acompanhar dados remotos do concurso.');
+      onError?.(resolvedError);
+    },
+  );
 };
 
 export const saveCloudSnapshot = async (user: CloudUser, snapshot: AppSnapshot): Promise<void> => {

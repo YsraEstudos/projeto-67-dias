@@ -143,6 +143,10 @@ export const normalizeTheoreticalContentItem = (
   ...item,
   label: item.label ?? item.filename,
   mimeType: item.mimeType ?? '',
+  inlineContent:
+    item.kind === 'markdown' && typeof item.inlineContent === 'string'
+      ? normalizeMarkdownText(item.inlineContent)
+      : null,
   sizeBytes: Number.isFinite(item.sizeBytes) ? Math.max(0, item.sizeBytes) : 0,
   order: Number.isFinite(item.order) ? Math.max(1, Math.round(item.order)) : 1,
   completedAt: typeof item.completedAt === 'string' && item.completedAt.trim().length > 0 ? item.completedAt : null,

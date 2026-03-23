@@ -15,6 +15,7 @@ import {
   loginWithGoogleCloud,
   saveCloudSnapshot,
   subscribeCloudAuthChanges,
+  subscribeCloudSnapshotChanges,
 } from './cloudStorage';
 import { AUTO_BACKUP_INTERVAL_MINUTES } from './constants';
 import {
@@ -846,13 +847,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isDisposed = false;
-    let unsubscribe: () => void = () => {};
+    let unsubscribeAuth: () => void = () => {};
+    let unsubscribeSnapshot: () => void = () => {};
 
     void subscribeCloudAuthChanges(async (user) => {
       if (isDisposed) {
         return;
       }
 
+      unsubscribeSnapshot();
+      unsubscribeSnapshot = () => {};
       cloudUserRef.current = user;
       hasLoadedCloudSnapshotRef.current = false;
 
@@ -913,6 +917,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             });
           });
         }
+
+        unsubscribeSnapshot = await subscribeCloudSnapshotChanges(
+          user.uid,
+          (nextRemote) => {
+            if (isDisposed) {
+              return;
+            }
+
+            const currentLocalState = stateRef.current;
+            const currentLocalChangedAt = currentLocalState.meta.lastChangedAt ?? null;
+            const nextRemoteChangedAt = nextRemote.lastChangedAt;
+
+            if (
+              nextRemote.snapshot?.appState &&
+              nextRemoteChangedAt &&
+              (!currentLocalChangedAt || nextRemoteChangedAt > currentLocalChangedAt)
+            ) {
+              const normalizedRemoteState = normalizeStateForCurrentPlan(nextRemote.snapshot.appState);
+              dispatch({ type: 'import-state', state: normalizedRemoteState });
+              stateRef.current = normalizedRemoteState;
+              lastCloudSavedTokenRef.current = normalizedRemoteState.meta.changeToken;
+              lastCloudSavedAtRef.current = nextRemote.snapshot.exportedAt;
+            }
+
+            setCloudSync({
+              status: 'connected',
+              email: user.email ?? null,
+              name: user.displayName ?? null,
+              lastSyncedAt: lastCloudSavedAtRef.current,
+              lastRemoteChangeAt: nextRemoteChangedAt,
+              error: null,
+            });
+          },
+          (error) => {
+            if (isDisposed) {
+              return;
+            }
+
+            setCloudSync({
+              status: 'error',
+              email: user.email ?? null,
+              name: user.displayName ?? null,
+              error: error.message,
+            });
+          },
+        );
       } catch (error) {
         hasLoadedCloudSnapshotRef.current = true;
         setCloudSync({
@@ -928,12 +978,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      unsubscribe = nextUnsubscribe;
+      unsubscribeAuth = nextUnsubscribe;
     });
 
     return () => {
       isDisposed = true;
-      unsubscribe();
+      unsubscribeSnapshot();
+      unsubscribeAuth();
     };
   }, [syncSnapshotToCloud]);
 
@@ -1073,6 +1124,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const timestamp = nowIso();
           const storageKey = `theoretical-content-${itemId}`;
           await saveTheoreticalContentBinary({ storageKey, file });
+          const inlineContent =
+            kind === 'markdown' && input.pastedMarkdown && files.length === 1
+              ? input.pastedMarkdown.replace(/\r\n?/g, '\n').trim()
+              : null;
           const itemLabel =
             kind === 'markdown' && input.pastedMarkdown && files.length === 1
               ? getPastedMarkdownLabel(input.pastedMarkdown, input.pastedLabel ?? 'Aula colada')
@@ -1090,6 +1145,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               kind,
               mimeType: file.type,
               storageKey,
+              inlineContent,
               sizeBytes: file.size,
               order: nextOrder,
               completedAt: null,

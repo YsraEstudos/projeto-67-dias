@@ -25,6 +25,7 @@ const item = (
   kind: 'markdown',
   mimeType: 'text/markdown',
   storageKey: `storage-${id}`,
+  inlineContent: null,
   sizeBytes: 128,
   order: 0,
   completedAt: null,

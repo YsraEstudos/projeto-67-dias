@@ -81,6 +81,7 @@ export interface TheoreticalContentItem {
   kind: TheoreticalContentKind;
   mimeType: string;
   storageKey: string;
+  inlineContent: string | null;
   sizeBytes: number;
   order: number;
   completedAt: string | null;

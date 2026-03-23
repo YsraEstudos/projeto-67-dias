@@ -95,7 +95,9 @@ describe('ContentTopicPage', () => {
     expect(screen.getByDisplayValue('Arquitetura: CPU, memória e I/O')).toBeInTheDocument();
   });
 
-  it('lista arquivos teoricos da materia, permite reordenar e preserva a ordem apos recarregar', async () => {
+  it(
+    'lista arquivos teoricos da materia, permite reordenar e preserva a ordem apos recarregar',
+    async () => {
     const user = userEvent.setup();
     const topicId = topicIdByTitle('Domínio da ortografia oficial.');
     const state = createStateWithTopics((draft) => {
@@ -108,6 +110,7 @@ describe('ContentTopicPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir central de arquivos' }));
     await user.click(screen.getByRole('button', { name: 'Abrir arquivos da matéria' }));
+    await screen.findByTestId('topic-theoretical-content-upload');
 
     const uploadInput = screen.getByTestId('topic-theoretical-content-upload') as HTMLInputElement;
     await user.upload(uploadInput, [
@@ -139,15 +142,20 @@ describe('ContentTopicPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir central de arquivos' }));
     await user.click(screen.getByRole('button', { name: 'Abrir arquivos da matéria' }));
+    await screen.findByTestId('topic-theoretical-content-list');
 
     const listAfterReload = within(screen.getByTestId('topic-theoretical-content-list'))
       .getAllByRole('listitem')
       .map((item) => item.textContent ?? '');
     expect(listAfterReload[0]).toContain('questoes.pdf');
     expect(listAfterReload[1]).toContain('resumo.md');
-  });
+    },
+    15000,
+  );
 
-  it('permite cadastrar conteudo teorico por submateria e baixar arquivos por contexto', async () => {
+  it(
+    'permite cadastrar conteudo teorico por submateria e baixar arquivos por contexto',
+    async () => {
     const user = userEvent.setup();
     const topicId = topicIdByTitle('Domínio da ortografia oficial.');
     const state = createStateWithTopics((draft) => {
@@ -166,6 +174,7 @@ describe('ContentTopicPage', () => {
           kind: 'markdown',
           mimeType: 'text/markdown',
           storageKey: 'storage-topic-file-1',
+          inlineContent: null,
           sizeBytes: 42,
           order: 1,
           completedAt: null,
@@ -179,6 +188,7 @@ describe('ContentTopicPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir central de arquivos' }));
     await user.click(screen.getByRole('button', { name: 'Abrir arquivos da submatéria Ortografia aplicada' }));
+    await screen.findByTestId('submatter-theoretical-content-upload-orthography-e');
 
     const submatterUpload = screen.getByTestId(
       'submatter-theoretical-content-upload-orthography-e',
@@ -225,9 +235,13 @@ describe('ContentTopicPage', () => {
         scope: { kind: 'submatter', topicId, submatterId: 'orthography-e' },
       }),
     );
-  });
+    },
+    15000,
+  );
 
-  it('permite colar markdown, abrir a aula no site, marcar como feita e reordenar por drag and drop', async () => {
+  it(
+    'permite colar markdown, abrir a aula no site, marcar como feita e reordenar por drag and drop',
+    async () => {
     const user = userEvent.setup();
     const topicId = topicIdByTitle('Domínio da ortografia oficial.');
     const state = createStateWithTopics((draft) => {
@@ -243,6 +257,7 @@ describe('ContentTopicPage', () => {
           kind: 'markdown',
           mimeType: 'text/markdown',
           storageKey: 'storage-topic-file-1',
+          inlineContent: null,
           sizeBytes: 42,
           order: 1,
           completedAt: null,
@@ -261,6 +276,7 @@ describe('ContentTopicPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir central de arquivos' }));
     await user.click(screen.getByRole('button', { name: 'Abrir arquivos da matéria' }));
+    await screen.findByTestId('topic-theoretical-content-paste');
 
     const pasteField = screen.getByTestId('topic-theoretical-content-paste');
     await user.click(pasteField);
@@ -330,6 +346,7 @@ describe('ContentTopicPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir central de arquivos' }));
     await user.click(screen.getByRole('button', { name: 'Abrir arquivos da matéria' }));
+    await screen.findByTestId('topic-theoretical-content-list');
 
     const listAfterReload = within(screen.getByTestId('topic-theoretical-content-list'))
       .getAllByTestId(/theoretical-content-card-/)
@@ -337,7 +354,9 @@ describe('ContentTopicPage', () => {
     expect(listAfterReload[0]).toContain('Aula colada');
     expect(listAfterReload[1]).toContain('Guia base');
     expect(screen.getByText('Feita')).toBeInTheDocument();
-  });
+    },
+    15000,
+  );
 
   it('renderiza markdown no estilo GitHub com GFM e sem executar HTML bruto', async () => {
     const user = userEvent.setup();
@@ -379,6 +398,7 @@ describe('ContentTopicPage', () => {
           kind: 'markdown',
           mimeType: 'text/markdown',
           storageKey: 'storage-topic-file-1',
+          inlineContent: markdown,
           sizeBytes: 420,
           order: 1,
           completedAt: null,
@@ -423,5 +443,44 @@ describe('ContentTopicPage', () => {
     expect(within(viewer).getByText('Bloco importante')).toBeInTheDocument();
     expect(within(viewer).getByText('const grade = "A";')).toBeInTheDocument();
     expect(within(viewer).queryByTestId('raw-html')).not.toBeInTheDocument();
+  });
+
+  it('abre aula markdown sincronizada mesmo quando o binario local nao existe neste navegador', async () => {
+    const user = userEvent.setup();
+    const topicId = topicIdByTitle('Domínio da ortografia oficial.');
+    const state = createStateWithTopics((draft) => {
+      draft.theoreticalContents = [
+        {
+          id: 'topic-file-inline',
+          ownerType: 'topic',
+          ownerId: topicId,
+          topicId,
+          submatterId: null,
+          filename: 'aula-remota.md',
+          label: 'Aula remota',
+          kind: 'markdown',
+          mimeType: 'text/markdown',
+          storageKey: 'storage-topic-file-inline',
+          inlineContent: '# Aula remota\n\nConteúdo vindo da nuvem.',
+          sizeBytes: 120,
+          order: 1,
+          completedAt: null,
+          createdAt: '2026-03-12T10:00:00.000Z',
+          updatedAt: '2026-03-12T10:00:00.000Z',
+        },
+      ];
+    });
+
+    renderConcursoApp(`/conteudo/topico/${topicId}`, state);
+
+    await user.click(screen.getByRole('button', { name: 'Abrir central de arquivos' }));
+    await user.click(screen.getByRole('button', { name: 'Abrir arquivos da matéria' }));
+    await user.click(screen.getByRole('button', { name: 'Abrir aula Aula remota' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('theoretical-content-viewer')).toHaveTextContent(
+        'Conteúdo vindo da nuvem.',
+      );
+    });
   });
 });

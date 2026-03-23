@@ -2,14 +2,24 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
-vi.mock('../app/cloudStorage', () => ({
-  subscribeCloudAuthChanges: async (callback: (user: null) => void) => {
+const cloudStorageMock = {
+  subscribeCloudAuthChanges: vi.fn(async (callback: (user: null) => void) => {
     callback(null);
     return () => undefined;
-  },
+  }),
+  subscribeCloudSnapshotChanges: vi.fn(
+    async (_uid: string, callback: (result: { snapshot: null; lastChangedAt: null }) => void) => {
+      callback({ snapshot: null, lastChangedAt: null });
+      return () => undefined;
+    },
+  ),
   loginWithGoogleCloud: vi.fn(),
-  loadCloudSnapshot: vi.fn(),
-  saveCloudSnapshot: vi.fn(),
+  loadCloudSnapshot: vi.fn(async () => ({ snapshot: null, lastChangedAt: null })),
+  saveCloudSnapshot: vi.fn(async () => undefined),
+};
+
+vi.mock('../app/cloudStorage', () => ({
+  ...cloudStorageMock,
 }));
 
 if (!window.matchMedia) {

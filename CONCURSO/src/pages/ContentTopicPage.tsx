@@ -328,6 +328,18 @@ export const ContentTopicPage = () => {
         }
 
         if (!binary) {
+          if (openedTheoreticalContent.kind === 'markdown' && openedTheoreticalContent.inlineContent) {
+            setViewerState({
+              status: 'ready',
+              itemId: openedTheoreticalContent.id,
+              kind: openedTheoreticalContent.kind,
+              content: openedTheoreticalContent.inlineContent,
+              objectUrl: null,
+              error: '',
+            });
+            return;
+          }
+
           setViewerState({
             status: 'error',
             itemId: openedTheoreticalContent.id,
