@@ -1,0 +1,464 @@
+[
+  {
+    "id": "section-semana-1",
+    "title": "📚 Semana 1: Introdução ao BLD",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-1",
+    "title": "Dia 1: Entender o que é BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-2",
+    "title": "Dia 2: Conhecer os objetivos do blindfold",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-3",
+    "title": "Dia 3: Aprender a lógica do memo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-4",
+    "title": "Dia 4: Entender buffer, ciclos e troca de peças",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-5",
+    "title": "Dia 5: Estudar a notação usada no BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-6",
+    "title": "Dia 6: Treinar leitura do cubo sem executar",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-7",
+    "title": "Dia 7: Revisar tudo e anotar dúvidas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-2",
+    "title": "🧠 Semana 2: Memorização",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-8",
+    "title": "Dia 8: Memorizar peças por ciclos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-9",
+    "title": "Dia 9: Treinar memorização de arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-10",
+    "title": "Dia 10: Treinar memorização de cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-11",
+    "title": "Dia 11: Usar imagens mentais para memorizar",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-12",
+    "title": "Dia 12: Reduzir o tempo de memo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-13",
+    "title": "Dia 13: Revisar a ordem das peças",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-14",
+    "title": "Dia 14: Fazer memo sem consultar anotações",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-3",
+    "title": "🔗 Semana 3: Arestas no BLD",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-15",
+    "title": "Dia 15: Aprender o método de arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-16",
+    "title": "Dia 16: Identificar o buffer de arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-17",
+    "title": "Dia 17: Treinar um ciclo simples de arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-18",
+    "title": "Dia 18: Executar arestas com calma",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-19",
+    "title": "Dia 19: Corrigir erros comuns nas arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-20",
+    "title": "Dia 20: Fazer arestas sem abrir os olhos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-21",
+    "title": "Dia 21: Repetir arestas até ficar consistente",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-4",
+    "title": "🎯 Semana 4: Cantos no BLD",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-22",
+    "title": "Dia 22: Aprender o método de cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-23",
+    "title": "Dia 23: Identificar o buffer de cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-24",
+    "title": "Dia 24: Treinar um ciclo simples de cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-25",
+    "title": "Dia 25: Executar cantos com precisão",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-26",
+    "title": "Dia 26: Corrigir erros comuns nos cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-27",
+    "title": "Dia 27: Fazer cantos sem consultar notas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-28",
+    "title": "Dia 28: Repetir cantos até ganhar confiança",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-5",
+    "title": "🧩 Semana 5: Aplicar o BLD completo",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-29",
+    "title": "Dia 29: Separar memo de execução",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-30",
+    "title": "Dia 30: Fazer o primeiro teste completo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-31",
+    "title": "Dia 31: Revisar a execução das arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-32",
+    "title": "Dia 32: Revisar a execução dos cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-33",
+    "title": "Dia 33: Fazer memo e execução sem pausa",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-34",
+    "title": "Dia 34: Melhorar a velocidade do processo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-35",
+    "title": "Dia 35: Registrar o que ainda trava",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-6",
+    "title": "⚙️ Semana 6: Consistência",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-36",
+    "title": "Dia 36: Repetir solves curtos de BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-37",
+    "title": "Dia 37: Treinar memorização mais rápida",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-38",
+    "title": "Dia 38: Treinar execução mais limpa",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-39",
+    "title": "Dia 39: Diminuir erros de troca de peças",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-40",
+    "title": "Dia 40: Repetir um mesmo scramble várias vezes",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-41",
+    "title": "Dia 41: Estudar seus erros mais frequentes",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-42",
+    "title": "Dia 42: Ajustar a estratégia de memo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-7",
+    "title": "🚀 Semana 7: Solves completos",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-43",
+    "title": "Dia 43: Fazer um solve completo de BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-44",
+    "title": "Dia 44: Fazer outro solve completo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-45",
+    "title": "Dia 45: Comparar os dois solves",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-46",
+    "title": "Dia 46: Corrigir a parte que falhou",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-47",
+    "title": "Dia 47: Fazer solves em sequência",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-48",
+    "title": "Dia 48: Testar sem consultar ajuda",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-49",
+    "title": "Dia 49: Medir a taxa de acerto",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-8",
+    "title": "📝 Semana 8: Revisão do método",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-50",
+    "title": "Dia 50: Revisar o passo a passo do BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-51",
+    "title": "Dia 51: Revisar memo de arestas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-52",
+    "title": "Dia 52: Revisar memo de cantos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-53",
+    "title": "Dia 53: Revisar a ordem dos ciclos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-54",
+    "title": "Dia 54: Revisar os algoritmos que mais usa",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-55",
+    "title": "Dia 55: Reforçar os pontos fracos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-56",
+    "title": "Dia 56: Fazer revisão geral do BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-9",
+    "title": "🏁 Semana 9: Desempenho e confiança",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-57",
+    "title": "Dia 57: Fazer solves mais rápidos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-58",
+    "title": "Dia 58: Fazer memo mais eficiente",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-59",
+    "title": "Dia 59: Melhorar a calma durante o BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-60",
+    "title": "Dia 60: Repetir solve com foco total",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-61",
+    "title": "Dia 61: Conferir consistência da execução",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-62",
+    "title": "Dia 62: Fazer simulado de BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-63",
+    "title": "Dia 63: Ajustar os últimos detalhes",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-10",
+    "title": "🎓 Semana 10: Consolidação final",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-64",
+    "title": "Dia 64: Fazer um solve completo sem ajuda",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-65",
+    "title": "Dia 65: Fazer outro solve completo sem ajuda",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-66",
+    "title": "Dia 66: Revisar o que aprendeu no BLD",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-67",
+    "title": "Dia 67: Definir rotina de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  }
+]

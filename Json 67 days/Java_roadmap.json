@@ -1,0 +1,1443 @@
+[
+  {
+    "id": "section-semana-1",
+    "title": "📚 Semana 1: Fundamentos de Java",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-1",
+    "title": "Dia 1: Revisão e Tipos Primitivos",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-1-sub-1",
+        "title": "Executar 'Hello World' para validar JDK",
+        "isCompleted": false
+      },
+      {
+        "id": "day-1-sub-2",
+        "title": "Analisar estrutura 'main'",
+        "isCompleted": false
+      },
+      {
+        "id": "day-1-sub-3",
+        "title": "Prática: int, double, boolean, char",
+        "isCompleted": false
+      },
+      {
+        "id": "day-1-sub-4",
+        "title": "Comparação: Primitivos vs String",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-2",
+    "title": "Dia 2: Operadores e Entrada de Dados",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-2-sub-1",
+        "title": "Aritméticos (+, -, *, /, %) e Atribuição",
+        "isCompleted": false
+      },
+      {
+        "id": "day-2-sub-2",
+        "title": "Lógicos (&&, ||) e Relacionais",
+        "isCompleted": false
+      },
+      {
+        "id": "day-2-sub-3",
+        "title": "Ler nextInt() e nextLine() com Scanner",
+        "isCompleted": false
+      },
+      {
+        "id": "day-2-sub-4",
+        "title": "Resolver problema de buffer do Scanner",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-3",
+    "title": "Dia 3: Controle de Fluxo (Condicionais)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-3-sub-1",
+        "title": "If / Else If / Else encadeados",
+        "isCompleted": false
+      },
+      {
+        "id": "day-3-sub-2",
+        "title": "Switch Case para menus simples",
+        "isCompleted": false
+      },
+      {
+        "id": "day-3-sub-3",
+        "title": "Ternário simples",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-4",
+    "title": "Dia 4: Estruturas de Repetição (Loops)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-4-sub-1",
+        "title": "For Loop (Contadores)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-4-sub-2",
+        "title": "While (Condição incerta)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-4-sub-3",
+        "title": "Aplicar 'break' e 'continue'",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-5",
+    "title": "Dia 5: Arrays (Vetores Básicos)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-5-sub-1",
+        "title": "Declarar e popular int[]",
+        "isCompleted": false
+      },
+      {
+        "id": "day-5-sub-2",
+        "title": "Percorrer com For e For-Each",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-6",
+    "title": "Dia 6: Mini-Projeto de Lógica",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-6-sub-1",
+        "title": "Gerar número aleatório (Random)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-6-sub-2",
+        "title": "Loop While com Input do usuário",
+        "isCompleted": false
+      },
+      {
+        "id": "day-6-sub-3",
+        "title": "Lógica de validação (If/Else)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-7",
+    "title": "Dia 7: Introdução a Métodos",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-7-sub-1",
+        "title": "Criar métodos 'static void'",
+        "isCompleted": false
+      },
+      {
+        "id": "day-7-sub-2",
+        "title": "Passagem de Parâmetros",
+        "isCompleted": false
+      },
+      {
+        "id": "day-7-sub-3",
+        "title": "Usar 'return' com int e String",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-2",
+    "title": "🚀 Semana 2: Orientação a Objetos Básica",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-8",
+    "title": "Dia 8: Métodos Avançados",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-8-sub-1",
+        "title": "Sobrecarga (Overloading) Teórica e Prática",
+        "isCompleted": false
+      },
+      {
+        "id": "day-8-sub-2",
+        "title": "Escopo: Variável Local vs Global",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-9",
+    "title": "Dia 9: Intro a Orientação a Objetos",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-9-sub-1",
+        "title": "Conceito: Classe vs Objeto",
+        "isCompleted": false
+      },
+      {
+        "id": "day-9-sub-2",
+        "title": "Criar Classe simples (ex: Carro)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-9-sub-3",
+        "title": "Usar 'new' e acessar atributos públicos",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-10",
+    "title": "Dia 10: Comportamento de Objetos",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-10-sub-1",
+        "title": "Métodos sem 'static' (Comportamento)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-10-sub-2",
+        "title": "Uso do 'this'",
+        "isCompleted": false
+      },
+      {
+        "id": "day-10-sub-3",
+        "title": "Criar 3 objetos e alterar estados independentes",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-11",
+    "title": "Dia 11: Encapsulamento",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-11-sub-1",
+        "title": "Modificadores: private vs public",
+        "isCompleted": false
+      },
+      {
+        "id": "day-11-sub-2",
+        "title": "Privatizar atributos da classe",
+        "isCompleted": false
+      },
+      {
+        "id": "day-11-sub-3",
+        "title": "Implementar Getters e Setters",
+        "isCompleted": false
+      },
+      {
+        "id": "day-11-sub-4",
+        "title": "Adicionar validação no Setter",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-12",
+    "title": "Dia 12: Construtores",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-12-sub-1",
+        "title": "Criar construtor com argumentos",
+        "isCompleted": false
+      },
+      {
+        "id": "day-12-sub-2",
+        "title": "Obrigar dados no 'new'",
+        "isCompleted": false
+      },
+      {
+        "id": "day-12-sub-3",
+        "title": "Sobrecarga de Construtores (Múltiplas opções)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-13",
+    "title": "Dia 13: Static e Escopo de Classe",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-13-sub-1",
+        "title": "Atributos static (Compartilhados)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-13-sub-2",
+        "title": "Métodos Utilitários (Ex: Conversor)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-14",
+    "title": "Dia 14: Herança",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-14-sub-1",
+        "title": "Uso de 'extends'",
+        "isCompleted": false
+      },
+      {
+        "id": "day-14-sub-2",
+        "title": "Criar Superclasse e Subclasse",
+        "isCompleted": false
+      },
+      {
+        "id": "day-14-sub-3",
+        "title": "Testar herança de métodos",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-3",
+    "title": "💻 Semana 3: OOP Avançado",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-15",
+    "title": "Dia 15: Sobrescrita e Super",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-15-sub-1",
+        "title": "Anotação @Override",
+        "isCompleted": false
+      },
+      {
+        "id": "day-15-sub-2",
+        "title": "Modificar comportamento herdado",
+        "isCompleted": false
+      },
+      {
+        "id": "day-15-sub-3",
+        "title": "Construtor super()",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-16",
+    "title": "Dia 16: Prática de Sobrecarga em Classes",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-16-sub-1",
+        "title": "Revisão: Override vs Overload",
+        "isCompleted": false
+      },
+      {
+        "id": "day-16-sub-2",
+        "title": "Classe Calculadora com múltiplos métodos 'somar'",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-17",
+    "title": "Dia 17: Polimorfismo de Inclusão",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-17-sub-1",
+        "title": "Declarar Pai = new Filho()",
+        "isCompleted": false
+      },
+      {
+        "id": "day-17-sub-2",
+        "title": "Execução em tempo de execução (Runtime)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-17-sub-3",
+        "title": "Array de 'Conta' com Corrente e Poupança",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-18",
+    "title": "Dia 18: Classes Abstratas",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-18-sub-1",
+        "title": "Keyword 'abstract' (Classes e Métodos)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-18-sub-2",
+        "title": "Impedir instanciação direta",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-19",
+    "title": "Dia 19: Interfaces",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-19-sub-1",
+        "title": "Interface e implements",
+        "isCompleted": false
+      },
+      {
+        "id": "day-19-sub-2",
+        "title": "Diferença: Interface vs Abstract",
+        "isCompleted": false
+      },
+      {
+        "id": "day-19-sub-3",
+        "title": "Simulação de herança múltipla",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-20",
+    "title": "Dia 20: Mini-Projeto Bancário (Estrutura)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-20-sub-1",
+        "title": "Classe Abstrata Conta + Interface Tributavel",
+        "isCompleted": false
+      },
+      {
+        "id": "day-20-sub-2",
+        "title": "Classes Concretas: Corrente e Poupanca",
+        "isCompleted": false
+      },
+      {
+        "id": "day-20-sub-3",
+        "title": "Main simples para testes manuais",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-21",
+    "title": "Dia 21: Tratamento de Exceções (Try/Catch)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-21-sub-1",
+        "title": "Try, Catch e Finally",
+        "isCompleted": false
+      },
+      {
+        "id": "day-21-sub-2",
+        "title": "Ler Stack Trace",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-4",
+    "title": "🧪 Semana 4: Exceções e APIs Básicas",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-22",
+    "title": "Dia 22: Tipos de Exceções e Throws",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-22-sub-1",
+        "title": "Checked vs Unchecked (Runtime)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-22-sub-2",
+        "title": "Diferença: throw vs throws",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-23",
+    "title": "Dia 23: Exceções Personalizadas",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-23-sub-1",
+        "title": "Estender RuntimeException",
+        "isCompleted": false
+      },
+      {
+        "id": "day-23-sub-2",
+        "title": "Construtor com mensagem (super)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-23-sub-3",
+        "title": "Implementar SaldoInsuficienteException",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-24",
+    "title": "Dia 24: Manipulação de Strings",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-24-sub-1",
+        "title": "Imutabilidade e String Pool",
+        "isCompleted": false
+      },
+      {
+        "id": "day-24-sub-2",
+        "title": "Métodos (substring, split, trim)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-24-sub-3",
+        "title": "StringBuilder básico",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-25",
+    "title": "Dia 25: Object e Wrappers",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-25-sub-1",
+        "title": "Sobrescrever toString()",
+        "isCompleted": false
+      },
+      {
+        "id": "day-25-sub-2",
+        "title": "Autoboxing/Unboxing",
+        "isCompleted": false
+      },
+      {
+        "id": "day-25-sub-3",
+        "title": "Parsing (String -> Numero)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-26",
+    "title": "Dia 26: Listas (ArrayList)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-26-sub-1",
+        "title": "ArrayList vs Array Comum",
+        "isCompleted": false
+      },
+      {
+        "id": "day-26-sub-2",
+        "title": "Métodos (add, get, remove, size)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-26-sub-3",
+        "title": "Sintaxe Diamond: List<String>",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-27",
+    "title": "Dia 27: Teoria de Conjuntos (Sets)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-27-sub-1",
+        "title": "Conceito: Não permitir duplicatas",
+        "isCompleted": false
+      },
+      {
+        "id": "day-27-sub-2",
+        "title": "Contrato obrigatório entre equals/hashCode",
+        "isCompleted": false
+      },
+      {
+        "id": "day-27-sub-3",
+        "title": "Implementar equals na Conta",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-28",
+    "title": "Dia 28: Mapas (Intro)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-28-sub-1",
+        "title": "Estrutura Chave-Valor (put/get)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-28-sub-2",
+        "title": "Loops em keySet() e values()",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-5",
+    "title": "🔧 Semana 5: I/O e Collections Avançado",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-29",
+    "title": "Dia 29: Leitura e Escrita de Arquivos",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-29-sub-1",
+        "title": "Classe File e FileWriter simples",
+        "isCompleted": false
+      },
+      {
+        "id": "day-29-sub-2",
+        "title": "Escrever texto em .txt",
+        "isCompleted": false
+      },
+      {
+        "id": "day-29-sub-3",
+        "title": "Usar Scanner para ler arquivo",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-30",
+    "title": "Dia 30: Refatoração do Banco",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-30-sub-1",
+        "title": "Substituir Array[] por List<Conta>",
+        "isCompleted": false
+      },
+      {
+        "id": "day-30-sub-2",
+        "title": "Tratar exceções na Main",
+        "isCompleted": false
+      },
+      {
+        "id": "day-30-sub-3",
+        "title": "Exportar saldo simples para txt",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-31",
+    "title": "Dia 31: Prática de Unicidade (Sets)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-31-sub-1",
+        "title": "HashSet vs ArrayList (Performance)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-31-sub-2",
+        "title": "Teste: Adicionar contas duplicadas no Set",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-32",
+    "title": "Dia 32: Otimização com Mapas",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-32-sub-1",
+        "title": "Criar Map<Integer, Conta>",
+        "isCompleted": false
+      },
+      {
+        "id": "day-32-sub-2",
+        "title": "Busca instantânea por número da conta",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-33",
+    "title": "Dia 33: Ordenação de Listas",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-33-sub-1",
+        "title": "Interface Comparable<Conta>",
+        "isCompleted": false
+      },
+      {
+        "id": "day-33-sub-2",
+        "title": "Collections.sort()",
+        "isCompleted": false
+      },
+      {
+        "id": "day-33-sub-3",
+        "title": "Comparator (ordenar por Titular)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-34",
+    "title": "Dia 34: Java Moderno (Lambdas)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-34-sub-1",
+        "title": "Simplificar Comparators com (a, b) -> {}",
+        "isCompleted": false
+      },
+      {
+        "id": "day-34-sub-2",
+        "title": "Método forEach em listas",
+        "isCompleted": false
+      },
+      {
+        "id": "day-34-sub-3",
+        "title": "Visão geral: Consumer e Predicate",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-35",
+    "title": "Dia 35: Stream API - Introdução",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-35-sub-1",
+        "title": "Stream vs Collection: Teoria básica",
+        "isCompleted": false
+      },
+      {
+        "id": "day-35-sub-2",
+        "title": "Prática: Usar .filter() para filtrar números pares",
+        "isCompleted": false
+      },
+      {
+        "id": "day-35-sub-3",
+        "title": "Prática: Usar .map() para converter nomes para maiúsculas",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-6",
+    "title": "🗄️ Semana 6: Streams, Maven e JDBC",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-36",
+    "title": "Dia 36: Stream API - Operações Terminais",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-36-sub-1",
+        "title": "Usar Collectors.toList() para gerar nova lista",
+        "isCompleted": false
+      },
+      {
+        "id": "day-36-sub-2",
+        "title": "Usar .count() e .max() em uma lista de inteiros",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-37",
+    "title": "Dia 37: Maven - Estrutura e Migração",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-37-sub-1",
+        "title": "Analisar pom.xml e pastas src/main/java",
+        "isCompleted": false
+      },
+      {
+        "id": "day-37-sub-2",
+        "title": "Mover código do Sistema Bancário para projeto Maven",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-38",
+    "title": "Dia 38: Bibliotecas e JSON",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-38-sub-1",
+        "title": "Adicionar Gson ou Jackson no pom.xml",
+        "isCompleted": false
+      },
+      {
+        "id": "day-38-sub-2",
+        "title": "Converter um objeto Conta para String JSON",
+        "isCompleted": false
+      },
+      {
+        "id": "day-38-sub-3",
+        "title": "Salvar JSON em arquivo .json simples",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-39",
+    "title": "Dia 39: Introdução ao JDBC",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-39-sub-1",
+        "title": "Adicionar Driver H2 ou MySQL no Maven",
+        "isCompleted": false
+      },
+      {
+        "id": "day-39-sub-2",
+        "title": "Criar classe ConnectionFactory e testar conexão",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-40",
+    "title": "Dia 40: JDBC - Escrita (INSERT)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-40-sub-1",
+        "title": "Criar tabela 'contas' via SQL no Java",
+        "isCompleted": false
+      },
+      {
+        "id": "day-40-sub-2",
+        "title": "Implementar método salvar() com INSERT e parâmetros (?)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-41",
+    "title": "Dia 41: JDBC - Leitura (SELECT)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-41-sub-1",
+        "title": "Usar executeQuery() e percorrer ResultSet",
+        "isCompleted": false
+      },
+      {
+        "id": "day-41-sub-2",
+        "title": "Converter ResultSet para List<Conta> e imprimir",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-42",
+    "title": "Dia 42: JDBC - Update, Delete e DAO",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-42-sub-1",
+        "title": "Implementar e testar UPDATE (alterar saldo)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-42-sub-2",
+        "title": "Implementar e testar DELETE (remover por ID)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-42-sub-3",
+        "title": "Mover métodos JDBC soltos para classe ContaDAO",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-7",
+    "title": "🎯 Semana 7: JPA/Hibernate",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-43",
+    "title": "Dia 43: JDBC - Transações e Fechamento",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-43-sub-1",
+        "title": "Usar setAutoCommit(false), commit e rollback",
+        "isCompleted": false
+      },
+      {
+        "id": "day-43-sub-2",
+        "title": "Refatorar DAO para fechar conexões automaticamente",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-44",
+    "title": "Dia 44: JPA/Hibernate - Setup",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-44-sub-1",
+        "title": "Adicionar hibernate-core no pom.xml",
+        "isCompleted": false
+      },
+      {
+        "id": "day-44-sub-2",
+        "title": "Criar persistence.xml com configurações do banco",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-45",
+    "title": "Dia 45: Mapeamento de Entidades (JPA)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-45-sub-1",
+        "title": "Mapear classe Conta com @Entity e @Id",
+        "isCompleted": false
+      },
+      {
+        "id": "day-45-sub-2",
+        "title": "Usar @Column e @Enumerated (para TipoConta)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-46",
+    "title": "Dia 46: EntityManager - Persistência",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-46-sub-1",
+        "title": "Instanciar EntityManagerFactory e EntityManager",
+        "isCompleted": false
+      },
+      {
+        "id": "day-46-sub-2",
+        "title": "Abrir transação, usar em.persist(conta) e commitar",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-47",
+    "title": "Dia 47: JPA - Buscas e Alterações",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-47-sub-1",
+        "title": "Usar em.find() para buscar por ID",
+        "isCompleted": false
+      },
+      {
+        "id": "day-47-sub-2",
+        "title": "Testar 'Dirty Checking' (alterar objeto sem chamar save)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-47-sub-3",
+        "title": "Usar em.remove() dentro de transação",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-48",
+    "title": "Dia 48: JPQL (Java Persistence Query Language)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-48-sub-1",
+        "title": "Escrever SELECT c FROM Conta c",
+        "isCompleted": false
+      },
+      {
+        "id": "day-48-sub-2",
+        "title": "Usar .getResultList() para listar tudo",
+        "isCompleted": false
+      },
+      {
+        "id": "day-48-sub-3",
+        "title": "Usar WHERE e parâmetros nomeados (:titular)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-49",
+    "title": "Dia 49: Relacionamentos JPA",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-49-sub-1",
+        "title": "Criar entidade Cliente e relacionar com Conta (@ManyToOne)",
+        "isCompleted": false
+      },
+      {
+        "id": "day-49-sub-2",
+        "title": "Salvar Cliente e Conta vinculada no banco",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-8",
+    "title": "🌐 Semana 8: Spring Boot Básico",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-50",
+    "title": "Dia 50: Mini-Projeto JPA (Simples)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-50-sub-1",
+        "title": "Criar classe utilitária JPAUtil",
+        "isCompleted": false
+      },
+      {
+        "id": "day-50-sub-2",
+        "title": "Criar ContaDaoJPA básico",
+        "isCompleted": false
+      },
+      {
+        "id": "day-50-sub-3",
+        "title": "Criar Main simples para testar CRUD completo via JPA",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-51",
+    "title": "Dia 51: Aprofundamento Maven (Build)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-51-sub-1",
+        "title": "Executar comandos: clean, compile, package",
+        "isCompleted": false
+      },
+      {
+        "id": "day-51-sub-2",
+        "title": "Entender escopos (test, runtime, compile)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-52",
+    "title": "Dia 52: Spring Core - Conceitos",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-52-sub-1",
+        "title": "Estudar Inversão de Controle e ApplicationContext",
+        "isCompleted": false
+      },
+      {
+        "id": "day-52-sub-2",
+        "title": "Estudar anotações @Component e @Autowired",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-53",
+    "title": "Dia 53: Spring Boot - Setup",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-53-sub-1",
+        "title": "Gerar projeto no start.spring.io",
+        "isCompleted": false
+      },
+      {
+        "id": "day-53-sub-2",
+        "title": "Importar na IDE e rodar aplicação Hello World",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-54",
+    "title": "Dia 54: Spring Web - GET",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-54-sub-1",
+        "title": "Criar classe com @RestController",
+        "isCompleted": false
+      },
+      {
+        "id": "day-54-sub-2",
+        "title": "Criar método @GetMapping retornando JSON simples",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-55",
+    "title": "Dia 55: Spring Web - POST",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-55-sub-1",
+        "title": "Criar método @PostMapping com @RequestBody",
+        "isCompleted": false
+      },
+      {
+        "id": "day-55-sub-2",
+        "title": "Usar Postman/Insomnia para enviar JSON",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-56",
+    "title": "Dia 56: Spring Data JPA",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-56-sub-1",
+        "title": "Criar interface estendendo JpaRepository",
+        "isCompleted": false
+      },
+      {
+        "id": "day-56-sub-2",
+        "title": "Configurar H2 no application.properties",
+        "isCompleted": false
+      },
+      {
+        "id": "day-56-sub-3",
+        "title": "Injetar Repository no Controller e usar findAll()",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-9",
+    "title": "🚀 Semana 9: APIs REST Completas",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-57",
+    "title": "Dia 57: Camada de Serviço",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-57-sub-1",
+        "title": "Criar classe @Service",
+        "isCompleted": false
+      },
+      {
+        "id": "day-57-sub-2",
+        "title": "Mover lógica simples do Controller para Service",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-58",
+    "title": "Dia 58: DTOs e Validação",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-58-sub-1",
+        "title": "Criar classe DTO para entrada de dados",
+        "isCompleted": false
+      },
+      {
+        "id": "day-58-sub-2",
+        "title": "Converter DTO -> Entidade no Controller/Service",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-59",
+    "title": "Dia 59: CRUD Completo (PUT/DELETE)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-59-sub-1",
+        "title": "Implementar @PutMapping com ID na URL",
+        "isCompleted": false
+      },
+      {
+        "id": "day-59-sub-2",
+        "title": "Implementar @DeleteMapping e retornar 204 No Content",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-60",
+    "title": "Dia 60: API de Tarefas (Mini-Projeto)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-60-sub-1",
+        "title": "Criar entidade 'Task' e Repository",
+        "isCompleted": false
+      },
+      {
+        "id": "day-60-sub-2",
+        "title": "Implementar GET e POST no TaskController",
+        "isCompleted": false
+      },
+      {
+        "id": "day-60-sub-3",
+        "title": "Testar cadastro e listagem",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-61",
+    "title": "Dia 61: Tratamento de Erros Global",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-61-sub-1",
+        "title": "Criar ResourceNotFoundException",
+        "isCompleted": false
+      },
+      {
+        "id": "day-61-sub-2",
+        "title": "Configurar @ControllerAdvice para retornar JSON de erro padrão",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-62",
+    "title": "Dia 62: Bean Validation (Prática)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-62-sub-1",
+        "title": "Adicionar @NotBlank e @Size no DTO de Task",
+        "isCompleted": false
+      },
+      {
+        "id": "day-62-sub-2",
+        "title": "Tratar MethodArgumentNotValidException no ControllerAdvice",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-63",
+    "title": "Dia 63: Refatoração para Service",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-63-sub-1",
+        "title": "Criar TaskService e mover lógica do Controller",
+        "isCompleted": false
+      },
+      {
+        "id": "day-63-sub-2",
+        "title": "Garantir que Controller chama apenas Service (sem Repository direto)",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "section-semana-10",
+    "title": "🧪 Semana 10: Testes e Finalização",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-64",
+    "title": "Dia 64: Paginação",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-64-sub-1",
+        "title": "Alterar findAll para receber Pageable",
+        "isCompleted": false
+      },
+      {
+        "id": "day-64-sub-2",
+        "title": "Receber page/size no Controller e retornar Page<Task>",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-65",
+    "title": "Dia 65: Consultas Personalizadas",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-65-sub-1",
+        "title": "Criar findByStatus(String status) no Repository",
+        "isCompleted": false
+      },
+      {
+        "id": "day-65-sub-2",
+        "title": "Criar endpoint de busca /tasks/search",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-66",
+    "title": "Dia 66: Testes Unitários (JUnit)",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-66-sub-1",
+        "title": "Configurar classe de teste para TaskService",
+        "isCompleted": false
+      },
+      {
+        "id": "day-66-sub-2",
+        "title": "Mockar Repository e testar findAll() do Service",
+        "isCompleted": false
+      }
+    ]
+  },
+  {
+    "id": "day-67",
+    "title": "Dia 67: Testes de Integração",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "day-67-sub-1",
+        "title": "Configurar @AutoConfigureMockMvc",
+        "isCompleted": false
+      },
+      {
+        "id": "day-67-sub-2",
+        "title": "Simular GET /tasks e verificar status 200",
+        "isCompleted": false
+      }
+    ]
+  }
+]

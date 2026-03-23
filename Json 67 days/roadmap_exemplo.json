@@ -1,0 +1,56 @@
+[
+  {
+    "id": "section-fundamentos",
+    "title": "📚 Fase 1: Fundamentos",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "task-setup",
+    "title": "Setup e Configuração",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "sub-install",
+        "title": "Instalar ferramentas necessárias",
+        "isCompleted": false
+      },
+      {
+        "id": "sub-config",
+        "title": "Configurar ambiente",
+        "isCompleted": true
+      }
+    ]
+  },
+  {
+    "id": "task-teoria",
+    "title": "Estudar Conceitos Básicos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-pratica",
+    "title": "💻 Fase 2: Prática",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "task-projeto",
+    "title": "Criar Projeto Prático",
+    "isCompleted": false,
+    "type": "TASK",
+    "subTasks": [
+      {
+        "id": "sub-backend",
+        "title": "Desenvolver Backend",
+        "isCompleted": false
+      },
+      {
+        "id": "sub-frontend",
+        "title": "Desenvolver Frontend",
+        "isCompleted": false
+      }
+    ]
+  }
+]

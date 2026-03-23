@@ -1,0 +1,458 @@
+[
+  {
+    "id": "section-semana-1",
+    "title": "📚 Semana 1: Diagnóstico inicial",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-1",
+    "title": "Dia 1: Documentos - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-2",
+    "title": "Dia 2: Favoritos - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-3",
+    "title": "Dia 3: Arquivos - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-4",
+    "title": "Dia 4: Notebook - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-5",
+    "title": "Dia 5: NotebookLM - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-6",
+    "title": "Dia 6: Salvos em redes sociais - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-7",
+    "title": "Dia 7: Google Drive - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-8",
+    "title": "Dia 8: Fotos - Triagem e mapa do volume",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-2",
+    "title": "🧹 Semana 2: Limpeza e descarte",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-9",
+    "title": "Dia 9: Documentos - Remover duplicados e rascunhos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-10",
+    "title": "Dia 10: Favoritos - Remover links repetidos e inúteis",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-11",
+    "title": "Dia 11: Arquivos - Remover duplicados e temporários",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-12",
+    "title": "Dia 12: Notebook - Remover páginas soltas e anotações repetidas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-13",
+    "title": "Dia 13: NotebookLM - Remover referências duplicadas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-14",
+    "title": "Dia 14: Salvos em redes sociais - Remover salvos repetidos e irrelevantes",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-15",
+    "title": "Dia 15: Google Drive - Remover cópias e arquivos antigos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-16",
+    "title": "Dia 16: Fotos - Remover duplicados e fotos ruins",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-3",
+    "title": "🗂️ Semana 3: Organização por temas",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-17",
+    "title": "Dia 17: Documentos - Separar por assunto e prioridade",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-18",
+    "title": "Dia 18: Favoritos - Separar por tema e utilidade",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-19",
+    "title": "Dia 19: Arquivos - Separar por pasta e contexto",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-20",
+    "title": "Dia 20: Notebook - Separar por matéria e projeto",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-21",
+    "title": "Dia 21: NotebookLM - Separar por fonte e assunto",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-22",
+    "title": "Dia 22: Salvos em redes sociais - Separar por tema e tipo de conteúdo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-23",
+    "title": "Dia 23: Google Drive - Separar por pasta e acesso",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-24",
+    "title": "Dia 24: Fotos - Separar por álbum e momento",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-4",
+    "title": "🏷️ Semana 4: Padronização de nomes",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-25",
+    "title": "Dia 25: Documentos - Renomear com padrão único",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-26",
+    "title": "Dia 26: Favoritos - Renomear pastas e coleções",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-27",
+    "title": "Dia 27: Arquivos - Renomear arquivos com padrão único",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-28",
+    "title": "Dia 28: Notebook - Padronizar títulos e datas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-29",
+    "title": "Dia 29: NotebookLM - Padronizar fontes e notas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-30",
+    "title": "Dia 30: Salvos em redes sociais - Padronizar coleções e listas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-31",
+    "title": "Dia 31: Google Drive - Padronizar pastas e arquivos",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-32",
+    "title": "Dia 32: Fotos - Padronizar álbuns e nomes",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-5",
+    "title": "📲 Semana 5: Digitalização e migração",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-33",
+    "title": "Dia 33: Documentos - Digitalizar e centralizar versões finais",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-34",
+    "title": "Dia 34: Favoritos - Exportar e centralizar links importantes",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-35",
+    "title": "Dia 35: Arquivos - Mover para a pasta principal",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-36",
+    "title": "Dia 36: Notebook - Digitalizar e centralizar anotações",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-37",
+    "title": "Dia 37: NotebookLM - Migrar fontes e resumos úteis",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-38",
+    "title": "Dia 38: Salvos em redes sociais - Salvar links importantes fora da rede social",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-39",
+    "title": "Dia 39: Google Drive - Mover para a estrutura final do Drive",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-40",
+    "title": "Dia 40: Fotos - Migrar para álbuns principais",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-6",
+    "title": "🔐 Semana 6: Backup e segurança",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-41",
+    "title": "Dia 41: Documentos - Garantir backup e acesso seguro",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-42",
+    "title": "Dia 42: Favoritos - Garantir sincronização e backup",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-43",
+    "title": "Dia 43: Arquivos - Garantir cópia externa e nuvem",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-44",
+    "title": "Dia 44: Notebook - Garantir cópia digital e física",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-45",
+    "title": "Dia 45: NotebookLM - Garantir acesso às fontes salvas",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-46",
+    "title": "Dia 46: Salvos em redes sociais - Garantir cópia dos links essenciais",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-47",
+    "title": "Dia 47: Google Drive - Revisar permissões e compartilhamento",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-48",
+    "title": "Dia 48: Fotos - Garantir backup em nuvem e dispositivo",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-7",
+    "title": "✅ Semana 7: Consolidação",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-49",
+    "title": "Dia 49: Documentos - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-50",
+    "title": "Dia 50: Favoritos - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-51",
+    "title": "Dia 51: Arquivos - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-52",
+    "title": "Dia 52: Notebook - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-53",
+    "title": "Dia 53: NotebookLM - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-54",
+    "title": "Dia 54: Salvos em redes sociais - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-55",
+    "title": "Dia 55: Google Drive - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-56",
+    "title": "Dia 56: Fotos - Revisão final da categoria",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-8",
+    "title": "⚙️ Semana 8: Rotina e automação",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-57",
+    "title": "Dia 57: Documentos - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-58",
+    "title": "Dia 58: Favoritos - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-59",
+    "title": "Dia 59: Arquivos - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-60",
+    "title": "Dia 60: Notebook - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-61",
+    "title": "Dia 61: NotebookLM - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-62",
+    "title": "Dia 62: Salvos em redes sociais - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-63",
+    "title": "Dia 63: Google Drive - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-64",
+    "title": "Dia 64: Fotos - Criar regra de manutenção",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "section-semana-9",
+    "title": "🎯 Semana 9: Revisão final",
+    "isCompleted": false,
+    "type": "SECTION"
+  },
+  {
+    "id": "day-65",
+    "title": "Dia 65: Documentos - Checagem final e pendências",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-66",
+    "title": "Dia 66: Favoritos - Checagem final e pendências",
+    "isCompleted": false,
+    "type": "TASK"
+  },
+  {
+    "id": "day-67",
+    "title": "Dia 67: Arquivos - Checagem final e pendências",
+    "isCompleted": false,
+    "type": "TASK"
+  }
+]
