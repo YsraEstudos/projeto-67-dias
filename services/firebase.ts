@@ -28,8 +28,14 @@ export interface FirebaseUser {
     isAnonymous: boolean;
 }
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
+const sanitizeFirebaseEnvValue = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+
+    const normalizedValue = value.trim();
+    return normalizedValue.length > 0 ? normalizedValue : undefined;
+};
+
+const rawFirebaseEnv = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -38,6 +44,40 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
+
+const firebaseConfig = {
+    apiKey: sanitizeFirebaseEnvValue(rawFirebaseEnv.apiKey),
+    authDomain: sanitizeFirebaseEnvValue(rawFirebaseEnv.authDomain),
+    projectId: sanitizeFirebaseEnvValue(rawFirebaseEnv.projectId),
+    storageBucket: sanitizeFirebaseEnvValue(rawFirebaseEnv.storageBucket),
+    messagingSenderId: sanitizeFirebaseEnvValue(rawFirebaseEnv.messagingSenderId),
+    appId: sanitizeFirebaseEnvValue(rawFirebaseEnv.appId),
+    measurementId: sanitizeFirebaseEnvValue(rawFirebaseEnv.measurementId)
+};
+
+const expectedFirebaseAuthDomain = firebaseConfig.projectId
+    ? `${firebaseConfig.projectId}.firebaseapp.com`
+    : undefined;
+
+const shouldUseExpectedFirebaseAuthDomain = (): boolean => {
+    if (!expectedFirebaseAuthDomain) return false;
+    if (!firebaseConfig.authDomain) return true;
+
+    if (rawFirebaseEnv.authDomain !== firebaseConfig.authDomain) {
+        return true;
+    }
+
+    return firebaseConfig.authDomain.endsWith('.firebaseapp.com')
+        && firebaseConfig.authDomain !== expectedFirebaseAuthDomain;
+};
+
+if (shouldUseExpectedFirebaseAuthDomain()) {
+    console.warn(
+        '[Firebase] authDomain invalido ou inconsistente. Usando dominio padrao do projeto:',
+        expectedFirebaseAuthDomain,
+    );
+    firebaseConfig.authDomain = expectedFirebaseAuthDomain;
+}
 
 const REQUIRED_ENV_MAP: Array<{ configKey: keyof typeof firebaseConfig; envKey: string }> = [
     { configKey: 'apiKey', envKey: 'VITE_FIREBASE_API_KEY' },
