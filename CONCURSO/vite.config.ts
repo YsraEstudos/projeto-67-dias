@@ -6,6 +6,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   base: '/concurso/',
   envDir: resolve(__dirname, '..'),
+  resolve: {
+    alias: {
+      firebase: resolve(__dirname, '..', 'node_modules', 'firebase'),
+    },
+    dedupe: ['firebase'],
+  },
   plugins: [
     react(),
   ],
