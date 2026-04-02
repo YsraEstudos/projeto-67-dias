@@ -6,6 +6,11 @@ import { immer } from 'zustand/middleware/immer';
 import { RestActivity, RestActivityLink } from '../types';
 import { writeToFirestore } from './firestoreSync';
 import { addDaysToDate, formatDateISO } from '../utils/dateUtils';
+import {
+    normalizeRestActivity,
+    toggleRestActivityQuickComplete,
+    toggleRestActivitySeries,
+} from '../utils/restActivityUtils';
 
 const STORE_KEY = 'p67_rest_store';
 
@@ -17,6 +22,9 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
         return true;
     });
 };
+
+const normalizeActivities = (activities: RestActivity[]) =>
+    deduplicateById(activities.map((activity) => normalizeRestActivity(activity)));
 
 interface RestState {
     activities: RestActivity[];
@@ -30,6 +38,7 @@ interface RestState {
     updateActivity: (id: string, updates: Partial<RestActivity>) => void;
     deleteActivity: (id: string) => void;
     toggleActivityComplete: (id: string) => void;
+    toggleActivitySeries: (activityId: string, seriesId: string) => void;
     reorderActivities: (activities: RestActivity[]) => void;
 
     addLink: (activityId: string, link: RestActivityLink) => void;
@@ -54,24 +63,29 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
     _initialized: false,
 
     setActivities: (activities) => {
-        set((state) => { state.activities = deduplicateById(activities); });
+        set((state) => { state.activities = normalizeActivities(activities); });
         get()._syncToFirestore();
     },
 
     addActivity: (activity) => {
-        set((state) => { state.activities.push(activity); });
+        set((state) => { state.activities.push(normalizeRestActivity(activity)); });
         get()._syncToFirestore();
     },
 
     addActivities: (activities) => {
-        set((state) => { state.activities.push(...activities); });
+        set((state) => { state.activities.push(...activities.map((activity) => normalizeRestActivity(activity))); });
         get()._syncToFirestore();
     },
 
     updateActivity: (id, updates) => {
         set((state) => {
-            const activity = state.activities.find(a => a.id === id);
-            if (activity) Object.assign(activity, updates);
+            const index = state.activities.findIndex(a => a.id === id);
+            if (index === -1) return;
+
+            state.activities[index] = normalizeRestActivity({
+                ...state.activities[index],
+                ...updates,
+            });
         });
         get()._syncToFirestore();
     },
@@ -89,26 +103,26 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
 
     toggleActivityComplete: (id) => {
         set((state) => {
-            const activity = state.activities.find(a => a.id === id);
-            if (!activity) return;
+            const index = state.activities.findIndex(a => a.id === id);
+            if (index === -1) return;
 
-            if (activity.totalSets && activity.totalSets > 0) {
-                const totalSets = Math.max(1, activity.totalSets);
-                const currentSets = Math.max(0, Math.min(activity.completedSets || 0, totalSets));
-                const nextSets = currentSets >= totalSets ? 0 : currentSets + 1;
+            state.activities[index] = toggleRestActivityQuickComplete(state.activities[index]);
+        });
+        get()._syncToFirestore();
+    },
 
-                activity.completedSets = nextSets;
-                activity.isCompleted = nextSets >= totalSets;
-                return;
-            }
+    toggleActivitySeries: (activityId, seriesId) => {
+        set((state) => {
+            const index = state.activities.findIndex((activity) => activity.id === activityId);
+            if (index === -1) return;
 
-            activity.isCompleted = !activity.isCompleted;
+            state.activities[index] = toggleRestActivitySeries(state.activities[index], seriesId);
         });
         get()._syncToFirestore();
     },
 
     reorderActivities: (activities) => {
-        set((state) => { state.activities = activities; });
+        set((state) => { state.activities = normalizeActivities(activities); });
         get()._syncToFirestore();
     },
 
@@ -176,7 +190,7 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
     _hydrateFromFirestore: (data) => {
         if (data) {
             // Clean up old ONCE activities
-            let activities = deduplicateById(data.activities || []);
+            let activities = normalizeActivities(data.activities || []);
             const thirtyDaysAgo = addDaysToDate(new Date(), -30);
             const thresholdDate = formatDateISO(thirtyDaysAgo);
             activities = activities.filter(a => {

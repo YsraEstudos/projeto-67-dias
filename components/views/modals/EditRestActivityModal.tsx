@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Pencil, X, Link as LinkIcon, ExternalLink, Trash2, Plus } from 'lucide-react';
-import { RestActivity, RestActivityLink } from '../../../types';
+import { RestActivity, RestActivityLink, RestActivitySeries } from '../../../types';
 import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../../shared/UnsavedChangesModal';
+import { createRestSeries, normalizeRestActivity } from '../../../utils/restActivityUtils';
 
 interface EditRestActivityModalProps {
     activity: RestActivity;
@@ -11,12 +12,18 @@ interface EditRestActivityModalProps {
 }
 
 const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity, onClose, onSave }) => {
-    const [title, setTitle] = useState(activity.title);
-    const [notes, setNotes] = useState(activity.notes || '');
-    const [type, setType] = useState(activity.type);
-    const [daysOfWeek, setDaysOfWeek] = useState<number[]>(activity.daysOfWeek || []);
-    const [hasSets, setHasSets] = useState(Boolean(activity.totalSets && activity.totalSets > 0));
-    const [totalSets, setTotalSets] = useState(activity.totalSets || 3);
+    const normalizedActivity = useMemo(() => normalizeRestActivity(activity), [activity]);
+    const initialSeries = useMemo(
+        () => normalizedActivity.series || createRestSeries(Math.max(1, normalizedActivity.totalSets || 3)),
+        [normalizedActivity],
+    );
+
+    const [title, setTitle] = useState(normalizedActivity.title);
+    const [notes, setNotes] = useState(normalizedActivity.notes || '');
+    const [type, setType] = useState(normalizedActivity.type);
+    const [daysOfWeek, setDaysOfWeek] = useState<number[]>(normalizedActivity.daysOfWeek || []);
+    const [hasSets, setHasSets] = useState(Boolean(normalizedActivity.series?.length));
+    const [seriesDrafts, setSeriesDrafts] = useState<RestActivitySeries[]>(initialSeries);
     const [links, setLinks] = useState<RestActivityLink[]>(activity.links || []);
     const [newLinkLabel, setNewLinkLabel] = useState('');
     const [newLinkUrl, setNewLinkUrl] = useState('');
@@ -29,15 +36,15 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
         notes: activity.notes || '',
         type: activity.type,
         daysOfWeek: activity.daysOfWeek || [],
-        hasSets: Boolean(activity.totalSets && activity.totalSets > 0),
-        totalSets: activity.totalSets || 3,
+        hasSets: Boolean(normalizedActivity.series?.length),
+        seriesDrafts: initialSeries,
         links: activity.links || [],
-    }), []);
+    }), [activity, initialSeries, normalizedActivity.series]);
 
     // Track unsaved changes
     const { hasChanges } = useUnsavedChanges({
         initialValue: initialValues,
-        currentValue: { title, notes, type, daysOfWeek, hasSets, totalSets, links },
+        currentValue: { title, notes, type, daysOfWeek, hasSets, seriesDrafts, links },
     });
 
     // Intercept close to check for unsaved changes
@@ -80,24 +87,31 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
         setLinks(prev => prev.filter(link => link.id !== id));
     };
 
+    const syncSeriesDraftCount = (nextCount: number) => {
+        setSeriesDrafts((prev) => createRestSeries(nextCount, prev));
+    };
+
     const handleSave = () => {
         if (!title.trim()) return;
         if (type === 'WEEKLY' && daysOfWeek.length === 0) return;
 
+        const nextSeries = hasSets ? createRestSeries(seriesDrafts.length, seriesDrafts) : undefined;
+        const completedSeriesCount = nextSeries?.filter((series) => series.isCompleted).length || 0;
+
         const updated: RestActivity = {
-            ...activity,
+            ...normalizedActivity,
             title,
             notes: notes.trim() || undefined,
             type,
             daysOfWeek: type === 'WEEKLY' ? daysOfWeek : undefined,
-            specificDate: type === 'ONCE' ? activity.specificDate : undefined,
-            totalSets: hasSets ? Math.max(1, totalSets) : undefined,
-            completedSets: hasSets
-                ? Math.min(activity.completedSets || 0, Math.max(1, totalSets))
-                : undefined,
+            specificDate: type === 'ONCE' ? normalizedActivity.specificDate : undefined,
+            series: nextSeries,
+            totalSets: hasSets ? nextSeries?.length : undefined,
+            completedSets: hasSets ? completedSeriesCount : undefined,
             isCompleted: hasSets
-                ? (activity.completedSets || 0) >= Math.max(1, totalSets)
-                : activity.isCompleted,
+                ? completedSeriesCount === (nextSeries?.length || 0)
+                : normalizedActivity.isCompleted,
+            completedAt: hasSets ? undefined : normalizedActivity.completedAt,
             links: links.length > 0 ? links : undefined
         };
 
@@ -139,22 +153,51 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                                     <input
                                         type="checkbox"
                                         checked={hasSets}
-                                        onChange={(e) => setHasSets(e.target.checked)}
+                                        onChange={(e) => {
+                                            setHasSets(e.target.checked);
+                                            if (e.target.checked && seriesDrafts.length === 0) {
+                                                setSeriesDrafts(createRestSeries(3));
+                                            }
+                                        }}
                                         className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
                                     />
                                 </label>
 
                                 {hasSets && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs text-slate-400">Total de séries:</span>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            max={99}
-                                            value={totalSets}
-                                            onChange={(e) => setTotalSets(Number(e.target.value) || 1)}
-                                            className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white focus:border-cyan-500 outline-none"
-                                        />
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-slate-400">Total de séries:</span>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={99}
+                                                value={seriesDrafts.length}
+                                                onChange={(e) => syncSeriesDraftCount(Math.max(1, Number(e.target.value) || 1))}
+                                                className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white focus:border-cyan-500 outline-none"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {seriesDrafts.map((series, index) => (
+                                                <div key={series.id} className="flex items-center gap-2">
+                                                    <span className="w-14 text-[11px] font-bold text-cyan-400">#{index + 1}</span>
+                                                    <input
+                                                        type="text"
+                                                        value={series.label}
+                                                        onChange={(e) => {
+                                                            const nextValue = e.target.value;
+                                                            setSeriesDrafts((prev) => prev.map((item) => (
+                                                                item.id === series.id
+                                                                    ? { ...item, label: nextValue }
+                                                                    : item
+                                                            )));
+                                                        }}
+                                                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 outline-none"
+                                                        placeholder={`Série ${index + 1}`}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>

@@ -5,6 +5,7 @@ import {
     CompetitionScoreBreakdown,
     Habit,
     OrganizeTask,
+    RestActivity,
     Skill,
     TimeSlotGoalConfig,
     TimeSlotTask,
@@ -22,6 +23,9 @@ export const COMPETITION_THEORETICAL_DAILY_MAX = 1000;
 const COMPETITION_PERFORMANCE_EXPONENT = 1.35;
 const COMPETITION_BASE_DIFFICULTY = 0.85;
 const COMPETITION_DIFFICULTY_RANGE = 0.3;
+const REST_SERIES_POINTS = 10;
+const REST_SIMPLE_ACTIVITY_POINTS = 20;
+const REST_DAILY_MAX = 60;
 
 const CATEGORY_LABELS: Record<CompetitionCategoryId, string> = {
     questoes: 'Questoes',
@@ -29,6 +33,7 @@ const CATEGORY_LABELS: Record<CompetitionCategoryId, string> = {
     tarefas: 'Tarefas',
     skillTree: 'Skill Tree',
     leitura: 'Leitura',
+    descanso: 'Descanso',
     extras: 'Extras',
 };
 
@@ -81,6 +86,76 @@ const isTimestampOnDate = (timestamp: number | undefined, dateKey: string) => {
     const d = new Date(timestamp);
     const localDateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return localDateKey === dateKey;
+};
+
+const isRestActivityScheduledForDate = (activity: RestActivity, dateKey: string) => {
+    if (activity.type === 'DAILY') return true;
+    if (activity.type === 'ONCE') return activity.specificDate === dateKey;
+
+    if (activity.type === 'WEEKLY') {
+        const [year, month, day] = dateKey.split('-').map(Number);
+        const weekday = new Date(year, month - 1, day).getDay();
+        return activity.daysOfWeek?.includes(weekday) ?? false;
+    }
+
+    return false;
+};
+
+const calculateRestBreakdown = (activities: RestActivity[], dateKey: string) => {
+    let availableSeriesCount = 0;
+    let completedSeriesToday = 0;
+    let availableSimpleCount = 0;
+    let completedSimpleToday = 0;
+
+    activities
+        .filter((activity) => isRestActivityScheduledForDate(activity, dateKey))
+        .forEach((activity) => {
+            if (activity.series?.length) {
+                activity.series.forEach((series) => {
+                    const completedToday = isTimestampOnDate(series.completedAt, dateKey);
+                    const countsAsAvailable = !series.isCompleted || completedToday;
+
+                    if (countsAsAvailable) {
+                        availableSeriesCount += 1;
+                    }
+                    if (completedToday) {
+                        completedSeriesToday += 1;
+                    }
+                });
+                return;
+            }
+
+            const completedToday = isTimestampOnDate(activity.completedAt, dateKey);
+            const countsAsAvailable = !activity.isCompleted || completedToday;
+
+            if (countsAsAvailable) {
+                availableSimpleCount += 1;
+            }
+            if (completedToday) {
+                completedSimpleToday += 1;
+            }
+        });
+
+    const rawPoints = (completedSeriesToday * REST_SERIES_POINTS) + (completedSimpleToday * REST_SIMPLE_ACTIVITY_POINTS);
+    const rawMax = (availableSeriesCount * REST_SERIES_POINTS) + (availableSimpleCount * REST_SIMPLE_ACTIVITY_POINTS);
+    const points = Math.min(REST_DAILY_MAX, rawPoints);
+    const maxPoints = Math.min(REST_DAILY_MAX, rawMax);
+    const summaryParts: string[] = [];
+
+    if (availableSeriesCount > 0 || completedSeriesToday > 0) {
+        summaryParts.push(`${completedSeriesToday}/${availableSeriesCount} séries concluídas hoje.`);
+    }
+
+    if (availableSimpleCount > 0 || completedSimpleToday > 0) {
+        summaryParts.push(`${completedSimpleToday}/${availableSimpleCount} atividades simples concluídas hoje.`);
+    }
+
+    return buildBreakdown(
+        'descanso',
+        points,
+        maxPoints,
+        summaryParts.join(' ') || 'Nenhum descanso pontuável hoje.',
+    );
 };
 
 const hashSeed = (value: string) => {
@@ -176,6 +251,7 @@ export interface CompetitionSourceState {
     tasks: OrganizeTask[];
     skills: Skill[];
     books: Book[];
+    restActivities: RestActivity[];
 }
 
 export interface CompetitionSimulationDay {
@@ -363,6 +439,8 @@ export const createCompetitionDailyRecord = (
         `${readingSnapshot.totalPagesReadToday} ${readingSnapshot.totalPagesReadToday === 1 ? 'pagina' : 'paginas'} hoje (${readingSnapshot.progressPercent}% da meta diaria).`,
     );
 
+    const restBreakdown = calculateRestBreakdown(state.restActivities, dateKey);
+
     const sessionPoints = clamp(todaySessions.reduce((sum, session) => sum + session.points, 0), 0, 40);
     const extraGoalsToday = todaysScheduleTasks.filter((task) => task.goalId !== 'questoes');
     const completedExtraGoals = extraGoalsToday.filter((task) => isTimeSlotTaskQualified(task, goalMap.get(task.goalId))).length;
@@ -383,6 +461,7 @@ export const createCompetitionDailyRecord = (
         tasksBreakdown,
         skillTreeBreakdown,
         readingBreakdown,
+        restBreakdown,
         extrasBreakdown,
     ];
 

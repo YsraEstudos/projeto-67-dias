@@ -124,4 +124,24 @@ describe('RestView - Next 2 Hours Mode', () => {
         // Verify
         expect(screen.getByText('Atividade Manual Teste')).toBeInTheDocument();
     });
+
+    it('creates a rest activity with explicit series and allows marking them individually', async () => {
+        render(<RestView />);
+
+        fireEvent.click(screen.getByText('Descanso'));
+
+        fireEvent.change(screen.getByPlaceholderText(/Nome da atividade/i), {
+            target: { value: 'Prancha guiada' },
+        });
+
+        fireEvent.click(screen.getByRole('checkbox'));
+        fireEvent.click(screen.getByRole('button', { name: /Adicionar/i }));
+
+        expect(screen.getByText('Prancha guiada')).toBeInTheDocument();
+        expect(screen.getByText('Séries: 0/3')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Série 1' }));
+
+        expect(screen.getByText('Séries: 1/3')).toBeInTheDocument();
+    });
 });

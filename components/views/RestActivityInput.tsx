@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, CalendarDays } from 'lucide-react';
 import { RestActivity } from '../../types';
+import { createRestSeries } from '../../utils/restActivityUtils';
 
 interface RestActivityInputProps {
     selectedDate: Date;
@@ -14,6 +15,11 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
     const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
     const [hasSets, setHasSets] = useState(false);
     const [totalSets, setTotalSets] = useState(3);
+    const [seriesLabels, setSeriesLabels] = useState<string[]>(['Série 1', 'Série 2', 'Série 3']);
+
+    const syncSeriesLabels = (count: number, currentLabels: string[]) => (
+        Array.from({ length: count }, (_, index) => currentLabels[index]?.trim() || `Série ${index + 1}`)
+    );
 
     const handleAdd = () => {
         if (!title.trim()) return;
@@ -26,6 +32,10 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
             type,
             specificDate: type === 'ONCE' ? dateString : undefined,
             daysOfWeek: type === 'WEEKLY' ? selectedWeekDays : undefined,
+            series: hasSets ? createRestSeries(
+                Math.max(1, totalSets),
+                syncSeriesLabels(Math.max(1, totalSets), seriesLabels).map((label) => ({ label })),
+            ) : undefined,
             totalSets: hasSets ? Math.max(1, totalSets) : undefined,
             completedSets: hasSets ? 0 : undefined,
         });
@@ -34,6 +44,7 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
         setSelectedWeekDays([]);
         setHasSets(false);
         setTotalSets(3);
+        setSeriesLabels(['Série 1', 'Série 2', 'Série 3']);
     };
 
     return (
@@ -141,16 +152,41 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
                     </label>
 
                     {hasSets && (
-                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                            <label className="text-xs text-slate-400">Quantidade de séries:</label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={99}
-                                value={totalSets}
-                                onChange={(e) => setTotalSets(Number(e.target.value) || 1)}
-                                className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white focus:border-cyan-500 outline-none"
-                            />
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-400">Quantidade de séries:</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={totalSets}
+                                    onChange={(e) => {
+                                        const nextTotal = Math.max(1, Number(e.target.value) || 1);
+                                        setTotalSets(nextTotal);
+                                        setSeriesLabels((prev) => syncSeriesLabels(nextTotal, prev));
+                                    }}
+                                    className="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white focus:border-cyan-500 outline-none"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                {syncSeriesLabels(totalSets, seriesLabels).map((label, index) => (
+                                    <div key={`rest-series-input-${index}`} className="flex items-center gap-2">
+                                        <span className="text-[11px] font-bold text-cyan-400 w-14">#{index + 1}</span>
+                                        <input
+                                            type="text"
+                                            value={label}
+                                            onChange={(e) => {
+                                                const nextLabels = syncSeriesLabels(totalSets, seriesLabels);
+                                                nextLabels[index] = e.target.value;
+                                                setSeriesLabels(nextLabels);
+                                            }}
+                                            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 outline-none"
+                                            placeholder={`Série ${index + 1}`}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

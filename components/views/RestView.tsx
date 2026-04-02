@@ -22,6 +22,7 @@ const RestView: React.FC = () => {
     const updateActivity = useRestStore(state => state.updateActivity);
     const removeActivity = useRestStore(state => state.deleteActivity);
     const toggleActivityComplete = useRestStore(state => state.toggleActivityComplete);
+    const toggleActivitySeries = useRestStore(state => state.toggleActivitySeries);
     const setActivities = useRestStore(state => state.reorderActivities);
     const setNextTwoHoursIds = useRestStore(state => state.setNextTwoHoursIds);
 
@@ -60,6 +61,10 @@ const RestView: React.FC = () => {
         toggleActivityComplete(id);
     }, [toggleActivityComplete]);
 
+    const toggleSeries = useCallback((activityId: string, seriesId: string) => {
+        toggleActivitySeries(activityId, seriesId);
+    }, [toggleActivitySeries]);
+
     const deleteActivity = useCallback((id: string) => {
         removeActivity(id);
     }, [removeActivity]);
@@ -79,14 +84,9 @@ const RestView: React.FC = () => {
     const handleAddManualActivity = useCallback((data: Omit<RestActivity, 'id' | 'order' | 'isCompleted'>) => {
         const newActivity: RestActivity = {
             id: Date.now().toString(),
-            title: data.title,
             isCompleted: false,
-            totalSets: data.totalSets,
-            completedSets: data.totalSets ? 0 : undefined,
-            type: data.type,
             order: activities.length,
-            specificDate: data.specificDate,
-            daysOfWeek: data.daysOfWeek
+            ...data,
         };
 
         addActivity(newActivity);
@@ -246,6 +246,7 @@ const RestView: React.FC = () => {
                             onDragStart={handleDragStart}
                             onDrop={handleDrop}
                             onToggleComplete={toggleComplete}
+                            onToggleSeries={toggleSeries}
                             onEdit={handleEditActivity}
                             onDelete={deleteActivity}
                         />

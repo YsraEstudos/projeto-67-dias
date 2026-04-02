@@ -25,6 +25,7 @@ const createArenaRecord = () => createCompetitionDailyRecord({
     tasks: [],
     skills: [],
     books: [],
+    restActivities: [],
 });
 
 describe('CompetitionArena', () => {

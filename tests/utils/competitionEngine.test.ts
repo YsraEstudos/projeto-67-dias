@@ -11,6 +11,7 @@ import type {
     Skill,
     TimeSlotGoalConfig,
     TimeSlotTask,
+    RestActivity,
 } from '../../types';
 import { useReadingStore } from '../../stores/readingStore';
 import {
@@ -112,6 +113,16 @@ const createSourceState = (overrides: Partial<CompetitionSourceState> = {}): Com
     tasks: [],
     skills: [],
     books: [],
+    restActivities: [],
+    ...overrides,
+});
+
+const createRestActivity = (overrides: Partial<RestActivity> = {}): RestActivity => ({
+    id: 'rest-1',
+    title: 'Alongamento',
+    isCompleted: false,
+    type: 'DAILY',
+    order: 0,
     ...overrides,
 });
 
@@ -241,6 +252,109 @@ describe('competitionEngine', () => {
         expect(skillTree?.points).toBe(30);
         expect(skillTree?.summary).toContain('1 nos');
         expect(skillTree?.summary).toContain('1 micro-vitorias');
+    });
+
+    it('adds descanso XP only from series completed on the current day', () => {
+        const completionToday = new Date(`${today}T12:00:00.000Z`).getTime();
+        const yesterday = completionToday - (24 * 60 * 60 * 1000);
+
+        const record = createCompetitionDailyRecord(createSourceState({
+            restActivities: [
+                createRestActivity({
+                    id: 'rest-series',
+                    totalSets: 3,
+                    completedSets: 2,
+                    series: [
+                        { id: 's1', label: 'Série 1', isCompleted: true, completedAt: completionToday, order: 0 },
+                        { id: 's2', label: 'Série 2', isCompleted: true, completedAt: yesterday, order: 1 },
+                        { id: 's3', label: 'Série 3', isCompleted: false, order: 2 },
+                    ],
+                }),
+            ],
+        }));
+
+        const descanso = record.breakdown.find((entry) => entry.id === 'descanso');
+
+        expect(descanso?.points).toBe(10);
+        expect(descanso?.maxPoints).toBe(20);
+        expect(descanso?.summary).toContain('1/2 séries');
+    });
+
+    it('caps descanso XP at 60 bruto per day', () => {
+        const completionToday = new Date(`${today}T12:00:00.000Z`).getTime();
+
+        const record = createCompetitionDailyRecord(createSourceState({
+            restActivities: [
+                createRestActivity({
+                    id: 'rest-cap',
+                    totalSets: 7,
+                    completedSets: 7,
+                    series: Array.from({ length: 7 }, (_, index) => ({
+                        id: `series-${index + 1}`,
+                        label: `Série ${index + 1}`,
+                        isCompleted: true,
+                        completedAt: completionToday,
+                        order: index,
+                    })),
+                }),
+            ],
+        }));
+
+        const descanso = record.breakdown.find((entry) => entry.id === 'descanso');
+
+        expect(descanso?.points).toBe(60);
+        expect(descanso?.maxPoints).toBe(60);
+    });
+
+    it('awards simple descanso activities only on the day they were completed', () => {
+        const completionToday = new Date(`${today}T12:00:00.000Z`).getTime();
+        const yesterday = completionToday - (24 * 60 * 60 * 1000);
+
+        const record = createCompetitionDailyRecord(createSourceState({
+            restActivities: [
+                createRestActivity({
+                    id: 'simple-today',
+                    isCompleted: true,
+                    completedAt: completionToday,
+                }),
+                createRestActivity({
+                    id: 'simple-yesterday',
+                    isCompleted: true,
+                    completedAt: yesterday,
+                    order: 1,
+                }),
+            ],
+        }));
+
+        const descanso = record.breakdown.find((entry) => entry.id === 'descanso');
+
+        expect(descanso?.points).toBe(20);
+        expect(descanso?.maxPoints).toBe(20);
+        expect(descanso?.summary).toContain('1/1 atividades simples');
+    });
+
+    it('does not duplicate weekly descanso XP outside the completion day', () => {
+        const completionYesterday = new Date(`${today}T12:00:00.000Z`).getTime() - (24 * 60 * 60 * 1000);
+
+        const record = createCompetitionDailyRecord(createSourceState({
+            restActivities: [
+                createRestActivity({
+                    id: 'weekly-rest',
+                    type: 'WEEKLY',
+                    daysOfWeek: [new Date().getDay()],
+                    totalSets: 1,
+                    completedSets: 1,
+                    series: [
+                        { id: 'weekly-series', label: 'Série 1', isCompleted: true, completedAt: completionYesterday, order: 0 },
+                    ],
+                }),
+            ],
+        }));
+
+        const descanso = record.breakdown.find((entry) => entry.id === 'descanso');
+
+        expect(descanso?.points).toBe(0);
+        expect(descanso?.maxPoints).toBe(0);
     });
 
     it('gives a moderate advantage to perfect dense days over perfect sparse days', () => {

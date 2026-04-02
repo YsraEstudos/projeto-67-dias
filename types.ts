@@ -151,12 +151,22 @@ export interface RestActivityLink {
   url: string;
 }
 
+export interface RestActivitySeries {
+  id: string;
+  label: string;
+  isCompleted: boolean;
+  completedAt?: number;
+  order: number;
+}
+
 export interface RestActivity {
   id: string;
   title: string;
   isCompleted: boolean;
+  completedAt?: number;
   totalSets?: number;
   completedSets?: number;
+  series?: RestActivitySeries[];
   type: 'DAILY' | 'WEEKLY' | 'ONCE';
   daysOfWeek?: number[];
   specificDate?: string;
@@ -1008,6 +1018,7 @@ export type CompetitionCategoryId =
   | 'tarefas'
   | 'skillTree'
   | 'leitura'
+  | 'descanso'
   | 'extras';
 
 export interface CompetitionScoreBreakdown {

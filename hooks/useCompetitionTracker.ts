@@ -4,6 +4,7 @@ import {
     useCompetitionStore,
     useHabitsStore,
     useReadingStore,
+    useRestStore,
     useSkillsStore,
     useWorkStore,
 } from '../stores';
@@ -33,6 +34,7 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
     })));
     const todayKey = getTodayISO();
     const skills = useSkillsStore((state) => state.skills);
+    const restActivities = useRestStore((state) => state.activities);
     const { books, readingSignature } = useReadingStore(useShallow((state) => ({
         books: state.books,
         readingSignature: state.books
@@ -77,6 +79,7 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
             tasks: habitsState.tasks,
             skills,
             books,
+            restActivities,
         }, todayKey);
 
         console.debug('[CompetitionTracker] record result', {
@@ -96,6 +99,7 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
         habitsState.tasks,
         skills,
         books,
+        restActivities,
         readingSignature,
         todayKey,
     ]);
