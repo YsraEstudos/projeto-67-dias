@@ -15,7 +15,9 @@ import type {
 import { useReadingStore } from '../../stores/readingStore';
 import {
     COMPETITION_THEORETICAL_DAILY_MAX,
+    calculateAdaptiveCompetitionMetrics,
     createCompetitionDailyRecord,
+    migrateCompetitionDailyRecord,
     generateSimulatedRivals,
     type CompetitionSourceState,
 } from '../../utils/competitionEngine';
@@ -123,6 +125,7 @@ describe('competitionEngine', () => {
 
         expect(COMPETITION_THEORETICAL_DAILY_MAX).toBe(1000);
         expect(record.theoreticalMaxScore).toBe(1000);
+        expect(record.score).toBe(0);
     });
 
     it('uses the larger question tracker instead of double-counting question sources', () => {
@@ -137,6 +140,7 @@ describe('competitionEngine', () => {
 
         const questoes = record.breakdown.find((entry) => entry.id === 'questoes');
 
+        expect(record.activityScore).toBe(280);
         expect(questoes?.points).toBe(280);
         expect(questoes?.summary).toContain('180');
     });
@@ -156,6 +160,7 @@ describe('competitionEngine', () => {
         const leitura = record.breakdown.find((entry) => entry.id === 'leitura');
 
         expect(books[0].logs?.[0]?.pagesRead).toBe(12);
+        expect(record.activityScore).toBe(54);
         expect(leitura?.points).toBe(54);
     });
 
@@ -232,9 +237,64 @@ describe('competitionEngine', () => {
 
         const skillTree = record.breakdown.find((entry) => entry.id === 'skillTree');
 
+        expect(record.activityScore).toBe(30);
         expect(skillTree?.points).toBe(30);
         expect(skillTree?.summary).toContain('1 nos');
         expect(skillTree?.summary).toContain('1 micro-vitorias');
+    });
+
+    it('gives a moderate advantage to perfect dense days over perfect sparse days', () => {
+        const sparse = calculateAdaptiveCompetitionMetrics(90, 90);
+        const dense = calculateAdaptiveCompetitionMetrics(320, 320);
+
+        expect(sparse.score).toBeLessThan(dense.score);
+        expect(dense.score - sparse.score).toBeLessThan(10);
+    });
+
+    it('lets a perfect sparse day beat a partial dense day', () => {
+        const sparse = calculateAdaptiveCompetitionMetrics(90, 90);
+        const densePartial = calculateAdaptiveCompetitionMetrics(180, 320);
+
+        expect(sparse.score).toBeGreaterThan(densePartial.score);
+    });
+
+    it('keeps adaptive score at zero when nothing was available that day', () => {
+        const metrics = calculateAdaptiveCompetitionMetrics(0, 0);
+
+        expect(metrics.score).toBe(0);
+        expect(metrics.activityScore).toBe(0);
+        expect(metrics.completionRate).toBe(0);
+    });
+
+    it('migrates legacy records without activityScore while keeping raw breakdown intact', () => {
+        const legacyRecord = {
+            date: today,
+            projectDay: 1,
+            score: 280,
+            maxScore: 500,
+            theoreticalMaxScore: 1000,
+            remainingScore: 220,
+            breakdown: [
+                {
+                    id: 'questoes' as const,
+                    label: 'Questoes',
+                    points: 280,
+                    maxPoints: 500,
+                    remainingPoints: 220,
+                    summary: 'Resumo',
+                    priority: 220,
+                },
+            ],
+            updatedAt: Date.now(),
+        } as any;
+
+        const migrated = migrateCompetitionDailyRecord(legacyRecord);
+        const adaptive = calculateAdaptiveCompetitionMetrics(280, 500);
+
+        expect(migrated.activityScore).toBe(280);
+        expect(migrated.score).toBe(adaptive.score);
+        expect(migrated.breakdown[0].points).toBe(280);
+        expect(migrated.maxScore).toBe(500);
     });
 
     it('simulates rivals deterministically for the same ranking window', () => {

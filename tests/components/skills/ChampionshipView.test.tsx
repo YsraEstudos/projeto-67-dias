@@ -8,7 +8,7 @@ vi.mock('../../../stores/firestoreSync', () => ({
 
 import { ChampionshipView } from '../../../components/skills/ChampionshipView';
 import { useCompetitionStore } from '../../../stores/competitionStore';
-import { COMPETITION_ENGINE_VERSION } from '../../../utils/competitionEngine';
+import { calculateAdaptiveCompetitionMetrics, COMPETITION_ENGINE_VERSION } from '../../../utils/competitionEngine';
 import { getTodayISO } from '../../../utils/dateUtils';
 
 describe('ChampionshipView', () => {
@@ -18,6 +18,7 @@ describe('ChampionshipView', () => {
 
     it('shows reading gains when today record has reading XP', () => {
         const today = getTodayISO();
+        const metrics = calculateAdaptiveCompetitionMetrics(45, 90);
 
         useCompetitionStore.getState()._hydrateFromFirestore({
             competition: {
@@ -27,9 +28,13 @@ describe('ChampionshipView', () => {
                     [today]: {
                         date: today,
                         projectDay: 1,
-                        score: 45,
+                        score: metrics.score,
+                        activityScore: 45,
                         maxScore: 90,
                         theoreticalMaxScore: 1000,
+                        completionRate: metrics.completionRate,
+                        availabilityRate: metrics.availabilityRate,
+                        difficultyMultiplier: metrics.difficultyMultiplier,
                         remainingScore: 45,
                         breakdown: [
                             {
@@ -52,8 +57,11 @@ describe('ChampionshipView', () => {
         render(<ChampionshipView />);
 
         expect(screen.getByText('Ganhos de Hoje')).toBeInTheDocument();
-        expect(screen.getAllByText('+45 XP')[0]).toBeInTheDocument();
+        expect(screen.getByText(`+${metrics.score} XP oficial`)).toBeInTheDocument();
         expect(screen.getByText('Leitura')).toBeInTheDocument();
         expect(screen.getByText('10 paginas hoje (50% da meta diaria).')).toBeInTheDocument();
+        expect(screen.getByText(/45 XP bruto com 50% de aproveitamento/i)).toBeInTheDocument();
+        expect(screen.getByText(/\+45 bruto/i)).toBeInTheDocument();
+        expect(screen.getByText(/O campeonato sobe pelo desempenho do dia/i)).toBeInTheDocument();
     });
 });

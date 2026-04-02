@@ -17,8 +17,11 @@ import {
 } from './dailyOffensiveUtils';
 import { daysDiff, getStartOfDay, getTodayISO, parseDate } from './dateUtils';
 
-export const COMPETITION_ENGINE_VERSION = '2026.03.11.1';
+export const COMPETITION_ENGINE_VERSION = '2026.04.02.1';
 export const COMPETITION_THEORETICAL_DAILY_MAX = 1000;
+const COMPETITION_PERFORMANCE_EXPONENT = 1.35;
+const COMPETITION_BASE_DIFFICULTY = 0.85;
+const COMPETITION_DIFFICULTY_RANGE = 0.3;
 
 const CATEGORY_LABELS: Record<CompetitionCategoryId, string> = {
     questoes: 'Questoes',
@@ -32,6 +35,43 @@ const CATEGORY_LABELS: Record<CompetitionCategoryId, string> = {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const roundPoints = (value: number) => Math.round(Math.max(0, value));
+
+export interface AdaptiveCompetitionMetrics {
+    score: number;
+    activityScore: number;
+    completionRate: number;
+    availabilityRate: number;
+    difficultyMultiplier: number;
+    remainingScore: number;
+}
+
+export const calculateAdaptiveCompetitionMetrics = (
+    activityScore: number,
+    activityMaxScore: number,
+    theoreticalMaxScore = COMPETITION_THEORETICAL_DAILY_MAX,
+): AdaptiveCompetitionMetrics => {
+    const normalizedActivityScore = roundPoints(activityScore);
+    const normalizedActivityMax = roundPoints(activityMaxScore);
+    const completionRate = normalizedActivityMax > 0
+        ? clamp(normalizedActivityScore / normalizedActivityMax, 0, 1)
+        : 0;
+    const availabilityRate = theoreticalMaxScore > 0
+        ? clamp(normalizedActivityMax / theoreticalMaxScore, 0, 1)
+        : 0;
+    const performanceRate = completionRate > 0
+        ? completionRate ** COMPETITION_PERFORMANCE_EXPONENT
+        : 0;
+    const difficultyMultiplier = COMPETITION_BASE_DIFFICULTY + (COMPETITION_DIFFICULTY_RANGE * availabilityRate);
+
+    return {
+        score: roundPoints(100 * performanceRate * difficultyMultiplier),
+        activityScore: normalizedActivityScore,
+        completionRate,
+        availabilityRate,
+        difficultyMultiplier,
+        remainingScore: roundPoints(Math.max(0, normalizedActivityMax - normalizedActivityScore)),
+    };
+};
 
 const isTimestampOnDate = (timestamp: number | undefined, dateKey: string) => {
     if (!timestamp) return false;
@@ -158,6 +198,25 @@ export interface CompetitionLeaderboardEntry {
     basePower: number;
     taunt: string;
 }
+
+export const migrateCompetitionDailyRecord = (record: CompetitionDailyRecord): CompetitionDailyRecord => {
+    const activityScore = typeof record.activityScore === 'number'
+        ? record.activityScore
+        : record.breakdown.reduce((sum, entry) => sum + entry.points, 0);
+    const theoreticalMaxScore = record.theoreticalMaxScore || COMPETITION_THEORETICAL_DAILY_MAX;
+    const metrics = calculateAdaptiveCompetitionMetrics(activityScore, record.maxScore, theoreticalMaxScore);
+
+    return {
+        ...record,
+        score: metrics.score,
+        activityScore: metrics.activityScore,
+        completionRate: metrics.completionRate,
+        availabilityRate: metrics.availabilityRate,
+        difficultyMultiplier: metrics.difficultyMultiplier,
+        remainingScore: metrics.remainingScore,
+        theoreticalMaxScore,
+    };
+};
 
 export const CHAMPIONSHIP_LEAGUES: import('../types').CompetitionLeague[] = [
     { name: 'Bronze III', minPoints: 0, maxPoints: 500, rankRange: [10000, 8000], color: 'text-orange-700' },
@@ -327,16 +386,21 @@ export const createCompetitionDailyRecord = (
         extrasBreakdown,
     ];
 
-    const score = breakdown.reduce((sum, entry) => sum + entry.points, 0);
+    const activityScore = breakdown.reduce((sum, entry) => sum + entry.points, 0);
     const maxScore = breakdown.reduce((sum, entry) => sum + entry.maxPoints, 0);
+    const adaptiveMetrics = calculateAdaptiveCompetitionMetrics(activityScore, maxScore);
 
     return {
         date: dateKey,
         projectDay: calculateCurrentDay(state.startDate),
-        score,
+        score: adaptiveMetrics.score,
+        activityScore: adaptiveMetrics.activityScore,
         maxScore,
         theoreticalMaxScore: COMPETITION_THEORETICAL_DAILY_MAX,
-        remainingScore: Math.max(0, maxScore - score),
+        completionRate: adaptiveMetrics.completionRate,
+        availabilityRate: adaptiveMetrics.availabilityRate,
+        difficultyMultiplier: adaptiveMetrics.difficultyMultiplier,
+        remainingScore: adaptiveMetrics.remainingScore,
         breakdown: breakdown
             .map((entry) => ({
                 ...entry,

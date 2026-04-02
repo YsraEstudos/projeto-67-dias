@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { CompetitionDailyRecord, CompetitionState } from '../types';
 import { writeToFirestore } from './firestoreSync';
-import { COMPETITION_ENGINE_VERSION } from '../utils/competitionEngine';
+import { COMPETITION_ENGINE_VERSION, migrateCompetitionDailyRecord } from '../utils/competitionEngine';
 
 const STORE_KEY = 'p67_competition_store';
 
@@ -22,16 +22,24 @@ const areDailyRecordsEquivalent = (
         date: left.date,
         projectDay: left.projectDay,
         score: left.score,
+        activityScore: left.activityScore,
         maxScore: left.maxScore,
         theoreticalMaxScore: left.theoreticalMaxScore,
+        completionRate: left.completionRate,
+        availabilityRate: left.availabilityRate,
+        difficultyMultiplier: left.difficultyMultiplier,
         remainingScore: left.remainingScore,
         breakdown: left.breakdown,
     }) === JSON.stringify({
         date: right.date,
         projectDay: right.projectDay,
         score: right.score,
+        activityScore: right.activityScore,
         maxScore: right.maxScore,
         theoreticalMaxScore: right.theoreticalMaxScore,
+        completionRate: right.completionRate,
+        availabilityRate: right.availabilityRate,
+        difficultyMultiplier: right.difficultyMultiplier,
         remainingScore: right.remainingScore,
         breakdown: right.breakdown,
     });
@@ -52,8 +60,13 @@ interface CompetitionStoreState {
 
 const sanitizeCompetitionState = (input?: CompetitionState): CompetitionState => ({
     competitionStartedAt: input?.competitionStartedAt ?? null,
-    engineVersion: input?.engineVersion || COMPETITION_ENGINE_VERSION,
-    dailyRecords: input?.dailyRecords || {},
+    engineVersion: COMPETITION_ENGINE_VERSION,
+    dailyRecords: Object.fromEntries(
+        Object.entries(input?.dailyRecords || {}).map(([date, record]) => [
+            date,
+            migrateCompetitionDailyRecord(record),
+        ]),
+    ),
     lastSyncedDate: input?.lastSyncedDate ?? null,
 });
 

@@ -14,6 +14,7 @@ import {
     useSkillsStore,
     useWorkStore,
 } from '../../stores';
+import { calculateAdaptiveCompetitionMetrics } from '../../utils/competitionEngine';
 import { getTodayISO } from '../../utils/dateUtils';
 
 const TrackerHarness: React.FC<{ enabled: boolean; startDate: string }> = ({ enabled, startDate }) => {
@@ -47,9 +48,11 @@ describe('useCompetitionTracker', () => {
 
         render(<TrackerHarness enabled startDate={today} />);
 
+        const firstMetrics = calculateAdaptiveCompetitionMetrics(40, 390);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
-            expect(record?.score).toBe(40);
+            expect(record?.activityScore).toBe(40);
+            expect(record?.score).toBe(firstMetrics.score);
         });
 
         const firstUpdatedAt = useCompetitionStore.getState().competition.dailyRecords[today]?.updatedAt;
@@ -58,10 +61,12 @@ describe('useCompetitionTracker', () => {
             useWorkStore.setState({ currentCount: 130 } as any);
         });
 
+        const secondMetrics = calculateAdaptiveCompetitionMetrics(180, 390);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const questoes = record?.breakdown.find((entry) => entry.id === 'questoes');
-            expect(record?.score).toBe(180);
+            expect(record?.activityScore).toBe(180);
+            expect(record?.score).toBe(secondMetrics.score);
             expect(questoes?.points).toBe(180);
         });
 
@@ -117,10 +122,12 @@ describe('useCompetitionTracker', () => {
             useReadingStore.getState().updateProgress('book-1', 10);
         });
 
+        const firstReadingMetrics = calculateAdaptiveCompetitionMetrics(45, 480);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const reading = record?.breakdown.find((entry) => entry.id === 'leitura');
-            expect(record?.score).toBe(45);
+            expect(record?.activityScore).toBe(45);
+            expect(record?.score).toBe(firstReadingMetrics.score);
             expect(reading?.points).toBe(45);
         });
 
@@ -128,10 +135,12 @@ describe('useCompetitionTracker', () => {
             useReadingStore.getState().updateProgress('book-1', 20);
         });
 
+        const secondReadingMetrics = calculateAdaptiveCompetitionMetrics(90, 480);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const reading = record?.breakdown.find((entry) => entry.id === 'leitura');
-            expect(record?.score).toBe(90);
+            expect(record?.activityScore).toBe(90);
+            expect(record?.score).toBe(secondReadingMetrics.score);
             expect(reading?.points).toBe(90);
         });
 

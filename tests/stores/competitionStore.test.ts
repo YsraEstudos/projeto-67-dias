@@ -7,27 +7,36 @@ vi.mock('../../stores/firestoreSync', () => ({
 import { writeToFirestore } from '../../stores/firestoreSync';
 import type { CompetitionDailyRecord } from '../../types';
 import { useCompetitionStore } from '../../stores/competitionStore';
+import { calculateAdaptiveCompetitionMetrics } from '../../utils/competitionEngine';
 
-const createRecord = (date: string, score: number): CompetitionDailyRecord => ({
+const createRecord = (date: string, activityScore: number): CompetitionDailyRecord => {
+    const metrics = calculateAdaptiveCompetitionMetrics(activityScore, 500);
+
+    return ({
     date,
     projectDay: 1,
-    score,
+    score: metrics.score,
+    activityScore: metrics.activityScore,
     maxScore: 500,
     theoreticalMaxScore: 1000,
-    remainingScore: 500 - score,
+    completionRate: metrics.completionRate,
+    availabilityRate: metrics.availabilityRate,
+    difficultyMultiplier: metrics.difficultyMultiplier,
+    remainingScore: metrics.remainingScore,
     breakdown: [
         {
             id: 'questoes',
             label: 'Questoes',
-            points: score,
+            points: activityScore,
             maxPoints: 500,
-            remainingPoints: 500 - score,
+            remainingPoints: 500 - activityScore,
             summary: 'Resumo',
-            priority: 500 - score,
+            priority: 500 - activityScore,
         },
     ],
     updatedAt: Date.now(),
-});
+    });
+};
 
 describe('competitionStore', () => {
     beforeEach(() => {
@@ -46,8 +55,8 @@ describe('competitionStore', () => {
 
         const records = useCompetitionStore.getState().competition.dailyRecords;
 
-        expect(records[dayOne.date]?.score).toBe(220);
-        expect(records[dayTwo.date]?.score).toBe(340);
+        expect(records[dayOne.date]?.activityScore).toBe(220);
+        expect(records[dayTwo.date]?.activityScore).toBe(340);
         expect(useCompetitionStore.getState().competition.lastSyncedDate).toBe(dayTwo.date);
     });
 
@@ -67,6 +76,47 @@ describe('competitionStore', () => {
         });
 
         expect(writeToFirestore).not.toHaveBeenCalled();
-        expect(useCompetitionStore.getState().competition.dailyRecords[original.date]?.score).toBe(280);
+        expect(useCompetitionStore.getState().competition.dailyRecords[original.date]?.activityScore).toBe(280);
+    });
+
+    it('migrates legacy records to adaptive championship fields during hydration', () => {
+        useCompetitionStore.getState()._hydrateFromFirestore({
+            competition: {
+                competitionStartedAt: Date.now(),
+                engineVersion: 'legacy-version',
+                dailyRecords: {
+                    '2026-03-10': {
+                        date: '2026-03-10',
+                        projectDay: 1,
+                        score: 280,
+                        maxScore: 500,
+                        theoreticalMaxScore: 1000,
+                        remainingScore: 220,
+                        breakdown: [
+                            {
+                                id: 'questoes',
+                                label: 'Questoes',
+                                points: 280,
+                                maxPoints: 500,
+                                remainingPoints: 220,
+                                summary: 'Resumo',
+                                priority: 220,
+                            },
+                        ],
+                        updatedAt: Date.now(),
+                    } as CompetitionDailyRecord,
+                },
+                lastSyncedDate: '2026-03-10',
+            },
+        });
+
+        const hydrated = useCompetitionStore.getState().competition.dailyRecords['2026-03-10'];
+        const metrics = calculateAdaptiveCompetitionMetrics(280, 500);
+
+        expect(hydrated.activityScore).toBe(280);
+        expect(hydrated.score).toBe(metrics.score);
+        expect(hydrated.completionRate).toBe(metrics.completionRate);
+        expect(hydrated.availabilityRate).toBe(metrics.availabilityRate);
+        expect(hydrated.difficultyMultiplier).toBe(metrics.difficultyMultiplier);
     });
 });

@@ -9,6 +9,8 @@ export const ChampionshipView: React.FC = () => {
   const { competition } = useCompetitionStore();
   const todayKey = getTodayISO();
   const todayRecord: CompetitionDailyRecord | undefined = competition.dailyRecords[todayKey];
+  const completionPercent = todayRecord ? Math.round(todayRecord.completionRate * 100) : 0;
+  const rawTodayActivity = todayRecord?.activityScore ?? todayRecord?.breakdown.reduce((sum, item) => sum + item.points, 0) ?? 0;
 
   const totalScore = useMemo(() => {
     return Object.values(competition.dailyRecords).reduce((acc, rec) => acc + rec.score, 0);
@@ -100,9 +102,26 @@ export const ChampionshipView: React.FC = () => {
               Ganhos de Hoje
             </h4>
             <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-1 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-              +{todayRecord?.score || 0} XP
+              +{todayRecord?.score || 0} XP oficial
             </div>
           </div>
+
+          {todayRecord && (
+            <div className="relative z-10 mb-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400">Pontuacao adaptativa</p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {rawTodayActivity.toLocaleString('pt-BR')} XP bruto com {completionPercent}% de aproveitamento do que estava disponivel.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-black text-white">{todayRecord.score.toLocaleString('pt-BR')}</div>
+                  <div className="text-[11px] text-slate-500">multiplicador {todayRecord.difficultyMultiplier.toFixed(2)}x</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto pr-2 space-y-2 relative z-10 styled-scrollbar h-48 lg:h-auto">
             {todayRecord && todayRecord.breakdown.length > 0 && todayRecord.breakdown.some(i => i.points > 0) ? (
@@ -116,7 +135,7 @@ export const ChampionshipView: React.FC = () => {
                     </div>
                   </div>
                   <span className="text-sm font-black text-emerald-400 group-hover:text-emerald-300 group-hover:-translate-y-0.5 transition-transform">
-                    +{item.points}
+                    +{item.points} bruto
                   </span>
                 </div>
               ))
@@ -126,6 +145,10 @@ export const ChampionshipView: React.FC = () => {
                 <p className="text-xs text-slate-400 font-medium max-w-[200px]">Nenhuma atividade<br/>Hoje é o dia de começar!</p>
               </div>
             )}
+          </div>
+
+          <div className="relative z-10 mt-4 rounded-2xl border border-cyan-500/10 bg-cyan-500/5 p-4 text-xs text-slate-300">
+            O campeonato sobe pelo desempenho do dia, nao apenas pelo volume bruto. Dias mais cheios recebem um bonus moderado, e os XP por modulo continuam visiveis para transparencia.
           </div>
         </div>
       </div>

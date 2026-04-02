@@ -1023,10 +1023,14 @@ export interface CompetitionScoreBreakdown {
 export interface CompetitionDailyRecord {
   date: string;                         // YYYY-MM-DD
   projectDay: number;
-  score: number;
-  maxScore: number;                     // Effective max possible for the day
+  score: number;                        // Official adaptive championship XP
+  activityScore: number;                // Raw sum of category points for the day
+  maxScore: number;                     // Effective raw max possible for the day
   theoreticalMaxScore: number;          // Fixed system ceiling (1000)
-  remainingScore: number;
+  completionRate: number;               // Raw activityScore / maxScore
+  availabilityRate: number;             // maxScore / theoreticalMaxScore
+  difficultyMultiplier: number;         // Adaptive bonus based on availability
+  remainingScore: number;               // Remaining raw activity XP for the day
   breakdown: CompetitionScoreBreakdown[];
   updatedAt: number;
 }
