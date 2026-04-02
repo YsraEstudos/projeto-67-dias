@@ -7,7 +7,33 @@ import { getTodayISO } from '../../utils/dateUtils';
 const today = getTodayISO();
 
 describe('Daily Offensive Advanced Utils', () => {
+    describe('calculateReadingProgress', () => {
+        it('counts only pages read today', () => {
+            const books = [{
+                id: 'b1',
+                dailyGoal: 20,
+                status: 'READING',
+                current: 80,
+                total: 200,
+                logs: [{ date: today, pagesRead: 10 }],
+            }] as unknown as Book[];
 
+            expect(calculateReadingProgress(books)).toBe(50);
+        });
+
+        it('does not give reading progress for old accumulated progress without log today', () => {
+            const books = [{
+                id: 'b1',
+                dailyGoal: 20,
+                status: 'READING',
+                current: 80,
+                total: 200,
+                logs: [],
+            }] as unknown as Book[];
+
+            expect(calculateReadingProgress(books)).toBe(0);
+        });
+    });
     describe('calculateGamesProgress', () => {
         it('should return 0 when daily goal is invalid', () => {
             const games = [{ status: 'PLAYING', history: [{ date: today, hoursPlayed: 1 }] }] as unknown as Game[];

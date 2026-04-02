@@ -211,9 +211,12 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         _hydrateFromFirestore: (data) => {
             if (data) {
                 // Check if day changed - reset counters if so
-                const today = new Date().toISOString().split('T')[0];
-                const savedDate = data.lastActiveDate || null;
-                const isNewDay = savedDate && savedDate !== today;
+                // IMPORTANT: Use local date, not UTC (toISOString gives UTC, which at
+                // 21:00 GMT-3 = 00:00 UTC next day, causing false "new day" detection).
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const savedDate = data.lastActiveDate ?? null;
+                const isNewDay = savedDate !== null && savedDate !== today;
 
                 set(() => ({
                     history: data.history !== undefined ? data.history : [],

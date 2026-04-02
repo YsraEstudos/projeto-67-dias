@@ -17,10 +17,12 @@ import type {
 } from '../../types';
 import { BUILT_IN_GOALS, DEFAULT_TIME_SLOTS } from '../../types';
 
-// Helper to get today's date as YYYY-MM-DD
+// Helper to get today's date as YYYY-MM-DD (LOCAL timezone, not UTC)
+// Using toISOString() would return UTC, which at 21:00 GMT-3 becomes 00:00 UTC
+// the next day — causing tasks to get the wrong date and miss the XP window.
 const getTodayKey = (): string => {
     const now = new Date();
-    return now.toISOString().split('T')[0];
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
 // Generate unique ID

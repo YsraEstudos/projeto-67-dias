@@ -7,6 +7,7 @@ import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport
 import { useAppContext } from '../app/AppContext';
 import { PageIntro } from '../components/PageIntro';
 import { SectionCard } from '../components/SectionCard';
+import { useTheme } from '../app/ThemeContext';
 
 export const SettingsPage = () => {
   const {
@@ -21,7 +22,12 @@ export const SettingsPage = () => {
     connectGoogleCloud,
     syncToCloudNow,
   } = useAppContext();
+  const { colors, setColors } = useTheme();
   const [message, setMessage] = useState<string>('');
+
+  const handleColorChange = (key: keyof typeof colors, value: string) => {
+    setColors({ ...colors, [key]: value });
+  };
 
   const onImportFile = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = event.target.files?.[0];
@@ -111,6 +117,42 @@ export const SettingsPage = () => {
       />
 
       <div className="grid-2">
+        <SectionCard as="article" kicker="Aparência" title="Studio Pro Tema">
+          <div className="theme-color-picker-row">
+            <label className="field-label" htmlFor="color-primary">Cor Primária (Neon Base)</label>
+            <input
+              id="color-primary"
+              type="color"
+              className="color-input"
+              value={colors.primary}
+              onChange={(e) => handleColorChange('primary', e.target.value)}
+              title="Cor Primária"
+            />
+          </div>
+          <div className="theme-color-picker-row">
+            <label className="field-label" htmlFor="color-secondary">Cor Secundária (Foco Ativo)</label>
+            <input
+              id="color-secondary"
+              type="color"
+              className="color-input"
+              value={colors.secondary}
+              onChange={(e) => handleColorChange('secondary', e.target.value)}
+              title="Cor Secundária"
+            />
+          </div>
+          <div className="theme-color-picker-row">
+            <label className="field-label" htmlFor="color-tertiary">Cor Terciária (Revisão)</label>
+            <input
+              id="color-tertiary"
+              type="color"
+              className="color-input"
+              value={colors.tertiary}
+              onChange={(e) => handleColorChange('tertiary', e.target.value)}
+              title="Cor Terciária"
+            />
+          </div>
+        </SectionCard>
+
         <SectionCard as="article" kicker="Cronograma" title="Início do plano de estudos">
           <label className="field-label">
             Data de início do plano

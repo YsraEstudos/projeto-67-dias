@@ -77,7 +77,6 @@ const SettingsView = React.lazy(() => import('./components/views/SettingsView'))
 const LinksView = React.lazy(() => import('./components/views/LinksView'));
 const SundayView = React.lazy(() => import('./components/views/SundayView'));
 const GamesView = React.lazy(() => import('./components/views/GamesView'));
-const ConcursoView = React.lazy(() => import('./components/views/ConcursoView'));
 
 // --- Floating Timer Widget (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
@@ -474,6 +473,11 @@ const App: React.FC = () => {
 
   // --- CARD CLICK HANDLERS ---
   const handleCardClick = useCallback((view: ViewState) => {
+    if (view === ViewState.CONCURSO) {
+      window.location.href = window.location.origin + '/concurso/#/';
+      return;
+    }
+
     // Find if there's already a tab with this view
     const existingTab = tabs.find(t => t.view === view);
 
@@ -495,6 +499,11 @@ const App: React.FC = () => {
   }, [tabs, setActiveTab, setActiveView, addTab, pushNavigation, getViewLabel]);
 
   const handleCardMiddleClick = useCallback((view: ViewState) => {
+    if (view === ViewState.CONCURSO) {
+      window.open(window.location.origin + '/concurso/#/', '_blank');
+      return;
+    }
+
     // Always create a new tab
     addTab(view, getViewLabel(view));
     setActiveView(view);
@@ -629,8 +638,8 @@ const App: React.FC = () => {
       },
       {
         id: ViewState.CONCURSO,
-        title: 'Concurso',
-        subtitle: 'Arena interna + materiais',
+        title: 'Concurso Público',
+        subtitle: 'App dedicado',
         icon: Trophy,
         color: 'text-purple-400',
       },
@@ -667,7 +676,9 @@ const App: React.FC = () => {
       case ViewState.LINKS: content = <LinksView />; break;
       case ViewState.SUNDAY: content = <SundayView />; break;
       case ViewState.GAMES: content = <GamesView />; break;
-      case ViewState.CONCURSO: content = <ConcursoView />; break;
+      case ViewState.CONCURSO: 
+        window.location.href = window.location.origin + '/concurso/#/';
+        return null;
       default: content = <div>View not found</div>;
     }
 

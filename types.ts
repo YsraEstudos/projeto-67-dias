@@ -1031,28 +1031,17 @@ export interface CompetitionDailyRecord {
   updatedAt: number;
 }
 
-export interface CompetitionRival {
-  id: string;
+export interface CompetitionLeague {
   name: string;
-  archetype: string;
-  description: string;
-  basePower: number;
-  volatility: number;
-  favoredCategories: CompetitionCategoryId[];
-  weakCategories: CompetitionCategoryId[];
-  taunts: string[];
-  clutchWindow?: {
-    startDay: number;
-    endDay: number;
-    bonus: number;
-  };
-  recoveryBoost?: number;
+  minPoints: number;
+  maxPoints: number;
+  rankRange: [number, number];
+  color: string;
 }
 
 export interface CompetitionState {
   competitionStartedAt: number | null;
   engineVersion: string;
-  roster: CompetitionRival[];
   dailyRecords: Record<string, CompetitionDailyRecord>;
   lastSyncedDate: string | null;
 }

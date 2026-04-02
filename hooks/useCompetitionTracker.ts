@@ -8,6 +8,7 @@ import {
     useWorkStore,
 } from '../stores';
 import { createCompetitionDailyRecord } from '../utils/competitionEngine';
+import { getReadingPagesReadForDate } from '../utils/dailyOffensiveUtils';
 import { getTodayISO } from '../utils/dateUtils';
 
 interface UseCompetitionTrackerOptions {
@@ -30,15 +31,43 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
         habits: state.habits,
         tasks: state.tasks,
     })));
-    const skills = useSkillsStore((state) => state.skills);
-    const books = useReadingStore((state) => state.books);
-
     const todayKey = getTodayISO();
+    const skills = useSkillsStore((state) => state.skills);
+    const { books, readingSignature } = useReadingStore(useShallow((state) => ({
+        books: state.books,
+        readingSignature: state.books
+            .map((book) => [
+                book.id,
+                book.status,
+                book.current,
+                book.total,
+                book.dailyGoal ?? '',
+                getReadingPagesReadForDate(book, todayKey),
+            ].join(':'))
+            .join('|'),
+    })));
 
     const record = useMemo(() => {
         if (!enabled) return null;
 
-        return createCompetitionDailyRecord({
+        // DEBUG: trace XP computation inputs
+        const readingBooks = books.filter(b => b.status === 'READING');
+        console.debug('[CompetitionTracker] computing record', {
+            todayKey,
+            enabled,
+            booksTotal: books.length,
+            readingBooks: readingBooks.map(b => ({
+                id: b.id, title: b.title, status: b.status,
+                current: b.current, total: b.total,
+                logsCount: b.logs?.length ?? 0,
+                todayLog: b.logs?.find(l => l.date === todayKey),
+            })),
+            habitsCount: habitsState.habits.length,
+            skillsCount: skills.length,
+            currentCount: workState.currentCount,
+        });
+
+        const result = createCompetitionDailyRecord({
             startDate,
             currentCount: workState.currentCount,
             workHistory: workState.workHistory,
@@ -49,6 +78,13 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
             skills,
             books,
         }, todayKey);
+
+        console.debug('[CompetitionTracker] record result', {
+            score: result.score,
+            breakdown: result.breakdown.map(b => ({ id: b.id, points: b.points, maxPoints: b.maxPoints })),
+        });
+
+        return result;
     }, [
         enabled,
         startDate,
@@ -60,6 +96,7 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
         habitsState.tasks,
         skills,
         books,
+        readingSignature,
         todayKey,
     ]);
 

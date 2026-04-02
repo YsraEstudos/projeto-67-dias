@@ -2,26 +2,68 @@ import { Book, Skill, Game, OffensiveGoalsConfig, FocusSkill } from '../types';
 import { DEFAULT_OFFENSIVE_GOALS } from '../stores/configStore';
 import { getTodayISO } from './dateUtils';
 
+export const DEFAULT_READING_DAILY_GOAL_PAGES = 10;
+
+export interface ReadingDailyProgressSnapshot {
+    activeBooksCount: number;
+    booksReadTodayCount: number;
+    totalPagesReadToday: number;
+    progressPercent: number;
+}
+
+export const getReadingPagesReadForDate = (book: Book, dateKey: string): number => (
+    (book.logs || [])
+        .filter((log) => log.date === dateKey)
+        .reduce((sum, log) => sum + Math.max(0, log.pagesRead || 0), 0)
+);
+
+const getReadingDailyGoal = (book: Book): number => (
+    book.dailyGoal && book.dailyGoal > 0 ? book.dailyGoal : DEFAULT_READING_DAILY_GOAL_PAGES
+);
+
+export const getReadingDailyProgressSnapshot = (
+    books: Book[],
+    dateKey = getTodayISO(),
+): ReadingDailyProgressSnapshot => {
+    let activeBooksCount = 0;
+    let booksReadTodayCount = 0;
+    let totalPagesReadToday = 0;
+    let totalProgress = 0;
+
+    books.forEach((book) => {
+        const pagesReadToday = getReadingPagesReadForDate(book, dateKey);
+        const shouldCountBook = book.status === 'READING' || pagesReadToday > 0;
+
+        if (!shouldCountBook) return;
+
+        activeBooksCount += 1;
+        totalPagesReadToday += pagesReadToday;
+
+        if (pagesReadToday > 0) {
+            booksReadTodayCount += 1;
+        }
+
+        const dailyGoal = getReadingDailyGoal(book);
+        totalProgress += Math.min(100, (pagesReadToday / dailyGoal) * 100);
+    });
+
+    return {
+        activeBooksCount,
+        booksReadTodayCount,
+        totalPagesReadToday,
+        progressPercent: activeBooksCount > 0
+            ? Math.round(totalProgress / activeBooksCount)
+            : 0,
+    };
+};
+
 /**
  * Calcula % de progresso de leitura do dia atual
  */
 export function calculateReadingProgress(books: Book[]): number {
-    const today = getTodayISO();
-
-    const booksWithGoal = books.filter(b => b.dailyGoal && b.dailyGoal > 0 && b.status === 'READING');
-    if (booksWithGoal.length === 0) return 0;
-
-    let totalProgress = 0;
-    for (const book of booksWithGoal) {
-        const todayLog = book.logs?.find(l => l.date === today);
-        const pagesRead = todayLog?.pagesRead || 0;
-        // Cap at 100% per book to avoid one book carrying the others
-        const progress = Math.min(100, (pagesRead / book.dailyGoal!) * 100);
-        totalProgress += progress;
-    }
-
-    return Math.round(totalProgress / booksWithGoal.length);
+    return getReadingDailyProgressSnapshot(books).progressPercent;
 }
+
 
 /**
  * Calcula % de progresso de estudo do dia atual

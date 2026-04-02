@@ -4,13 +4,15 @@ import { useAppContext } from '../app/AppContext';
 import { getChecklistProgressPercent } from '../app/progress';
 import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/formatters';
 import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
-import type { ManualBlock } from '../app/types';
+import type { ManualBlock, TopicNode, TopicSubmatter } from '../app/types';
 import { PageIntro } from '../components/PageIntro';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionCard } from '../components/SectionCard';
 
+const metaIconStyle = { width: '18px', height: '18px', marginRight: '6px', color: 'var(--cyan)' };
+
 export const DailyPlanPage = () => {
-  const { state, dayPlansByDate, updateChecklistItem, setDailyNote } = useAppContext();
+  const { state, topics, dayPlansByDate, updateChecklistItem, setDailyNote } = useAppContext();
   const dayPlan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
 
@@ -77,6 +79,55 @@ export const DailyPlanPage = () => {
     updateChecklistItem(state.selectedDate, itemId, done);
   };
 
+  // Smart Review Logic
+  const allSubmatters: { submatter: TopicSubmatter; topic: TopicNode; topicId: string }[] = [];
+  if (state.topicSubmattersByTopic) {
+    Object.entries(state.topicSubmattersByTopic).forEach(([topicId, submatters]) => {
+      const topic = topics.find((t) => t.id === topicId);
+      if (topic && submatters) {
+        submatters.forEach((submatter) => {
+          allSubmatters.push({ submatter, topic, topicId });
+        });
+      }
+    });
+  }
+
+  const riskGroup = allSubmatters.filter((item) => ['C', 'D', 'E'].includes(item.submatter.grade));
+  const eliteGroup = allSubmatters.filter((item) => ['A', 'B'].includes(item.submatter.grade));
+
+  const sortByDate = (
+    a: { submatter: TopicSubmatter },
+    b: { submatter: TopicSubmatter }
+  ) => {
+    if (a.submatter.lastReviewedAt === b.submatter.lastReviewedAt) return 0;
+    if (a.submatter.lastReviewedAt === null) return -1;
+    if (b.submatter.lastReviewedAt === null) return 1;
+    return new Date(a.submatter.lastReviewedAt).getTime() - new Date(b.submatter.lastReviewedAt).getTime();
+  };
+
+  const sortedRisk = riskGroup.sort(sortByDate);
+  const sortedElite = eliteGroup.sort(sortByDate);
+
+  const dailySmartReview = [
+    ...sortedRisk.slice(0, 2),
+    ...sortedElite.slice(0, 1),
+  ];
+
+  const getGradeColor = (grade: string) => {
+    if (['A', 'B'].includes(grade)) return 'var(--cyan)';
+    return 'var(--red-soft)';
+  };
+
+  const getSubmatterBadgeStyle = (grade: string) => ({
+    display: 'inline-block',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    backgroundColor: getGradeColor(grade),
+    color: '#000',
+    fontWeight: 700,
+    fontSize: '0.75rem',
+  });
+
   return (
     <section className="page">
       <PageIntro
@@ -85,27 +136,87 @@ export const DailyPlanPage = () => {
         title="Plano Diário"
         description="Checklist personalizado por dia, com foco em execução, evidência e leitura operacional."
         meta={
-          <div className="daily-meta-grid">
-            <article className="daily-meta-card">
-              <p className="daily-meta-label">Data</p>
-              <p className="daily-meta-value">{formatIsoDatePtBr(state.selectedDate)}</p>
+          <div className="daily-meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+            <article className="daily-meta-card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center' }}>
+                <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+                Data
+              </p>
+              <p className="daily-meta-value" style={{ fontSize: '1.1rem', fontWeight: 600 }}>{formatIsoDatePtBr(state.selectedDate)}</p>
             </article>
-            <article className="daily-meta-card">
-              <p className="daily-meta-label">Modo</p>
-              <p className="daily-meta-value">
+            <article className="daily-meta-card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center' }}>
+                <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Modo
+              </p>
+              <p className="daily-meta-value" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
                 {dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
               </p>
             </article>
-            <article className="daily-meta-card">
-              <p className="daily-meta-label">Semana / Evento</p>
-              <p className="daily-meta-value">
-                {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
+            <article className="daily-meta-card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center' }}>
+                <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 21 5-5-5-5"/><path d="M21 16H9a7 7 0 0 1-7-7v-5"/></svg>
+                Semana / Evento
               </p>
-              <p className="daily-meta-note">{eventLabel}</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <p className="daily-meta-value" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+                  {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
+                </p>
+                <p className="daily-meta-note" style={{ margin: 0, padding: '2px 8px', background: 'var(--ink-soft)', color: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {eventLabel}
+                </p>
+              </div>
             </article>
           </div>
         }
       />
+
+      <SectionCard className="daily-smart-review" kicker="Dinâmico" title="Algoritmo de Revisão Inteligente">
+        <p style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', marginBottom: '16px' }}>
+          Otimizando sua curva de esquecimento: 2 matérias críticas (Risco) e 1 matéria de manutenção (Elite).
+        </p>
+        
+        {dailySmartReview.length > 0 ? (
+          <div className="daily-block-grid">
+            {dailySmartReview.map((item) => {
+              const isRisk = ['C', 'D', 'E'].includes(item.submatter.grade);
+              return (
+                <article className="daily-block" key={item.submatter.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div className="daily-block-top">
+                    <span style={getSubmatterBadgeStyle(item.submatter.grade)}>
+                      Nota {item.submatter.grade} {isRisk ? '(Risco)' : '(Elite)'}
+                    </span>
+                    <span className="daily-block-area" style={{ opacity: 0.7 }}>
+                      {item.submatter.lastReviewedAt ? formatIsoDatePtBr(item.submatter.lastReviewedAt) : 'Sem revisão'}
+                    </span>
+                  </div>
+                  <p className="daily-block-title" style={{ marginTop: '8px' }}>{item.submatter.title}</p>
+                  <p className="daily-block-detail">{item.topic.title}</p>
+                  <div className="daily-block-detail" style={{ marginTop: 'auto', paddingTop: '12px' }}>
+                    <Link 
+                      to={`/conteudo?topicId=${item.topicId}`} 
+                      style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '6px',
+                        color: 'var(--ink-soft)',
+                        textDecoration: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                      Estudar submatéria
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p>Nenhuma submatéria avaliada para revisão.</p>
+        )}
+      </SectionCard>
 
       <SectionCard className="daily-progress-panel" kicker="Conclusão" title="Progresso oficial do dia">
         <div className="daily-progress-head">
@@ -156,14 +267,17 @@ export const DailyPlanPage = () => {
 
       <SectionCard className="daily-checklist-panel" data-testid="daily-checklist" kicker="Controle" title="Checklist do dia">
 
-        <p className="daily-checklist-title">Obrigatórios</p>
-        <div className="checklist">
+        <p className="daily-checklist-title" style={{ marginTop: 0 }}>Obrigatórios</p>
+        <div className="checklist" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {requiredItems.map((item) => (
-            <div className="check-item" key={item.id}>
-              <div className="check-item-info">
-                <p>{item.label}</p>
+            <div className="check-item" key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px' }}>
+              <div className="check-item-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <p style={{ fontWeight: 600, margin: 0 }}>{item.label}</p>
                 <div>
-                  <span className={item.status === 'concluido' ? 'status-done' : 'status-pending'}>
+                  <span 
+                    className={item.status === 'concluido' ? 'status-done' : 'status-pending'}
+                    style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '4px', background: item.status === 'concluido' ? 'rgba(187, 247, 208, 0.1)' : 'rgba(252, 211, 77, 0.1)' }}
+                  >
                     {item.status}
                   </span>
                 </div>
@@ -171,31 +285,33 @@ export const DailyPlanPage = () => {
 
               <div className="check-item-controls">
                 {item.kind === 'counter' ? (
-                  <div className="counter-row">
+                  <div className="counter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '8px' }}>
                     <input
                       data-testid={`check-${item.id}`}
-                      className="input"
-                      style={{ width: '80px', textAlign: 'center' }}
+                      style={{ 
+                        width: '50px', textAlign: 'center', background: 'transparent', border: 'none', 
+                        borderBottom: '1px solid var(--ink-soft)', color: 'var(--ink)', fontSize: '1rem', outline: 'none' 
+                      }}
                       type="number"
                       min={0}
                       max={Math.max(item.target, item.done, 1)}
                       value={item.done}
                       onChange={(event) => handleChecklistChange(item.id, event, 'counter')}
                     />
-                    <span style={{ color: 'var(--ink-soft)' }}>
+                    <span style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', fontWeight: 500 }}>
                       / {item.target} {item.unit}
                     </span>
                   </div>
                 ) : (
-                  <label className="boolean-row">
+                  <label className="boolean-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', borderRadius: '8px' }}>
                     <input
                       data-testid={`check-${item.id}`}
                       type="checkbox"
-                      style={{ width: '20px', height: '20px', accentColor: 'var(--cyan)' }}
+                      style={{ width: '22px', height: '22px', accentColor: 'var(--cyan)', cursor: 'pointer' }}
                       checked={item.done >= 1}
                       onChange={(event) => handleChecklistChange(item.id, event, 'boolean')}
                     />
-                    <span style={{ fontWeight: 500 }}>Concluído</span>
+                    <span style={{ fontWeight: 600 }}>Concluído</span>
                   </label>
                 )}
               </div>
@@ -205,14 +321,17 @@ export const DailyPlanPage = () => {
 
         {optionalItems.length > 0 ? (
           <>
-            <p className="daily-checklist-title">Opcionais</p>
-            <div className="checklist">
+            <p className="daily-checklist-title" style={{ marginTop: '24px' }}>Opcionais</p>
+            <div className="checklist" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {optionalItems.map((item) => (
-                <div className="check-item" key={item.id}>
-                  <div className="check-item-info">
-                    <p>{item.label}</p>
+                <div className="check-item" key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', opacity: 0.85 }}>
+                  <div className="check-item-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <p style={{ fontWeight: 500, margin: 0 }}>{item.label}</p>
                     <div>
-                      <span className={item.status === 'concluido' ? 'status-done' : 'status-pending'}>
+                      <span 
+                        className={item.status === 'concluido' ? 'status-done' : 'status-pending'}
+                        style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '4px', background: item.status === 'concluido' ? 'rgba(187, 247, 208, 0.1)' : 'rgba(252, 211, 77, 0.1)' }}
+                      >
                         {item.status}
                       </span>
                     </div>
@@ -220,31 +339,33 @@ export const DailyPlanPage = () => {
 
                   <div className="check-item-controls">
                     {item.kind === 'counter' ? (
-                      <div className="counter-row">
+                      <div className="counter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '8px' }}>
                         <input
                           data-testid={`check-${item.id}`}
-                          className="input"
-                          style={{ width: '80px', textAlign: 'center' }}
+                          style={{ 
+                            width: '50px', textAlign: 'center', background: 'transparent', border: 'none', 
+                            borderBottom: '1px solid var(--ink-soft)', color: 'var(--ink)', fontSize: '1rem', outline: 'none' 
+                          }}
                           type="number"
                           min={0}
                           max={Math.max(item.target, item.done, 1)}
                           value={item.done}
                           onChange={(event) => handleChecklistChange(item.id, event, 'counter')}
                         />
-                        <span style={{ color: 'var(--ink-soft)' }}>
+                        <span style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', fontWeight: 500 }}>
                           / {item.target} {item.unit}
                         </span>
                       </div>
                     ) : (
-                      <label className="boolean-row">
+                      <label className="boolean-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', borderRadius: '8px' }}>
                         <input
                           data-testid={`check-${item.id}`}
                           type="checkbox"
-                          style={{ width: '20px', height: '20px', accentColor: 'var(--cyan)' }}
+                          style={{ width: '22px', height: '22px', accentColor: 'var(--cyan)', cursor: 'pointer' }}
                           checked={item.done >= 1}
                           onChange={(event) => handleChecklistChange(item.id, event, 'boolean')}
                         />
-                        <span style={{ fontWeight: 500 }}>Concluído</span>
+                        <span style={{ fontWeight: 600 }}>Concluído</span>
                       </label>
                     )}
                   </div>

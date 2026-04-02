@@ -71,4 +71,70 @@ describe('useCompetitionTracker', () => {
         expect(latest?.updatedAt).toBeGreaterThanOrEqual(firstUpdatedAt || 0);
         expect(Object.keys(useCompetitionStore.getState().competition.dailyRecords)).toEqual([today]);
     });
+
+    it('recalculates today snapshot when reading progress changes', async () => {
+        const today = getTodayISO();
+
+        act(() => {
+            useWorkStore.setState({
+                currentCount: 0,
+                history: [],
+                tasks: [],
+                availableGoals: [],
+            } as any);
+            useHabitsStore.setState({ habits: [], tasks: [] } as any);
+            useSkillsStore.setState({ skills: [] } as any);
+            useReadingStore.getState()._hydrateFromFirestore({
+                books: [{
+                    id: 'book-1',
+                    title: 'Livro teste',
+                    author: 'Autor teste',
+                    genre: 'Estudo',
+                    unit: 'PAGES',
+                    total: 144,
+                    current: 0,
+                    status: 'READING',
+                    rating: 0,
+                    folderId: null,
+                    notes: '',
+                    addedAt: today,
+                    dailyGoal: 20,
+                    logs: [],
+                }],
+                folders: [],
+            });
+        });
+
+        render(<TrackerHarness enabled startDate={today} />);
+
+        await waitFor(() => {
+            const reading = useCompetitionStore.getState().competition.dailyRecords[today]?.breakdown
+                .find((entry) => entry.id === 'leitura');
+            expect(reading?.points).toBe(0);
+        });
+
+        act(() => {
+            useReadingStore.getState().updateProgress('book-1', 10);
+        });
+
+        await waitFor(() => {
+            const record = useCompetitionStore.getState().competition.dailyRecords[today];
+            const reading = record?.breakdown.find((entry) => entry.id === 'leitura');
+            expect(record?.score).toBe(45);
+            expect(reading?.points).toBe(45);
+        });
+
+        act(() => {
+            useReadingStore.getState().updateProgress('book-1', 20);
+        });
+
+        await waitFor(() => {
+            const record = useCompetitionStore.getState().competition.dailyRecords[today];
+            const reading = record?.breakdown.find((entry) => entry.id === 'leitura');
+            expect(record?.score).toBe(90);
+            expect(reading?.points).toBe(90);
+        });
+
+        expect(Object.keys(useCompetitionStore.getState().competition.dailyRecords)).toEqual([today]);
+    });
 });

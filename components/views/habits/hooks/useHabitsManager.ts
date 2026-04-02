@@ -95,6 +95,9 @@ export const useHabitsManager = () => {
         if (habit.targetValue) {
             if (habit.goalType === 'MIN_TIME' && habit.frequency === 'DAILY' && newValue >= habit.targetValue) {
                 isCompleted = true;
+            } else if (habit.goalType === 'MAX_TIME' && habit.frequency === 'DAILY') {
+                // MAX_TIME: completed when value is at or below the limit
+                isCompleted = newValue <= habit.targetValue;
             }
         }
 

@@ -11,8 +11,11 @@ export type PaceMode = '10m' | '25m';
  * Returns today's date as YYYY-MM-DD
  */
 function getTodayDate(): string {
+    // IMPORTANT: Do NOT use toISOString() here — it returns UTC time.
+    // At 21:00 local (GMT-3) that's 00:00 UTC the NEXT day, causing the
+    // system to think it's a new day and incorrectly reset currentCount.
     const now = new Date();
-    return now.toISOString().split('T')[0];
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 export interface TrackingSlice {

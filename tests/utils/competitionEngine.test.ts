@@ -14,13 +14,14 @@ import type {
 } from '../../types';
 import { useReadingStore } from '../../stores/readingStore';
 import {
-    buildCompetitionLeaderboard,
     COMPETITION_THEORETICAL_DAILY_MAX,
     createCompetitionDailyRecord,
-    createDefaultCompetitionRoster,
+    generateSimulatedRivals,
     type CompetitionSourceState,
 } from '../../utils/competitionEngine';
 import { getTodayISO } from '../../utils/dateUtils';
+
+const today = getTodayISO();
 
 const createBook = (overrides: Partial<Book> = {}): Book => ({
     id: 'book-1',
@@ -93,14 +94,14 @@ const createTimeSlotTask = (overrides: Partial<TimeSlotTask> = {}): TimeSlotTask
     id: 'slot-task-1',
     goalId: 'questoes',
     slotId: 'slot1',
-    date: getTodayISO(),
+    date: today,
     completed: false,
     count: 0,
     ...overrides,
 });
 
 const createSourceState = (overrides: Partial<CompetitionSourceState> = {}): CompetitionSourceState => ({
-    startDate: getTodayISO(),
+    startDate: today,
     currentCount: 0,
     workHistory: [],
     scheduledTasks: [],
@@ -140,7 +141,7 @@ describe('competitionEngine', () => {
         expect(questoes?.summary).toContain('180');
     });
 
-    it('does not inflate reading points when progress goes up and then down on the same day', () => {
+    it('recalculates reading points from the final pages read today value', () => {
         useReadingStore.getState()._hydrateFromFirestore({
             books: [createBook()],
             folders: [],
@@ -158,19 +159,71 @@ describe('competitionEngine', () => {
         expect(leitura?.points).toBe(54);
     });
 
+    it('uses the fallback daily goal when the book has no configured goal', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            books: [
+                createBook({
+                    dailyGoal: 0,
+                    logs: [{ id: 'log-1', date: today, pagesRead: 5, bookId: 'book-1' }],
+                }),
+            ],
+        }));
+
+        const leitura = record.breakdown.find((entry) => entry.id === 'leitura');
+
+        expect(leitura?.points).toBe(45);
+        expect(leitura?.summary).toContain('5 paginas hoje');
+    });
+
+    it('does not award reading XP for old accumulated progress without pages today', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            books: [
+                createBook({
+                    current: 80,
+                    dailyGoal: 20,
+                    logs: [],
+                }),
+            ],
+        }));
+
+        const leitura = record.breakdown.find((entry) => entry.id === 'leitura');
+
+        expect(leitura?.points).toBe(0);
+        expect(leitura?.maxPoints).toBe(90);
+    });
+
+    it('keeps reading XP when the book was completed today', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            books: [
+                createBook({
+                    status: 'COMPLETED',
+                    current: 100,
+                    total: 100,
+                    dailyGoal: 10,
+                    logs: [{ id: 'log-1', date: today, pagesRead: 10, bookId: 'book-1' }],
+                }),
+            ],
+        }));
+
+        const leitura = record.breakdown.find((entry) => entry.id === 'leitura');
+
+        expect(leitura?.points).toBe(90);
+        expect(leitura?.maxPoints).toBe(90);
+    });
+
     it('counts roadmap nodes and micro-achievements only on the day they were completed', () => {
-        const today = new Date(`${getTodayISO()}T12:00:00.000Z`).getTime();
-        const yesterday = today - (24 * 60 * 60 * 1000);
+        const completionToday = new Date(`${today}T12:00:00.000Z`).getTime();
+        const yesterday = completionToday - (24 * 60 * 60 * 1000);
 
         const record = createCompetitionDailyRecord(createSourceState({
             skills: [
                 createSkill({
                     roadmap: [
-                        { id: 'roadmap-today', title: 'Hoje', isCompleted: true, completedAt: today, type: 'TASK' },
+                        { id: 'roadmap-today', title: 'Hoje', isCompleted: true, completedAt: completionToday, type: 'TASK' },
                         { id: 'roadmap-yesterday', title: 'Ontem', isCompleted: true, completedAt: yesterday, type: 'TASK' },
                     ],
                     microAchievements: [
-                        { id: 'micro-today', title: 'Hoje', isCompleted: true, completedAt: today, createdAt: today },
+                        { id: 'micro-today', title: 'Hoje', isCompleted: true, completedAt: completionToday, createdAt: completionToday },
                         { id: 'micro-yesterday', title: 'Ontem', isCompleted: true, completedAt: yesterday, createdAt: yesterday },
                     ],
                 }),
@@ -184,29 +237,11 @@ describe('competitionEngine', () => {
         expect(skillTree?.summary).toContain('1 micro-vitorias');
     });
 
-    it('simulates rivals deterministically for the same stored days', () => {
-        const record = createCompetitionDailyRecord(createSourceState({
-            currentCount: 120,
-            habits: [
-                createHabit({
-                    history: {
-                        [getTodayISO()]: { completed: true, subHabitsCompleted: [] },
-                    },
-                }),
-            ],
-            tasks: [
-                createTask({ isCompleted: true, completedAt: Date.now() }),
-            ],
-        }));
-
-        const first = buildCompetitionLeaderboard(createDefaultCompetitionRoster(), {
-            [record.date]: record,
-        });
-        const second = buildCompetitionLeaderboard(createDefaultCompetitionRoster(), {
-            [record.date]: record,
-        });
+    it('simulates rivals deterministically for the same ranking window', () => {
+        const first = generateSimulatedRivals(2400, 512);
+        const second = generateSimulatedRivals(2400, 512);
 
         expect(first).toEqual(second);
-        expect(first).toHaveLength(9);
+        expect(first).toHaveLength(4);
     });
 });

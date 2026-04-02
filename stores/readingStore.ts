@@ -114,7 +114,11 @@ export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
                 }
 
                 book.current = current;
-                if (current >= book.total) book.status = 'COMPLETED';
+                // Only auto-complete when total is explicitly > 0.
+                // If total=0 (not configured), we DON'T auto-complete — the book
+                // would incorrectly be set to COMPLETED on the very first progress update,
+                // removing it from XP calculations entirely.
+                if (book.total > 0 && current >= book.total) book.status = 'COMPLETED';
             }
         });
         get()._syncToFirestore();

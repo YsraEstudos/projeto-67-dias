@@ -11,7 +11,7 @@ import { subjectLabel, workActivityLabel } from '../app/formatters';
 import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
 import { MobileNavigationChrome } from './MobileNavigationChrome';
 
-const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes']);
+const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/anki', '/simulados-redacoes']);
 const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
 const settingsNavItem = NAV_ITEMS.find((item) => item.to === '/configuracoes');
 const READER_EVENT_NAME = 'concurso-reader-mode';

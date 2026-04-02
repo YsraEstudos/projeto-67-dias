@@ -5,7 +5,7 @@ cd /d "%~dp0"
 
 set "ROOT_DIR=%cd%"
 set "DIST_DIR=%ROOT_DIR%\dist"
-set "URL=http://127.0.0.1:4173/"
+set "URL=http://localhost:4173/"
 set "PORT=4173"
 
 echo ========================================

@@ -44,15 +44,16 @@
   min-height: 40px;
   margin: 0;
   padding: 0 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: rgba(14, 14, 14, 0.82);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
   color: var(--text-muted);
+  font-family: var(--font-label);
   font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
   transition:
     opacity 0.2s ease,
@@ -97,12 +98,12 @@
 .desktop-dynamic-island {
   position: relative;
   width: 100%;
-  border-radius: 999px;
-  background: rgba(12, 12, 13, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
-  -webkit-backdrop-filter: blur(28px);
-  backdrop-filter: blur(28px);
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   overflow: hidden;
   transition: all 0.45s cubic-bezier(0.25, 1, 0.3, 1);
   display: flex;
@@ -112,11 +113,11 @@
 .shell-chrome[data-shell-state="expanded"] .desktop-dynamic-island,
 .shell-chrome[data-shell-state="reader-expanded"] .desktop-dynamic-island,
 .island-wrapper.island-expanded .desktop-dynamic-island {
-  border-radius: 28px;
+  border-radius: var(--radius-lg);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 22%),
-    rgba(12, 12, 13, 0.98);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+    var(--bg-glass);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7);
 }
 
 .dynamic-island-collapsed {
@@ -140,12 +141,12 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--color-tertiary);
   white-space: nowrap;
 }
 
@@ -203,8 +204,10 @@
 .island-date-picker .input {
   min-height: 40px;
   padding: 0 12px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.06);
+  border-radius: var(--radius-md);
+  background: var(--bg-highlight);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
 }
 
 .island-fixed-rhythm {
@@ -213,7 +216,7 @@
   align-items: center;
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px dashed rgba(255,255,255,0.06);
+  border-top: 1px dashed var(--border-subtle);
 }
 
 
@@ -248,9 +251,9 @@
 .desktop-nav-link:focus-visible,
 .desktop-nav-secondary:hover,
 .desktop-nav-secondary:focus-visible {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-primary);
+  background: var(--color-primary-container);
+  border-color: var(--color-primary-container);
   transform: translateX(2px);
   outline: none;
 }
@@ -258,7 +261,7 @@
 .desktop-nav-link-active,
 .desktop-nav-secondary-active {
   color: var(--bg-base);
-  background: var(--text-main);
+  background: var(--color-primary);
   border-color: transparent;
 }
 
@@ -273,7 +276,7 @@
 
 .desktop-nav-footer {
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .context-tray {
@@ -465,19 +468,36 @@
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 45%),
-    rgba(12, 12, 13, 0.82);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 45%),
+    var(--bg-glass);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.6);
   transition:
     border-color 0.24s ease,
     box-shadow 0.24s ease,
     background 0.24s ease,
     transform 0.24s ease;
+}
+
+.theme-color-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.color-input {
+  background: none;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
 }
 
 .mobile-island-surface-open {
@@ -498,10 +518,10 @@
   justify-content: space-between;
   gap: 12px;
   color: var(--text-dim);
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -573,7 +593,7 @@
   border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)),
-    rgba(22, 22, 24, 0.9);
+    var(--bg-glass);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
@@ -582,10 +602,10 @@
 }
 
 .mobile-island-chip-active {
-  box-shadow: 0 0 0 1px rgba(227, 199, 122, 0.28);
+  box-shadow: 0 0 0 1px var(--border-subtle);
   background:
-    linear-gradient(180deg, rgba(227, 199, 122, 0.16), rgba(255, 255, 255, 0.04)),
-    rgba(22, 22, 24, 0.94);
+    linear-gradient(180deg, var(--color-secondary-container), rgba(255, 255, 255, 0.04)),
+    var(--bg-glass);
 }
 
 .mobile-island-chip-danger {
@@ -643,7 +663,7 @@
   width: 32px;
   height: 32px;
   border-radius: 12px;
-  background: rgba(227, 199, 122, 0.14);
+  background: var(--color-primary-container);
   color: var(--accent-primary);
 }
 
@@ -740,10 +760,10 @@
   align-content: start;
   gap: 18px;
   padding: 22px 18px 28px;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid var(--border-subtle);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 18%),
-    rgba(10, 10, 11, 0.92);
+    var(--bg-glass);
   -webkit-backdrop-filter: blur(22px);
   backdrop-filter: blur(22px);
   box-shadow: 24px 0 60px rgba(0, 0, 0, 0.42);
@@ -778,10 +798,10 @@
 
 .mobile-sidebar-kicker,
 .mobile-sidebar-section-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-label);
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-dim);
 }

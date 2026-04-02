@@ -1,15 +1,14 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { CompetitionDailyRecord, CompetitionRival, CompetitionState } from '../types';
+import { CompetitionDailyRecord, CompetitionState } from '../types';
 import { writeToFirestore } from './firestoreSync';
-import { COMPETITION_ENGINE_VERSION, createDefaultCompetitionRoster } from '../utils/competitionEngine';
+import { COMPETITION_ENGINE_VERSION } from '../utils/competitionEngine';
 
 const STORE_KEY = 'p67_competition_store';
 
 const createInitialCompetitionState = (): CompetitionState => ({
     competitionStartedAt: null,
     engineVersion: COMPETITION_ENGINE_VERSION,
-    roster: createDefaultCompetitionRoster(),
     dailyRecords: {},
     lastSyncedDate: null,
 });
@@ -43,7 +42,6 @@ interface CompetitionStoreState {
     isLoading: boolean;
     _initialized: boolean;
     initializeCompetition: (startedAt?: number) => void;
-    setRoster: (roster: CompetitionRival[]) => void;
     upsertDailyRecord: (record: CompetitionDailyRecord) => void;
     setCompetitionStartedAt: (startedAt: number) => void;
     setLoading: (loading: boolean) => void;
@@ -55,9 +53,6 @@ interface CompetitionStoreState {
 const sanitizeCompetitionState = (input?: CompetitionState): CompetitionState => ({
     competitionStartedAt: input?.competitionStartedAt ?? null,
     engineVersion: input?.engineVersion || COMPETITION_ENGINE_VERSION,
-    roster: Array.isArray(input?.roster) && input!.roster.length > 0
-        ? input!.roster
-        : createDefaultCompetitionRoster(),
     dailyRecords: input?.dailyRecords || {},
     lastSyncedDate: input?.lastSyncedDate ?? null,
 });
@@ -72,17 +67,7 @@ export const useCompetitionStore = create<CompetitionStoreState>()(immer((set, g
             if (!state.competition.competitionStartedAt) {
                 state.competition.competitionStartedAt = startedAt;
             }
-            if (!state.competition.roster.length) {
-                state.competition.roster = createDefaultCompetitionRoster();
-            }
             state.competition.engineVersion = COMPETITION_ENGINE_VERSION;
-        });
-        get()._syncToFirestore();
-    },
-
-    setRoster: (roster) => {
-        set((state) => {
-            state.competition.roster = roster;
         });
         get()._syncToFirestore();
     },

@@ -1,33 +1,64 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap");
 
 :root {
   color-scheme: dark;
-  --bg-base: #050505;
+  
+  /* Dynamic Neons (Configurable via ThemeContext) */
+  --color-primary: #f5ffc4;
+  --color-secondary: #fed01b;
+  --color-tertiary: #c6fff3;
+  --color-error: #ff7351;
+  --color-primary-dim: #cbef00;
+  --color-secondary-dim: #eec200;
+  --color-primary-container: rgba(245, 255, 196, 0.1);
+  --color-secondary-container: rgba(254, 208, 27, 0.1);
+
+  /* Tonal Layering - Obsidian Base */
+  --bg-base: #0e0e0e; /* Level 0 */
   --bg-surface: #0e0e0e;
-  --bg-elevated: #151515;
-  --bg-highlight: #1a1a1a;
+  --bg-elevated: #131313; /* surface-container-low: Level 1 */
+  --bg-highlight: #201f1f; /* surface-container-high: Level 2 */
+  --bg-highest: #262626;  /* surface-container-highest */
   --bg-glass: rgba(14, 14, 14, 0.85);
-  --text-main: #f4f4f5;
-  --text-muted: #a1a1aa;
-  --text-dim: #71717a;
-  --text-dark: #71717a;
-  --border-subtle: #27272a;
-  --border-strong: #3f3f46;
-  --accent-primary: #ffffff;
-  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --shadow-float: 0 10px 40px rgba(0, 0, 0, 0.8);
+  
+  /* Typography */
+  --text-main: #ffffff; /* on-surface */
+  --text-muted: #adaaaa; /* on-surface-variant */
+  --text-dim: #565555;
+  --text-dark: #131313;
+  
+  /* Borders (No-Line Rule: kept for structural fallback or 15% opacity hairline outline-variant) */
+  --border-subtle: rgba(72, 72, 71, 0.15); /* outline-variant at 15% */
+  --border-strong: #484847;
+  --accent-primary: var(--color-primary);
+  
+  /* Shadows */
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 20px 40px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 15px rgba(245, 255, 196, 0.3); /* using primary */
+
+  /* Old Grades fallback to new logic */
   --grade-a: #10b981;
   --grade-b: #3b82f6;
   --grade-c: #f59e0b;
   --grade-d: #f97316;
   --grade-e: #ef4444;
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 12px; /* 0.75rem for nested components */
+  --radius-lg: 24px; /* 1.5rem for outer containers */
   --radius-xl: 100px;
+  
   --max-content: 1200px;
-  --font-display: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  
+  /* Fonts */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-main: "Manrope", sans-serif;
+  --font-label: "Inter", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  
+  /* Animations */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-standard: cubic-bezier(0.2, 0.9, 0.2, 1);
   --duration-fast: 140ms;

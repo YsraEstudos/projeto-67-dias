@@ -2,7 +2,7 @@
 import { SkillRoadmapItem } from '../../types';
 
 export const MAX_ROADMAP_BYTES = 200 * 1024; // 200KB client-side guard
-export const MAX_ROADMAP_ITEMS = 500; // prevent oversized imports/updates
+export const MAX_ROADMAP_ITEMS = 1000; // prevent oversized imports/updates
 const MAX_DEPTH = 6; // avoid deeply nested structures that could hang the UI
 
 const isPlainObject = (val: unknown): val is Record<string, unknown> =>
