@@ -107,7 +107,8 @@ const CompactBookCard: React.FC<{
                 </div>
                 <button
                     onClick={(e) => { e.stopPropagation(); onMenuClick(e); }}
-                    className="text-slate-500 hover:text-white p-1 rounded touch-target-book"
+                    className="text-slate-500 hover:text-white p-3 -m-1 rounded touch-target-book"
+                    aria-label="Menu do livro"
                 >
                     <MoreVertical size={16} />
                 </button>
@@ -204,16 +205,20 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
     }, []);
 
     // Open menu from button click
-    const handleMenuClick = useCallback((e: React.MouseEvent) => {
+    const handleMenuClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
-        if (menuButtonRef.current) {
-            const rect = menuButtonRef.current.getBoundingClientRect();
-            // Position menu to stay within viewport
-            const menuWidth = 176;
-            const x = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 16);
-            setMenuPos({ x, y: rect.bottom + 4 });
-        }
-        setShowMenu(prev => !prev);
+
+        const buttonRect = e.currentTarget.getBoundingClientRect();
+        const menuWidth = 192;
+        const menuHeight = 196;
+        const left = Math.min(buttonRect.left, window.innerWidth - menuWidth - 16);
+        const spaceBelow = window.innerHeight - buttonRect.bottom - 12;
+        const top = spaceBelow >= menuHeight
+            ? buttonRect.bottom + 8
+            : Math.max(12, buttonRect.top - menuHeight - 8);
+
+        setMenuPos({ x: left, y: top });
+        setShowMenu(true);
     }, []);
 
     // Close menu when clicking outside
@@ -235,7 +240,7 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                         <div className="fixed inset-0 z-[100]" onClick={closeMenu} />
                         <div
                             className="fixed w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-2 z-[101] animate-scale-in"
-                            style={{ left: Math.min(menuPos.x, window.innerWidth - 208), top: menuPos.y }}
+                            style={{ left: Math.min(menuPos.x, window.innerWidth - 208), top: Math.min(menuPos.y, window.innerHeight - 208) }}
                         >
                             <button onClick={() => { closeMenu(); onEdit(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
                                 <Edit2 size={16} /> Editar
@@ -317,7 +322,8 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                             <button
                                 ref={menuButtonRef}
                                 onClick={handleMenuClick}
-                                className="text-slate-500 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors touch-target-book"
+                                className="text-slate-500 hover:text-white p-3 -m-1 rounded-lg hover:bg-slate-700/50 transition-colors touch-target-book"
+                                aria-label="Menu do livro"
                             >
                                 <MoreVertical size={18} />
                             </button>
@@ -420,7 +426,7 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                     <div className="fixed inset-0 z-[100]" onClick={closeMenu} />
                     <div
                         className="fixed w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-2 z-[101] animate-scale-in"
-                        style={{ left: menuPos.x, top: menuPos.y }}
+                        style={{ left: Math.min(menuPos.x, window.innerWidth - 208), top: Math.min(menuPos.y, window.innerHeight - 208) }}
                     >
                         <button onClick={() => { closeMenu(); onEdit(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
                             <Edit2 size={16} /> Editar

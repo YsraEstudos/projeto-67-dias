@@ -1,4 +1,46 @@
 /* Dashboard Layout / Organic Brutalism */
+.dashboard-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+  align-items: stretch;
+  margin-top: 24px;
+}
+
+.bento-intro {
+  grid-column: span 12;
+  margin-bottom: 8px;
+}
+
+.bento-smart-review {
+  grid-column: span 6;
+}
+
+.bento-progress {
+  grid-column: span 6;
+}
+
+.bento-roadmap {
+  grid-column: span 7;
+}
+
+.bento-checklist {
+  grid-column: span 5;
+}
+
+.bento-notes {
+  grid-column: span 12;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-bento-grid {
+    grid-template-columns: 1fr;
+  }
+  .bento-intro, .bento-smart-review, .bento-progress, .bento-roadmap, .bento-checklist, .bento-notes {
+    grid-column: span 1;
+  }
+}
+
 .dashboard-quick-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -93,12 +135,14 @@
 .daily-progress-panel,
 .daily-roadmap,
 .daily-checklist-panel,
+.daily-smart-review,
 .daily-notes-panel {
-  background: linear-gradient(
-    180deg,
-    rgba(14, 14, 16, 0.92),
-    rgba(10, 10, 11, 0.84)
-  );
+  background: rgba(20, 20, 23, 0.5); /* Glassmorphism Premium */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-xl);
 }
 
 .daily-meta-value,

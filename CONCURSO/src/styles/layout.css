@@ -4,7 +4,7 @@
 }
 
 .main-area {
-  width: min(100%, var(--max-content));
+  width: min(100%, 1600px); /* Premium wide stretch */
   margin: 0 auto;
 }
 
@@ -13,7 +13,7 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(calc(100% - 40px), var(--max-content));
+  width: min(calc(100% - 40px), 1600px); /* Accompany main-area */
   z-index: 30;
   display: grid;
   justify-items: start;

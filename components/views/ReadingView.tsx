@@ -3,7 +3,7 @@ import { useReadingStore } from '../../stores/readingStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Book as IBook, Folder as IFolder } from '../../types';
-import { LayoutGrid, List as ListIcon, Loader2, Plus } from 'lucide-react';
+import { LayoutGrid, List as ListIcon, Loader2, Plus, Zap } from 'lucide-react';
 
 // Components
 import ReadingGoalSidebar from '../reading/ReadingGoalSidebar';
@@ -20,6 +20,7 @@ const AddBookModal = React.lazy(() => import('../reading/modals/AddBookModal'));
 const EditBookModal = React.lazy(() => import('../reading/modals/EditBookModal'));
 const MoveBookModal = React.lazy(() => import('../reading/modals/MoveBookModal'));
 const ReadingDailyPlanModal = React.lazy(() => import('../reading/ReadingDailyPlanModal'));
+const QuickLogBottomSheet = React.lazy(() => import('../reading/modals/QuickLogBottomSheet'));
 
 // Actions são estáveis - obtidas fora do componente para evitar subscriptions desnecessárias
 const getReadingActions = () => useReadingStore.getState();
@@ -53,6 +54,7 @@ const ReadingView: React.FC = () => {
   const [editingBook, setEditingBook] = useState<IBook | null>(null);
   const [movingBook, setMovingBook] = useState<IBook | null>(null);
   const [planningBook, setPlanningBook] = useState<IBook | null>(null);
+  const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
   // Handlers
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
@@ -79,6 +81,10 @@ const ReadingView: React.FC = () => {
       updateProgress(id, newProgress);
     }
   }, [books, updateProgress]);
+
+  const handleSetProgressAbsolute = useCallback((id: string, absoluteValue: number) => {
+    updateProgress(id, absoluteValue);
+  }, [updateProgress]);
 
   // Folder Logic
   const handleCreateFolder = useCallback(() => {
@@ -193,6 +199,15 @@ const ReadingView: React.FC = () => {
             onClose={() => setPlanningBook(null)}
           />
         )}
+        {isQuickLogOpen && (
+          <QuickLogBottomSheet
+            isOpen={isQuickLogOpen}
+            onClose={() => setIsQuickLogOpen(false)}
+            books={books}
+            onUpdateProgress={handleUpdateProgress}
+            onSetProgress={handleSetProgressAbsolute}
+          />
+        )}
       </Suspense>
 
       {/* Main Content */}
@@ -233,6 +248,15 @@ const ReadingView: React.FC = () => {
           />
         )}
       </div>
+
+      {/* FAB - Floating Action Button for Quick Log (Mobile Only) */}
+      <button 
+        onClick={() => setIsQuickLogOpen(true)}
+        className="md:hidden fixed bottom-[5rem] right-4 sm:bottom-6 sm:right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center z-40 hover:bg-indigo-500 active:scale-95 transition-all"
+        aria-label="Registro Rápido de Leitura"
+      >
+        <Zap size={24} className="fill-indigo-300/30" />
+      </button>
 
     </div>
   );

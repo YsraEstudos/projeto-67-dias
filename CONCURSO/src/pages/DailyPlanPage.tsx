@@ -113,65 +113,67 @@ export const DailyPlanPage = () => {
     ...sortedElite.slice(0, 1),
   ];
 
-  const getGradeColor = (grade: string) => {
-    if (['A', 'B'].includes(grade)) return 'var(--cyan)';
-    return 'var(--red-soft)';
+  const getSubmatterBadgeStyle = (grade: string) => {
+    const isElite = ['A', 'B'].includes(grade);
+    return {
+      display: 'inline-block',
+      padding: '4px 10px',
+      borderRadius: '8px',
+      backgroundColor: isElite ? 'rgba(45, 212, 191, 0.12)' : 'rgba(248, 113, 113, 0.12)',
+      color: isElite ? '#2dd4bf' : '#f87171',
+      fontWeight: 700,
+      fontSize: '0.75rem',
+      border: `1px solid ${isElite ? 'rgba(45, 212, 191, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`
+    };
   };
 
-  const getSubmatterBadgeStyle = (grade: string) => ({
-    display: 'inline-block',
-    padding: '2px 6px',
-    borderRadius: '4px',
-    backgroundColor: getGradeColor(grade),
-    color: '#000',
-    fontWeight: 700,
-    fontSize: '0.75rem',
-  });
-
   return (
-    <section className="page">
-      <PageIntro
-        className="daily-header"
-        kicker="Roteiro diário executável"
-        title="Plano Diário"
-        description="Checklist personalizado por dia, com foco em execução, evidência e leitura operacional."
-        meta={
-          <div className="daily-meta-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-            <article className="daily-meta-card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center' }}>
-                <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
-                Data
-              </p>
-              <p className="daily-meta-value" style={{ fontSize: '1.1rem', fontWeight: 600 }}>{formatIsoDatePtBr(state.selectedDate)}</p>
-            </article>
-            <article className="daily-meta-card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center' }}>
-                <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                Modo
-              </p>
-              <p className="daily-meta-value" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                {dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
-              </p>
-            </article>
-            <article className="daily-meta-card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center' }}>
-                <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 21 5-5-5-5"/><path d="M21 16H9a7 7 0 0 1-7-7v-5"/></svg>
-                Semana / Evento
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <p className="daily-meta-value" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-                  {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
+    <section className="page dashboard-bento-grid">
+      <div className="bento-intro">
+        <PageIntro
+          className="daily-header"
+          kicker="Roteiro diário executável"
+          title="Plano Diário"
+          description="Checklist personalizado por dia, com foco em execução, evidência e leitura operacional."
+          meta={
+            <div className="daily-meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', background: 'transparent' }}>
+              <article className="daily-meta-card" style={{ padding: '20px', background: 'rgba(20, 20, 23, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+                  Data do Plano
                 </p>
-                <p className="daily-meta-note" style={{ margin: 0, padding: '2px 8px', background: 'var(--ink-soft)', color: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
-                  {eventLabel}
+                <p className="daily-meta-value" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--ink)' }}>{formatIsoDatePtBr(state.selectedDate)}</p>
+              </article>
+              <article className="daily-meta-card" style={{ padding: '20px', background: 'rgba(20, 20, 23, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Modo de Operação
                 </p>
-              </div>
-            </article>
-          </div>
-        }
-      />
+                <p className="daily-meta-value" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--ink)' }}>
+                  {dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
+                </p>
+              </article>
+              <article className="daily-meta-card" style={{ padding: '20px', background: 'rgba(20, 20, 23, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 21 5-5-5-5"/><path d="M21 16H9a7 7 0 0 1-7-7v-5"/></svg>
+                  Ciclo Atual
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <p className="daily-meta-value" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--ink)' }}>
+                    {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
+                  </p>
+                  <p className="daily-meta-note" style={{ margin: 0, padding: '4px 10px', background: 'rgba(255,255,255,0.1)', color: 'var(--ink)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
+                    {eventLabel}
+                  </p>
+                </div>
+              </article>
+            </div>
+          }
+        />
+      </div>
 
-      <SectionCard className="daily-smart-review" kicker="Dinâmico" title="Algoritmo de Revisão Inteligente">
+      <div className="bento-smart-review">
+        <SectionCard className="daily-smart-review" kicker="Dinâmico" title="Algoritmo de Revisão">
         <p style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', marginBottom: '16px' }}>
           Otimizando sua curva de esquecimento: 2 matérias críticas (Risco) e 1 matéria de manutenção (Elite).
         </p>
@@ -217,7 +219,9 @@ export const DailyPlanPage = () => {
           <p>Nenhuma submatéria avaliada para revisão.</p>
         )}
       </SectionCard>
+      </div>
 
+      <div className="bento-progress">
       <SectionCard className="daily-progress-panel" kicker="Conclusão" title="Progresso oficial do dia">
         <div className="daily-progress-head">
           <p className="daily-progress-subtitle">
@@ -226,7 +230,9 @@ export const DailyPlanPage = () => {
         </div>
         <ProgressBar value={progress} label="Progresso oficial do dia" />
       </SectionCard>
+      </div>
 
+      <div className="bento-roadmap">
       <SectionCard className="daily-roadmap" kicker="Sequência" title="Roteiro do dia">
         {dayPlan.isRestDay ? (
           <p>Domingo configurado como descanso fixo, sem pendência obrigatória.</p>
@@ -264,7 +270,9 @@ export const DailyPlanPage = () => {
           </div>
         )}
       </SectionCard>
+      </div>
 
+      <div className="bento-checklist">
       <SectionCard className="daily-checklist-panel" data-testid="daily-checklist" kicker="Controle" title="Checklist do dia">
 
         <p className="daily-checklist-title" style={{ marginTop: 0 }}>Obrigatórios</p>
@@ -375,7 +383,9 @@ export const DailyPlanPage = () => {
           </>
         ) : null}
       </SectionCard>
+      </div>
 
+      <div className="bento-notes">
       <SectionCard className="daily-notes-panel" kicker="Registro" title="Notas de evidência do dia">
         <textarea
           className="textarea"
@@ -385,6 +395,7 @@ export const DailyPlanPage = () => {
           onChange={(event) => setDailyNote(state.selectedDate, event.target.value)}
         />
       </SectionCard>
+      </div>
     </section>
   );
 };
