@@ -4,12 +4,11 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { END_DATE, NAV_ITEMS } from '../app/constants';
 import { MAIN_SITE_URL } from '../app/mainSite';
 import { useAppContext } from '../app/AppContext';
-import { resolveActiveNavPath, type NavPath } from '../app/mobileNavigation';
 import { getChecklistProgressPercent } from '../app/progress';
 import { ProgressBar } from './ProgressBar';
 import { subjectLabel, workActivityLabel } from '../app/formatters';
 import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
-import { MobileNavigationChrome } from './MobileNavigationChrome';
+import { FloatingBottomNav } from './Navigation/FloatingBottomNav';
 
 const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes']);
 const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
@@ -17,7 +16,7 @@ const settingsNavItem = NAV_ITEMS.find((item) => item.to === '/configuracoes');
 const READER_EVENT_NAME = 'concurso-reader-mode';
 
 export const AppShell = () => {
-  const { state, dayPlansByDate, moveMobileNavItem, pinMobileNavItem, removeMobileNavItem, setSelectedDate } = useAppContext();
+  const { state, dayPlansByDate, setSelectedDate } = useAppContext();
   const record = state.dailyRecords[state.selectedDate];
   const dayPlan = dayPlansByDate[state.selectedDate];
   const dayProgress = record ? getChecklistProgressPercent(record.checklist) : 0;
@@ -39,7 +38,6 @@ export const AppShell = () => {
   const [contentOffset, setContentOffset] = useState(34);
   const location = useLocation();
   const navigate = useNavigate();
-  const activeNavPath = resolveActiveNavPath(location.pathname);
   const manualSummary = dayPlan?.manualBlocks ? buildManualPlanSummary(dayPlan.manualBlocks) : '';
   const shellToggleAriaLabel = isCompactViewport
     ? isShellOpen
@@ -217,18 +215,30 @@ export const AppShell = () => {
           data-shell-state={shellState}
         >
           <div className="mobile-brand-bar">
-            <button
-              type="button"
-              className="shell-handle shell-handle-mobile"
-              data-testid="shell-handle"
-              aria-controls="main-nav"
-              aria-expanded={isShellOpen}
-              aria-label={shellToggleAriaLabel}
-              onClick={toggleShell}
-            >
-              <Menu size={18} />
-              <span>Menu</span>
-            </button>
+            {isCompactViewport ? (
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => navigate('/configuracoes')}
+                aria-label="Abrir Configurações"
+                style={{ padding: '8px', marginLeft: '-8px' }}
+              >
+                <Settings size={18} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="shell-handle shell-handle-mobile"
+                data-testid="shell-handle"
+                aria-controls="main-nav"
+                aria-expanded={isShellOpen}
+                aria-label={shellToggleAriaLabel}
+                onClick={toggleShell}
+              >
+                <Menu size={18} />
+                <span>Menu</span>
+              </button>
+            )}
             <div>
               <p className="kicker-label">Plano TRT 4</p>
               <strong className="mobile-brand-title">Command center do edital</strong>
@@ -250,21 +260,7 @@ export const AppShell = () => {
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            {isCompactViewport ? (
-              <MobileNavigationChrome
-                activePath={activeNavPath}
-                isOpen={isShellOpen}
-                pinnedPaths={state.shellUi.mobilePinnedNav as NavPath[]}
-                onClose={closeShell}
-                onNavigate={(path) => {
-                  navigate(path);
-                  closeShell();
-                }}
-                onPin={(path, targetIndex) => pinMobileNavItem(path, targetIndex)}
-                onRemove={(path) => removeMobileNavItem(path)}
-                onReorder={(path, targetIndex) => moveMobileNavItem(path, targetIndex)}
-              />
-            ) : (
+            {!isCompactViewport && (
               <div
                 className="desktop-dynamic-island"
                 id="main-nav"
@@ -354,6 +350,7 @@ export const AppShell = () => {
         <main className="content" style={contentStyle}>
           <Outlet />
         </main>
+        {isCompactViewport && <FloatingBottomNav />}
       </div>
     </div>
   );

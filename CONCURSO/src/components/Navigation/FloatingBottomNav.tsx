@@ -10,7 +10,7 @@ export const FloatingBottomNav = () => {
   const activePath = resolveActiveNavPath(location.pathname);
 
   return (
-    <nav className="floating-bottom-nav-container">
+    <nav className="floating-bottom-nav-container" aria-label="Navegação Principal Mobile">
       <div className="floating-bottom-nav-glass">
         <NavButton
           icon={<Home size={24} />}

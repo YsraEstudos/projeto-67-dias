@@ -1,7 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createInitialState } from '../app/seed';
 import { renderConcursoApp } from './renderConcursoApp';
 
 const mockMatchMedia = ({ compact, coarse }: { compact: boolean; coarse: boolean }) => {
@@ -109,117 +108,31 @@ describe('AppShell', () => {
     });
   });
 
-  it('abre e fecha o menu mobile ao clicar repetidamente no hambúrguer', async () => {
+it('exibe a barra inferior de navegacao no mobile e oculta o menu superior/hamburguer', async () => {
+    mockMatchMedia({ compact: true, coarse: true });
+    renderConcursoApp('/');
+
+    // A ilha e o hamburguer antigo não devem mais existir no mobile
+    expect(screen.queryByRole('button', { name: 'Abrir menu lateral' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-nav-chrome')).not.toBeInTheDocument();
+
+    // A barra inferior deve estar visível
+    const nav = screen.getByRole('navigation', { name: 'Navegação Principal Mobile' });
+    expect(nav).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Plano' })).toBeInTheDocument();
+  });
+
+  it('navega pelas rotas corretas ao clicar nos botoes da barra inferior mobile', async () => {
     mockMatchMedia({ compact: true, coarse: true });
     const user = userEvent.setup();
     renderConcursoApp('/');
 
-    const shell = screen.getByTestId('shell-chrome');
-    const handle = screen.getByRole('button', { name: 'Abrir menu lateral' });
-    const chrome = screen.getByTestId('mobile-nav-chrome');
-
-    expect(shell).toHaveAttribute('data-shell-state', 'collapsed');
-    expect(chrome).not.toHaveClass('mobile-nav-chrome-open');
-
-    await user.click(handle);
-
-    expect(shell).toHaveAttribute('data-shell-state', 'expanded');
-    expect(chrome).toHaveClass('mobile-nav-chrome-open');
-    expect(screen.getByTestId('mobile-sidebar-shell')).toHaveClass('mobile-sidebar-shell-open');
-    expect(screen.getByText('Configurações')).toBeInTheDocument();
-
-    await user.click(handle);
+    const planoBtn = screen.getByRole('button', { name: 'Plano' });
+    await user.click(planoBtn);
 
     await waitFor(() => {
-      expect(shell).toHaveAttribute('data-shell-state', 'collapsed');
-      expect(chrome).not.toHaveClass('mobile-nav-chrome-open');
+      expect(planoBtn).toHaveClass('floating-bottom-nav-btn-active');
     });
-  });
-
-  it('fecha a sidebar pelo backdrop no mobile', async () => {
-    mockMatchMedia({ compact: true, coarse: true });
-    const user = userEvent.setup();
-    renderConcursoApp('/');
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu lateral' }));
-    expect(screen.getByTestId('mobile-sidebar-shell')).toHaveClass('mobile-sidebar-shell-open');
-
-    await user.click(screen.getByTestId('mobile-nav-overlay'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
-      expect(screen.getByTestId('mobile-sidebar-shell')).not.toHaveClass('mobile-sidebar-shell-open');
-    });
-  });
-
-  it('fecha o menu ao navegar pela sidebar no mobile', async () => {
-    mockMatchMedia({ compact: true, coarse: true });
-    const user = userEvent.setup();
-    renderConcursoApp('/');
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu lateral' }));
-    await user.click(screen.getByRole('button', { name: 'Abrir Configurações' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
-    });
-  });
-
-  it('fixa um item novo na ilha quando ha vaga', async () => {
-    mockMatchMedia({ compact: true, coarse: true });
-    const user = userEvent.setup();
-    const state = createInitialState();
-    state.shellUi.mobilePinnedNav = ['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes'];
-
-    renderConcursoApp('/', state);
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu lateral' }));
-    await user.click(screen.getByRole('button', { name: 'Fixar Links de Correção na ilha' }));
-
-    expect(screen.getByTestId('island-chip-/correcoes')).toBeInTheDocument();
-  });
-
-  it('remove um item da ilha pelo botao X', async () => {
-    mockMatchMedia({ compact: true, coarse: true });
-    const user = userEvent.setup();
-    renderConcursoApp('/');
-
-    expect(screen.getByTestId('island-chip-/')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Remover Dashboard da ilha' }));
-
-    expect(screen.queryByTestId('island-chip-/')).not.toBeInTheDocument();
-  });
-
-  it('reordena itens da ilha pelos controles de acessibilidade', async () => {
-    mockMatchMedia({ compact: true, coarse: true });
-    const user = userEvent.setup();
-    const state = createInitialState();
-    state.shellUi.mobilePinnedNav = ['/', '/plano-diario', '/conteudo'];
-
-    renderConcursoApp('/', state);
-
-    const before = screen.getAllByTestId(/^island-chip-/).map((element) => element.getAttribute('data-testid'));
-    expect(before).toEqual(['island-chip-/', 'island-chip-/plano-diario', 'island-chip-/conteudo']);
-
-    await user.click(screen.getByRole('button', { name: 'Mover Dashboard para direita' }));
-
-    const after = screen.getAllByTestId(/^island-chip-/).map((element) => element.getAttribute('data-testid'));
-    expect(after).toEqual(['island-chip-/plano-diario', 'island-chip-/', 'island-chip-/conteudo']);
-  });
-
-  it('rejeita o setimo atalho e mostra o alerta visual de overflow', async () => {
-    mockMatchMedia({ compact: true, coarse: true });
-    const user = userEvent.setup();
-    const state = createInitialState();
-    state.shellUi.mobilePinnedNav = ['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes', '/configuracoes'];
-
-    renderConcursoApp('/', state);
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu lateral' }));
-    await user.click(screen.getByRole('button', { name: 'Fixar Links de Correção na ilha' }));
-
-    expect(screen.getByTestId('mobile-island-warning')).toBeInTheDocument();
-    expect(screen.queryByTestId('island-chip-/correcoes')).not.toBeInTheDocument();
   });
 }, 15000);
