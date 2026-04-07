@@ -18,7 +18,7 @@ import {
 } from './dailyOffensiveUtils';
 import { daysDiff, getStartOfDay, getTodayISO, parseDate } from './dateUtils';
 
-export const COMPETITION_ENGINE_VERSION = '2026.04.02.1';
+export const COMPETITION_ENGINE_VERSION = '2026.04.06.1';
 export const COMPETITION_THEORETICAL_DAILY_MAX = 1000;
 const COMPETITION_PERFORMANCE_EXPONENT = 1.35;
 const COMPETITION_BASE_DIFFICULTY = 0.85;
@@ -39,7 +39,8 @@ const CATEGORY_LABELS: Record<CompetitionCategoryId, string> = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const roundPoints = (value: number) => Math.round(Math.max(0, value));
+const roundPositivePoints = (value: number) => Math.round(Math.max(0, value));
+const roundSignedPoints = (value: number) => Math.round(value);
 
 export interface AdaptiveCompetitionMetrics {
     score: number;
@@ -55,26 +56,30 @@ export const calculateAdaptiveCompetitionMetrics = (
     activityMaxScore: number,
     theoreticalMaxScore = COMPETITION_THEORETICAL_DAILY_MAX,
 ): AdaptiveCompetitionMetrics => {
-    const normalizedActivityScore = roundPoints(activityScore);
-    const normalizedActivityMax = roundPoints(activityMaxScore);
-    const completionRate = normalizedActivityMax > 0
-        ? clamp(normalizedActivityScore / normalizedActivityMax, 0, 1)
+    const normalizedActivityScore = roundSignedPoints(activityScore);
+    const normalizedActivityMax = roundPositivePoints(activityMaxScore);
+    const scoringBaseline = normalizedActivityMax > 0
+        ? normalizedActivityMax
+        : Math.abs(normalizedActivityScore);
+    const completionRate = scoringBaseline > 0
+        ? clamp(normalizedActivityScore / scoringBaseline, -1, 1)
         : 0;
     const availabilityRate = theoreticalMaxScore > 0
         ? clamp(normalizedActivityMax / theoreticalMaxScore, 0, 1)
         : 0;
-    const performanceRate = completionRate > 0
-        ? completionRate ** COMPETITION_PERFORMANCE_EXPONENT
+    const performanceRate = Math.abs(completionRate) > 0
+        ? Math.abs(completionRate) ** COMPETITION_PERFORMANCE_EXPONENT
         : 0;
     const difficultyMultiplier = COMPETITION_BASE_DIFFICULTY + (COMPETITION_DIFFICULTY_RANGE * availabilityRate);
+    const scoreDirection = normalizedActivityScore === 0 ? 0 : Math.sign(normalizedActivityScore);
 
     return {
-        score: roundPoints(100 * performanceRate * difficultyMultiplier),
+        score: roundSignedPoints(scoreDirection * 100 * performanceRate * difficultyMultiplier),
         activityScore: normalizedActivityScore,
         completionRate,
         availabilityRate,
         difficultyMultiplier,
-        remainingScore: roundPoints(Math.max(0, normalizedActivityMax - normalizedActivityScore)),
+        remainingScore: roundPositivePoints(Math.max(0, normalizedActivityMax - Math.max(0, normalizedActivityScore))),
     };
 };
 
@@ -234,12 +239,54 @@ const buildBreakdown = (
 ): CompetitionScoreBreakdown => ({
     id,
     label: CATEGORY_LABELS[id],
-    points: roundPoints(points),
-    maxPoints: roundPoints(maxPoints),
-    remainingPoints: roundPoints(Math.max(0, maxPoints - points)),
+    points: roundSignedPoints(points),
+    maxPoints: roundPositivePoints(maxPoints),
+    remainingPoints: roundPositivePoints(Math.max(0, maxPoints - Math.max(0, points))),
     summary,
-    priority: roundPoints(Math.max(0, maxPoints - points)),
+    priority: roundPositivePoints(Math.max(0, maxPoints - Math.max(0, points))),
 });
+
+interface HabitScoreUnitSummary {
+    availablePositiveUnits: number;
+    completedPositiveUnits: number;
+    completedNegativeUnits: number;
+}
+
+const calculateHabitUnits = (habits: Habit[], dateKey: string): HabitScoreUnitSummary => {
+    return habits.reduce<HabitScoreUnitSummary>((summary, habit) => {
+        if (habit.archived || habit.frequency === 'WEEKLY') {
+            return summary;
+        }
+
+        const log = habit.history[dateKey];
+        const subHabitCount = habit.subHabits.length;
+
+        if (habit.isNegative) {
+            if (subHabitCount > 0) {
+                summary.completedNegativeUnits += Math.min(log?.subHabitsCompleted.length || 0, subHabitCount);
+            } else if (log?.completed) {
+                summary.completedNegativeUnits += 1;
+            }
+            return summary;
+        }
+
+        if (subHabitCount > 0) {
+            summary.availablePositiveUnits += subHabitCount;
+            summary.completedPositiveUnits += Math.min(log?.subHabitsCompleted.length || 0, subHabitCount);
+            return summary;
+        }
+
+        summary.availablePositiveUnits += 1;
+        if (log?.completed) {
+            summary.completedPositiveUnits += 1;
+        }
+        return summary;
+    }, {
+        availablePositiveUnits: 0,
+        completedPositiveUnits: 0,
+        completedNegativeUnits: 0,
+    });
+};
 
 export interface CompetitionSourceState {
     startDate: string;
@@ -371,25 +418,33 @@ export const createCompetitionDailyRecord = (
         `${questionCount} questoes rastreadas no dia.`,
     );
 
-    const scoreableHabits = state.habits.filter((habit) => {
-        if (habit.archived || habit.isNegative) return false;
-        // Weekly habits (of any type) must not count toward daily XP.
-        // They only require completion once per week, so including them in
-        // the daily score would either inflate maxScore or unfairly penalize.
-        if (habit.frequency === 'WEEKLY') return false;
-        return true;
-    });
-    const completedHabits = scoreableHabits.filter((habit) => habit.history[dateKey]?.completed).length;
-    const habitValue = scoreableHabits.length > 0
-        ? Math.min(40, 160 / scoreableHabits.length)
+    const {
+        availablePositiveUnits,
+        completedPositiveUnits,
+        completedNegativeUnits,
+    } = calculateHabitUnits(state.habits, dateKey);
+    const hasHabitUnits = availablePositiveUnits > 0 || completedNegativeUnits > 0;
+    const habitValue = hasHabitUnits
+        ? Math.min(40, 160 / Math.max(1, availablePositiveUnits))
         : 0;
-    const habitsMax = roundPoints(scoreableHabits.length * habitValue);
-    const habitsPoints = roundPoints(completedHabits * habitValue);
+    const habitsMax = roundPositivePoints(availablePositiveUnits * habitValue);
+    const habitsPoints = roundSignedPoints(clamp(
+        (completedPositiveUnits - completedNegativeUnits) * habitValue,
+        -160,
+        160,
+    ));
+    const habitSummaryParts: string[] = [];
+    if (availablePositiveUnits > 0) {
+        habitSummaryParts.push(`${completedPositiveUnits}/${availablePositiveUnits} unidades positivas concluídas.`);
+    }
+    if (completedNegativeUnits > 0) {
+        habitSummaryParts.push(`${completedNegativeUnits} unidade${completedNegativeUnits === 1 ? '' : 's'} negativa${completedNegativeUnits === 1 ? '' : 's'} acionada${completedNegativeUnits === 1 ? '' : 's'}.`);
+    }
     const habitsBreakdown = buildBreakdown(
         'habitos',
         habitsPoints,
         habitsMax,
-        `${completedHabits}/${scoreableHabits.length} habitos scoreaveis concluidos.`,
+        habitSummaryParts.join(' ') || 'Nenhum hábito pontuável hoje.',
     );
 
     const activeTasks = state.tasks.filter((task) => !task.isArchived);
@@ -409,7 +464,7 @@ export const createCompetitionDailyRecord = (
 
     const skillProgressPercent = calculateSkillProgress(state.skills);
     const skillProgressPoints = state.skills.length > 0
-        ? roundPoints((skillProgressPercent / 100) * 140)
+        ? roundPositivePoints((skillProgressPercent / 100) * 140)
         : 0;
     const skillProgressMax = state.skills.length > 0 ? 140 : 0;
     const roadmapCompletionsToday = countRoadmapCompletionsToday(state.skills, dateKey);
@@ -430,7 +485,7 @@ export const createCompetitionDailyRecord = (
     const readingSnapshot = getReadingDailyProgressSnapshot(state.books, dateKey);
     const readingMax = readingSnapshot.activeBooksCount > 0 ? 90 : 0;
     const readingPoints = readingSnapshot.activeBooksCount > 0
-        ? roundPoints((readingSnapshot.progressPercent / 100) * 90)
+        ? roundPositivePoints((readingSnapshot.progressPercent / 100) * 90)
         : 0;
     const readingBreakdown = buildBreakdown(
         'leitura',
@@ -483,8 +538,8 @@ export const createCompetitionDailyRecord = (
         breakdown: breakdown
             .map((entry) => ({
                 ...entry,
-                remainingPoints: Math.max(0, entry.maxPoints - entry.points),
-                priority: Math.max(0, entry.maxPoints - entry.points),
+                remainingPoints: Math.max(0, entry.maxPoints - Math.max(0, entry.points)),
+                priority: Math.max(0, entry.maxPoints - Math.max(0, entry.points)),
             }))
             .sort((left, right) => right.priority - left.priority),
         updatedAt: Date.now(),

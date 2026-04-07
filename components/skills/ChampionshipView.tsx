@@ -1,9 +1,12 @@
 import React, { useMemo } from 'react';
-import { Trophy, TrendingUp, Shield, Zap, Target, Flame, ChevronUp, Activity, Info } from 'lucide-react';
+import { Trophy, TrendingUp, Shield, Zap, Target, Flame, ChevronDown, ChevronUp, Activity, Info } from 'lucide-react';
 import { useCompetitionStore } from '../../stores/competitionStore';
 import { calculateLeagueStanding, generateCumulativeHistory, generateSimulatedRivals } from '../../utils/competitionEngine';
 import { getTodayISO } from '../../utils/dateUtils';
 import { CompetitionDailyRecord } from '../../types';
+
+const formatSignedValue = (value: number) => `${value > 0 ? '+' : ''}${value.toLocaleString('pt-BR')}`;
+const formatSignedPercent = (value: number) => `${value > 0 ? '+' : ''}${value.toLocaleString('pt-BR')}%`;
 
 export const ChampionshipView: React.FC = () => {
   const { competition } = useCompetitionStore();
@@ -11,6 +14,12 @@ export const ChampionshipView: React.FC = () => {
   const todayRecord: CompetitionDailyRecord | undefined = competition.dailyRecords[todayKey];
   const completionPercent = todayRecord ? Math.round(todayRecord.completionRate * 100) : 0;
   const rawTodayActivity = todayRecord?.activityScore ?? todayRecord?.breakdown.reduce((sum, item) => sum + item.points, 0) ?? 0;
+  const todayOfficialScore = todayRecord?.score ?? 0;
+  const todayIsNegative = todayOfficialScore < 0;
+  const TodayScoreIcon = todayIsNegative ? ChevronDown : ChevronUp;
+  const hasBreakdownActivity = Boolean(
+    todayRecord && todayRecord.breakdown.some((item) => item.points !== 0 || item.maxPoints > 0)
+  );
 
   const totalScore = useMemo(() => {
     return Object.values(competition.dailyRecords).reduce((acc, rec) => acc + rec.score, 0);
@@ -21,9 +30,14 @@ export const ChampionshipView: React.FC = () => {
   const history = useMemo(() => generateCumulativeHistory(competition.dailyRecords, 10), [competition.dailyRecords]);
   const rivals = useMemo(() => generateSimulatedRivals(totalScore, currentRank), [totalScore, currentRank]);
 
-  // Find max for chart scaling
-  const maxHistoryDaily = Math.max(1, ...history.map(h => h.playerDaily));
-  const maxHistoryTotal = Math.max(1, ...history.map(h => Math.max(h.playerTotal, h.simulatedRivalTotal)));
+  const minHistoryDaily = Math.min(0, ...history.map((day) => day.playerDaily));
+  const maxHistoryDaily = Math.max(0, ...history.map((day) => day.playerDaily));
+  const historyDailyRange = Math.max(1, maxHistoryDaily - minHistoryDaily);
+  const dailyZeroLinePercent = (maxHistoryDaily / historyDailyRange) * 100;
+  const minHistoryTotal = Math.min(0, ...history.map((day) => Math.min(day.playerTotal, day.simulatedRivalTotal)));
+  const maxHistoryTotal = Math.max(0, ...history.map((day) => Math.max(day.playerTotal, day.simulatedRivalTotal)));
+  const historyTotalRange = Math.max(1, maxHistoryTotal - minHistoryTotal);
+  const getTotalY = (value: number) => `${((maxHistoryTotal - value) / historyTotalRange) * 100}%`;
 
   return (
     <div className="animate-in fade-in duration-700 pb-20 space-y-6">
@@ -53,8 +67,8 @@ export const ChampionshipView: React.FC = () => {
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-5xl font-black text-white tracking-tighter shadow-sm">{totalScore.toLocaleString('pt-BR')}</span>
-                    <span className="text-sm text-emerald-400 font-bold flex items-center gap-0.5">
-                      <ChevronUp size={14} /> {(todayRecord?.score || 0).toLocaleString('pt-BR')} hoje
+                    <span className={`text-sm font-bold flex items-center gap-0.5 ${todayIsNegative ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      <TodayScoreIcon size={14} /> {formatSignedValue(todayOfficialScore)} hoje
                     </span>
                   </div>
                 </div>
@@ -101,8 +115,8 @@ export const ChampionshipView: React.FC = () => {
               <Activity size={18} className="text-emerald-400" />
               Ganhos de Hoje
             </h4>
-            <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-1 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-              +{todayRecord?.score || 0} XP oficial
+            <div className={`py-1 px-3 rounded-full text-xs font-black border ${todayIsNegative ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]'}`}>
+              {formatSignedValue(todayOfficialScore)} XP oficial
             </div>
           </div>
 
@@ -112,11 +126,11 @@ export const ChampionshipView: React.FC = () => {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400">Pontuacao adaptativa</p>
                   <p className="mt-1 text-sm text-slate-300">
-                    {rawTodayActivity.toLocaleString('pt-BR')} XP bruto com {completionPercent}% de aproveitamento do que estava disponivel.
+                    Saldo bruto de {formatSignedValue(rawTodayActivity)} XP com {formatSignedPercent(completionPercent)} do potencial positivo do dia.
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-black text-white">{todayRecord.score.toLocaleString('pt-BR')}</div>
+                  <div className={`text-lg font-black ${todayIsNegative ? 'text-rose-400' : 'text-white'}`}>{formatSignedValue(todayRecord.score)}</div>
                   <div className="text-[11px] text-slate-500">multiplicador {todayRecord.difficultyMultiplier.toFixed(2)}x</div>
                 </div>
               </div>
@@ -124,18 +138,20 @@ export const ChampionshipView: React.FC = () => {
           )}
 
           <div className="flex-1 overflow-y-auto pr-2 space-y-2 relative z-10 styled-scrollbar h-48 lg:h-auto">
-            {todayRecord && todayRecord.breakdown.length > 0 && todayRecord.breakdown.some(i => i.points > 0) ? (
-              todayRecord.breakdown.filter(i => i.points > 0).map((item) => (
+            {todayRecord && todayRecord.breakdown.length > 0 && hasBreakdownActivity ? (
+              todayRecord.breakdown
+                .filter((item) => item.points !== 0 || item.maxPoints > 0)
+                .map((item) => (
                 <div key={item.id} className="group bg-slate-950/50 hover:bg-slate-800/80 rounded-2xl p-3 flex justify-between items-center border border-slate-800/50 transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 group-hover:scale-150 transition-transform shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
+                    <div className={`w-2 h-2 rounded-full group-hover:scale-150 transition-transform ${item.points < 0 ? 'bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.5)]' : 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]'}`} />
                     <div>
                       <h5 className="text-sm font-bold text-slate-200">{item.label}</h5>
                       <p className="text-[10px] text-slate-400 uppercase tracking-wider">{item.summary}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-emerald-400 group-hover:text-emerald-300 group-hover:-translate-y-0.5 transition-transform">
-                    +{item.points} bruto
+                  <span className={`text-sm font-black group-hover:-translate-y-0.5 transition-transform ${item.points < 0 ? 'text-rose-400 group-hover:text-rose-300' : 'text-emerald-400 group-hover:text-emerald-300'}`}>
+                    {formatSignedValue(item.points)} bruto
                   </span>
                 </div>
               ))
@@ -148,7 +164,7 @@ export const ChampionshipView: React.FC = () => {
           </div>
 
           <div className="relative z-10 mt-4 rounded-2xl border border-cyan-500/10 bg-cyan-500/5 p-4 text-xs text-slate-300">
-            O campeonato sobe pelo desempenho do dia, nao apenas pelo volume bruto. Dias mais cheios recebem um bonus moderado, e os XP por modulo continuam visiveis para transparencia.
+            O campeonato sobe ou desce pelo desempenho líquido do dia, nao apenas pelo volume bruto. Dias mais cheios recebem um bonus moderado, e os XP por modulo continuam visiveis para transparencia.
           </div>
         </div>
       </div>
@@ -168,7 +184,7 @@ export const ChampionshipView: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex-1 flex items-end gap-2 md:gap-4 h-[240px] relative pt-10 min-w-full overflow-x-auto overflow-y-hidden styled-scrollbar pb-2">
+          <div className="flex-1 h-[240px] relative pt-10 min-w-full overflow-x-auto overflow-y-hidden styled-scrollbar pb-2">
             {/* Y-axis labels mock */}
             <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] font-bold text-slate-600 py-4 pointer-events-none">
               <span>Máx</span>
@@ -177,23 +193,34 @@ export const ChampionshipView: React.FC = () => {
             </div>
             
             <div className="w-full flex justify-between h-full gap-2 relative min-w-[500px]">
+                <div
+                  className="absolute left-0 right-0 border-t border-dashed border-slate-700/80 pointer-events-none"
+                  style={{ top: `${dailyZeroLinePercent}%` }}
+                  data-testid="history-zero-line"
+                />
                 {history.map((day, idx) => {
-                  const heightPercentDaily = maxHistoryDaily > 0 ? (day.playerDaily / maxHistoryDaily) * 100 : 0;
+                  const heightPercentDaily = (Math.abs(day.playerDaily) / historyDailyRange) * 100;
                   const isToday = idx === history.length - 1;
+                  const isNegativeDay = day.playerDaily < 0;
+                  const barHeight = day.playerDaily === 0 ? 0 : Math.max(2, heightPercentDaily);
+                  const barStyle = isNegativeDay
+                    ? { top: `${dailyZeroLinePercent}%`, height: `${barHeight}%` }
+                    : { top: `${Math.max(0, dailyZeroLinePercent - barHeight)}%`, height: `${barHeight}%` };
                   
                   return (
                     <div key={day.date} className="relative flex-1 flex flex-col justify-end h-full group z-10" style={{ maxWidth: '80px'}}>
                       {/* Tooltip */}
                       <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 p-2 rounded-xl text-center shadow-xl opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all pointer-events-none z-50 w-32">
                          <p className="text-[10px] font-bold text-slate-400 mb-1">{day.fullDateLabel}</p>
-                         <p className="text-xs font-black text-emerald-400">+{day.playerDaily} XP Diário</p>
-                         <p className="text-[10px] font-semibold text-white mt-1 border-t border-slate-700 pt-1">Total: {day.playerTotal.toLocaleString()}</p>
+                         <p className={`text-xs font-black ${isNegativeDay ? 'text-rose-400' : 'text-emerald-400'}`}>{formatSignedValue(day.playerDaily)} XP Diário</p>
+                         <p className="text-[10px] font-semibold text-white mt-1 border-t border-slate-700 pt-1">Total: {formatSignedValue(day.playerTotal)}</p>
                       </div>
                       
                       {/* Daily Bar */}
-                      <div 
-                        className={`w-full rounded-t-sm transition-all duration-1000 ${isToday ? 'bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-slate-700 group-hover:bg-slate-500'}`}
-                        style={{ height: `${Math.max(2, heightPercentDaily * 0.5)}%` }}
+                      <div
+                        aria-label={`${formatSignedValue(day.playerDaily)} XP Diário`}
+                        className={`absolute left-0 right-0 transition-all duration-1000 ${barHeight === 0 ? 'opacity-0' : ''} ${isNegativeDay ? (isToday ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.35)] rounded-b-sm' : 'bg-rose-700 group-hover:bg-rose-500 rounded-b-sm') : (isToday ? 'bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)] rounded-t-sm' : 'bg-slate-700 group-hover:bg-slate-500 rounded-t-sm')}`}
+                        style={barStyle}
                       />
                       
                       <div className={`mt-3 text-center text-[10px] font-bold ${isToday ? 'text-cyan-400' : 'text-slate-500'}`}>
@@ -225,11 +252,11 @@ export const ChampionshipView: React.FC = () => {
                      const x1 = getCenteredX(idx - 1);
                      const x2 = getCenteredX(idx);
                      
-                     const y1 = `${100 - (prevDay.playerTotal / maxHistoryTotal) * 100}%`;
-                     const y2 = `${100 - (day.playerTotal / maxHistoryTotal) * 100}%`;
+                     const y1 = getTotalY(prevDay.playerTotal);
+                     const y2 = getTotalY(day.playerTotal);
                      
-                     const ry1 = `${100 - (prevDay.simulatedRivalTotal / maxHistoryTotal) * 100}%`;
-                     const ry2 = `${100 - (day.simulatedRivalTotal / maxHistoryTotal) * 100}%`;
+                     const ry1 = getTotalY(prevDay.simulatedRivalTotal);
+                     const ry2 = getTotalY(day.simulatedRivalTotal);
 
                      return (
                        <g key={`lines-${idx}`}>
@@ -246,7 +273,7 @@ export const ChampionshipView: React.FC = () => {
                         return `calc(${factor * 100}% - ${factor * 0}px)`;
                      };
                      const cx = getCenteredX(idx);
-                     const cy = `${100 - (day.playerTotal / maxHistoryTotal) * 100}%`;
+                     const cy = getTotalY(day.playerTotal);
                      const isToday = idx === history.length - 1;
                      return (
                        <circle 
@@ -277,7 +304,7 @@ export const ChampionshipView: React.FC = () => {
              </div>
              <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-sm bg-slate-700"></div>
-                <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase">Ganhos Diários</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase">Saldo Diário</span>
              </div>
           </div>
         </div>

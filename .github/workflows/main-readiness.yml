@@ -1,0 +1,98 @@
+name: Main Readiness
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-readiness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  root-quality:
+    name: Root Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run root checks
+        run: npm run check:root
+
+  concurso-quality:
+    name: CONCURSO Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install CONCURSO dependencies
+        run: npm --prefix CONCURSO ci
+
+      - name: Run CONCURSO checks
+        run: npm run check:concurso
+
+  concurso-publish-contract:
+    name: CONCURSO Publish Contract
+    runs-on: ubuntu-latest
+    needs:
+      - concurso-quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Validate published /concurso sync
+        run: npm run check:concurso:published
+
+  concurso-e2e:
+    name: CONCURSO E2E
+    runs-on: ubuntu-latest
+    needs:
+      - concurso-quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install CONCURSO dependencies
+        run: npm --prefix CONCURSO ci
+
+      - name: Install Playwright browsers
+        run: npx --prefix CONCURSO playwright install --with-deps chromium
+
+      - name: Run CONCURSO E2E tests
+        run: npm --prefix CONCURSO run test:e2e

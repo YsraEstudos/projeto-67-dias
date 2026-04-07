@@ -11,7 +11,7 @@ import { subjectLabel, workActivityLabel } from '../app/formatters';
 import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
 import { MobileNavigationChrome } from './MobileNavigationChrome';
 
-const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/anki', '/simulados-redacoes']);
+const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes']);
 const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
 const settingsNavItem = NAV_ITEMS.find((item) => item.to === '/configuracoes');
 const READER_EVENT_NAME = 'concurso-reader-mode';
@@ -41,6 +41,13 @@ export const AppShell = () => {
   const navigate = useNavigate();
   const activeNavPath = resolveActiveNavPath(location.pathname);
   const manualSummary = dayPlan?.manualBlocks ? buildManualPlanSummary(dayPlan.manualBlocks) : '';
+  const shellToggleAriaLabel = isCompactViewport
+    ? isShellOpen
+      ? 'Fechar menu lateral'
+      : 'Abrir menu lateral'
+    : isShellOpen
+      ? 'Fechar menu superior'
+      : 'Abrir menu superior';
   const isIslandVisible = isShellOpen || isHovered;
   const shellState = isReaderMode
     ? isIslandVisible
@@ -123,10 +130,17 @@ export const AppShell = () => {
 
   useEffect(() => {
     if (!isCompactViewport) {
-      return;
+      return undefined;
     }
 
-    closeShell();
+    const timer = window.setTimeout(() => {
+      setIsShellOpen(false);
+      setIsHovered(false);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [isCompactViewport, location.pathname]);
 
   useEffect(() => {
@@ -209,7 +223,7 @@ export const AppShell = () => {
               data-testid="shell-handle"
               aria-controls="main-nav"
               aria-expanded={isShellOpen}
-              aria-label={isShellOpen ? 'Fechar menu lateral' : 'Abrir menu lateral'}
+              aria-label={shellToggleAriaLabel}
               onClick={toggleShell}
             >
               <Menu size={18} />
@@ -276,7 +290,7 @@ export const AppShell = () => {
                   </div>
                 </div>
 
-                <nav className="desktop-nav-panel">
+                <nav className="desktop-nav-panel context-tray" aria-hidden={!isIslandVisible}>
                   <div className="desktop-nav-header">
                     <div className="island-date-picker">
                       <label className="context-label" htmlFor="shell-date-input">Dia selecionado</label>

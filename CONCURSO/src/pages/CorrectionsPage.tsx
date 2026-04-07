@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Plus } from 'lucide-react';
 import { useAppContext } from '../app/AppContext';
 import { subjectLabel } from '../app/formatters';
 import type { CorrectionStatus, SubjectKey } from '../app/types';
 import { PageIntro } from '../components/PageIntro';
 import { SectionCard } from '../components/SectionCard';
+import { BottomSheet } from '../components/BottomSheet';
 
 interface FormState {
   topicId: string;
@@ -30,6 +32,7 @@ export const CorrectionsPage = () => {
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [subjectFilter, setSubjectFilter] = useState<'all' | SubjectKey>('all');
+  const [isSheetOpen, setSheetOpen] = useState(false);
 
   const topicById = useMemo(
     () =>
@@ -58,6 +61,7 @@ export const CorrectionsPage = () => {
 
     addCorrectionLink(form);
     setForm(initialForm);
+    setSheetOpen(false);
   };
 
   return (
@@ -66,9 +70,14 @@ export const CorrectionsPage = () => {
         kicker="Inbox operacional"
         title="Links de Correção"
         description="Cadastro manual por tópico com marcação de card Anki existente e tratamento rápido por status."
+        actions={
+          <button className="button" onClick={() => setSheetOpen(true)}>
+            <Plus size={18} /> Novo Link
+          </button>
+        }
       />
 
-      <SectionCard as="div" kicker="Cadastro" title="Novo link de correção">
+      <BottomSheet isOpen={isSheetOpen} onClose={() => setSheetOpen(false)} title="Novo link de correção">
       <form className="form-grid" onSubmit={onSubmit}>
         <label className="field-label">
           Tópico
@@ -155,7 +164,7 @@ export const CorrectionsPage = () => {
           Adicionar link
         </button>
       </form>
-      </SectionCard>
+      </BottomSheet>
 
       <SectionCard className="controls-row" kicker="Filtro" title="Lista de correções">
         <select
@@ -172,37 +181,101 @@ export const CorrectionsPage = () => {
       </SectionCard>
 
       <SectionCard className="table-wrap" kicker="Fila" title="Correções cadastradas">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Tópico</th>
-              <th>Questão</th>
-              <th>Correção</th>
-              <th>Status</th>
-              <th>Card</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLinks.map((link) => {
-              const topic = topicById[link.topicId];
+        <div className="hidden md:block">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tópico</th>
+                <th>Questão</th>
+                <th>Correção</th>
+                <th>Status</th>
+                <th>Card</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLinks.map((link) => {
+                const topic = topicById[link.topicId];
 
-              return (
-                <tr key={link.id}>
-                  <td>{topic ? topic.title : 'Tópico removido'}</td>
-                  <td>
-                    <a href={link.questionUrl} target="_blank" rel="noreferrer">
-                      abrir
-                    </a>
-                  </td>
-                  <td>
-                    <a href={link.correctionUrl} target="_blank" rel="noreferrer">
-                      abrir
-                    </a>
-                  </td>
-                  <td>
+                return (
+                  <tr key={link.id}>
+                    <td>{topic ? topic.title : 'Tópico removido'}</td>
+                    <td>
+                      <a href={link.questionUrl} target="_blank" rel="noreferrer">
+                        abrir
+                      </a>
+                    </td>
+                    <td>
+                      <a href={link.correctionUrl} target="_blank" rel="noreferrer">
+                        abrir
+                      </a>
+                    </td>
+                    <td>
+                      <select
+                        className="input"
+                        value={link.status}
+                        onChange={(event) =>
+                          updateCorrectionLink(link.id, {
+                            status: event.target.value as CorrectionStatus,
+                          })
+                        }
+                      >
+                        <option value="pendente">Pendente</option>
+                        <option value="corrigida">Corrigida</option>
+                        <option value="revisar_card">Revisar card</option>
+                      </select>
+                    </td>
+                    <td>
+                      <label className="checkbox-line">
+                        <input
+                          type="checkbox"
+                          checked={link.hasAnkiCard}
+                          onChange={(event) =>
+                            updateCorrectionLink(link.id, {
+                              hasAnkiCard: event.target.checked,
+                            })
+                          }
+                        />
+                        Sim
+                      </label>
+                    </td>
+                    <td>
+                      <button className="button button-danger" onClick={() => removeCorrectionLink(link.id)}>
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredLinks.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>Nenhum link cadastrado com esse filtro.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="block md:hidden">
+          {filteredLinks.map((link) => {
+            const topic = topicById[link.topicId];
+            return (
+              <div className="mobile-list-card" key={link.id}>
+                <div className="mobile-list-card-header">
+                  {topic ? topic.title : 'Tópico removido'}
+                </div>
+                <div className="mobile-list-card-body">
+                  <div className="mobile-list-card-stat">
+                    <span>Links</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <a href={link.questionUrl} target="_blank" rel="noreferrer">Questão</a>
+                      <a href={link.correctionUrl} target="_blank" rel="noreferrer">Correção</a>
+                    </div>
+                  </div>
+                  <div className="mobile-list-card-stat" style={{ alignItems: 'center' }}>
+                    <span>Status</span>
                     <select
                       className="input"
+                      style={{ padding: '4px 8px', fontSize: '0.8rem', minHeight: 'auto' }}
                       value={link.status}
                       onChange={(event) =>
                         updateCorrectionLink(link.id, {
@@ -214,9 +287,10 @@ export const CorrectionsPage = () => {
                       <option value="corrigida">Corrigida</option>
                       <option value="revisar_card">Revisar card</option>
                     </select>
-                  </td>
-                  <td>
-                    <label className="checkbox-line">
+                  </div>
+                  <div className="mobile-list-card-stat">
+                    <span>Card Anki</span>
+                    <label className="checkbox-line" style={{ margin: 0 }}>
                       <input
                         type="checkbox"
                         checked={link.hasAnkiCard}
@@ -226,24 +300,23 @@ export const CorrectionsPage = () => {
                           })
                         }
                       />
-                      Sim
                     </label>
-                  </td>
-                  <td>
-                    <button className="button button-danger" onClick={() => removeCorrectionLink(link.id)}>
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {filteredLinks.length === 0 ? (
-              <tr>
-                <td colSpan={6}>Nenhum link cadastrado com esse filtro.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+                  </div>
+                  <button 
+                    className="button button-danger" 
+                    onClick={() => removeCorrectionLink(link.id)}
+                    style={{ marginTop: '8px' }}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {filteredLinks.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum link cadastrado.</p>
+          ) : null}
+        </div>
       </SectionCard>
     </section>
   );

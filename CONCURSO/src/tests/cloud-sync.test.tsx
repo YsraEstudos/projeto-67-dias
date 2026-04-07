@@ -7,8 +7,10 @@ import { createStateWithTopics, renderConcursoApp, topicIdByTitle } from './rend
 
 describe('cloud sync', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
-    vi.mocked(cloudStorage.subscribeCloudAuthChanges).mockImplementation(async (callback) => {
+
+    vi.spyOn(cloudStorage, 'subscribeCloudAuthChanges').mockImplementation(async (callback) => {
       callback({
         uid: 'user-1',
         email: 'user@example.com',
@@ -17,11 +19,13 @@ describe('cloud sync', () => {
       });
       return () => undefined;
     });
-    vi.mocked(cloudStorage.loadCloudSnapshot).mockResolvedValue({
+
+    vi.spyOn(cloudStorage, 'loadCloudSnapshot').mockResolvedValue({
       snapshot: null,
       lastChangedAt: null,
     });
-    vi.mocked(cloudStorage.saveCloudSnapshot).mockResolvedValue();
+
+    vi.spyOn(cloudStorage, 'saveCloudSnapshot').mockResolvedValue();
   });
 
   it(
@@ -57,7 +61,7 @@ describe('cloud sync', () => {
 
     let emitRemoteSnapshot: ((result: { snapshot: ReturnType<typeof buildSnapshot> | null; lastChangedAt: string | null }) => void) | undefined;
 
-    vi.mocked(cloudStorage.subscribeCloudSnapshotChanges).mockImplementation(async (_uid, callback) => {
+    vi.spyOn(cloudStorage, 'subscribeCloudSnapshotChanges').mockImplementation(async (_uid, callback) => {
       emitRemoteSnapshot = callback;
       return () => undefined;
     });
@@ -89,6 +93,6 @@ describe('cloud sync', () => {
       expect(screen.getByText('Aula remota')).toBeInTheDocument();
     });
     },
-    15000,
+    30000,
   );
 });

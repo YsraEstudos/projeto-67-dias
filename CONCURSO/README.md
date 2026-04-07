@@ -94,4 +94,10 @@ npm run test:e2e
 
 O build standalone gera a saída estática usada em `/concurso`. Depois do build, copie os arquivos gerados para `../public/concurso/`.
 
+No repositório raiz, use o comando consolidado para build + sync + validação do shell publicado:
+
+```bash
+npm run build:concurso:published
+```
+
 Se o objetivo for testar a rota real servida pelo app raiz, valide também `http://localhost:3000/concurso` após a sincronização do bundle estático.

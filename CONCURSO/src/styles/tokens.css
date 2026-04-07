@@ -4,20 +4,20 @@
   color-scheme: dark;
   
   /* Dynamic Neons (Configurable via ThemeContext) */
-  --color-primary: #f5ffc4;
-  --color-secondary: #fed01b;
-  --color-tertiary: #c6fff3;
-  --color-error: #ff7351;
-  --color-primary-dim: #cbef00;
-  --color-secondary-dim: #eec200;
-  --color-primary-container: rgba(245, 255, 196, 0.1);
-  --color-secondary-container: rgba(254, 208, 27, 0.1);
+  --color-primary: #d9f349; /* Yellow-Green */
+  --color-secondary: #facc15; /* Yellow */
+  --color-tertiary: #22d3ee; /* Cyan */
+  --color-error: #ef4444; /* Red */
+  --color-primary-dim: #a3cc00;
+  --color-secondary-dim: #ca8a04;
+  --color-primary-container: rgba(217, 243, 73, 0.1);
+  --color-secondary-container: rgba(250, 204, 21, 0.1);
 
   /* Tonal Layering - Obsidian Base */
-  --bg-base: #0e0e0e; /* Level 0 */
-  --bg-surface: #0e0e0e;
-  --bg-elevated: #131313; /* surface-container-low: Level 1 */
-  --bg-highlight: #201f1f; /* surface-container-high: Level 2 */
+  --bg-base: #09090b; /* True Dark Mode Level 0 */
+  --bg-surface: #09090b;
+  --bg-elevated: rgba(39, 39, 42, 0.4); /* surface-container-low: Level 1 */
+  --bg-highlight: rgba(39, 39, 42, 0.6); /* surface-container-high: Level 2 */
   --bg-highest: #262626;  /* surface-container-highest */
   --bg-glass: rgba(14, 14, 14, 0.85);
   
@@ -64,4 +64,11 @@
   --duration-fast: 140ms;
   --duration-base: 260ms;
   --duration-slow: 540ms;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --bg-base: #000000;
+    --bg-surface: #18181b;
+  }
 }

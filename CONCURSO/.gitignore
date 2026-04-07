@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary artifacts
+temp.txt
+*.temp
+*.tmp
+test-results/
+playwright-report/
+build_err.txt

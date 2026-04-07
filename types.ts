@@ -1024,7 +1024,7 @@ export type CompetitionCategoryId =
 export interface CompetitionScoreBreakdown {
   id: CompetitionCategoryId;
   label: string;
-  points: number;
+  points: number;                      // Signed raw points for the category
   maxPoints: number;
   remainingPoints: number;
   summary: string;
@@ -1034,14 +1034,14 @@ export interface CompetitionScoreBreakdown {
 export interface CompetitionDailyRecord {
   date: string;                         // YYYY-MM-DD
   projectDay: number;
-  score: number;                        // Official adaptive championship XP
-  activityScore: number;                // Raw sum of category points for the day
+  score: number;                        // Signed official adaptive championship XP
+  activityScore: number;                // Signed raw sum of category points for the day
   maxScore: number;                     // Effective raw max possible for the day
   theoreticalMaxScore: number;          // Fixed system ceiling (1000)
-  completionRate: number;               // Raw activityScore / maxScore
+  completionRate: number;               // Signed activityScore / scoring baseline
   availabilityRate: number;             // maxScore / theoreticalMaxScore
   difficultyMultiplier: number;         // Adaptive bonus based on availability
-  remainingScore: number;               // Remaining raw activity XP for the day
+  remainingScore: number;               // Remaining positive raw activity XP for the day
   breakdown: CompetitionScoreBreakdown[];
   updatedAt: number;
 }

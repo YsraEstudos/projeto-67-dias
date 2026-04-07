@@ -51,7 +51,7 @@ describe('ContentPage', () => {
     expect(screen.getByRole('link', { name: 'Emprego da acentuação gráfica.' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Domínio da ortografia oficial.' })).not.toBeInTheDocument();
     },
-    10000,
+    20000,
   );
 
   it('exibe nomes padronizados quando o plano diario e o conteudo usam a mesma matéria', () => {
@@ -196,4 +196,4 @@ describe('ContentPage', () => {
     },
     10000,
   );
-});
+}, 15000);

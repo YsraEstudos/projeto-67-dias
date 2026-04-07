@@ -8,6 +8,11 @@
     "build": "vite build",
     "sync:concurso": "node scripts/publish-concurso.mjs",
     "build:concurso:published": "npm --prefix CONCURSO clean-install --progress=false && npm --prefix CONCURSO run build && node scripts/publish-concurso.mjs && vite build",
+    "test:ci": "vitest --run",
+    "check:root": "npm run test:ci && npm run build",
+    "check:concurso": "npm --prefix CONCURSO run lint && npm --prefix CONCURSO run test && npm --prefix CONCURSO run build",
+    "check:concurso:published": "npm run build:concurso:published && git diff --exit-code -- public/concurso",
+    "check:main": "npm run check:root && npm run check:concurso && npm run check:concurso:published",
     "preview": "vite preview",
     "test": "vitest"
   },

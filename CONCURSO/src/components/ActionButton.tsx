@@ -7,6 +7,7 @@ interface SharedProps {
   tone?: ButtonTone;
   children: ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 type ActionButtonProps =
@@ -22,7 +23,7 @@ export const ActionButton = (props: ActionButtonProps) => {
 
   if ('to' in props && props.to) {
     return (
-      <Link className={classes} to={props.to}>
+      <Link className={classes} to={props.to} style={props.style}>
         {props.children}
       </Link>
     );
@@ -30,15 +31,21 @@ export const ActionButton = (props: ActionButtonProps) => {
 
   if ('href' in props && props.href) {
     return (
-      <a className={classes} href={props.href} target="_blank" rel="noreferrer">
+      <a className={classes} href={props.href} target="_blank" rel="noreferrer" style={props.style}>
         {props.children}
       </a>
     );
   }
 
-  const { children, className: _className, tone: _tone, ...buttonProps } = props;
+  const { children, style, ...buttonProps } = props;
+  const cleanedButtonProps = {
+    ...buttonProps,
+  } as ButtonHTMLAttributes<HTMLButtonElement> & { className?: string; tone?: ButtonTone };
+  delete cleanedButtonProps.className;
+  delete cleanedButtonProps.tone;
+
   return (
-    <button className={classes} {...buttonProps}>
+    <button className={classes} style={style} {...cleanedButtonProps}>
       {children}
     </button>
   );

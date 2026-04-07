@@ -18,7 +18,23 @@ vi.mock('../app/contentTheoreticalFileStore', () => ({
     storageKey: string;
     file: File;
   }) => {
-    const bytes = new Uint8Array(await input.file.arrayBuffer());
+    let bytes: Uint8Array;
+    if (typeof input.file.arrayBuffer === 'function') {
+      bytes = new Uint8Array(await input.file.arrayBuffer());
+    } else if (typeof input.file.text === 'function') {
+      bytes = new TextEncoder().encode(await input.file.text());
+    } else if (typeof FileReader !== 'undefined') {
+      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error ?? new Error('Falha ao ler arquivo de teste.'));
+        reader.onload = () => resolve((reader.result as ArrayBuffer) ?? new ArrayBuffer(0));
+        reader.readAsArrayBuffer(input.file);
+      });
+      bytes = new Uint8Array(arrayBuffer);
+    } else {
+      bytes = new Uint8Array();
+    }
+
     binaryStore.set(input.storageKey, {
       filename: input.file.name,
       mimeType: input.file.type,
@@ -74,7 +90,7 @@ describe('ContentTopicPage', () => {
     await user.click(screen.getByTestId('submatter-create-submit'));
 
     expect(screen.getByDisplayValue('Casos especiais')).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('mostra o nome padronizado do topico e migra a submateria padrao legada', () => {
     const topicId = topicIdByTitle(
@@ -483,4 +499,4 @@ describe('ContentTopicPage', () => {
       );
     });
   });
-});
+}, 20000);

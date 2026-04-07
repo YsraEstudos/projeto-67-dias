@@ -23,7 +23,7 @@ export const PageIntro = ({
       <div className="page-intro-title-row">
         <div>
           <h2>{title}</h2>
-          <p>{description}</p>
+          <p className="page-intro-desc">{description}</p>
         </div>
         {actions ? <div className="page-intro-actions">{actions}</div> : null}
       </div>

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { useAppContext } from '../app/AppContext';
-import { buildGradesSummary, buildReviewQueue } from '../app/contentSubmatters';
+import { buildReviewQueue } from '../app/contentSubmatters';
 import {
   buildExamProgressTotals,
   countCompletedItemById,
@@ -15,8 +15,8 @@ import { calculateAnkiProjection } from '../app/anki';
 import { ActionButton } from '../components/ActionButton';
 import { MetricCard } from '../components/MetricCard';
 import { PageIntro } from '../components/PageIntro';
-import { ProgressBar } from '../components/ProgressBar';
 import { SectionCard } from '../components/SectionCard';
+import { RadialProgress } from '../components/RadialProgress';
 
 const findNextEventDate = (
   fromDate: string,
@@ -36,6 +36,11 @@ export const DashboardPage = () => {
   const { state, dayPlans, dayPlansByDate, monthlyTargets, topics } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
+
+  const reviewQueue = useMemo(
+    () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate).slice(0, 6),
+    [state.topicSubmattersByTopic, topics, state.selectedDate]
+  );
 
   const progress = record ? getChecklistProgressPercent(record.checklist) : 0;
   const monthTarget = monthlyTargets.find((target) => target.monthKey === state.selectedDate.slice(0, 7));
@@ -59,12 +64,6 @@ export const DashboardPage = () => {
     dayPlans,
     (date) => dayPlansByDate[date]?.hasSimulado ?? false,
   );
-  const nextRedacao = findNextEventDate(
-    state.selectedDate,
-    dayPlans,
-    (date) => dayPlansByDate[date]?.hasRedacao ?? false,
-  );
-
   const ankiProjection = useMemo(
     () =>
       calculateAnkiProjection({
@@ -82,24 +81,27 @@ export const DashboardPage = () => {
       state.ankiStats.newCardsAdded,
     ],
   );
-  const contentGrades = useMemo(
-    () => buildGradesSummary(state.topicSubmattersByTopic),
-    [state.topicSubmattersByTopic],
-  );
-  const contentReviewQueue = useMemo(
-    () => buildReviewQueue(state.topicSubmattersByTopic, topics),
-    [state.topicSubmattersByTopic, topics],
-  );
-  const reviewNowCount = contentReviewQueue.filter((item) => item.needsReview).length;
-  const reviewPreview = contentReviewQueue.filter((item) => item.needsReview).slice(0, 3);
 
   return (
-    <section className="page">
+    <section className="page dashboard-mobile-page">
       <PageIntro
-        kicker="Visão geral do plano"
+        kicker="SESSÃO ATIVA • UTC-3"
         title="Dashboard de Execução"
         description="Controle diário, metas mensais e pressão real do edital com foco em prioridade e ritmo."
-        actions={<ActionButton to="/conteudo?focus=review-now">Abrir revisão crítica</ActionButton>}
+        actions={
+          <ActionButton
+            to="/conteudo?focus=review-now"
+            style={{
+              background: '#d9f349',
+              color: '#0e0e0e',
+              border: 'none',
+              boxShadow: '0 0 20px rgba(217, 243, 73, 0.25)',
+              fontWeight: 800,
+            }}
+          >
+            ⚡ Abrir revisão crítica
+          </ActionButton>
+        }
       />
 
       <div className="dashboard-quick-stats">
@@ -148,13 +150,18 @@ export const DashboardPage = () => {
                   Plano manual: <strong>Semana {plan.weekNumber ?? '-'}</strong>
                 </p>
                 {plan.manualBlocks?.slice(0, 3).map((block) => (
-                  <div key={block.id}>
-                    <p>
-                      {block.area}: {block.title}
-                    </p>
-                    {block.contentRefs?.length ? (
-                      <p>Conteúdo programático: {getManualBlockContentSummary(block)}</p>
-                    ) : null}
+                  <div key={block.id} className="task-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ fontWeight: 600, color: '#fff', fontSize: '1.05rem', margin: '0 0 4px' }}>
+                        {block.area}: {block.title}
+                      </p>
+                      {block.contentRefs?.length ? (
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>{getManualBlockContentSummary(block)}</p>
+                      ) : null}
+                    </div>
+                    <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ccc' }}>
+                      IN PROGRESS
+                    </span>
                   </div>
                 ))}
                 <p>
@@ -163,119 +170,139 @@ export const DashboardPage = () => {
               </>
             ) : (
               <>
-                <p>
-                  Matérias do ciclo: <strong>{subjectLabel(plan?.subjects[0] ?? 'portugues')}</strong> e{' '}
-                  <strong>{subjectLabel(plan?.subjects[1] ?? 'rlm')}</strong>
-                </p>
-                <p>Atividade no trabalho: {workActivityLabel(plan?.workActivity ?? 'programacao')}</p>
-                <p>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div>
+                    <p style={{ fontWeight: 600, color: '#fff', fontSize: '1.05rem', margin: '0 0 4px' }}>
+                      {subjectLabel(plan?.subjects[0] ?? 'portugues')}
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                      Matéria primária do ciclo
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ccc' }}>
+                    IN PROGRESS
+                  </span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div>
+                    <p style={{ fontWeight: 600, color: '#fff', fontSize: '1.05rem', margin: '0 0 4px' }}>
+                      {subjectLabel(plan?.subjects[1] ?? 'rlm')}
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                      Matéria secundária
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.4)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                    PENDING
+                  </span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontWeight: 600, color: '#fff', fontSize: '1.05rem', margin: '0 0 4px' }}>
+                      Trabalho
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                      {workActivityLabel(plan?.workActivity ?? 'programacao')}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.4)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                    PENDING
+                  </span>
+                </div>
+                <p style={{ marginTop: '16px', opacity: 0.7, fontSize: '0.8rem' }}>
                   Simulado: {plan?.hasSimulado ? 'sim' : 'não'} | Redação: {plan?.hasRedacao ? 'sim' : 'não'}
                 </p>
               </>
             )}
-            <ProgressBar value={progress} label="Barra oficial do dia" />
+            <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px' }}>
+              <div>
+                <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Progresso do dia</span>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 600 }}>{progress}% <span style={{fontSize: '0.9rem', color: 'var(--color-primary)', fontWeight: 400}}>Concluído</span></h3>
+              </div>
+              <RadialProgress progress={progress} size={60} strokeWidth={5} />
+            </div>
           </SectionCard>
         </div>
 
         <div className="dashboard-column-side">
-          <SectionCard as="article" kicker="Cadência" title={`Metas mensais (${state.selectedDate.slice(0, 7)})`}>
-            <p>
-              Simulados: {monthSimuladosDone}/{monthTarget?.simulados ?? 0}
-            </p>
-            <p>
-              Redações: {monthRedacoesDone}/{monthTarget?.redacoes ?? 0}
-            </p>
-            <ProgressBar
-              value={
-                monthTarget
-                  ? Math.round(
-                      ((monthSimuladosDone + monthRedacoesDone) /
-                        Math.max(monthTarget.simulados + monthTarget.redacoes, 1)) *
-                        100,
-                    )
-                  : 0
-              }
-              label="Cumprimento mensal"
-            />
-          </SectionCard>
-
-          <SectionCard as="article" kicker="Janela completa" title="Metas totais do ciclo">
-            <p>
-              Simulados: {totals.simuladosDone}/{totals.simuladosTarget}
-            </p>
-            <p>
-              Redações: {totals.redacoesDone}/{totals.redacoesTarget}
-            </p>
-            <p>
-              Próximo simulado: {nextSimulado ? formatIsoDatePtBr(nextSimulado) : 'sem data futura'}
-            </p>
-            <p>
-              Próxima redação: {nextRedacao ? formatIsoDatePtBr(nextRedacao) : 'sem data futura'}
-            </p>
-          </SectionCard>
-
-          <SectionCard
-            as="article"
-            className="review-widget dashboard-review-widget"
-            data-testid="dashboard-content-review-widget"
-            kicker="Conteúdo pragmático"
-            title="Mapa rápido de revisão do edital"
-            aside={<ActionButton to="/conteudo?focus=review-now">Abrir fila</ActionButton>}
-          >
-            <div className="review-widget-header">
-              <p className="review-widget-copy">
-                Veja quantas submatérias estão frágeis, o que está sem revisar e entre direto na fila
-                de revisão.
-              </p>
-            </div>
-
-            <div className="review-widget-metrics">
-              <article className="review-widget-metric">
-                <span className="review-widget-metric-label">Total de submatérias</span>
-                <strong className="review-widget-metric-value">{contentGrades.total}</strong>
-              </article>
-              <article className="review-widget-metric review-widget-metric-alert">
-                <span className="review-widget-metric-label">Revisar agora</span>
-                <strong className="review-widget-metric-value" data-testid="dashboard-review-now-count">
-                  {reviewNowCount}
-                </strong>
-              </article>
-            </div>
-
-            <div className="grade-pill-row" data-testid="dashboard-grade-distribution">
-              {(['A', 'B', 'C', 'D', 'E'] as const).map((grade, index) => (
-                <div
-                  key={grade}
-                  className={`grade-pill grade-pill-${grade.toLowerCase()} grade-pill-animated`}
-                  style={{ animationDelay: `${index * 90}ms` }}
-                >
-                  <span className="grade-pill-letter">{grade}</span>
-                  <span className="grade-pill-count">{contentGrades.byGrade[grade]}</span>
+          <SectionCard as="article" title="Metas mensais" aside={<span style={{fontSize:'1rem'}}>📈</span>}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
+                  <span>Simulados</span>
+                  <span style={{ color: 'var(--color-primary)' }}>{monthSimuladosDone}/{monthTarget?.simulados ?? 0}</span>
                 </div>
-              ))}
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                  <div style={{ width: monthTarget?.simulados && monthTarget.simulados > 0 ? `${Math.min((monthSimuladosDone/monthTarget.simulados)*100, 100)}%` : '0%', height: '100%', background: 'var(--color-primary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-primary)' }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
+                  <span>Redações</span>
+                  <span style={{ color: 'var(--color-secondary)' }}>{monthRedacoesDone}/{monthTarget?.redacoes ?? 0}</span>
+                </div>
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                  <div style={{ width: monthTarget?.redacoes && monthTarget.redacoes > 0 ? `${Math.min((monthRedacoesDone/monthTarget.redacoes)*100, 100)}%` : '0%', height: '100%', background: 'var(--color-secondary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-secondary)' }} />
+                </div>
+              </div>
             </div>
+          </SectionCard>
 
-            <div className="review-widget-preview-list">
-              {reviewPreview.map((item) => (
-                <Link
-                  key={item.submatterId}
-                  className={`review-widget-preview review-widget-preview-${item.grade.toLowerCase()}`}
-                  to={`/conteudo/topico/${item.topicId}?submatter=${item.submatterId}`}
-                >
-                  <span className={`grade-dot grade-dot-${item.grade.toLowerCase()}`} aria-hidden="true" />
-                  <span className="review-widget-preview-body">
-                    <strong>{item.submatterTitle}</strong>
-                    <span>
-                      {item.topicTitle} ·{' '}
-                      {item.daysSinceReview === null ? 'sem revisão' : `${item.daysSinceReview} dia(s)`}
-                    </span>
-                  </span>
-                  <ChevronRight size={18} className="text-muted" opacity={0.5} />
-                </Link>
-              ))}
+          <SectionCard as="article" title="Metas totais do ciclo" aside={<span style={{fontSize:'1rem'}}>🔄</span>}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
+                  <span>{totals.simuladosDone}/{totals.simuladosTarget} Simulados</span>
+                  <span style={{ color: 'var(--color-primary)' }}>{(totals.simuladosDone/Math.max(totals.simuladosTarget,1)*100).toFixed(0)}%</span>
+                </div>
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                  <div style={{ width: `${Math.min((totals.simuladosDone/Math.max(totals.simuladosTarget,1)*100), 100)}%`, height: '100%', background: 'var(--color-primary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-primary)' }} />
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Próximo: {nextSimulado ? formatIsoDatePtBr(nextSimulado) : 'N/A'}
+              </p>
             </div>
           </SectionCard>
         </div>
+      </div>
+
+      <div style={{ marginTop: '32px' }}>
+        <SectionCard
+          as="article"
+          className="review-widget dashboard-review-widget"
+          title="Mapa rápido de revisão do edital"
+          aside={<Link to="/conteudo" style={{ cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'center', textDecoration: 'none', color: 'var(--text-main)' }}>Ver mapa completo ➔</Link>}
+        >
+          <div className="review-grid">
+            {reviewQueue.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '8px 0' }}>Você está em dia com as revisões.</p>
+            ) : (
+              reviewQueue.map(item => {
+                const STALE_ICONS: Record<string, string> = {
+                  unreviewed: '📄',
+                  critical: '🚨',
+                  warning: '⚠️',
+                  fresh: '✅',
+                };
+                
+                return (
+                  <Link 
+                    key={item.submatterId}
+                    to={`/conteudo/topico/${item.topicId}?submatter=${item.submatterId}`}
+                    className="review-map-card"
+                  >
+                    <div className="review-map-card-label">
+                      <span className="review-map-card-icon">{STALE_ICONS[item.staleBucket] || '📄'}</span>
+                      <span>{item.submatterTitle}</span>
+                    </div>
+                    <span className="review-map-card-arrow"><ChevronRight size={18} /></span>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </SectionCard>
       </div>
     </section>
   );

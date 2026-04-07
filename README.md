@@ -100,6 +100,13 @@ npm run build
 npm test
 ```
 
+Checklist de validação para merge na `main`:
+
+```bash
+npm run check:root
+npm run check:concurso
+```
+
 Deploy principal:
 
 - `netlify.toml`: build do app raiz e headers de segurança.
@@ -110,6 +117,12 @@ Deploy principal:
 ```bash
 cd CONCURSO
 npm run build
+```
+
+Fluxo oficial para publicar o standalone em `/concurso` dentro do app raiz:
+
+```bash
+npm run build:concurso:published
 ```
 
 Depois do build, sincronize o conteúdo gerado com `public/concurso/` para que a rota publicada `/concurso` fique alinhada com o código mais recente.
@@ -136,5 +149,6 @@ Opcional:
 - `AI_CONTEXT.md`: visão técnica curta e atualizada para manutenção.
 - `CONCURSO/README.md`: funcionamento e publicação do app standalone do concurso.
 - `COMPRESSION_DOCS.md`: fluxos atuais de compressão de imagem.
+- `MAIN_RELEASE_CHECKLIST.md`: checklist operacional para merge seguro na `main` e publicação do `/concurso`.
 - `PLANO_AUDITORIA_PROGRESSO_REVISAO.md`: status atual da auditoria de métricas semanais.
 - `ROADMAP_AI_GUIDE.md`: regras e estrutura do roadmap assistido por IA.

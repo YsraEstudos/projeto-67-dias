@@ -34,8 +34,10 @@ interface BuildTheoreticalContentDownloadEntriesInput {
   loadBinary?: (storageKey: string) => Promise<TheoreticalBinaryRecord | null>;
 }
 
-interface DownloadTheoreticalContentsBundleInput
-  extends Omit<BuildTheoreticalContentDownloadEntriesInput, 'loadBinary'> {}
+type DownloadTheoreticalContentsBundleInput = Omit<
+  BuildTheoreticalContentDownloadEntriesInput,
+  'loadBinary'
+>;
 
 const slugify = (value: string): string =>
   value

@@ -60,8 +60,56 @@ describe('ChampionshipView', () => {
         expect(screen.getByText(`+${metrics.score} XP oficial`)).toBeInTheDocument();
         expect(screen.getByText('Leitura')).toBeInTheDocument();
         expect(screen.getByText('10 paginas hoje (50% da meta diaria).')).toBeInTheDocument();
-        expect(screen.getByText(/45 XP bruto com 50% de aproveitamento/i)).toBeInTheDocument();
+        expect(screen.getByText(/Saldo bruto de \+45 XP com \+50% do potencial positivo do dia/i)).toBeInTheDocument();
         expect(screen.getByText(/\+45 bruto/i)).toBeInTheDocument();
-        expect(screen.getByText(/O campeonato sobe pelo desempenho do dia/i)).toBeInTheDocument();
+        expect(screen.getByText(/O campeonato sobe ou desce pelo desempenho líquido do dia/i)).toBeInTheDocument();
+    });
+
+    it('shows negative official XP and penalty entries when today record is below zero', () => {
+        const today = getTodayISO();
+        const metrics = calculateAdaptiveCompetitionMetrics(-40, 350);
+
+        useCompetitionStore.getState()._hydrateFromFirestore({
+            competition: {
+                competitionStartedAt: Date.now(),
+                engineVersion: COMPETITION_ENGINE_VERSION,
+                dailyRecords: {
+                    [today]: {
+                        date: today,
+                        projectDay: 1,
+                        score: metrics.score,
+                        activityScore: -40,
+                        maxScore: 350,
+                        theoreticalMaxScore: 1000,
+                        completionRate: metrics.completionRate,
+                        availabilityRate: metrics.availabilityRate,
+                        difficultyMultiplier: metrics.difficultyMultiplier,
+                        remainingScore: metrics.remainingScore,
+                        breakdown: [
+                            {
+                                id: 'habitos',
+                                label: 'Habitos',
+                                points: -40,
+                                maxPoints: 0,
+                                remainingPoints: 0,
+                                summary: '1 unidade negativa acionada.',
+                                priority: 0,
+                            },
+                        ],
+                        updatedAt: Date.now(),
+                    },
+                },
+                lastSyncedDate: today,
+            },
+        });
+
+        render(<ChampionshipView />);
+
+        expect(screen.getByText(`${metrics.score} XP oficial`)).toBeInTheDocument();
+        expect(screen.getByText(/Saldo bruto de -40 XP com -11% do potencial positivo do dia/i)).toBeInTheDocument();
+        expect(screen.getByText('Habitos')).toBeInTheDocument();
+        expect(screen.getByText(/-40 bruto/i)).toBeInTheDocument();
+        expect(screen.getByTestId('history-zero-line')).toBeInTheDocument();
+        expect(screen.getByLabelText(`${metrics.score} XP Diário`)).toBeInTheDocument();
     });
 });

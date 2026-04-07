@@ -6,10 +6,10 @@ import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/forma
 import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
 import type { ManualBlock, TopicNode, TopicSubmatter } from '../app/types';
 import { PageIntro } from '../components/PageIntro';
+import { MetricCard } from '../components/MetricCard';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionCard } from '../components/SectionCard';
-
-const metaIconStyle = { width: '18px', height: '18px', marginRight: '6px', color: 'var(--cyan)' };
+import '../styles/daily-plan.css';
 
 export const DailyPlanPage = () => {
   const { state, topics, dayPlansByDate, updateChecklistItem, setDailyNote } = useAppContext();
@@ -105,123 +105,90 @@ export const DailyPlanPage = () => {
     return new Date(a.submatter.lastReviewedAt).getTime() - new Date(b.submatter.lastReviewedAt).getTime();
   };
 
-  const sortedRisk = riskGroup.sort(sortByDate);
-  const sortedElite = eliteGroup.sort(sortByDate);
+  const sortedRisk = [...riskGroup].sort(sortByDate);
+  const sortedElite = [...eliteGroup].sort(sortByDate);
 
   const dailySmartReview = [
     ...sortedRisk.slice(0, 2),
     ...sortedElite.slice(0, 1),
   ];
 
-  const getSubmatterBadgeStyle = (grade: string) => {
-    const isElite = ['A', 'B'].includes(grade);
-    return {
-      display: 'inline-block',
-      padding: '4px 10px',
-      borderRadius: '8px',
-      backgroundColor: isElite ? 'rgba(45, 212, 191, 0.12)' : 'rgba(248, 113, 113, 0.12)',
-      color: isElite ? '#2dd4bf' : '#f87171',
-      fontWeight: 700,
-      fontSize: '0.75rem',
-      border: `1px solid ${isElite ? 'rgba(45, 212, 191, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`
-    };
-  };
-
   return (
-    <section className="page dashboard-bento-grid">
-      <div className="bento-intro">
-        <PageIntro
-          className="daily-header"
-          kicker="Roteiro diário executável"
-          title="Plano Diário"
-          description="Checklist personalizado por dia, com foco em execução, evidência e leitura operacional."
-          meta={
-            <div className="daily-meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', background: 'transparent' }}>
-              <article className="daily-meta-card" style={{ padding: '20px', background: 'rgba(20, 20, 23, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem', fontWeight: 600 }}>
-                  <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
-                  Data do Plano
-                </p>
-                <p className="daily-meta-value" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--ink)' }}>{formatIsoDatePtBr(state.selectedDate)}</p>
-              </article>
-              <article className="daily-meta-card" style={{ padding: '20px', background: 'rgba(20, 20, 23, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem', fontWeight: 600 }}>
-                  <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  Modo de Operação
-                </p>
-                <p className="daily-meta-value" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--ink)' }}>
-                  {dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
-                </p>
-              </article>
-              <article className="daily-meta-card" style={{ padding: '20px', background: 'rgba(20, 20, 23, 0.4)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <p className="daily-meta-label" style={{ display: 'flex', alignItems: 'center', color: 'var(--ink-soft)', fontSize: '0.85rem', fontWeight: 600 }}>
-                  <svg style={metaIconStyle} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 21 5-5-5-5"/><path d="M21 16H9a7 7 0 0 1-7-7v-5"/></svg>
-                  Ciclo Atual
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <p className="daily-meta-value" style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--ink)' }}>
-                    {dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
-                  </p>
-                  <p className="daily-meta-note" style={{ margin: 0, padding: '4px 10px', background: 'rgba(255,255,255,0.1)', color: 'var(--ink)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
-                    {eventLabel}
-                  </p>
-                </div>
-              </article>
-            </div>
-          }
+    <section className="page">
+      <PageIntro
+        className="daily-header"
+        kicker="Roteiro diário executável"
+        title="Plano Diário"
+        description="Checklist personalizado por dia, com foco em execução, evidência e leitura operacional."
+      />
+      <div className="dashboard-quick-stats">
+        <MetricCard
+          kicker="Data do Plano"
+          title="Foco do dia"
+          value={formatIsoDatePtBr(state.selectedDate)}
+          subtitle="Data do plano ativo"
+          emphasis="green"
+        />
+        <MetricCard
+          kicker="Método"
+          title="Operação"
+          value={dayPlan.planMode === 'manual' ? 'Plano manual' : 'Plano automático'}
+          subtitle={dayPlan.planMode === 'manual' ? 'Montagem personalizada' : 'Alocação por algoritmo'}
+          emphasis="blue"
+        />
+        <MetricCard
+          kicker="Fase Atual"
+          title="Tempo de Ciclo"
+          value={dayPlan.planMode === 'manual' ? `Semana ${dayPlan.weekNumber ?? '-'}` : 'Fase automática'}
+          subtitle={eventLabel}
+          emphasis="orange"
         />
       </div>
 
-      <div className="bento-smart-review">
+      <div className="bento-section">
         <SectionCard className="daily-smart-review" kicker="Dinâmico" title="Algoritmo de Revisão">
-        <p style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', marginBottom: '16px' }}>
+        <p className="daily-smart-review-desc">
           Otimizando sua curva de esquecimento: 2 matérias críticas (Risco) e 1 matéria de manutenção (Elite).
         </p>
-        
+
         {dailySmartReview.length > 0 ? (
           <div className="daily-block-grid">
             {dailySmartReview.map((item) => {
               const isRisk = ['C', 'D', 'E'].includes(item.submatter.grade);
               return (
-                <article className="daily-block" key={item.submatter.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                <article className="daily-block-card" key={item.submatter.id}>
                   <div className="daily-block-top">
-                    <span style={getSubmatterBadgeStyle(item.submatter.grade)}>
+                    <span className={isRisk ? 'badge-risk' : 'badge-elite'}>
                       Nota {item.submatter.grade} {isRisk ? '(Risco)' : '(Elite)'}
                     </span>
-                    <span className="daily-block-area" style={{ opacity: 0.7 }}>
+                    <span className="daily-block-area">
                       {item.submatter.lastReviewedAt ? formatIsoDatePtBr(item.submatter.lastReviewedAt) : 'Sem revisão'}
                     </span>
                   </div>
-                  <p className="daily-block-title" style={{ marginTop: '8px' }}>{item.submatter.title}</p>
+                  <p className="daily-block-title">{item.submatter.title}</p>
                   <p className="daily-block-detail">{item.topic.title}</p>
-                  <div className="daily-block-detail" style={{ marginTop: 'auto', paddingTop: '12px' }}>
-                    <Link 
-                      to={`/conteudo?topicId=${item.topicId}`} 
-                      style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        gap: '6px',
-                        color: 'var(--ink-soft)',
-                        textDecoration: 'none',
-                        fontWeight: 600,
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
-                      Estudar submatéria
-                    </Link>
-                  </div>
+                  <Link
+                    to={`/conteudo/topico/${item.topicId}?submatter=${item.submatter.id}`}
+                    className="link-action"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" x2="21" y1="14" y2="3"/>
+                    </svg>
+                    Estudar submatéria
+                  </Link>
                 </article>
               );
             })}
           </div>
         ) : (
-          <p>Nenhuma submatéria avaliada para revisão.</p>
+          <p className="daily-smart-review-desc">Nenhuma submatéria avaliada para revisão.</p>
         )}
       </SectionCard>
       </div>
 
-      <div className="bento-progress">
+      <div className="bento-section">
       <SectionCard className="daily-progress-panel" kicker="Conclusão" title="Progresso oficial do dia">
         <div className="daily-progress-head">
           <p className="daily-progress-subtitle">
@@ -232,33 +199,33 @@ export const DailyPlanPage = () => {
       </SectionCard>
       </div>
 
-      <div className="bento-roadmap">
+      <div className="bento-section">
       <SectionCard className="daily-roadmap" kicker="Sequência" title="Roteiro do dia">
         {dayPlan.isRestDay ? (
           <p>Domingo configurado como descanso fixo, sem pendência obrigatória.</p>
         ) : (
           <div className="daily-block-grid" data-testid="daily-manual-blocks">
             {visibleBlocks.map((block) => (
-              <article className="daily-block" key={block.id}>
+              <article className="daily-block-card" key={block.id}>
                 <div className="daily-block-top">
                   <span className="daily-block-area">{block.area}</span>
                   {block.movedFromSunday ? (
-                    <span className="daily-block-badge">Realocado do domingo</span>
+                    <span className="status-badge-pending">Realocado do domingo</span>
                   ) : null}
                 </div>
                 <p className="daily-block-title">{block.title}</p>
                 <p className="daily-block-detail">{block.detail}</p>
                 {block.contentRefs?.length ? (
-                  <div className="daily-block-detail">
-                    <p className="daily-block-detail">
-                      <strong>Conteúdo programático:</strong> {getManualBlockContentSummary(block)}
+                  <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+                    <p className="daily-block-detail" style={{ marginBottom: '8px' }}>
+                      <strong style={{ color: 'var(--text-main)' }}>Conteúdo programático:</strong> {getManualBlockContentSummary(block)}
                     </p>
                     {block.contentTargets?.length ? (
-                      <ul>
+                      <ul className="target-list">
                         {block.contentTargets.map((target) => (
                           <li key={target.topicId}>
                             <Link to={target.path}>{target.title}</Link>
-                            {target.sectionTitle ? ` (${target.sectionTitle})` : ''}
+                            <span style={{ color: 'var(--text-dim)' }}>{target.sectionTitle ? ` (${target.sectionTitle})` : ''}</span>
                           </li>
                         ))}
                       </ul>
@@ -272,19 +239,18 @@ export const DailyPlanPage = () => {
       </SectionCard>
       </div>
 
-      <div className="bento-checklist">
+      <div className="bento-section">
       <SectionCard className="daily-checklist-panel" data-testid="daily-checklist" kicker="Controle" title="Checklist do dia">
 
-        <p className="daily-checklist-title" style={{ marginTop: 0 }}>Obrigatórios</p>
-        <div className="checklist" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <p className="section-label" style={{ marginTop: 0 }}>Obrigatórios</p>
+        <div>
           {requiredItems.map((item) => (
-            <div className="check-item" key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px' }}>
-              <div className="check-item-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <p style={{ fontWeight: 600, margin: 0 }}>{item.label}</p>
+            <div className="check-item" key={item.id}>
+              <div className="check-item-info">
+                <p>{item.label}</p>
                 <div>
-                  <span 
-                    className={item.status === 'concluido' ? 'status-done' : 'status-pending'}
-                    style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '4px', background: item.status === 'concluido' ? 'rgba(187, 247, 208, 0.1)' : 'rgba(252, 211, 77, 0.1)' }}
+                  <span
+                    className={item.status === 'concluido' ? 'status-badge-done' : 'status-badge-pending'}
                   >
                     {item.status}
                   </span>
@@ -293,33 +259,31 @@ export const DailyPlanPage = () => {
 
               <div className="check-item-controls">
                 {item.kind === 'counter' ? (
-                  <div className="counter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '8px' }}>
+                  <div className="counter-row">
                     <input
                       data-testid={`check-${item.id}`}
-                      style={{ 
-                        width: '50px', textAlign: 'center', background: 'transparent', border: 'none', 
-                        borderBottom: '1px solid var(--ink-soft)', color: 'var(--ink)', fontSize: '1rem', outline: 'none' 
-                      }}
+                      className="checklist-counter-input"
                       type="number"
                       min={0}
+                      aria-label={`Atualizar meta ${item.label}`}
                       max={Math.max(item.target, item.done, 1)}
                       value={item.done}
                       onChange={(event) => handleChecklistChange(item.id, event, 'counter')}
                     />
-                    <span style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', fontWeight: 500 }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>
                       / {item.target} {item.unit}
                     </span>
                   </div>
                 ) : (
-                  <label className="boolean-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', borderRadius: '8px' }}>
+                  <label className="boolean-row">
                     <input
                       data-testid={`check-${item.id}`}
                       type="checkbox"
-                      style={{ width: '22px', height: '22px', accentColor: 'var(--cyan)', cursor: 'pointer' }}
+                      aria-label={`Marcar ${item.label} como concluído`}
                       checked={item.done >= 1}
                       onChange={(event) => handleChecklistChange(item.id, event, 'boolean')}
                     />
-                    <span style={{ fontWeight: 600 }}>Concluído</span>
+                    <span>Concluído</span>
                   </label>
                 )}
               </div>
@@ -329,16 +293,15 @@ export const DailyPlanPage = () => {
 
         {optionalItems.length > 0 ? (
           <>
-            <p className="daily-checklist-title" style={{ marginTop: '24px' }}>Opcionais</p>
-            <div className="checklist" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p className="section-label">Opcionais</p>
+            <div>
               {optionalItems.map((item) => (
-                <div className="check-item" key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: '12px', opacity: 0.85 }}>
-                  <div className="check-item-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <p style={{ fontWeight: 500, margin: 0 }}>{item.label}</p>
+                <div className="check-item" key={item.id}>
+                  <div className="check-item-info">
+                    <p>{item.label}</p>
                     <div>
                       <span 
-                        className={item.status === 'concluido' ? 'status-done' : 'status-pending'}
-                        style={{ fontSize: '0.8rem', padding: '2px 8px', borderRadius: '4px', background: item.status === 'concluido' ? 'rgba(187, 247, 208, 0.1)' : 'rgba(252, 211, 77, 0.1)' }}
+                        className={item.status === 'concluido' ? 'status-badge-done' : 'status-badge-pending'}
                       >
                         {item.status}
                       </span>
@@ -347,33 +310,31 @@ export const DailyPlanPage = () => {
 
                   <div className="check-item-controls">
                     {item.kind === 'counter' ? (
-                      <div className="counter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '8px' }}>
+                      <div className="counter-row">
                         <input
                           data-testid={`check-${item.id}`}
-                          style={{ 
-                            width: '50px', textAlign: 'center', background: 'transparent', border: 'none', 
-                            borderBottom: '1px solid var(--ink-soft)', color: 'var(--ink)', fontSize: '1rem', outline: 'none' 
-                          }}
+                          className="checklist-counter-input"
                           type="number"
                           min={0}
+                          aria-label={`Atualizar meta ${item.label}`}
                           max={Math.max(item.target, item.done, 1)}
                           value={item.done}
                           onChange={(event) => handleChecklistChange(item.id, event, 'counter')}
                         />
-                        <span style={{ color: 'var(--ink-soft)', fontSize: '0.9rem', fontWeight: 500 }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>
                           / {item.target} {item.unit}
                         </span>
                       </div>
                     ) : (
-                      <label className="boolean-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', borderRadius: '8px' }}>
+                      <label className="boolean-row">
                         <input
                           data-testid={`check-${item.id}`}
                           type="checkbox"
-                          style={{ width: '22px', height: '22px', accentColor: 'var(--cyan)', cursor: 'pointer' }}
+                          aria-label={`Marcar ${item.label} como concluído`}
                           checked={item.done >= 1}
                           onChange={(event) => handleChecklistChange(item.id, event, 'boolean')}
                         />
-                        <span style={{ fontWeight: 600 }}>Concluído</span>
+                        <span>Concluído</span>
                       </label>
                     )}
                   </div>
@@ -385,11 +346,12 @@ export const DailyPlanPage = () => {
       </SectionCard>
       </div>
 
-      <div className="bento-notes">
+      <div className="bento-section">
       <SectionCard className="daily-notes-panel" kicker="Registro" title="Notas de evidência do dia">
         <textarea
           className="textarea"
           rows={5}
+          aria-label="Notas de evidência do dia"
           placeholder="Ex.: acertei 42/50 questões, revisar regra de três composta e voz passiva"
           value={record.notes}
           onChange={(event) => setDailyNote(state.selectedDate, event.target.value)}

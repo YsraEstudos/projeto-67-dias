@@ -30,3 +30,12 @@ dist-ssr
 .env
 .env.production
 coverage/
+
+# Temporary artifacts
+temp.txt
+*.temp
+*.tmp
+build_err.txt
+test_output.txt
+CONCURSO/test-results/
+CONCURSO/playwright-report/

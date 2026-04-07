@@ -227,20 +227,14 @@ describe('App Component', () => {
         expect(true).toBe(true);
     });
 
-    it('opens Concurso inside the app instead of redirecting away', async () => {
+    it('shows Concurso Público as a dedicated app entry card', async () => {
         mockUseAuth.mockReturnValue(createAuthState({ user: mockUser }));
 
-        const { rerender } = render(<App />);
+        render(<App />);
 
         await waitFor(() => {
-            expect(screen.getByText('Concurso')).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText('Concurso'));
-        rerender(<App />);
-
-        await waitFor(() => {
-            expect(screen.getByTestId('concurso-view')).toBeInTheDocument();
+            expect(screen.getByText('Concurso Público')).toBeInTheDocument();
+            expect(screen.getByText('App dedicado')).toBeInTheDocument();
         });
     });
 

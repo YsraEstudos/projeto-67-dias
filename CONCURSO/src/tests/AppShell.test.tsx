@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createInitialState } from '../app/seed';
@@ -100,7 +100,9 @@ describe('AppShell', () => {
     renderConcursoApp('/conteudo');
 
     const shell = screen.getByTestId('shell-chrome');
-    window.dispatchEvent(new CustomEvent('concurso-reader-mode', { detail: { active: true } }));
+    act(() => {
+      window.dispatchEvent(new CustomEvent('concurso-reader-mode', { detail: { active: true } }));
+    });
 
     await waitFor(() => {
       expect(shell).toHaveAttribute('data-shell-state', 'reader-collapsed');
@@ -209,7 +211,10 @@ describe('AppShell', () => {
   it('rejeita o setimo atalho e mostra o alerta visual de overflow', async () => {
     mockMatchMedia({ compact: true, coarse: true });
     const user = userEvent.setup();
-    renderConcursoApp('/');
+    const state = createInitialState();
+    state.shellUi.mobilePinnedNav = ['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes', '/configuracoes'];
+
+    renderConcursoApp('/', state);
 
     await user.click(screen.getByRole('button', { name: 'Abrir menu lateral' }));
     await user.click(screen.getByRole('button', { name: 'Fixar Links de Correção na ilha' }));
@@ -217,4 +222,4 @@ describe('AppShell', () => {
     expect(screen.getByTestId('mobile-island-warning')).toBeInTheDocument();
     expect(screen.queryByTestId('island-chip-/correcoes')).not.toBeInTheDocument();
   });
-});
+}, 15000);

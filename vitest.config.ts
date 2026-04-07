@@ -9,7 +9,7 @@ export default defineConfig({
         environment: 'jsdom',
         setupFiles: './tests/setup.ts',
         css: true,
-        exclude: [...configDefaults.exclude, 'CONCURSO/e2e/**'],
+        exclude: [...configDefaults.exclude, 'CONCURSO/src/tests/**', 'CONCURSO/e2e/**'],
         env: {
             VITE_FIREBASE_API_KEY: 'test-api-key',
             VITE_FIREBASE_AUTH_DOMAIN: 'test-domain',

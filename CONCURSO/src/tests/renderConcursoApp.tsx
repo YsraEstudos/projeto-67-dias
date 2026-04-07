@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
 import { AppProvider } from '../app/AppContext';
+import { ThemeProvider } from '../app/ThemeContext';
 import { STORAGE_KEY } from '../app/constants';
 import { buildSnapshot } from '../app/storage';
 import { createInitialState, TOPICS } from '../app/seed';
@@ -27,9 +28,11 @@ export const renderConcursoApp = (route: string, state?: AppState) => {
 
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <AppProvider>
-        <App />
-      </AppProvider>
+      <ThemeProvider>
+        <AppProvider>
+          <App />
+        </AppProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   );
 };

@@ -73,6 +73,12 @@ const createHabit = (overrides: Partial<Habit> = {}): Habit => ({
     ...overrides,
 });
 
+const createHabitLog = (overrides: Partial<Habit['history'][string]> = {}) => ({
+    completed: false,
+    subHabitsCompleted: [],
+    ...overrides,
+});
+
 const createTask = (overrides: Partial<OrganizeTask> = {}): OrganizeTask => ({
     id: 'task-1',
     title: 'Task teste',
@@ -154,6 +160,174 @@ describe('competitionEngine', () => {
         expect(record.activityScore).toBe(280);
         expect(questoes?.points).toBe(280);
         expect(questoes?.summary).toContain('180');
+    });
+
+    it('awards XP for a completed positive daily habit', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            habits: [
+                createHabit({
+                    history: {
+                        [today]: createHabitLog({ completed: true }),
+                    },
+                }),
+            ],
+        }));
+
+        const habits = record.breakdown.find((entry) => entry.id === 'habitos');
+
+        expect(habits?.points).toBe(40);
+        expect(habits?.maxPoints).toBe(40);
+        expect(habits?.summary).toContain('1/1 unidades positivas');
+    });
+
+    it('awards sub-habit XP without double-counting the parent completion flag', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            habits: [
+                createHabit({
+                    subHabits: [
+                        { id: 'sub-1', title: 'Sub 1' },
+                        { id: 'sub-2', title: 'Sub 2' },
+                    ],
+                    history: {
+                        [today]: createHabitLog({
+                            completed: true,
+                            subHabitsCompleted: ['sub-1'],
+                        }),
+                    },
+                }),
+            ],
+        }));
+
+        const habits = record.breakdown.find((entry) => entry.id === 'habitos');
+
+        expect(habits?.points).toBe(40);
+        expect(habits?.maxPoints).toBe(80);
+        expect(habits?.summary).toContain('1/2 unidades positivas');
+    });
+
+    it('continues awarding task XP for completed tasks', () => {
+        const completionToday = new Date(`${today}T12:00:00.000Z`).getTime();
+        const record = createCompetitionDailyRecord(createSourceState({
+            tasks: [
+                createTask({
+                    isCompleted: true,
+                    completedAt: completionToday,
+                }),
+            ],
+        }));
+
+        const tasks = record.breakdown.find((entry) => entry.id === 'tarefas');
+
+        expect(tasks?.points).toBe(22);
+        expect(tasks?.maxPoints).toBe(22);
+    });
+
+    it('subtracts XP for a completed negative habit', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            habits: [
+                createHabit({
+                    isNegative: true,
+                    history: {
+                        [today]: createHabitLog({ completed: true }),
+                    },
+                }),
+            ],
+        }));
+
+        const habits = record.breakdown.find((entry) => entry.id === 'habitos');
+
+        expect(habits?.points).toBe(-40);
+        expect(habits?.maxPoints).toBe(0);
+        expect(habits?.summary).toContain('1 unidade negativa acionada');
+        expect(record.score).toBeLessThan(0);
+    });
+
+    it('subtracts partial XP for negative sub-habits', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            habits: [
+                createHabit({
+                    isNegative: true,
+                    subHabits: [
+                        { id: 'trigger-1', title: 'Trigger 1' },
+                        { id: 'trigger-2', title: 'Trigger 2' },
+                        { id: 'trigger-3', title: 'Trigger 3' },
+                    ],
+                    history: {
+                        [today]: createHabitLog({
+                            subHabitsCompleted: ['trigger-1', 'trigger-2'],
+                        }),
+                    },
+                }),
+            ],
+        }));
+
+        const habits = record.breakdown.find((entry) => entry.id === 'habitos');
+
+        expect(habits?.points).toBe(-80);
+        expect(habits?.maxPoints).toBe(0);
+        expect(habits?.summary).toContain('2 unidades negativas acionadas');
+    });
+
+    it('ignores weekly habits in the official daily XP', () => {
+        const record = createCompetitionDailyRecord(createSourceState({
+            habits: [
+                createHabit({
+                    frequency: 'WEEKLY',
+                    history: {
+                        [today]: createHabitLog({ completed: true }),
+                    },
+                }),
+                createHabit({
+                    id: 'habit-negative-weekly',
+                    isNegative: true,
+                    frequency: 'WEEKLY',
+                    history: {
+                        [today]: createHabitLog({ completed: true }),
+                    },
+                }),
+            ],
+        }));
+
+        const habits = record.breakdown.find((entry) => entry.id === 'habitos');
+
+        expect(habits?.points).toBe(0);
+        expect(habits?.maxPoints).toBe(0);
+        expect(habits?.summary).toContain('Nenhum hábito pontuável');
+    });
+
+    it('produces a signed daily score when gains and penalties are combined', () => {
+        const completionToday = new Date(`${today}T12:00:00.000Z`).getTime();
+        const record = createCompetitionDailyRecord(createSourceState({
+            tasks: [
+                createTask({
+                    isCompleted: true,
+                    completedAt: completionToday,
+                }),
+            ],
+            habits: [
+                createHabit({
+                    history: {
+                        [today]: createHabitLog({ completed: true }),
+                    },
+                }),
+                createHabit({
+                    id: 'habit-negative-combo',
+                    isNegative: true,
+                    subHabits: [
+                        { id: 'loss-1', title: 'Loss 1' },
+                        { id: 'loss-2', title: 'Loss 2' },
+                    ],
+                    history: {
+                        [today]: createHabitLog({
+                            subHabitsCompleted: ['loss-1', 'loss-2'],
+                        }),
+                    },
+                }),
+            ],
+        }));
+
+        expect(record.activityScore).toBeLessThan(0);
+        expect(record.score).toBeLessThan(0);
     });
 
     it('recalculates reading points from the final pages read today value', () => {

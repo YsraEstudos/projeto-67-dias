@@ -39,28 +39,49 @@ export const SimuladosPage = () => {
       </div>
 
       <SectionCard className="table-wrap" kicker="Cadência" title="Cadência mensal oficial">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Mês</th>
-              <th>Meta Simulados</th>
-              <th>Realizado</th>
-              <th>Meta Redações</th>
-              <th>Realizado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {monthlyTargets.map((target) => (
-              <tr key={target.monthKey}>
-                <td>{target.monthKey}</td>
-                <td>{target.simulados}</td>
-                <td>{countCompletedItemById(state.dailyRecords, 'simulado', target.monthKey)}</td>
-                <td>{target.redacoes}</td>
-                <td>{countCompletedItemById(state.dailyRecords, 'redacao', target.monthKey)}</td>
+        <div className="hidden md:block">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Meta Simulados</th>
+                <th>Realizado</th>
+                <th>Meta Redações</th>
+                <th>Realizado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {monthlyTargets.map((target) => (
+                <tr key={target.monthKey}>
+                  <td>{target.monthKey}</td>
+                  <td>{target.simulados}</td>
+                  <td>{countCompletedItemById(state.dailyRecords, 'simulado', target.monthKey)}</td>
+                  <td>{target.redacoes}</td>
+                  <td>{countCompletedItemById(state.dailyRecords, 'redacao', target.monthKey)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="block md:hidden">
+          {monthlyTargets.map((target) => (
+            <div className="mobile-list-card" key={target.monthKey}>
+              <div className="mobile-list-card-header">
+                Mês: {target.monthKey}
+              </div>
+              <div className="mobile-list-card-body">
+                <div className="mobile-list-card-stat">
+                  <span>Simulados</span>
+                  <strong>{countCompletedItemById(state.dailyRecords, 'simulado', target.monthKey)} / {target.simulados}</strong>
+                </div>
+                <div className="mobile-list-card-stat">
+                  <span>Redações</span>
+                  <strong>{countCompletedItemById(state.dailyRecords, 'redacao', target.monthKey)} / {target.redacoes}</strong>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </SectionCard>
 
       <SectionCard kicker="Timeline" title="Calendário efetivo de eventos">

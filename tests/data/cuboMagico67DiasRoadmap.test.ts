@@ -46,47 +46,35 @@ describe('cubo_magico_67_dias roadmap audit', () => {
         expect(genericSubTasks).toHaveLength(0);
     });
 
-    it('splits the heavy topics into lighter daily chunks', () => {
+    it('keeps the heavy-topic range focused on the current BLD progression', () => {
         const roadmap = readRoadmap();
         const byId = Object.fromEntries(roadmap.map((item) => [item.id, item]));
 
-        const expectDailyTaskCount = (id: string, maxSubTasks: number) => {
-            const item = byId[id];
-            expect(item, `missing roadmap item ${id}`).toBeDefined();
-            expect(item?.type).toBe('TASK');
-            expect(item?.subTasks?.length ?? 0).toBeLessThanOrEqual(maxSubTasks);
+        const expectTitleContains = (id: string, expectedText: string) => {
+            const title = byId[id]?.title.toLowerCase();
+            expect(title, `missing roadmap item ${id}`).toBeDefined();
+            expect(title).toContain(expectedText.toLowerCase());
         };
 
-        ['day-25', 'day-26', 'day-27', 'day-28'].forEach((id) => expectDailyTaskCount(id, 2));
-        ['day-29', 'day-30', 'day-31', 'day-32'].forEach((id) => expectDailyTaskCount(id, 2));
-        ['day-36', 'day-37', 'day-38', 'day-39', 'day-40', 'day-41', 'day-42', 'day-43', 'day-44', 'day-45', 'day-46', 'day-47', 'day-48', 'day-49'].forEach((id) =>
-            expectDailyTaskCount(id, 2),
+        ['day-25', 'day-26', 'day-27', 'day-28'].forEach((id) => expectTitleContains(id, 'cantos'));
+        ['day-29', 'day-30', 'day-31', 'day-32'].forEach((id) => {
+            expect(byId[id], `missing roadmap item ${id}`).toBeDefined();
+            expect(byId[id]?.type).toBe('TASK');
+        });
+
+        expectTitleContains('day-31', 'arestas');
+        expectTitleContains('day-32', 'cantos');
+
+        ['day-36', 'day-43', 'day-50', 'day-56', 'day-62', 'day-66'].forEach((id) =>
+            expectTitleContains(id, 'bld'),
         );
-
-        expect(byId['day-25']?.title).toContain('F2L');
-        expect(byId['day-26']?.title).toContain('F2L');
-        expect(byId['day-27']?.title).toContain('F2L');
-        expect(byId['day-28']?.title).toContain('F2L');
-
-        expect(byId['day-29']?.title).toContain('OLL');
-        expect(byId['day-30']?.title).toContain('OLL');
-        expect(byId['day-31']?.title).toContain('PLL');
-        expect(byId['day-32']?.title).toContain('PLL');
-
-        expect(byId['day-36']?.title.toLowerCase()).toContain('blindfold');
-        expect(byId['day-37']?.title.toLowerCase()).toContain('blindfold');
-        expect(byId['day-38']?.title.toLowerCase()).toContain('blindfold');
-        expect(byId['day-39']?.title.toLowerCase()).toContain('blindfold');
-        expect(byId['day-40']?.title.toLowerCase()).toContain('blindfold');
-        expect(byId['day-41']?.title.toLowerCase()).toContain('blindfold');
-        expect(byId['day-42']?.title.toLowerCase()).toContain('blindfold');
     });
 
-    it('uses some 2-subtask days so the plan stays realistic for 15 minutes', () => {
+    it('keeps all tasks atomic without nested subtasks', () => {
         const roadmap = readRoadmap();
         const tasks = roadmap.filter((item) => item.type === 'TASK');
-        const twoSubtaskDays = tasks.filter((item) => (item.subTasks?.length ?? 0) === 2);
+        const tasksWithSubtasks = tasks.filter((item) => (item.subTasks?.length ?? 0) > 0);
 
-        expect(twoSubtaskDays.length).toBeGreaterThanOrEqual(20);
+        expect(tasksWithSubtasks).toHaveLength(0);
     });
 });
