@@ -4,10 +4,11 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { Note, Tag, NoteColor } from '../types';
-import { writeToFirestore, getCurrentUserId } from './firestoreSync';
+import { writeToFirestore, getCurrentUserId, writeItemToSubcollection, deleteItemFromSubcollection } from './firestoreSync';
 import { readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
 
 const STORE_KEY = 'p67_notes_store';
+const NOTES_ITEMS_KEY = 'p67_notes_store_items';
 const LOCAL_BACKUP_KEY = `${STORE_KEY}::backup`;
 
 /**
@@ -20,6 +21,32 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
         seen.add(item.id);
         return true;
     });
+};
+
+const mergeNotesByRecency = (baseNotes: Note[], incomingNotes: Note[]): Note[] => {
+    const merged = new Map<string, Note>();
+
+    baseNotes.forEach((note) => {
+        merged.set(note.id, note);
+    });
+
+    incomingNotes.forEach((note) => {
+        const current = merged.get(note.id);
+        if (!current || note.updatedAt >= current.updatedAt) {
+            merged.set(note.id, note);
+        }
+    });
+
+    return Array.from(merged.values());
+};
+
+const syncNoteToSubcollection = (note?: Note) => {
+    if (!note) return;
+    void writeItemToSubcollection(NOTES_ITEMS_KEY, note.id, note);
+};
+
+const deleteNoteFromSubcollection = (noteId: string) => {
+    void deleteItemFromSubcollection(NOTES_ITEMS_KEY, noteId);
 };
 
 interface NotesState {
@@ -87,13 +114,25 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
 
     // Note Actions
     setNotes: (notes) => {
-        set((state) => { state.notes = deduplicateById(notes); });
+        const previousNotes = get().notes;
+        const nextNotes = deduplicateById(notes);
+
+        set((state) => { state.notes = nextNotes; });
+
+        const nextIds = new Set(nextNotes.map(note => note.id));
+        previousNotes.forEach((note) => {
+            if (!nextIds.has(note.id)) {
+                deleteNoteFromSubcollection(note.id);
+            }
+        });
+        nextNotes.forEach(syncNoteToSubcollection);
         get()._syncToFirestore();
     },
 
     addNote: (note) => {
         console.log('[notesStore] addNote:', note.id, note.title);
         set((state) => { state.notes.push(note); });
+        syncNoteToSubcollection(note);
         get()._syncToFirestore();
     },
 
@@ -105,6 +144,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 note.updatedAt = Date.now();
             }
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === id));
         get()._syncToFirestore();
     },
 
@@ -113,6 +153,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             const idx = state.notes.findIndex(n => n.id === id);
             if (idx !== -1) state.notes.splice(idx, 1);
         });
+        deleteNoteFromSubcollection(id);
         get()._syncToFirestore();
     },
 
@@ -121,6 +162,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             const note = state.notes.find(n => n.id === id);
             if (note) note.isPinned = !note.isPinned;
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === id));
         get()._syncToFirestore();
     },
 
@@ -133,6 +175,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 note.pinnedToTags.push(tagId);
             }
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === noteId));
         get()._syncToFirestore();
     },
 
@@ -143,6 +186,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             const idx = note.pinnedToTags.indexOf(tagId);
             if (idx !== -1) note.pinnedToTags.splice(idx, 1);
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === noteId));
         get()._syncToFirestore();
     },
 
@@ -151,6 +195,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             const note = state.notes.find(n => n.id === id);
             if (note) note.color = color;
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === id));
         get()._syncToFirestore();
     },
 
@@ -162,6 +207,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 note.tags.push(tagId);
             }
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === noteId));
         get()._syncToFirestore();
     },
 
@@ -172,6 +218,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             const idx = note.tags.indexOf(tagId);
             if (idx !== -1) note.tags.splice(idx, 1);
         });
+        syncNoteToSubcollection(get().notes.find(note => note.id === noteId));
         get()._syncToFirestore();
     },
 
@@ -211,6 +258,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 }
             }
         });
+        get().notes.forEach(syncNoteToSubcollection);
         get()._syncToFirestore();
     },
 
@@ -282,12 +330,20 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 state.isLoading = false;
                 state._initialized = true;
             });
+
+            if ((fallback.notes?.length || 0) > 0) {
+                fallback.notes.forEach(syncNoteToSubcollection);
+            }
         }
     },
 
     _hydrateNotesFromSubcollection: (remoteNotes: Note[]) => {
         set((state) => {
-            state.notes = deduplicateById(remoteNotes);
+            if (remoteNotes.length === 0) {
+                return;
+            }
+
+            state.notes = deduplicateById(mergeNotesByRecency(state.notes, remoteNotes));
         });
     },
 
