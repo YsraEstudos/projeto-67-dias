@@ -55,4 +55,18 @@ describe('TimerWidget break selection', () => {
 
     expect(usePomodoroStore.getState().shortBreakSelection?.label).toContain('Piscar os olhos');
   });
+
+  it('marks selected rest break as completed in rest module', () => {
+    render(<TimerWidget />);
+
+    fireEvent.click(screen.getByTitle('Expandir timer'));
+    fireEvent.click(screen.getByTitle('Pausa Curta'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Escolher descanso/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Alongamento de olhos/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Marcar como concluído no descanso/i }));
+
+    expect(useRestStore.getState().activities.find((activity) => activity.id === 'rest-today-1')?.isCompleted).toBe(true);
+  });
 });

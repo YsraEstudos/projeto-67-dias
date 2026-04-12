@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -36,6 +36,7 @@ export function TimerWidget() {
     longBreakSelection,
     setBreakSelection,
     clearBreakSelection,
+    updateTask,
   } = useStore();
 
   const restActivities = useRestStore((state) => state.activities);
@@ -121,6 +122,15 @@ export function TimerWidget() {
     clearBreakSelection(currentBreakMode);
   };
 
+  const handleToggleSubtask = (subtaskId: string) => {
+    if (!activeTask) return;
+    updateTask(activeTask.id, {
+      subtasks: activeTask.subtasks?.map(st => 
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+      )
+    });
+  };
+
   const [justCompleted, setJustCompleted] = useState(false);
 
   const handleMarkSelectedRestAsCompleted = () => {
@@ -140,6 +150,72 @@ export function TimerWidget() {
       return new Date(`${activity.specificDate}T00:00:00`).toLocaleDateString('pt-BR');
     }
     return 'Outro dia';
+  };
+
+  const renderActiveTaskSubtasks = (variant: 'expanded' | 'fullscreen') => {
+    if (!isBreakMode || !activeTask || !activeTask.subtasks || activeTask.subtasks.length === 0) return null;
+    
+    return (
+      <div className={cn("w-full mx-auto text-left relative", variant === 'fullscreen' ? "max-w-2xl mb-12" : "mb-6")}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/5 to-transparent rounded-2xl -z-10" />
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/40 p-4 backdrop-blur-sm">
+          <p className={cn(
+            "font-semibold text-[var(--color-primary)] mb-3 flex items-center justify-between",
+            variant === 'fullscreen' ? "text-lg" : "text-sm"
+          )}>
+            <span>Subtarefas de Foco</span>
+            <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 bg-[var(--color-primary)]/10 rounded-full">
+              Dever Cumprido
+            </span>
+          </p>
+          <div className={cn("space-y-1.5 overflow-y-auto pr-2 custom-scrollbar", variant === 'fullscreen' ? "max-h-[220px]" : "max-h-[140px]")}>
+            {activeTask.subtasks.map(subtask => {
+              const isChecked = subtask.completed;
+              return (
+                <div 
+                  key={subtask.id} 
+                  className={cn(
+                    "group flex items-center p-2.5 rounded-xl border transition-all duration-300 cursor-pointer relative overflow-hidden",
+                    isChecked 
+                      ? "bg-green-500/5 border-green-500/20" 
+                      : "bg-[var(--color-surface)] border-[var(--color-border)] hover:border-[var(--color-primary)]/30 shadow-sm hover:shadow-md"
+                  )}
+                  onClick={() => handleToggleSubtask(subtask.id)}
+                >
+                  <button 
+                    className={cn(
+                      "mr-3 transition-colors duration-300 z-10", 
+                      isChecked ? "text-green-500" : "text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)]"
+                    )}
+                  >
+                    {isChecked ? <CheckCircle2 className="w-5 h-5 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" /> : <Circle className="w-5 h-5" />}
+                  </button>
+                  <span className={cn(
+                    "flex-1 transition-all duration-300 z-10", 
+                    isChecked ? "text-green-500/70 line-through decoration-green-500/40" : "text-[var(--color-text)] font-medium",
+                    variant === 'fullscreen' ? "text-base" : "text-sm",
+                    isChecked && !subtask.completed ? "translate-x-1" : ""
+                  )}>
+                    {subtask.title}
+                  </span>
+                  {/* Subtle success flash background */}
+                  <AnimatePresence>
+                    {isChecked && (
+                      <motion.div 
+                        initial={{ scale: 0, opacity: 0.5 }}
+                        animate={{ scale: 1, opacity: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="absolute inset-0 bg-green-500 flex items-center justify-center rounded-xl origin-left"
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderBreakPickerSection = (variant: 'expanded' | 'fullscreen') => {
@@ -408,8 +484,14 @@ export function TimerWidget() {
 
             {renderBreakPickerSection('fullscreen')}
 
-            <div className="text-[12rem] md:text-[16rem] font-light tracking-tight font-mono leading-none mb-8 text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)]">
-              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            <div className="flex w-full items-center justify-center space-x-10 mb-8 max-w-6xl px-12">
+              <div className="flex-1 flex justify-end">
+                {renderActiveTaskSubtasks('fullscreen')}
+              </div>
+              <div className="text-[10rem] md:text-[14rem] shrink-0 font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)]">
+                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              </div>
+              <div className="flex-1" />
             </div>
 
             {isBreakMode ? (
@@ -579,7 +661,8 @@ export function TimerWidget() {
             </div>
 
             {renderBreakPickerSection('expanded')}
-            
+            {renderActiveTaskSubtasks('expanded')}
+
             <div className="flex justify-center items-center space-x-6">
               <button 
                 onClick={resetTimer}

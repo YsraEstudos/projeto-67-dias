@@ -18,19 +18,23 @@ export function TaskDetailsSidebar() {
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
-        const target = event.target as HTMLElement;
-        // Don't close if clicking on a task item (it will switch tasks instead)
-        if (target.closest('.task-item')) {
-          return;
-        }
-        setSelectedTaskId(null);
+    const handlePointerDown = (event: PointerEvent) => {
+      // composedPath() handles the case where the element was removed from the DOM during the click event
+      const path = event.composedPath();
+      if (sidebarRef.current && path.includes(sidebarRef.current)) {
+        return;
       }
+      
+      const target = event.target as HTMLElement;
+      // Don't close if clicking on a task item (it will switch tasks instead)
+      if (target && target.closest && target.closest('.task-item')) {
+        return;
+      }
+      setSelectedTaskId(null);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [setSelectedTaskId]);
 
   if (!task) return null;
