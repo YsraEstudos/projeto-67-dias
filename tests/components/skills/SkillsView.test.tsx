@@ -35,6 +35,7 @@ vi.mock('../../../hooks/useStorage', () => ({
 
 // Mock Firebase
 vi.mock('../../../services/firebase', () => ({
+    firebaseApp: {},
     db: {},
     auth: { currentUser: { uid: 'test-uid' } }
 }));
@@ -72,7 +73,32 @@ describe('SkillsView Component', () => {
         render(<SkillsView />);
 
         expect(screen.getByText('Skill Tree')).toBeInTheDocument();
+        expect(screen.getByText('Plano do Dia IA')).toBeInTheDocument();
         expect(screen.getByText('Gerencie seu aprendizado e desenvolvimento.')).toBeInTheDocument();
+    });
+
+    it('switches between Skill Tree, Agenda Semanal, Campeonato and Plano do Dia IA tabs', async () => {
+        render(<SkillsView />);
+
+        fireEvent.click(screen.getByText('Agenda Semanal'));
+        await waitFor(() => {
+            expect(screen.getByText('Arraste para agendar')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Campeonato'));
+        await waitFor(() => {
+            expect(screen.getByText('Ganhos de Hoje')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Plano do Dia IA'));
+        await waitFor(() => {
+            expect(screen.getByText('Painel de manobra')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText('Skill Tree'));
+        await waitFor(() => {
+            expect(screen.getByText('Test Skill')).toBeInTheDocument();
+        });
     });
 
     it('renders initial skill from mock data', () => {

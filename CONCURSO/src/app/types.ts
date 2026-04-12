@@ -29,7 +29,7 @@ export type RequirementPriority = 'baixa' | 'media' | 'alta';
 export type RequirementDifficulty = 'simples' | 'media' | 'dificil';
 
 export type TopicPriority = 'alta' | 'media' | 'baixa';
-export type TopicStatus = 'nao_iniciado' | 'em_progresso' | 'acertado';
+export type TopicStatus = 'nao_iniciado' | 'pendente' | 'em_progresso' | 'acertado';
 export type TopicGrade = 'A' | 'B' | 'C' | 'D' | 'E';
 export type TheoreticalContentKind = 'markdown' | 'pdf';
 export type TheoreticalContentOwnerType = 'topic' | 'submatter';

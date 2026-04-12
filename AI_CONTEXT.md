@@ -59,6 +59,7 @@ O dashboard principal também possui uma área `Concurso`, mas ela não substitu
   - `_reset()`
   - sincronização via `writeToFirestore()`
 - Prefira selectors em `stores/selectors/` quando já existirem.
+- O modulo `Habilidades` agora inclui a aba `Plano do Dia IA`, persistida em `p67_daily_planner_store` e renderizada no app raiz, sem depender do subapp `CONCURSO`.
 
 ## 4. Persistência e sincronização
 
@@ -153,12 +154,13 @@ Obrigatórias no runtime atual:
 Opcional:
 
 - `VITE_FIREBASE_MEASUREMENT_ID`
+- `VITE_FIREBASE_APP_CHECK_SITE_KEY`
 
 Observação:
 
-- `scripts/ensure-local-env.ps1` ainda preserva `VITE_GEMINI_API_KEY` como chave opcional legada.
-- Não existe hoje um cliente `services/gemini.ts` ativo no app.
-- Não documente Gemini como dependência obrigatória do runtime.
+- `scripts/ensure-local-env.ps1` ainda preserva `VITE_GEMINI_API_KEY`, agora usado pelo planner diario com Google AI Studio.
+- O app usa `@google/genai` para o planner diario com `gemini-3-pro-preview`, `ThinkingLevel.HIGH` e JSON estruturado.
+- `VITE_GEMINI_API_KEY` e a chave ativa do planner; em producao, nao exponha essa chave no cliente.
 
 ## 9. Build, teste e deploy
 
@@ -187,6 +189,7 @@ Observação:
 - Firestore rejeita `undefined`; continue usando o caminho de limpeza já centralizado em `writeToFirestore()`.
 - Se adicionar chamadas externas novas, revise CSP em `index.html` e headers de deploy.
 - Se criar novas stores persistidas, atualize hidratação, reset, sync e contadores que dependem de readiness.
+- Se alterar o planner diario, revise tambem o parser Zod em `services/dailyPlannerAI.ts`, os mocks de `@google/genai` em `tests/setup.ts` e o CSP para `generativelanguage.googleapis.com`.
 
 ## 11. Docs que valem como fonte de verdade
 

@@ -28,4 +28,15 @@ describe('DashboardPage', () => {
     const mapLink = screen.getByRole('link', { name: /ver mapa completo/i });
     expect(mapLink).toHaveAttribute('href', '/conteudo');
   });
+
+  it('permite abrir a matéria direto do card do plano manual no dashboard', () => {
+    const state = createStateWithTopics((draft) => {
+      draft.selectedDate = '2026-03-14';
+    });
+
+    renderConcursoApp('/', state);
+
+    const subjectLink = screen.getAllByRole('link', { name: /abrir matéria/i })[0];
+    expect(subjectLink).toHaveAttribute('href', expect.stringMatching(/^\/conteudo\/topico\/item-/));
+  });
 }, 10000);

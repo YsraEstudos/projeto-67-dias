@@ -25,6 +25,7 @@ import { useAppContext } from '../app/AppContext';
 import {
   THEORETICAL_CONTENT_ACCEPT,
   TOPIC_GRADE_OPTIONS,
+  TOPIC_STATUS_OPTIONS,
   TOPIC_STALE_BUCKETS_DAYS,
 } from '../app/constants';
 import {
@@ -41,7 +42,7 @@ import {
   listTheoreticalContentsForOwner,
 } from '../app/contentTheoreticalFiles';
 import { loadTheoreticalContentBinary } from '../app/contentTheoreticalFileStore';
-import { topicGradeLabel } from '../app/formatters';
+import { topicGradeLabel, topicStatusHint, topicStatusLabel } from '../app/formatters';
 import { getTopicDisplayTitle } from '../app/topics';
 import type { TheoreticalContentItem, TopicGrade, TopicSubmatter } from '../app/types';
 import { ActionButton } from '../components/ActionButton';
@@ -177,6 +178,7 @@ export const ContentTopicPage = () => {
   const {
     topics,
     state,
+    setTopicStatus,
     addTopicSubmatter,
     updateTopicSubmatter,
     removeTopicSubmatter,
@@ -255,6 +257,8 @@ export const ContentTopicPage = () => {
   );
 
   const currentGrade = useMemo(() => getTopicCurrentGrade(submatters), [submatters]);
+  const topicStatus = state.topicProgress[topicId]?.status ?? 'nao_iniciado';
+  const isTopicPending = topicStatus === 'pendente';
 
   const openedTheoreticalContent = useMemo(
     () => topicContextTheoreticalContents.find((item) => item.id === viewerState.itemId) ?? null,
@@ -1209,7 +1213,7 @@ export const ContentTopicPage = () => {
       <PageIntro
         kicker="Leitura e revisão"
         title={getTopicDisplayTitle(topic)}
-        description="Modo rápido para reavaliar, revisar hoje e registrar erro/ação sem depender da tabela."
+        description="Modo rápido para reavaliar, revisar hoje, registrar erro/ação e sinalizar quando a matéria ficou pendente."
         actions={
           <ActionButton to="/conteudo" tone="ghost">
             Voltar para Conteúdo
@@ -1218,6 +1222,9 @@ export const ContentTopicPage = () => {
         meta={
           <div className="topic-hero-meta">
             <span className={`grade-pill grade-pill-${currentGrade.toLowerCase()}`}>Nota atual {currentGrade}</span>
+            <span className={isTopicPending ? 'eyebrow-badge eyebrow-badge-pending' : 'eyebrow-badge'}>
+              Status {topicStatusLabel(topicStatus)}
+            </span>
             <span className="eyebrow-badge">{sortedSubmatters.length} submatéria(s)</span>
             <span className="eyebrow-badge">{topicContextTheoreticalContents.length} aula(s)</span>
           </div>
@@ -1273,7 +1280,63 @@ export const ContentTopicPage = () => {
             ))}
           </div>
         </div>
+
+        <div className="metric-card metric-card-pending">
+          <div className="metric-card-title">
+            <span>Status da matéria</span>
+            <span>{isTopicPending ? 'Pendente' : 'Fluxo'}</span>
+          </div>
+          <div className="metric-card-summary">
+            <strong>{topicStatusLabel(topicStatus)}</strong>
+            <p>{topicStatusHint(topicStatus)}</p>
+          </div>
+        </div>
       </div>
+
+      <SectionCard
+        kicker="Ritmo operacional"
+        title="Marcação da matéria"
+        tone={isTopicPending ? 'alert' : 'default'}
+        className="topic-status-panel"
+        aside={
+          <span className={isTopicPending ? 'eyebrow-badge eyebrow-badge-pending' : 'eyebrow-badge'}>
+            {isTopicPending ? 'Visível em Pendentes' : 'Sem pendência manual'}
+          </span>
+        }
+      >
+        <div className="topic-status-panel-head">
+          <div className="topic-status-panel-copy">
+            <strong>{topicStatusLabel(topicStatus)}</strong>
+            <p className="projects-card-meta">{topicStatusHint(topicStatus)}</p>
+          </div>
+          <p className="topic-status-panel-note">
+            Quando você marcar <strong>Pendente</strong>, esta matéria volta com destaque na página
+            principal de conteúdo, no badge do card e no filtro <strong>Pendentes</strong>.
+          </p>
+        </div>
+
+        <div className="topic-status-selector" role="group" aria-label="Status da matéria">
+          {TOPIC_STATUS_OPTIONS.map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={`topic-status-chip ${topicStatus === status ? 'topic-status-chip-active' : ''} ${
+                status === 'pendente' ? 'topic-status-chip-pending' : ''
+              }`}
+              aria-pressed={topicStatus === status}
+              aria-label={
+                status === 'pendente'
+                  ? 'Marcar matéria como pendente'
+                  : `Definir matéria como ${topicStatusLabel(status)}`
+              }
+              onClick={() => setTopicStatus(topic.id, status)}
+            >
+              <span>{topicStatusLabel(status)}</span>
+              <small>{topicStatusHint(status)}</small>
+            </button>
+          ))}
+        </div>
+      </SectionCard>
 
       <SectionCard
         kicker="Biblioteca"

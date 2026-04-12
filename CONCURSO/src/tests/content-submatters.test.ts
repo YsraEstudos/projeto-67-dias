@@ -39,19 +39,23 @@ describe('content submatters migration', () => {
       sampleTopic('t1', 'Topico 1'),
       sampleTopic('t2', 'Topico 2'),
       sampleTopic('t3', 'Topico 3'),
+      sampleTopic('t4', 'Topico 4'),
     ];
     const legacyProgress: Record<string, TopicProgress> = {
       t1: { status: 'acertado', evidenceNote: 'bom', updatedAt: '2026-02-20T18:00:00.000Z' },
       t2: { status: 'em_progresso', evidenceNote: 'medio', updatedAt: '2026-02-15T09:00:00.000Z' },
       t3: { status: 'nao_iniciado', evidenceNote: '', updatedAt: null },
+      t4: { status: 'pendente', evidenceNote: 'faltou estudar', updatedAt: '2026-02-18T12:00:00.000Z' },
     };
 
     const migrated = migrateTopicSubmattersFromLegacy(leafTopics, legacyProgress);
     expect(migrated.t1[0].grade).toBe('A');
     expect(migrated.t2[0].grade).toBe('C');
     expect(migrated.t3[0].grade).toBe('E');
+    expect(migrated.t4[0].grade).toBe('E');
     expect(migrated.t1[0].errorNote).toBe('bom');
     expect(migrated.t1[0].lastReviewedAt).toBe('2026-02-20');
+    expect(migrated.t4[0].lastReviewedAt).toBeNull();
   });
 
   it('usa o nome padronizado quando o tópico tiver displayTitle', () => {

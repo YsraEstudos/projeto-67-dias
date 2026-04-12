@@ -11,7 +11,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth, subscribeToAuthChanges } from '../services/firebase';
 
 const FIRESTORE_MIGRATION_FLAG = 'p67_firestore_migration_complete';
-const MIGRATION_VERSION = 2; // Increment this to re-run migration
+const MIGRATION_VERSION = 3; // Increment this to re-run migration
 
 // All store keys that need to be migrated
 const STORE_KEYS = [
@@ -31,6 +31,7 @@ const STORE_KEYS = [
     'p67_water_store',
     'p67_streak_store',
     'p67_tool_timer',
+    'pomodoro-storage',
 ];
 
 /**

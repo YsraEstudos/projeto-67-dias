@@ -92,6 +92,26 @@ describe('ContentTopicPage', () => {
     expect(screen.getByDisplayValue('Casos especiais')).toBeInTheDocument();
   }, 10000);
 
+  it('permite marcar a matéria como pendente e reapresenta isso na listagem principal', async () => {
+    const user = userEvent.setup();
+    const topicId = topicIdByTitle('Domínio da ortografia oficial.');
+
+    const topicView = renderConcursoApp(`/conteudo/topico/${topicId}`);
+
+    await user.click(screen.getByRole('button', { name: 'Marcar matéria como pendente' }));
+
+    expect(screen.getByText('Status Pendente')).toBeInTheDocument();
+    expect(
+      screen.getByText(/esta matéria volta com destaque na página principal de conteúdo/i),
+    ).toBeInTheDocument();
+
+    topicView.unmount();
+    renderConcursoApp('/conteudo');
+
+    const topicCard = screen.getByRole('link', { name: 'Domínio da ortografia oficial.' });
+    expect(within(topicCard).getByText('Pendente')).toBeInTheDocument();
+  });
+
   it('mostra o nome padronizado do topico e migra a submateria padrao legada', () => {
     const topicId = topicIdByTitle(
       'Arquitetura de computadores: processador, memória principal/secundária e dispositivos de E/S.',

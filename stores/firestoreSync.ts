@@ -102,12 +102,14 @@ const STORE_DEBOUNCE_OVERRIDES: Record<string, number> = {
     p67_work_store: 10000,
     p67_tool_timer: 5000,
     p67_competition_store: 10000,
+    'pomodoro-storage': 10000,
 
     // Text-heavy modules can use a longer window safely
     p67_notes_store: 25000,
     p67_prompts_store: 25000,
     p67_links_store: 25000,
     p67_weekly_agenda: 25000,
+    p67_daily_planner_store: 25000,
 };
 
 // Track last written data per collection to avoid duplicate writes

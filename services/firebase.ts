@@ -1,5 +1,6 @@
 // src/services/firebase.ts
 import { initializeApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import {
     getAuth,
     signInWithEmailAndPassword,
@@ -44,6 +45,8 @@ const rawFirebaseEnv = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
+
+const appCheckSiteKey = sanitizeFirebaseEnvValue(import.meta.env.VITE_FIREBASE_APP_CHECK_SITE_KEY);
 
 const firebaseConfig = {
     apiKey: sanitizeFirebaseEnvValue(rawFirebaseEnv.apiKey),
@@ -103,16 +106,16 @@ if (missingConfigKeys.length) {
 }
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+export const firebaseApp = initializeApp(firebaseConfig);
 
 // Export services
-export const auth = getAuth(app);
+export const auth = getAuth(firebaseApp);
 
 let firestoreInstance: Firestore | null = null;
 
 try {
     // FIRESTORE: Configuração de cache persistente (substitui enableMultiTabIndexedDbPersistence deprecado)
-    firestoreInstance = initializeFirestore(app, {
+    firestoreInstance = initializeFirestore(firebaseApp, {
         localCache: persistentLocalCache({
             tabManager: persistentMultipleTabManager()
         })
@@ -122,6 +125,17 @@ try {
 }
 
 export const db = firestoreInstance;
+
+if (appCheckSiteKey && typeof window !== 'undefined') {
+    try {
+        initializeAppCheck(firebaseApp, {
+            provider: new ReCaptchaV3Provider(appCheckSiteKey),
+            isTokenAutoRefreshEnabled: true,
+        });
+    } catch (error) {
+        console.warn('[Firebase] App Check nao foi inicializado.', error);
+    }
+}
 
 // Google Provider
 const googleProvider = new GoogleAuthProvider();

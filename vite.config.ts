@@ -73,7 +73,7 @@ export default defineConfig(({ mode, command }) => {
         transformIndexHtml(html) {
           return html.replace(
             /<meta http-equiv="Content-Security-Policy"[\s\S]*?>/,
-            `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://*.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' https://actions.google.com; connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:* https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google-analytics.com https://www.googletagmanager.com https://generativelanguage.googleapis.com https://apis.google.com https://economia.awesomeapi.com.br;">`,
+            `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://*.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' https://actions.google.com; connect-src 'self' ws: wss: http://127.0.0.1:* http://localhost:* https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google-analytics.com https://www.googletagmanager.com https://generativelanguage.googleapis.com https://firebasevertexai.googleapis.com wss://firebasevertexai.googleapis.com https://apis.google.com https://economia.awesomeapi.com.br;">`,
           );
         },
       },
@@ -158,7 +158,7 @@ export default defineConfig(({ mode, command }) => {
         output: {
           manualChunks: {
             'vendor': ['react', 'react-dom', 'zustand'],
-            'firebase-core': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'firebase-core': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/ai', 'firebase/app-check'],
             'charts': ['recharts'],
             'markdown': ['react-markdown', 'remark-gfm'],
             'date-utils': ['date-fns'],
@@ -177,6 +177,7 @@ export default defineConfig(({ mode, command }) => {
       'import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(env.VITE_FIREBASE_MESSAGING_SENDER_ID),
       'import.meta.env.VITE_FIREBASE_APP_ID': JSON.stringify(env.VITE_FIREBASE_APP_ID),
       'import.meta.env.VITE_FIREBASE_MEASUREMENT_ID': JSON.stringify(env.VITE_FIREBASE_MEASUREMENT_ID),
+      'import.meta.env.VITE_FIREBASE_APP_CHECK_SITE_KEY': JSON.stringify(env.VITE_FIREBASE_APP_CHECK_SITE_KEY),
     }
   };
 });

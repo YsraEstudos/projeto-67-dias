@@ -1,0 +1,27 @@
+.pomodoro-app-container {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-hover: #334155;
+  --color-primary: #ef4444; 
+  --color-text: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-border: #334155;
+  
+  /* Integrate seamlessly visually */
+  border-radius: 1.5rem;
+}
+
+.pomodoro-app-container ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.pomodoro-app-container ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pomodoro-app-container ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+.pomodoro-app-container ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

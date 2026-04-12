@@ -15,11 +15,11 @@ import {
 } from "../app/contentSubmatters";
 import { downloadTheoreticalContentsBundle } from "../app/contentTheoreticalDownloads";
 import { buildTheoreticalContentProgress } from "../app/contentTheoreticalFiles";
-import { subjectLabel, workActivityLabel } from "../app/formatters";
+import { subjectLabel, topicStatusLabel, workActivityLabel } from "../app/formatters";
 import { getTopicDisplayTitle, getTopicSearchText } from "../app/topics";
 import type { SubjectKey, TopicGrade, TopicSubmatter } from "../app/types";
 
-type QuickFilter = "all" | "review-now" | "stale" | "unreviewed" | TopicGrade;
+type QuickFilter = "all" | "pending" | "review-now" | "stale" | "unreviewed" | TopicGrade;
 
 type FilterChipProps = {
   key: QuickFilter;
@@ -28,6 +28,7 @@ type FilterChipProps = {
 
 const FILTER_CHIPS: FilterChipProps[] = [
   { key: "all", label: "Tudo" },
+  { key: "pending", label: "Pendentes" },
   { key: "review-now", label: "Revisar agora" },
   { key: "A", label: "A" },
   { key: "B", label: "B" },
@@ -39,6 +40,7 @@ const FILTER_CHIPS: FilterChipProps[] = [
 ];
 
 const resolveInitialQuickFilter = (value: string | null): QuickFilter => {
+  if (value === "pending") return "pending";
   if (value === "review-now") return "review-now";
   return "all";
 };
@@ -72,8 +74,10 @@ const matchesQuickFilter = (
   submatters: TopicSubmatter[],
   reviewQueueById: Map<string, ReturnType<typeof buildReviewQueue>[number]>,
   topicCurrentGrade: TopicGrade,
+  isPendingTopic: boolean,
 ): boolean => {
   if (filter === "all") return true;
+  if (filter === "pending") return isPendingTopic;
   if (
     filter === "A" ||
     filter === "B" ||
@@ -152,6 +156,15 @@ export const ContentPage = () => {
     () => buildReviewQueue(state.topicSubmattersByTopic, topics),
     [state.topicSubmattersByTopic, topics],
   );
+  const pendingTopicIds = useMemo(
+    () =>
+      new Set(
+        Object.entries(state.topicProgress)
+          .filter(([, progress]) => progress.status === "pendente")
+          .map(([topicId]) => topicId),
+      ),
+    [state.topicProgress],
+  );
   const topicRollups = useMemo(
     () => buildTopicRollups(state.topicSubmattersByTopic, topics),
     [state.topicSubmattersByTopic, topics],
@@ -177,6 +190,7 @@ export const ContentPage = () => {
     () => new Map(reviewQueue.map((item) => [item.submatterId, item])),
     [reviewQueue],
   );
+  const pendingTopicsCount = pendingTopicIds.size;
 
   const groupedSections = useMemo(() => {
     const sectionTopics = topics.filter((topic) => !topic.isLeaf);
@@ -192,6 +206,7 @@ export const ContentPage = () => {
           .filter((topic) => {
             const submatters = state.topicSubmattersByTopic[topic.id] ?? [];
             const currentGrade = topicRollups[topic.id]?.currentGrade ?? "E";
+            const isPendingTopic = pendingTopicIds.has(topic.id);
             return (
               matchesSearch(
                 getTopicSearchText(topic),
@@ -204,21 +219,27 @@ export const ContentPage = () => {
                 submatters,
                 reviewQueueById,
                 currentGrade,
+                isPendingTopic,
               )
             );
           })
-          .map((topic) => ({ topic, rollup: topicRollups[topic.id] }));
+          .map((topic) => ({
+            topic,
+            rollup: topicRollups[topic.id],
+            isPendingTopic: pendingTopicIds.has(topic.id),
+          }));
 
         const summary = children.reduce(
-          (accumulator, { topic, rollup }) => {
+          (accumulator, { topic, rollup, isPendingTopic }) => {
             accumulator.reviewNow += rollup?.reviewNowCount ?? 0;
             accumulator.pendingLessons +=
               lessonProgressByTopic[topic.id]?.pendingCount ?? 0;
             if ((rollup?.currentGrade ?? "E") === "E")
               accumulator.criticalTopics += 1;
+            if (isPendingTopic) accumulator.pendingTopics += 1;
             return accumulator;
           },
-          { reviewNow: 0, pendingLessons: 0, criticalTopics: 0 },
+          { reviewNow: 0, pendingLessons: 0, criticalTopics: 0, pendingTopics: 0 },
         );
 
         return { section, children, summary };
@@ -230,6 +251,7 @@ export const ContentPage = () => {
     quickFilter,
     reviewQueueById,
     state.topicSubmattersByTopic,
+    pendingTopicIds,
     subjectFilter,
     topicRollups,
     topics,
@@ -306,8 +328,8 @@ export const ContentPage = () => {
         <div className="header-title">
           <h1>Conteúdo Programático</h1>
           <p>
-            A visão agora começa pelas fraquezas: notas A-E, fila de revisão e
-            tópicos mais pressionados para você agir rápido.
+            A visão agora começa pelas fraquezas: notas A-E, fila de revisão,
+            pendências manuais e tópicos mais pressionados para você agir rápido.
           </p>
         </div>
         <button
@@ -371,6 +393,20 @@ export const ContentPage = () => {
                 <span>{staleSummary.byDays[days]}</span>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="metric-card metric-card-pending">
+          <div className="metric-card-title">
+            <span>Matérias pendentes</span>
+            <span>Manual</span>
+          </div>
+          <div className="metric-card-summary">
+            <strong>{pendingTopicsCount} matéria(s)</strong>
+            <p>
+              Tudo que você marcar como não estudado aparece com badge próprio e
+              no chip <strong>Pendentes</strong>.
+            </p>
           </div>
         </div>
       </div>
@@ -448,6 +484,11 @@ export const ContentPage = () => {
                       Revisar: {summary.reviewNow}
                     </span>
                   )}
+                  {summary.pendingTopics > 0 && (
+                    <span className="stat-badge pending-badge">
+                      Pendentes: {summary.pendingTopics}
+                    </span>
+                  )}
                   {summary.criticalTopics > 0 && (
                     <span className="stat-badge critical-badge">
                       Nota E: {summary.criticalTopics}
@@ -457,10 +498,14 @@ export const ContentPage = () => {
               </div>
 
               {isExpanded &&
-                children.map(({ topic, rollup }) => {
+                children.map(({ topic, rollup, isPendingTopic }) => {
                   const topicGrade = rollup?.currentGrade ?? "E";
+                  const topicStatus = state.topicProgress[topic.id]?.status ?? "nao_iniciado";
                   return (
-                    <article className="topic-row" key={topic.id}>
+                    <article
+                      className={`topic-row ${isPendingTopic ? "topic-row-pending" : ""}`}
+                      key={topic.id}
+                    >
                       <Link
                         to={`/conteudo/topico/${topic.id}`}
                         className="topic-link-wrapper"
@@ -480,6 +525,11 @@ export const ContentPage = () => {
                             </div>
                           </div>
                           <div className="topic-badges">
+                            {isPendingTopic && (
+                              <span className="badge pending">
+                                {topicStatusLabel(topicStatus)}
+                              </span>
+                            )}
                             <span
                               className={`badge ${topicGrade === "E" ? "alert" : ""}`}
                             >

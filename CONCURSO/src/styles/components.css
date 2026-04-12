@@ -390,6 +390,12 @@
   color: var(--text-muted);
 }
 
+.eyebrow-badge-pending {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.26);
+  background: rgba(245, 158, 11, 0.12);
+}
+
 .grade-pill-a,
 .grade-chip-a,
 .review-grade-card-a,

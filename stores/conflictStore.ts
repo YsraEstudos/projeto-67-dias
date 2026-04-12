@@ -24,6 +24,7 @@ const COLLECTION_LABELS: Record<string, string> = {
     'p67_work': 'Trabalho',
     'p67_review': 'Revisão',
     'p67_weekly_agenda': 'Agenda Semanal',
+    'p67_daily_planner_store': 'Plano do Dia IA',
 };
 
 export interface Conflict {

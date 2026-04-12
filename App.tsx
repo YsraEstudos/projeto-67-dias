@@ -25,7 +25,7 @@ import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 import { useAuth } from './hooks/useAuth';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, useCompetitionStore, clearAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, useCompetitionStore, useDailyPlannerStore, usePomodoroStore, clearAllStores } from './stores';
 import { subscribeToDocument, subscribeToSubcollection, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
@@ -77,6 +77,7 @@ const SettingsView = React.lazy(() => import('./components/views/SettingsView'))
 const LinksView = React.lazy(() => import('./components/views/LinksView'));
 const SundayView = React.lazy(() => import('./components/views/SundayView'));
 const GamesView = React.lazy(() => import('./components/views/GamesView'));
+const PomodoroView = React.lazy(() => import('./components/views/PomodoroView'));
 
 // --- Floating Timer Widget (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
@@ -323,6 +324,14 @@ const App: React.FC = () => {
       {
         key: 'p67_competition_store',
         hydrate: (data: any) => useCompetitionStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_daily_planner_store',
+        hydrate: (data: any) => useDailyPlannerStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'pomodoro-storage',
+        hydrate: (data: any) => usePomodoroStore.getState()._hydrateFromFirestore(data)
       }
     ];
     const totalStores = storeSubscriptions.length;
@@ -467,6 +476,7 @@ const App: React.FC = () => {
       [ViewState.SETTINGS]: 'Configurações',
       [ViewState.GAMES]: 'Jogos',
       [ViewState.CONCURSO]: 'Concurso',
+      [ViewState.POMODORO]: 'Pomodoro',
     };
     return labels[view] || view;
   }, []);
@@ -643,6 +653,13 @@ const App: React.FC = () => {
         icon: Trophy,
         color: 'text-purple-400',
       },
+      {
+        id: ViewState.POMODORO,
+        title: 'Pomodoro',
+        subtitle: 'Projetos curtos',
+        icon: Timer,
+        color: 'text-red-500',
+      },
     ];
   }, [notificationCount, workCurrentCount, workGoal, readingStats]);
 
@@ -676,6 +693,7 @@ const App: React.FC = () => {
       case ViewState.LINKS: content = <LinksView />; break;
       case ViewState.SUNDAY: content = <SundayView />; break;
       case ViewState.GAMES: content = <GamesView />; break;
+      case ViewState.POMODORO: content = <PomodoroView />; break;
       case ViewState.CONCURSO: 
         window.location.href = window.location.origin + '/concurso/#/';
         return null;

@@ -13,6 +13,8 @@ const mapLegacyStatusToGrade = (status: TopicProgress['status']): TopicGrade => 
       return 'A';
     case 'em_progresso':
       return 'C';
+    case 'pendente':
+      return 'E';
     case 'nao_iniciado':
       return 'E';
     default:
@@ -58,12 +60,16 @@ export const migrateTopicSubmattersFromLegacy = (
 
   return leafTopics.reduce<Record<string, TopicSubmatter[]>>((accumulator, topic) => {
     const legacy = topicProgress[topic.id];
+    const legacyStatus = legacy?.status ?? 'nao_iniciado';
     accumulator[topic.id] = [
       {
         id: createSubmatterId(topic.id),
         title: getTopicDisplayTitle(topic),
-        grade: mapLegacyStatusToGrade(legacy?.status ?? 'nao_iniciado'),
-        lastReviewedAt: toIsoDate(legacy?.updatedAt ?? null),
+        grade: mapLegacyStatusToGrade(legacyStatus),
+        lastReviewedAt:
+          legacyStatus === 'pendente' || legacyStatus === 'nao_iniciado'
+            ? null
+            : toIsoDate(legacy?.updatedAt ?? null),
         errorNote: legacy?.evidenceNote ?? '',
         actionNote: '',
         createdAt: timestamp,

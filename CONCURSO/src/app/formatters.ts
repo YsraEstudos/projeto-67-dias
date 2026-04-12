@@ -7,6 +7,7 @@ import type {
   RequirementPriority,
   SubjectKey,
   TopicGrade,
+  TopicStatus,
   TechnologyKey,
   WorkActivity,
 } from './types';
@@ -26,10 +27,12 @@ export const formatIsoDatePtBr = (isoDate: string): string => {
   });
 };
 
-export const statusLabel = (status: 'nao_iniciado' | 'em_progresso' | 'acertado'): string => {
+export const topicStatusLabel = (status: TopicStatus): string => {
   switch (status) {
     case 'nao_iniciado':
       return 'Não iniciado';
+    case 'pendente':
+      return 'Pendente';
     case 'em_progresso':
       return 'Em progresso';
     case 'acertado':
@@ -38,6 +41,23 @@ export const statusLabel = (status: 'nao_iniciado' | 'em_progresso' | 'acertado'
       return status;
   }
 };
+
+export const topicStatusHint = (status: TopicStatus): string => {
+  switch (status) {
+    case 'nao_iniciado':
+      return 'Ainda não entrou no seu ciclo ativo.';
+    case 'pendente':
+      return 'Marcada como não estudada e visível no filtro Pendentes.';
+    case 'em_progresso':
+      return 'Matéria em andamento, sem pendência manual.';
+    case 'acertado':
+      return 'Rodada e estabilizada no momento.';
+    default:
+      return '';
+  }
+};
+
+export const statusLabel = (status: TopicStatus): string => topicStatusLabel(status);
 
 const TECHNOLOGY_LABELS = PROJECT_TECHNOLOGIES.reduce<Record<TechnologyKey, string>>(
   (accumulator, item) => {

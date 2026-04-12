@@ -149,21 +149,43 @@ export const DashboardPage = () => {
                 <p>
                   Plano manual: <strong>Semana {plan.weekNumber ?? '-'}</strong>
                 </p>
-                {plan.manualBlocks?.slice(0, 3).map((block) => (
-                  <div key={block.id} className="task-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
+                {plan.manualBlocks?.slice(0, 3).map((block) => {
+                  const primaryTarget = block.contentTargets?.[0] ?? null;
+                  const extraTargetsCount = Math.max((block.contentTargets?.length ?? 0) - 1, 0);
+
+                  return (
+                  <div key={block.id} className="task-item" style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontWeight: 600, color: '#fff', fontSize: '1.05rem', margin: '0 0 4px' }}>
                         {block.area}: {block.title}
                       </p>
                       {block.contentRefs?.length ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>{getManualBlockContentSummary(block)}</p>
                       ) : null}
+                      {primaryTarget ? (
+                        <div className="dashboard-plan-task-links">
+                          <Link
+                            to={primaryTarget.path}
+                            className="dashboard-plan-task-link"
+                            aria-label={`Abrir matéria ${primaryTarget.title}`}
+                            title={primaryTarget.title}
+                          >
+                            <span>Abrir matéria</span>
+                            <ChevronRight size={14} />
+                          </Link>
+                          {extraTargetsCount > 0 ? (
+                            <span className="dashboard-plan-task-meta">
+                              +{extraTargetsCount} referência(s)
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                     <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ccc' }}>
                       IN PROGRESS
                     </span>
                   </div>
-                ))}
+                )})}
                 <p>
                   Simulado: {plan?.hasSimulado ? 'sim' : 'não'} | Redação: {plan?.hasRedacao ? 'sim' : 'não'}
                 </p>

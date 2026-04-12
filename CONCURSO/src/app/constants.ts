@@ -6,6 +6,7 @@ import type {
   RequirementDifficulty,
   RequirementPriority,
   TopicGrade,
+  TopicStatus,
   SubjectKey,
   TechnologyKey,
   WorkActivity,
@@ -123,6 +124,13 @@ export const REQUIREMENT_DIFFICULTY_OPTIONS: RequirementDifficulty[] = ['simples
 export const PROJECT_PROGRESS_BUCKETS = ['all', '0', '1-49', '50-99', '100'] as const;
 
 export const TOPIC_GRADE_OPTIONS: TopicGrade[] = ['A', 'B', 'C', 'D', 'E'];
+
+export const TOPIC_STATUS_OPTIONS: TopicStatus[] = [
+  'nao_iniciado',
+  'pendente',
+  'em_progresso',
+  'acertado',
+];
 
 export const TOPIC_GRADE_LABELS: Record<TopicGrade, string> = {
   A: 'A (melhor)',

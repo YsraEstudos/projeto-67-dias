@@ -34,6 +34,7 @@ Este repositório tem duas frentes que convivem no mesmo workspace:
 - Sincronização Firestore-first via `stores/firestoreSync.ts`.
 - Cache persistente multiaba do Firestore via `persistentLocalCache` + `persistentMultipleTabManager`.
 - Autenticação com email/senha, Google e convidado; em desenvolvimento local existe fallback para convidado local quando a autenticação anônima do Firebase não está disponível.
+- A aba `Plano do Dia IA` dentro de `Habilidades` usa Google AI Studio via `@google/genai`, com `gemini-3-pro-preview`, `ThinkingLevel.HIGH` e saída estruturada em JSON para gerar o plano do restante do dia.
 - PWA via `vite-plugin-pwa`.
 - API Python em `api/compress.py` para compressão avançada de imagens quando o fluxo precisa enviar arquivos ao Firebase Storage.
 
@@ -137,12 +138,14 @@ Obrigatórias para o app raiz:
 - `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_GEMINI_API_KEY` para testar o `Plano do Dia IA` com Google AI Studio
+
+Se você já tiver a variável oficial `GEMINI_API_KEY` exportada no sistema, o helper `scripts/ensure-local-env.ps1` copia esse valor para `VITE_GEMINI_API_KEY` ao preparar o `.env.local`.
 
 Opcional:
 
 - `VITE_FIREBASE_MEASUREMENT_ID`
-
-`VITE_GEMINI_API_KEY` ainda aparece no helper `scripts/ensure-local-env.ps1` como chave opcional legada, mas não é dependência ativa do runtime atual.
+- `VITE_FIREBASE_APP_CHECK_SITE_KEY`
 
 ## Mapa de documentação
 

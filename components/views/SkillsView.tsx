@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { GraduationCap, Plus, Calendar, Trophy } from 'lucide-react';
+import { GraduationCap, Plus, Calendar, Trophy, Sparkles } from 'lucide-react';
 import { Skill, Prompt, PromptCategory } from '../../types';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { usePromptsStore } from '../../stores/promptsStore';
@@ -14,6 +14,7 @@ import { calculateSkillProgress } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 import { WeeklyAgenda } from '../skills/agenda';
 import { ChampionshipView } from '../skills/ChampionshipView';
+import { DailyPlannerView } from '../skills/DailyPlannerView';
 
 const SkillsView: React.FC = () => {
   // Zustand stores
@@ -34,7 +35,7 @@ const SkillsView: React.FC = () => {
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [dailyPlanSkill, setDailyPlanSkill] = useState<Skill | null>(null);
-  const [activeTab, setActiveTab] = useState<'skills' | 'agenda' | 'campeonato'>('skills');
+  const [activeTab, setActiveTab] = useState<'skills' | 'agenda' | 'campeonato' | 'planner'>('skills');
   const initializationRef = React.useRef(false);
 
   // Initialize with default skills if empty AND not yet initialized
@@ -181,6 +182,16 @@ const SkillsView: React.FC = () => {
           <Trophy size={18} />
           Campeonato
         </button>
+        <button
+          onClick={() => setActiveTab('planner')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'planner'
+            ? 'bg-amber-500 text-black shadow-lg shadow-amber-900/20'
+            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+        >
+          <Sparkles size={18} />
+          Plano do Dia IA
+        </button>
       </div>
 
       {/* Barra de Ofensiva de Skills */}
@@ -200,6 +211,8 @@ const SkillsView: React.FC = () => {
         <WeeklyAgenda />
       ) : activeTab === 'campeonato' ? (
         <ChampionshipView />
+      ) : activeTab === 'planner' ? (
+        <DailyPlannerView />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

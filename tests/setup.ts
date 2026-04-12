@@ -1,9 +1,16 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+vi.stubEnv('VITE_GEMINI_API_KEY', 'test-gemini-api-key');
+
 // Mock Firebase
 vi.mock('firebase/app', () => ({
     initializeApp: vi.fn(),
+}));
+
+vi.mock('firebase/app-check', () => ({
+    initializeAppCheck: vi.fn(),
+    ReCaptchaV3Provider: vi.fn().mockImplementation((siteKey: string) => ({ siteKey })),
 }));
 
 vi.mock('firebase/auth', () => {
@@ -66,6 +73,71 @@ vi.mock('firebase/storage', () => {
         uploadBytes: vi.fn(() => Promise.resolve({ ref: storageRef })),
         getDownloadURL: vi.fn(() => Promise.resolve('https://example.com/mock-story.jpg')),
         deleteObject: vi.fn(() => Promise.resolve()),
+    };
+});
+
+vi.mock('@google/genai', () => {
+    const generateContent = vi.fn(() => Promise.resolve({
+        text: JSON.stringify({
+            assistantMessage: 'Plano gerado.',
+            timeSummary: {
+                currentTime: '19:00',
+                sleepTime: '22:00',
+                windDownStart: '21:50',
+                availableMinutes: 170,
+                reservedMinutes: 45,
+                scheduledMinutes: 110,
+                freeBufferMinutes: 15,
+            },
+            scheduledBlocks: [],
+            deferredItems: [],
+            encouragement: 'Voce ainda pode fechar bem o dia.',
+        }),
+        candidates: [
+            {
+                content: {
+                    parts: [
+                        {
+                            text: JSON.stringify({
+                                assistantMessage: 'Plano gerado.',
+                                timeSummary: {
+                                    currentTime: '19:00',
+                                    sleepTime: '22:00',
+                                    windDownStart: '21:50',
+                                    availableMinutes: 170,
+                                    reservedMinutes: 45,
+                                    scheduledMinutes: 110,
+                                    freeBufferMinutes: 15,
+                                },
+                                scheduledBlocks: [],
+                                deferredItems: [],
+                                encouragement: 'Voce ainda pode fechar bem o dia.',
+                            }),
+                        },
+                    ],
+                },
+            },
+        ],
+    }));
+
+    const mockClient = {
+        models: {
+            generateContent,
+        },
+    };
+
+    const GoogleGenAI = vi.fn(function GoogleGenAI() {
+        return mockClient;
+    });
+
+    return {
+        GoogleGenAI,
+        ThinkingLevel: {
+            MINIMAL: 'minimal',
+            LOW: 'low',
+            MEDIUM: 'medium',
+            HIGH: 'high',
+        },
     };
 });
 

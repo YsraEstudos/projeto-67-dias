@@ -145,6 +145,9 @@ foreach ($key in $requiredKeyMap.Keys + $optionalKeys) {
     }
 
     $envValue = [Environment]::GetEnvironmentVariable($key)
+    if ([string]::IsNullOrWhiteSpace($envValue) -and $key -eq 'VITE_GEMINI_API_KEY') {
+        $envValue = [Environment]::GetEnvironmentVariable('GEMINI_API_KEY')
+    }
     if (-not [string]::IsNullOrWhiteSpace($envValue)) {
         $values[$key] = $envValue
         if (-not $sourcesUsed.Contains('variaveis do sistema')) {

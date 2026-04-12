@@ -196,4 +196,35 @@ describe('ContentPage', () => {
     },
     10000,
   );
+
+  it('destaca matérias pendentes e permite filtrar só o que ficou sem estudo', async () => {
+    const user = userEvent.setup();
+    const orthographyTopicId = topicIdByTitle('Domínio da ortografia oficial.');
+    const accentuationTopicId = topicIdByTitle('Emprego da acentuação gráfica.');
+
+    const state = createStateWithTopics((draft) => {
+      draft.topicProgress[orthographyTopicId].status = 'pendente';
+      draft.topicProgress[accentuationTopicId].status = 'em_progresso';
+      draft.topicSubmattersByTopic[orthographyTopicId] = [
+        createSubmatter('ortho-e', { title: 'Ortografia exceções', grade: 'E' }),
+      ];
+      draft.topicSubmattersByTopic[accentuationTopicId] = [
+        createSubmatter('accent-c', { title: 'Acentuação', grade: 'C' }),
+      ];
+    });
+
+    renderConcursoApp('/conteudo', state);
+
+    const pendingCard = screen.getByRole('link', { name: 'Domínio da ortografia oficial.' });
+    expect(within(pendingCard).getByText('Pendente')).toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByTestId('content-quick-filters')).getByRole('button', {
+        name: 'Pendentes',
+      }),
+    );
+
+    expect(screen.getByRole('link', { name: 'Domínio da ortografia oficial.' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Emprego da acentuação gráfica.' })).not.toBeInTheDocument();
+  });
 }, 15000);
