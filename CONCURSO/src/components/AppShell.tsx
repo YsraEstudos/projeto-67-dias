@@ -347,7 +347,7 @@ export const AppShell = () => {
           {/* ContextBar removed, components merged into Dynamic Island */}
         </header>
 
-        <main className="content" style={contentStyle}>
+        <main className={`content ${isCompactViewport ? 'content-mobile-spaced' : ''}`} style={contentStyle}>
           <Outlet />
         </main>
         {isCompactViewport && <FloatingBottomNav />}

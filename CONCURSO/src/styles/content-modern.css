@@ -1121,3 +1121,17 @@
 .focus-state-overlay.error {
   color: var(--grade-e);
 }
+
+@media (max-width: 640px) {
+  .view-container {
+    padding: 16px 16px 120px 16px;
+  }
+  .daily-plan-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+}
+

@@ -213,3 +213,9 @@
   background: rgba(252, 211, 77, 0.1);
   color: #fcd34d;
 }
+@media (max-width: 360px) {
+  .daily-block-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

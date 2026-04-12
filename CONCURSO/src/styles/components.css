@@ -1196,3 +1196,41 @@ body.bottom-sheet-open {
   color: var(--text-muted);
 }
 
+
+@media (max-width: 640px) {
+  .metric-card {
+    min-height: auto;
+    padding: 14px;
+    gap: 4px;
+  }
+  .metric-title {
+    font-size: 0.7rem;
+  }
+  .metric-value {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  .metric-subtitle {
+    font-size: 0.70rem;
+    line-height: 1.3;
+  }
+  .section-card,
+  .panel {
+    padding: 16px;
+    gap: 12px;
+  }
+  .section-card h3,
+  .panel h3 {
+    font-size: 1.2rem;
+  }
+  .review-widget {
+    padding: 16px;
+  }
+  .project-header, 
+  .timeline-head,
+  .projects-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

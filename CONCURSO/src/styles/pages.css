@@ -1282,3 +1282,25 @@
   background: rgba(255, 255, 255, 0.1) !important;
   color: #fff !important;
 }
+
+@media (max-width: 640px) {
+  .dashboard-bento-grid {
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .dashboard-quick-stats {
+    gap: 12px;
+    margin-bottom: 24px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-grid-asymmetric {
+    gap: 16px;
+  }
+  .dashboard-column-main {
+    gap: 16px;
+  }
+  .dashboard-column-side {
+    gap: 16px;
+  }
+}
+
