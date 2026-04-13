@@ -38,6 +38,13 @@ describe('pomodoroStore', () => {
           updatedAt: '2026-04-13T10:00:00.000Z',
         },
       },
+      timerState: {
+        mode: 'shortBreak',
+        status: 'RUNNING',
+        timeLeft: 1402,
+        endTime: 1776075802000,
+        sessionCount: 3,
+      },
       settings: {
         pomodoroLength: 25,
         shortBreakLength: 5,
@@ -61,6 +68,8 @@ describe('pomodoroStore', () => {
     expect(state._initialized).toBe(true);
     expect(state.isLoading).toBe(false);
     expect(state.breakExerciseStats['quick-pushups']?.reps).toBe(18);
+    expect(state.timerState.mode).toBe('shortBreak');
+    expect(state.timerState.sessionCount).toBe(3);
   });
 
   it('syncs task mutations after hydration', () => {
@@ -113,6 +122,28 @@ describe('pomodoroStore', () => {
       expect.objectContaining({
         breakExerciseStats: expect.objectContaining({
           'quick-pushups': expect.objectContaining({ reps: 12 }),
+        }),
+      })
+    );
+  });
+
+  it('syncs pomodoro timer state after hydration', () => {
+    usePomodoroStore.getState()._hydrateFromFirestore(null);
+
+    usePomodoroStore.getState().setTimerState({
+      mode: 'pomodoro',
+      status: 'RUNNING',
+      timeLeft: 1500,
+      endTime: 1776077300000,
+      sessionCount: 2,
+    });
+
+    expect(writeToFirestore).toHaveBeenCalledWith(
+      'pomodoro-storage',
+      expect.objectContaining({
+        timerState: expect.objectContaining({
+          status: 'RUNNING',
+          sessionCount: 2,
         }),
       })
     );

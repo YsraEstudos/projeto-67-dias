@@ -39,6 +39,18 @@ export type PomodoroRecord = {
   endTime: string;
 };
 
+export type PomodoroTimerMode = 'pomodoro' | 'shortBreak' | 'longBreak';
+
+export type PomodoroTimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED';
+
+export type PomodoroTimerState = {
+  mode: PomodoroTimerMode;
+  status: PomodoroTimerStatus;
+  timeLeft: number;
+  endTime: number | null;
+  sessionCount: number;
+};
+
 export type BreakSelectionSource = 'REST_ACTIVITY' | 'QUICK_OPTION';
 
 export type BreakSelection = {

@@ -7,6 +7,7 @@ import type {
   Project,
   Settings,
   Task,
+  PomodoroTimerState,
 } from '../components/views/PomodoroView/store/types';
 
 const STORE_KEY = 'pomodoro-storage';
@@ -31,6 +32,14 @@ const DEFAULT_SETTINGS: Settings = {
   weekStartsOn: 1,
 };
 
+const createDefaultTimerState = (): PomodoroTimerState => ({
+  mode: 'pomodoro',
+  status: 'IDLE',
+  timeLeft: DEFAULT_SETTINGS.pomodoroLength * 60,
+  endTime: null,
+  sessionCount: 0,
+});
+
 const createId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -47,6 +56,7 @@ const createDefaultPersistentState = () => ({
   shortBreakSelection: null as BreakSelection | null,
   longBreakSelection: null as BreakSelection | null,
   breakExerciseStats: {} as Record<string, BreakExerciseStat>,
+  timerState: createDefaultTimerState(),
 });
 
 type PomodoroPersistentState = ReturnType<typeof createDefaultPersistentState>;
@@ -65,6 +75,7 @@ export interface PomodoroStoreState {
   shortBreakSelection: BreakSelection | null;
   longBreakSelection: BreakSelection | null;
   breakExerciseStats: Record<string, BreakExerciseStat>;
+  timerState: PomodoroTimerState;
 
   isLoading: boolean;
   _initialized: boolean;
@@ -90,6 +101,7 @@ export interface PomodoroStoreState {
   setBreakSelection: (mode: 'shortBreak' | 'longBreak', selection: BreakSelection) => void;
   clearBreakSelection: (mode: 'shortBreak' | 'longBreak') => void;
   setBreakExerciseReps: (optionId: string, reps: number) => void;
+  setTimerState: (next: PomodoroTimerState) => void;
 
   exportData: () => string;
   importData: (data: string) => void;
@@ -109,6 +121,7 @@ const getPersistentState = (state: PomodoroStoreState): PomodoroPersistentState 
   shortBreakSelection: state.shortBreakSelection,
   longBreakSelection: state.longBreakSelection,
   breakExerciseStats: state.breakExerciseStats,
+  timerState: state.timerState,
 });
 
 const mergeSettings = (incoming?: Partial<Settings>): Settings => {
@@ -294,6 +307,11 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
       get()._syncToFirestore();
     },
 
+    setTimerState: (next) => {
+      set({ timerState: next });
+      get()._syncToFirestore();
+    },
+
     exportData: () => {
       const state = get();
       return JSON.stringify({
@@ -304,6 +322,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
         shortBreakSelection: state.shortBreakSelection,
         longBreakSelection: state.longBreakSelection,
         breakExerciseStats: state.breakExerciseStats,
+        timerState: state.timerState,
       });
     },
 
@@ -320,6 +339,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           shortBreakSelection: parsed.shortBreakSelection ?? null,
           longBreakSelection: parsed.longBreakSelection ?? null,
           breakExerciseStats: parsed.breakExerciseStats ?? {},
+          timerState: parsed.timerState ?? createDefaultTimerState(),
           activeTaskId: null,
           selectedTaskId: null,
           currentFilter: 'today',
@@ -366,6 +386,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           shortBreakSelection: data.shortBreakSelection ?? null,
           longBreakSelection: data.longBreakSelection ?? null,
           breakExerciseStats: data.breakExerciseStats ?? {},
+          timerState: data.timerState ?? createDefaultTimerState(),
           activeTaskId: activeTaskId && tasks.some((task) => task.id === activeTaskId)
             ? activeTaskId
             : null,

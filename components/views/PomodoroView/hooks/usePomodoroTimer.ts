@@ -1,70 +1,104 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { playSound } from '../lib/audio';
+import type { PomodoroTimerMode } from '../store/types';
 
-export type TimerMode = 'pomodoro' | 'shortBreak' | 'longBreak';
+export type TimerMode = PomodoroTimerMode;
 
 export function usePomodoroTimer() {
-  const settings = useStore(state => state.settings);
-  const activeTaskId = useStore(state => state.activeTaskId);
-  const updateTask = useStore(state => state.updateTask);
-  const addRecord = useStore(state => state.addRecord);
-  const tasks = useStore(state => state.tasks);
-  
-  const [isActive, setIsActive] = useState(false);
-  const [mode, setMode] = useState<TimerMode>('pomodoro');
-  const [sessionCount, setSessionCount] = useState(0);
-  
-  // Total duration in seconds for the current mode
-  const getDuration = useCallback((m: TimerMode) => {
-    switch(m) {
-      case 'pomodoro': return settings.pomodoroLength * 60;
-      case 'shortBreak': return settings.shortBreakLength * 60;
-      case 'longBreak': return settings.longBreakLength * 60;
-      default: return 25 * 60;
+  const settings = useStore((state) => state.settings);
+  const activeTaskId = useStore((state) => state.activeTaskId);
+  const updateTask = useStore((state) => state.updateTask);
+  const addRecord = useStore((state) => state.addRecord);
+  const tasks = useStore((state) => state.tasks);
+  const timerState = useStore((state) => state.timerState);
+  const setPersistedTimerState = useStore((state) => state.setTimerState);
+
+  const getDuration = useCallback((mode: TimerMode) => {
+    switch (mode) {
+      case 'pomodoro':
+        return settings.pomodoroLength * 60;
+      case 'shortBreak':
+        return settings.shortBreakLength * 60;
+      case 'longBreak':
+        return settings.longBreakLength * 60;
+      default:
+        return 25 * 60;
     }
   }, [settings.pomodoroLength, settings.shortBreakLength, settings.longBreakLength]);
 
-  const [timeLeft, setTimeLeft] = useState(getDuration('pomodoro'));
-  const endTimeRef = useRef<number | null>(null);
+  const createTimerState = useCallback((
+    mode: TimerMode,
+    status: 'IDLE' | 'RUNNING' | 'PAUSED',
+    sessionCount: number,
+    timeLeft?: number,
+  ) => {
+    const resolvedTimeLeft = timeLeft ?? getDuration(mode);
+    return {
+      mode,
+      status,
+      timeLeft: resolvedTimeLeft,
+      endTime: status === 'RUNNING' ? Date.now() + resolvedTimeLeft * 1000 : null,
+      sessionCount,
+    };
+  }, [getDuration]);
 
+  const getRemainingTime = useCallback(() => {
+    if (timerState.status !== 'RUNNING' || !timerState.endTime) {
+      return timerState.timeLeft;
+    }
+
+    return Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
+  }, [timerState.endTime, timerState.status, timerState.timeLeft]);
+
+  const [timeLeft, setTimeLeft] = useState(() => getRemainingTime());
   const previousActiveTaskId = useRef(activeTaskId);
 
-  // Reset to pomodoro mode and auto-start when active task changes
+  useEffect(() => {
+    setTimeLeft(getRemainingTime());
+  }, [getRemainingTime]);
+
   useEffect(() => {
     if (activeTaskId !== previousActiveTaskId.current) {
       if (activeTaskId) {
-        setMode('pomodoro');
-        setIsActive(true);
-        endTimeRef.current = null;
-        setTimeLeft(getDuration('pomodoro'));
+        const nextState = createTimerState('pomodoro', 'RUNNING', timerState.sessionCount);
+        setPersistedTimerState(nextState);
+        setTimeLeft(nextState.timeLeft);
       } else {
-        // If activeTaskId becomes null (task completed or deleted), stop the timer
-        setIsActive(false);
-        setMode('pomodoro');
-        endTimeRef.current = null;
-        setTimeLeft(getDuration('pomodoro'));
+        const nextState = createTimerState('pomodoro', 'IDLE', timerState.sessionCount);
+        setPersistedTimerState(nextState);
+        setTimeLeft(nextState.timeLeft);
       }
+
       previousActiveTaskId.current = activeTaskId;
     }
-  }, [activeTaskId, getDuration]); // getDuration is included but the ref prevents unwanted resets
+  }, [activeTaskId, createTimerState, setPersistedTimerState, timerState.sessionCount]);
 
-  // Update timeLeft when settings change and timer is not active
   useEffect(() => {
-    if (!isActive) {
-      setTimeLeft(getDuration(mode));
+    if (timerState.status === 'RUNNING') return;
+
+    const refreshedTimeLeft = getDuration(timerState.mode);
+    if (timerState.timeLeft === refreshedTimeLeft && timerState.status === 'IDLE') {
+      setTimeLeft(refreshedTimeLeft);
+      return;
     }
-  }, [settings.pomodoroLength, settings.shortBreakLength, settings.longBreakLength, mode]);
+
+    const nextState = createTimerState(timerState.mode, timerState.status, timerState.sessionCount, refreshedTimeLeft);
+    setPersistedTimerState(nextState);
+    setTimeLeft(refreshedTimeLeft);
+  }, [
+    settings.pomodoroLength,
+    settings.shortBreakLength,
+    settings.longBreakLength,
+  ]);
 
   const handleComplete = useCallback(() => {
     const completedAt = new Date();
-    setIsActive(false);
-    endTimeRef.current = null;
 
-    if (mode === 'pomodoro') {
+    if (timerState.mode === 'pomodoro') {
       if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         new Notification('Pomodoro concluido', {
-          body: activeTaskId ? 'Sessao finalizada com sucesso.' : 'Sessao de foco livre finalizada.'
+          body: activeTaskId ? 'Sessao finalizada com sucesso.' : 'Sessao de foco livre finalizada.',
         });
       }
 
@@ -77,102 +111,106 @@ export function usePomodoroTimer() {
         startTime: new Date(completedAt.getTime() - sessionDuration * 60000).toISOString(),
         endTime: completedAt.toISOString(),
       });
-      
-      // Update task if active
+
       if (activeTaskId) {
-        const task = tasks.find(t => t.id === activeTaskId);
+        const task = tasks.find((entry) => entry.id === activeTaskId);
         if (task) {
-          updateTask(activeTaskId, { 
+          updateTask(activeTaskId, {
             completedPomodoros: task.completedPomodoros + 1,
-            lastCompletedDate: new Date().toISOString().split('T')[0]
+            lastCompletedDate: new Date().toISOString().split('T')[0],
           });
         }
       }
 
-      const newCount = sessionCount + 1;
-      setSessionCount(newCount);
+      const newCount = timerState.sessionCount + 1;
 
       if (settings.disableBreak) {
-        setMode('pomodoro');
-        setTimeLeft(getDuration('pomodoro'));
-        if (settings.autoStartPomodoro || !activeTaskId) {
-          setTimeout(() => setIsActive(true), 1000);
-        }
+        const shouldAutoStart = settings.autoStartPomodoro || !activeTaskId;
+        const nextState = createTimerState('pomodoro', shouldAutoStart ? 'RUNNING' : 'IDLE', newCount);
+        setPersistedTimerState(nextState);
+        setTimeLeft(nextState.timeLeft);
         return;
       }
-      
-      const nextMode = newCount % settings.longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
-      setMode(nextMode);
-      setTimeLeft(getDuration(nextMode));
-      
-      // Auto start break if setting is true OR if no active task
-      if (settings.autoStartBreak || !activeTaskId) {
-        setTimeout(() => setIsActive(true), 1000);
-      }
-    } else {
-      if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('Pausa concluida', {
-          body: 'Hora de voltar ao foco.'
-        });
-      }
 
-      if (settings.volume > 0) playSound('break-end', settings.volume);
-      setMode('pomodoro');
-      setTimeLeft(getDuration('pomodoro'));
-      
-      // Auto start pomodoro if setting is true OR if no active task
-      if (settings.autoStartPomodoro || !activeTaskId) {
-        setTimeout(() => setIsActive(true), 1000);
-      }
+      const nextMode = newCount % settings.longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
+      const shouldAutoStartBreak = settings.autoStartBreak || !activeTaskId;
+      const nextState = createTimerState(nextMode, shouldAutoStartBreak ? 'RUNNING' : 'IDLE', newCount);
+      setPersistedTimerState(nextState);
+      setTimeLeft(nextState.timeLeft);
+      return;
     }
+
+    if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification('Pausa concluida', {
+        body: 'Hora de voltar ao foco.',
+      });
+    }
+
+    if (settings.volume > 0) playSound('break-end', settings.volume);
+
+    const shouldAutoStartPomodoro = settings.autoStartPomodoro || !activeTaskId;
+    const nextState = createTimerState('pomodoro', shouldAutoStartPomodoro ? 'RUNNING' : 'IDLE', timerState.sessionCount);
+    setPersistedTimerState(nextState);
+    setTimeLeft(nextState.timeLeft);
   }, [
-    mode,
-    sessionCount,
-    settings,
     activeTaskId,
-    tasks,
-    updateTask,
     addRecord,
-    getDuration,
+    createTimerState,
+    settings,
+    setPersistedTimerState,
+    tasks,
+    timerState.mode,
+    timerState.sessionCount,
+    updateTask,
   ]);
 
   useEffect(() => {
-    let interval: number;
+    if (timerState.status !== 'RUNNING') return;
 
-    if (isActive) {
-      // Calculate the exact end time when starting/resuming
-      if (!endTimeRef.current) {
-        endTimeRef.current = Date.now() + timeLeft * 1000;
+    const syncRemaining = () => {
+      const remaining = getRemainingTime();
+      if (remaining <= 0) {
+        handleComplete();
+        return;
       }
 
-      interval = globalThis.setInterval(() => {
-        const now = Date.now();
-        const endTime = endTimeRef.current;
-        if (!endTime) return;
-        const remaining = Math.round((endTime - now) / 1000);
+      setTimeLeft(remaining);
+    };
 
-        if (remaining <= 0) {
-          handleComplete();
-        } else {
-          setTimeLeft(remaining);
-        }
-      }, 100); // Check frequently (100ms) to keep UI smooth and accurate
-    } else {
-      // If paused, clear the end time so it recalculates on resume
-      endTimeRef.current = null;
+    syncRemaining();
+    const interval = globalThis.setInterval(syncRemaining, 100);
+    return () => clearInterval(interval);
+  }, [getRemainingTime, handleComplete, timerState.status]);
+
+  const toggleTimer = () => {
+    if (timerState.status === 'RUNNING') {
+      const remaining = getRemainingTime();
+      const nextState = createTimerState(timerState.mode, 'PAUSED', timerState.sessionCount, remaining);
+      setPersistedTimerState(nextState);
+      setTimeLeft(remaining);
+      return;
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isActive, timeLeft, handleComplete]);
+    const nextState = createTimerState(
+      timerState.mode,
+      'RUNNING',
+      timerState.sessionCount,
+      timerState.timeLeft || getDuration(timerState.mode),
+    );
+    setPersistedTimerState(nextState);
+    setTimeLeft(nextState.timeLeft);
+  };
 
-  const toggleTimer = () => setIsActive(!isActive);
-  
   const resetTimer = () => {
-    setIsActive(false);
-    endTimeRef.current = null;
-    setTimeLeft(getDuration(mode));
+    const nextState = createTimerState(timerState.mode, 'IDLE', timerState.sessionCount);
+    setPersistedTimerState(nextState);
+    setTimeLeft(nextState.timeLeft);
+  };
+
+  const setMode = (mode: TimerMode) => {
+    const nextState = createTimerState(mode, 'IDLE', timerState.sessionCount);
+    setPersistedTimerState(nextState);
+    setTimeLeft(nextState.timeLeft);
   };
 
   const skipPhase = () => {
@@ -181,12 +219,12 @@ export function usePomodoroTimer() {
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
-  const progress = ((getDuration(mode) - timeLeft) / getDuration(mode)) * 100;
+  const progress = ((getDuration(timerState.mode) - timeLeft) / getDuration(timerState.mode)) * 100;
 
   return {
-    isActive,
+    isActive: timerState.status === 'RUNNING',
     timeLeft,
-    mode,
+    mode: timerState.mode,
     minutes,
     seconds,
     progress,
@@ -194,6 +232,6 @@ export function usePomodoroTimer() {
     resetTimer,
     setMode,
     skipPhase,
-    sessionCount
+    sessionCount: timerState.sessionCount,
   };
 }
