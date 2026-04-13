@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Download, Layers, CheckCircle2, FileText } from 'lucide-react';
 import { Skill, SkillRoadmapItem } from '../../types';
 import { normalizeRoadmap, MAX_ROADMAP_BYTES } from '../../stores/skills/roadmapValidator';
+import roadmapGuideContent from '../../ROADMAP_AI_GUIDE.md?raw';
 
 interface ImportExportModalProps {
     skill: Skill;
@@ -192,32 +193,15 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({ skill, onC
 
                                 // Baixar guia AI (Markdown)
                                 setTimeout(() => {
-                                    fetch('/ROADMAP_AI_GUIDE.md')
-                                        .then(res => res.text())
-                                        .then(content => {
-                                            const mdBlob = new Blob([content], { type: 'text/markdown' });
-                                            const mdUrl = URL.createObjectURL(mdBlob);
-                                            const mdLink = document.createElement('a');
-                                            mdLink.href = mdUrl;
-                                            mdLink.download = 'ROADMAP_AI_GUIDE.md';
-                                            document.body.appendChild(mdLink);
-                                            mdLink.click();
-                                            document.body.removeChild(mdLink);
-                                            URL.revokeObjectURL(mdUrl);
-                                        })
-                                        .catch(() => {
-                                            // Fallback: criar guia inline caso fetch falhe
-                                            const guideContent = `# 📋 Guia Rápido para Criar Roadmaps\n\n## Estrutura Correta\n\n1. Array plano no nível raiz\n2. SECTION = divisor/cabeçalho (SEM subTasks)\n3. TASK = tarefa (pode ter subTasks)\n\nExemplo:\n[\n  { "type": "SECTION", "title": "Fundamentos", ... },\n  { "type": "TASK", "title": "Tarefa 1", "subTasks": [...] },\n  { "type": "SECTION", "title": "Avançado", ... },\n  { "type": "TASK", "title": "Tarefa 2", ... }\n]\n\nVeja ROADMAP_AI_GUIDE.md completo no repositório para detalhes.`;
-                                            const mdBlob = new Blob([guideContent], { type: 'text/markdown' });
-                                            const mdUrl = URL.createObjectURL(mdBlob);
-                                            const mdLink = document.createElement('a');
-                                            mdLink.href = mdUrl;
-                                            mdLink.download = 'ROADMAP_AI_GUIDE.md';
-                                            document.body.appendChild(mdLink);
-                                            mdLink.click();
-                                            document.body.removeChild(mdLink);
-                                            URL.revokeObjectURL(mdUrl);
-                                        });
+                                    const mdBlob = new Blob([roadmapGuideContent], { type: 'text/markdown' });
+                                    const mdUrl = URL.createObjectURL(mdBlob);
+                                    const mdLink = document.createElement('a');
+                                    mdLink.href = mdUrl;
+                                    mdLink.download = 'ROADMAP_AI_GUIDE.md';
+                                    document.body.appendChild(mdLink);
+                                    mdLink.click();
+                                    document.body.removeChild(mdLink);
+                                    URL.revokeObjectURL(mdUrl);
                                 }, 500);
                             }}
                             className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs py-2 rounded-lg transition-colors border border-slate-700"
