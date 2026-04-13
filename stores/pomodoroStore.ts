@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { writeToFirestore } from './firestoreSync';
 import type {
   BreakSelection,
+  BreakExerciseStat,
   PomodoroRecord,
   Project,
   Settings,
@@ -45,6 +46,7 @@ const createDefaultPersistentState = () => ({
   activeTaskId: null as string | null,
   shortBreakSelection: null as BreakSelection | null,
   longBreakSelection: null as BreakSelection | null,
+  breakExerciseStats: {} as Record<string, BreakExerciseStat>,
 });
 
 type PomodoroPersistentState = ReturnType<typeof createDefaultPersistentState>;
@@ -62,6 +64,7 @@ export interface PomodoroStoreState {
   activeTaskId: string | null;
   shortBreakSelection: BreakSelection | null;
   longBreakSelection: BreakSelection | null;
+  breakExerciseStats: Record<string, BreakExerciseStat>;
 
   isLoading: boolean;
   _initialized: boolean;
@@ -86,6 +89,7 @@ export interface PomodoroStoreState {
   setActiveTaskId: (id: string | null) => void;
   setBreakSelection: (mode: 'shortBreak' | 'longBreak', selection: BreakSelection) => void;
   clearBreakSelection: (mode: 'shortBreak' | 'longBreak') => void;
+  setBreakExerciseReps: (optionId: string, reps: number) => void;
 
   exportData: () => string;
   importData: (data: string) => void;
@@ -104,6 +108,7 @@ const getPersistentState = (state: PomodoroStoreState): PomodoroPersistentState 
   activeTaskId: state.activeTaskId,
   shortBreakSelection: state.shortBreakSelection,
   longBreakSelection: state.longBreakSelection,
+  breakExerciseStats: state.breakExerciseStats,
 });
 
 const mergeSettings = (incoming?: Partial<Settings>): Settings => {
@@ -276,6 +281,19 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
       get()._syncToFirestore();
     },
 
+    setBreakExerciseReps: (optionId, reps) => {
+      set((state) => ({
+        breakExerciseStats: {
+          ...state.breakExerciseStats,
+          [optionId]: {
+            reps,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      }));
+      get()._syncToFirestore();
+    },
+
     exportData: () => {
       const state = get();
       return JSON.stringify({
@@ -285,6 +303,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
         settings: state.settings,
         shortBreakSelection: state.shortBreakSelection,
         longBreakSelection: state.longBreakSelection,
+        breakExerciseStats: state.breakExerciseStats,
       });
     },
 
@@ -300,6 +319,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           settings: mergeSettings(parsed.settings),
           shortBreakSelection: parsed.shortBreakSelection ?? null,
           longBreakSelection: parsed.longBreakSelection ?? null,
+          breakExerciseStats: parsed.breakExerciseStats ?? {},
           activeTaskId: null,
           selectedTaskId: null,
           currentFilter: 'today',
@@ -345,6 +365,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           settings: mergeSettings(data.settings),
           shortBreakSelection: data.shortBreakSelection ?? null,
           longBreakSelection: data.longBreakSelection ?? null,
+          breakExerciseStats: data.breakExerciseStats ?? {},
           activeTaskId: activeTaskId && tasks.some((task) => task.id === activeTaskId)
             ? activeTaskId
             : null,

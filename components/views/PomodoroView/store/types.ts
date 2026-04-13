@@ -47,6 +47,11 @@ export type BreakSelection = {
   source: BreakSelectionSource;
 };
 
+export type BreakExerciseStat = {
+  reps: number;
+  updatedAt: string;
+};
+
 export type Settings = {
   pomodoroLength: number;
   shortBreakLength: number;

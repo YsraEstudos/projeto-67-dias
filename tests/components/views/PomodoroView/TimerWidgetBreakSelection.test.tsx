@@ -56,6 +56,25 @@ describe('TimerWidget break selection', () => {
     expect(usePomodoroStore.getState().shortBreakSelection?.label).toContain('Piscar os olhos');
   });
 
+  it('allows saving reps for exercise quick breaks', () => {
+    render(<TimerWidget />);
+
+    fireEvent.click(screen.getByTitle('Expandir timer'));
+    fireEvent.click(screen.getByTitle('Pausa Curta'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Escolher descanso/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Sugestões rápidas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Flexões/i }));
+
+    fireEvent.change(screen.getByLabelText(/Quantas reps você fez\?/i), {
+      target: { value: '18' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar reps/i }));
+
+    expect(usePomodoroStore.getState().breakExerciseStats['quick-pushups']?.reps).toBe(18);
+    expect(screen.getByText(/Último salvo: 18 reps/i)).toBeInTheDocument();
+  });
+
   it('marks selected rest break as completed in rest module', () => {
     render(<TimerWidget />);
 

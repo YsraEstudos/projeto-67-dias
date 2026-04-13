@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -34,8 +34,10 @@ export function TimerWidget() {
     updateSettings,
     shortBreakSelection,
     longBreakSelection,
+    breakExerciseStats,
     setBreakSelection,
     clearBreakSelection,
+    setBreakExerciseReps,
     updateTask,
   } = useStore();
 
@@ -96,12 +98,47 @@ export function TimerWidget() {
     [mode],
   );
 
+  const quickExerciseOptions = useMemo(
+    () => quickOptionsForCurrentMode.filter((option) => option.kind === 'exercise'),
+    [quickOptionsForCurrentMode],
+  );
+
+  const quickGeneralOptions = useMemo(
+    () => quickOptionsForCurrentMode.filter((option) => option.kind !== 'exercise'),
+    [quickOptionsForCurrentMode],
+  );
+
+  const selectedQuickOption = useMemo(
+    () => activeBreakSelection?.source === 'QUICK_OPTION'
+      ? quickOptionsForCurrentMode.find((option) => option.id === activeBreakSelection.key) ?? null
+      : null,
+    [activeBreakSelection, quickOptionsForCurrentMode],
+  );
+
+  const selectedQuickExerciseOption = selectedQuickOption?.kind === 'exercise' ? selectedQuickOption : null;
+  const selectedQuickExerciseStats = selectedQuickExerciseOption
+    ? breakExerciseStats[selectedQuickExerciseOption.id] ?? null
+    : null;
+
+  const [exerciseRepsDraft, setExerciseRepsDraft] = useState(0);
+
   useEffect(() => {
     if (!isBreakMode) {
       setIsBreakPickerOpen(false);
       setBreakPickerTab('today');
     }
   }, [isBreakMode]);
+
+  useEffect(() => {
+    if (!selectedQuickExerciseOption) {
+      setExerciseRepsDraft(0);
+      return;
+    }
+
+    setExerciseRepsDraft(
+      breakExerciseStats[selectedQuickExerciseOption.id]?.reps ?? selectedQuickExerciseOption.defaultReps ?? 0,
+    );
+  }, [breakExerciseStats, selectedQuickExerciseOption]);
 
   const handleSelectRestBreak = (activity: RestActivity) => {
     if (!currentBreakMode) return;
@@ -113,13 +150,34 @@ export function TimerWidget() {
     if (!currentBreakMode) return;
     const option = QUICK_BREAK_OPTIONS.find((candidate) => candidate.id === optionId);
     if (!option) return;
+
     setBreakSelection(currentBreakMode, createQuickBreakSelection(option));
+
+    if (option.kind === 'exercise') {
+      setBreakPickerTab('quick');
+      setIsBreakPickerOpen(true);
+      setExerciseRepsDraft(
+        breakExerciseStats[option.id]?.reps ?? option.defaultReps ?? 0,
+      );
+      return;
+    }
+
     setIsBreakPickerOpen(false);
   };
 
   const handleClearBreakSelection = () => {
     if (!currentBreakMode) return;
     clearBreakSelection(currentBreakMode);
+  };
+
+  const handleSaveExerciseReps = () => {
+    if (!selectedQuickExerciseOption) return;
+
+    const reps = Math.max(0, Math.round(exerciseRepsDraft));
+    if (reps <= 0) return;
+
+    setBreakExerciseReps(selectedQuickExerciseOption.id, reps);
+    setIsBreakPickerOpen(false);
   };
 
   const handleToggleSubtask = (subtaskId: string) => {
@@ -241,6 +299,26 @@ export function TimerWidget() {
               </span>
             )}
           </div>
+
+          {selectedQuickExerciseOption && (
+            <div className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] text-[var(--color-text-muted)]">
+              <Dumbbell className="h-3.5 w-3.5 text-[var(--color-primary)]" />
+              <span>
+                {selectedQuickExerciseStats
+                  ? `Último salvo: ${selectedQuickExerciseStats.reps} reps`
+                  : `Sugestão inicial: ${selectedQuickExerciseOption.defaultReps ?? 10} reps`}
+              </span>
+              {selectedQuickExerciseStats?.updatedAt && (
+                <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-muted)]/70">
+                  às{' '}
+                  {new Date(selectedQuickExerciseStats.updatedAt).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="mt-3 flex gap-2">
             <button
@@ -374,19 +452,179 @@ export function TimerWidget() {
                   )}
 
                   {breakPickerTab === 'quick' && (
-                    <>
-                      {quickOptionsForCurrentMode.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => handleSelectQuickBreak(option.id)}
-                          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-hover)]/40 px-3 py-2 text-left text-sm transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                        >
-                          <span className="block">{option.label}</span>
-                          <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)]">{option.description}</span>
-                        </button>
-                      ))}
-                    </>
+                    <div className="space-y-4">
+                      {quickExerciseOptions.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                              Movimento
+                            </p>
+                            <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]/70">
+                              Salva reps
+                            </p>
+                          </div>
+
+                          {quickExerciseOptions.map((option) => {
+                            const isSelected = activeBreakSelection?.source === 'QUICK_OPTION'
+                              && activeBreakSelection.key === option.id;
+                            const savedStat = breakExerciseStats[option.id];
+                            const inputId = `quick-exercise-reps-${option.id}`;
+
+                            return (
+                              <div
+                                key={option.id}
+                                className={cn(
+                                  'rounded-xl border bg-[var(--color-surface-hover)]/35 transition-all',
+                                  isSelected
+                                    ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/8 shadow-[0_0_0_1px_rgba(244,63,94,0.18)]'
+                                    : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-primary)]/6',
+                                )}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectQuickBreak(option.id)}
+                                  className="w-full rounded-xl px-3 py-2.5 text-left"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <span className="block text-sm font-medium text-[var(--color-text)]">
+                                        {option.label}
+                                      </span>
+                                      <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)]">
+                                        {option.description}
+                                      </span>
+                                    </div>
+
+                                    <span className={cn(
+                                      'shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]',
+                                      option.kind === 'exercise'
+                                        ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                                        : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]',
+                                    )}>
+                                      {option.kind === 'exercise' ? (
+                                        <>
+                                          <Dumbbell className="h-3 w-3" />
+                                          Reps
+                                        </>
+                                      ) : (
+                                        'Leve'
+                                      )}
+                                    </span>
+                                  </div>
+
+                                  {option.kind === 'exercise' && savedStat && (
+                                    <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+                                      Último registro: {savedStat.reps} reps
+                                    </p>
+                                  )}
+                                </button>
+
+                                {option.kind === 'exercise' && isSelected && (
+                                  <div className="border-t border-[var(--color-border)] px-3 py-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div>
+                                        <label
+                                          htmlFor={inputId}
+                                          className="block text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]"
+                                        >
+                                          Quantas reps você fez?
+                                        </label>
+                                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                                          Ajuste o número e salve para reutilizar depois.
+                                        </p>
+                                      </div>
+                                      <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+                                        {savedStat ? `Salvo: ${savedStat.reps}` : 'Ainda não salvo'}
+                                      </span>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-[44px_minmax(0,1fr)_44px] gap-2">
+                                      <button
+                                        type="button"
+                                        aria-label="Diminuir reps"
+                                        onClick={() => setExerciseRepsDraft((current) => Math.max(0, current - 1))}
+                                        className="flex h-11 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)]/40 hover:text-[var(--color-text)]"
+                                      >
+                                        <Minus className="h-4 w-4" />
+                                      </button>
+
+                                      <input
+                                        id={inputId}
+                                        type="number"
+                                        min={0}
+                                        inputMode="numeric"
+                                        value={exerciseRepsDraft}
+                                        onChange={(event) => setExerciseRepsDraft(Math.max(0, Number(event.target.value) || 0))}
+                                        className="h-11 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-center text-lg font-semibold tabular-nums text-[var(--color-text)] outline-none transition-colors focus:border-[var(--color-primary)]"
+                                      />
+
+                                      <button
+                                        type="button"
+                                        aria-label="Aumentar reps"
+                                        onClick={() => setExerciseRepsDraft((current) => current + 1)}
+                                        className="flex h-11 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)]/40 hover:text-[var(--color-text)]"
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </button>
+                                    </div>
+
+                                    <div className="mt-3 flex items-center justify-between gap-3">
+                                      <p className="text-[11px] text-[var(--color-text-muted)]">
+                                        O valor salvo fica disponível na próxima vez que você selecionar este descanso.
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={handleSaveExerciseReps}
+                                        disabled={exerciseRepsDraft <= 0}
+                                        className={cn(
+                                          'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                                          exerciseRepsDraft > 0
+                                            ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/25'
+                                            : 'cursor-not-allowed bg-[var(--color-surface)] text-[var(--color-text-muted)] opacity-60',
+                                        )}
+                                      >
+                                        Salvar reps
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {quickGeneralOptions.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                            Recuperação leve
+                          </p>
+                          {quickGeneralOptions.map((option) => {
+                            const isSelected = activeBreakSelection?.source === 'QUICK_OPTION'
+                              && activeBreakSelection.key === option.id;
+
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => handleSelectQuickBreak(option.id)}
+                                className={cn(
+                                  'w-full rounded-xl border px-3 py-2.5 text-left text-sm transition-colors',
+                                  isSelected
+                                    ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary)]/10'
+                                    : 'border-[var(--color-border)] bg-[var(--color-surface-hover)]/40 hover:border-[var(--color-primary)]/35 hover:bg-[var(--color-primary)]/8',
+                                )}
+                              >
+                                <span className="block">{option.label}</span>
+                                <span className="mt-0.5 block text-[11px] text-[var(--color-text-muted)]">
+                                  {option.description}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </motion.div>

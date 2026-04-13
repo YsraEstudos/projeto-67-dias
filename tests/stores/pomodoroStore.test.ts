@@ -32,6 +32,12 @@ describe('pomodoroStore', () => {
       tasks: [],
       projects: [{ id: 'p1', name: 'Trabalho', color: '#00a8ff' }],
       records: [],
+      breakExerciseStats: {
+        'quick-pushups': {
+          reps: 18,
+          updatedAt: '2026-04-13T10:00:00.000Z',
+        },
+      },
       settings: {
         pomodoroLength: 25,
         shortBreakLength: 5,
@@ -54,6 +60,7 @@ describe('pomodoroStore', () => {
     const state = usePomodoroStore.getState();
     expect(state._initialized).toBe(true);
     expect(state.isLoading).toBe(false);
+    expect(state.breakExerciseStats['quick-pushups']?.reps).toBe(18);
   });
 
   it('syncs task mutations after hydration', () => {
@@ -92,6 +99,21 @@ describe('pomodoroStore', () => {
         records: expect.arrayContaining([
           expect.objectContaining({ taskId: 'task-1', duration: 25 }),
         ]),
+      })
+    );
+  });
+
+  it('syncs exercise break reps after hydration', () => {
+    usePomodoroStore.getState()._hydrateFromFirestore(null);
+
+    usePomodoroStore.getState().setBreakExerciseReps('quick-pushups', 12);
+
+    expect(writeToFirestore).toHaveBeenCalledWith(
+      'pomodoro-storage',
+      expect.objectContaining({
+        breakExerciseStats: expect.objectContaining({
+          'quick-pushups': expect.objectContaining({ reps: 12 }),
+        }),
       })
     );
   });

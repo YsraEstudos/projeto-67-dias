@@ -6,6 +6,8 @@ export interface QuickBreakOption {
   label: string;
   description: string;
   recommendedFor: 'shortBreak' | 'longBreak' | 'both';
+  kind?: 'general' | 'exercise';
+  defaultReps?: number;
 }
 
 export const QUICK_BREAK_OPTIONS: QuickBreakOption[] = [
@@ -38,6 +40,22 @@ export const QUICK_BREAK_OPTIONS: QuickBreakOption[] = [
     label: 'Alongar pescoco e ombros',
     description: 'Reduz rigidez de quem ficou muito tempo sentado.',
     recommendedFor: 'shortBreak',
+  },
+  {
+    id: 'quick-pushups',
+    label: 'Flexões',
+    description: 'Registre quantas reps você fez neste descanso.',
+    recommendedFor: 'both',
+    kind: 'exercise',
+    defaultReps: 10,
+  },
+  {
+    id: 'quick-squats',
+    label: 'Agachamentos',
+    description: 'Salve a quantidade de reps e acompanhe o ritmo.',
+    recommendedFor: 'both',
+    kind: 'exercise',
+    defaultReps: 15,
   },
 ];
 
