@@ -54,6 +54,15 @@ export function usePomodoroTimer() {
   const [timeLeft, setTimeLeft] = useState(() => getRemainingTime());
   const previousActiveTaskId = useRef(activeTaskId);
 
+  const isFreshPomodoroTimer = useCallback(() => {
+    return (
+      timerState.mode === 'pomodoro' &&
+      timerState.status === 'IDLE' &&
+      timerState.endTime === null &&
+      timerState.timeLeft === getDuration('pomodoro')
+    );
+  }, [getDuration, timerState.endTime, timerState.mode, timerState.status, timerState.timeLeft]);
+
   useEffect(() => {
     setTimeLeft(getRemainingTime());
   }, [getRemainingTime]);
@@ -61,6 +70,12 @@ export function usePomodoroTimer() {
   useEffect(() => {
     if (activeTaskId !== previousActiveTaskId.current) {
       if (activeTaskId) {
+        if (!isFreshPomodoroTimer()) {
+          previousActiveTaskId.current = activeTaskId;
+          setTimeLeft(getRemainingTime());
+          return;
+        }
+
         const nextState = createTimerState('pomodoro', 'RUNNING', timerState.sessionCount);
         setPersistedTimerState(nextState);
         setTimeLeft(nextState.timeLeft);
@@ -72,7 +87,14 @@ export function usePomodoroTimer() {
 
       previousActiveTaskId.current = activeTaskId;
     }
-  }, [activeTaskId, createTimerState, setPersistedTimerState, timerState.sessionCount]);
+  }, [
+    activeTaskId,
+    createTimerState,
+    getRemainingTime,
+    isFreshPomodoroTimer,
+    setPersistedTimerState,
+    timerState.sessionCount,
+  ]);
 
   useEffect(() => {
     if (timerState.status === 'RUNNING') return;

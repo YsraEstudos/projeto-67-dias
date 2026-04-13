@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { writeToFirestore } from './firestoreSync';
+import { REALTIME_DEBOUNCE_MS, writeToFirestore } from './firestoreSync';
 import type {
   BreakSelection,
   BreakExerciseStat,
@@ -108,6 +108,7 @@ export interface PomodoroStoreState {
   resetData: () => void;
 
   _syncToFirestore: () => void;
+  _syncRealtimeToFirestore: () => void;
   _hydrateFromFirestore: (data: Partial<PomodoroPersistentState> | null) => void;
   _reset: () => void;
 }
@@ -273,7 +274,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
 
     setActiveTaskId: (id) => {
       set({ activeTaskId: id });
-      get()._syncToFirestore();
+      get()._syncRealtimeToFirestore();
     },
 
     setBreakSelection: (mode, selection) => {
@@ -309,7 +310,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
 
     setTimerState: (next) => {
       set({ timerState: next });
-      get()._syncToFirestore();
+      get()._syncRealtimeToFirestore();
     },
 
     exportData: () => {
@@ -365,6 +366,12 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
       const state = get();
       if (!state._initialized) return;
       writeToFirestore(STORE_KEY, getPersistentState(state));
+    },
+
+    _syncRealtimeToFirestore: () => {
+      const state = get();
+      if (!state._initialized) return;
+      writeToFirestore(STORE_KEY, getPersistentState(state), REALTIME_DEBOUNCE_MS);
     },
 
     _hydrateFromFirestore: (data) => {

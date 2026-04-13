@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePomodoroStore } from '../../stores/pomodoroStore';
-import { writeToFirestore } from '../../stores/firestoreSync';
+import { REALTIME_DEBOUNCE_MS, writeToFirestore } from '../../stores/firestoreSync';
 
 vi.mock('../../stores/firestoreSync', async () => {
   const actual = await vi.importActual('../../stores/firestoreSync');
@@ -145,7 +145,22 @@ describe('pomodoroStore', () => {
           status: 'RUNNING',
           sessionCount: 2,
         }),
-      })
+      }),
+      REALTIME_DEBOUNCE_MS
+    );
+  });
+
+  it('syncs active task changes with realtime debounce', () => {
+    usePomodoroStore.getState()._hydrateFromFirestore(null);
+
+    usePomodoroStore.getState().setActiveTaskId('task-1');
+
+    expect(writeToFirestore).toHaveBeenCalledWith(
+      'pomodoro-storage',
+      expect.objectContaining({
+        activeTaskId: 'task-1',
+      }),
+      REALTIME_DEBOUNCE_MS
     );
   });
 });
