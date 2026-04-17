@@ -13,27 +13,58 @@ import { TaskDetailsSidebar } from './components/TaskDetailsSidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { useStore } from './store/useStore';
 import { AnimatePresence } from 'motion/react';
+import type { Task } from './store/types';
 
 export default function App() {
   const { isReportOpen, isSettingsOpen, selectedTaskId, tasks, updateTask, settings } = useStore();
+  const timerMode = useStore((state) => state.timerState.mode);
+  const isBreakMode = timerMode === 'shortBreak' || timerMode === 'longBreak';
 
   useEffect(() => {
-    // Reset infinite tasks if it's a new day
-    const todayStr = new Date().toISOString().split('T')[0];
-    tasks.forEach(task => {
-      if (task.isInfinite && task.lastCompletedDate && task.lastCompletedDate !== todayStr) {
-        updateTask(task.id, { completedPomodoros: 0, lastCompletedDate: null });
-      }
-    });
+    const syncDailyState = () => {
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      tasks.forEach((task) => {
+        const updates: Partial<Task> = {};
+
+        if (task.isInfinite && task.lastCompletedDate && task.lastCompletedDate !== todayStr) {
+          updates.completedPomodoros = 0;
+          updates.lastCompletedDate = null;
+        }
+
+        if (task.subtasks?.some((subtask) => subtask.completed && subtask.lastCompletedDate !== todayStr)) {
+          updates.subtasks = task.subtasks.map((subtask) => {
+            if (!subtask.completed || subtask.lastCompletedDate === todayStr) {
+              return subtask;
+            }
+
+            return {
+              ...subtask,
+              completed: false,
+              lastCompletedDate: null,
+            };
+          });
+        }
+
+        if (Object.keys(updates).length > 0) {
+          updateTask(task.id, updates);
+        }
+      });
+    };
+
+    syncDailyState();
+    const interval = window.setInterval(syncDailyState, 60_000);
+    return () => window.clearInterval(interval);
   }, [tasks, updateTask]);
 
-  // Apply accent color to CSS variables
+  // Apply accent color to CSS variables.
+  // During rest mode, we temporarily shift the primary color to purple so the timer feels distinct.
   useEffect(() => {
     const container = document.querySelector('.pomodoro-app-container') as HTMLElement;
     if (container) {
-      container.style.setProperty('--color-primary', settings.accentColor);
+      container.style.setProperty('--color-primary', isBreakMode ? '#8b5cf6' : settings.accentColor);
     }
-  }, [settings.accentColor]);
+  }, [isBreakMode, settings.accentColor]);
 
   return (
     <div className="pomodoro-app-container flex h-[85vh] min-h-[600px] border border-slate-700 bg-[var(--color-bg)] text-[var(--color-text)] overflow-hidden font-sans selection:bg-[var(--color-primary)] selection:text-white relative shadow-2xl">

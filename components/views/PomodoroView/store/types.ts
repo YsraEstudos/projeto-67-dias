@@ -2,6 +2,7 @@ export type Subtask = {
   id: string;
   title: string;
   completed: boolean;
+  lastCompletedDate?: string | null;
 };
 
 export type Task = {

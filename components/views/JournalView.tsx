@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, useCallback, useRef } from 'react';
 import {
-    Book, Calendar, Plus, Trash2,
+    Book, Calendar, Plus, Trash2, CheckSquare2,
     Smile, Meh, Frown, CloudRain, Zap, Quote, Target, PenLine
 } from 'lucide-react';
 import { useJournalStore, JournalEntry } from '../../stores/journalStore';
@@ -105,6 +105,7 @@ const JournalView: React.FC = () => {
         active: false,
         entryId: null
     });
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const setSelectedId = (id: string | null) => {
         if (activeTabId) {
@@ -188,6 +189,40 @@ const JournalView: React.FC = () => {
             trackActivity();
         }
     };
+
+    const handleInsertChecklistItem = useCallback(() => {
+        if (!activeEntry) return;
+
+        const textarea = textareaRef.current;
+        const currentContent = activeEntry.content || '';
+        const checkboxToken = '- [ ] ';
+
+        let nextContent = currentContent;
+        let nextCaret = currentContent.length + checkboxToken.length;
+
+        if (textarea) {
+            const start = textarea.selectionStart ?? currentContent.length;
+            const end = textarea.selectionEnd ?? currentContent.length;
+            const needsNewLine = start > 0 && currentContent[start - 1] !== '\n';
+            const insertion = `${needsNewLine ? '\n' : ''}${checkboxToken}`;
+
+            nextContent = `${currentContent.slice(0, start)}${insertion}${currentContent.slice(end)}`;
+            nextCaret = start + insertion.length;
+        } else if (currentContent.length > 0 && !currentContent.endsWith('\n')) {
+            nextContent = `${currentContent}\n${checkboxToken}`;
+        } else {
+            nextContent = `${currentContent}${checkboxToken}`;
+        }
+
+        handleUpdateEntry(activeEntry.id, { content: nextContent });
+
+        window.requestAnimationFrame(() => {
+            const el = textareaRef.current;
+            if (!el) return;
+            el.focus();
+            el.setSelectionRange(nextCaret, nextCaret);
+        });
+    }, [activeEntry, handleUpdateEntry]);
 
     const handleDeleteEntry = (id: string) => {
         if (confirm("Excluir esta entrada?")) {
@@ -309,7 +344,22 @@ const JournalView: React.FC = () => {
                             </div>
 
                             {/* TEXT AREA */}
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <p className="text-xs text-slate-500">
+                                    Dica rápida: adicione checklist com um clique e marque depois quando quiser.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handleInsertChecklistItem}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-300 hover:bg-violet-500/15 hover:border-violet-500/35 transition-colors text-sm font-medium"
+                                    title="Inserir checkbox"
+                                >
+                                    <CheckSquare2 size={16} />
+                                    Checklist
+                                </button>
+                            </div>
                             <textarea
+                                ref={textareaRef}
                                 value={activeEntry.content}
                                 onChange={(e) => handleUpdateEntry(activeEntry.id, { content: e.target.value })}
                                 placeholder="Como você está se sentindo hoje? O que você aprendeu? No que você progrediu?"

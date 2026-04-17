@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 export function TaskDetailsSidebar() {
   const { tasks, selectedTaskId, setSelectedTaskId, updateTask, deleteTask, projects } = useStore();
   const task = tasks.find(t => t.id === selectedTaskId);
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newTagTitle, setNewTagTitle] = useState('');
@@ -44,7 +45,8 @@ export function TaskDetailsSidebar() {
       const newSubtask: Subtask = {
         id: crypto.randomUUID(),
         title: newSubtaskTitle.trim(),
-        completed: false
+        completed: false,
+        lastCompletedDate: null,
       };
       updateTask(task.id, {
         subtasks: [...(task.subtasks || []), newSubtask]
@@ -54,10 +56,18 @@ export function TaskDetailsSidebar() {
   };
 
   const handleToggleSubtask = (subtaskId: string) => {
+    const nextDate = todayStr;
     updateTask(task.id, {
-      subtasks: task.subtasks?.map(st => 
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
-      )
+      subtasks: task.subtasks?.map(st => {
+        if (st.id !== subtaskId) return st;
+
+        const isCompletedToday = st.completed && st.lastCompletedDate === todayStr;
+        return {
+          ...st,
+          completed: !isCompletedToday,
+          lastCompletedDate: !isCompletedToday ? nextDate : null,
+        };
+      })
     });
   };
 
@@ -244,25 +254,29 @@ export function TaskDetailsSidebar() {
 
         {/* Subtasks */}
         <div className="space-y-3">
-          {task.subtasks?.map(subtask => (
-            <div key={subtask.id} className="flex items-center group">
-              <button 
-                onClick={() => handleToggleSubtask(subtask.id)}
-                className="mr-3 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
-              >
-                {subtask.completed ? <CheckCircle2 className="w-4 h-4 text-[var(--color-primary)]" /> : <Circle className="w-4 h-4" />}
-              </button>
-              <span className={cn("text-sm flex-1", subtask.completed && "line-through text-[var(--color-text-muted)]")}>
-                {subtask.title}
-              </span>
-              <button 
-                onClick={() => updateTask(task.id, { subtasks: task.subtasks?.filter(st => st.id !== subtask.id) })}
-                className="opacity-0 group-hover:opacity-100 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+          {task.subtasks?.map(subtask => {
+            const isChecked = subtask.completed && subtask.lastCompletedDate === todayStr;
+
+            return (
+              <div key={subtask.id} className="flex items-center group">
+                <button
+                  onClick={() => handleToggleSubtask(subtask.id)}
+                  className="mr-3 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                >
+                  {isChecked ? <CheckCircle2 className="w-4 h-4 text-[var(--color-primary)]" /> : <Circle className="w-4 h-4" />}
+                </button>
+                <span className={cn("text-sm flex-1", isChecked && "line-through text-[var(--color-text-muted)]")}>
+                  {subtask.title}
+                </span>
+                <button
+                  onClick={() => updateTask(task.id, { subtasks: task.subtasks?.filter(st => st.id !== subtask.id) })}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
           
           <div className="flex items-center text-sm text-[var(--color-text-muted)]">
             <Plus className="w-4 h-4 mr-3" />

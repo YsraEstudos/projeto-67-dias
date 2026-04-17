@@ -44,6 +44,7 @@ export function TimerWidget() {
   const restActivities = useRestStore((state) => state.activities);
   const toggleRestActivityComplete = useRestStore((state) => state.toggleActivityComplete);
   const activeTask = tasks.find(t => t.id === activeTaskId);
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const {
     isActive,
@@ -183,9 +184,16 @@ export function TimerWidget() {
   const handleToggleSubtask = (subtaskId: string) => {
     if (!activeTask) return;
     updateTask(activeTask.id, {
-      subtasks: activeTask.subtasks?.map(st => 
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
-      )
+      subtasks: activeTask.subtasks?.map(st => {
+        if (st.id !== subtaskId) return st;
+
+        const isCompletedToday = st.completed && st.lastCompletedDate === todayStr;
+        return {
+          ...st,
+          completed: !isCompletedToday,
+          lastCompletedDate: !isCompletedToday ? todayStr : null,
+        };
+      })
     });
   };
 
@@ -228,7 +236,7 @@ export function TimerWidget() {
           </p>
           <div className={cn("space-y-1.5 overflow-y-auto pr-2 custom-scrollbar", variant === 'fullscreen' ? "max-h-[220px]" : "max-h-[140px]")}>
             {activeTask.subtasks.map(subtask => {
-              const isChecked = subtask.completed;
+              const isChecked = subtask.completed && subtask.lastCompletedDate === todayStr;
               return (
                 <div 
                   key={subtask.id} 
@@ -252,7 +260,7 @@ export function TimerWidget() {
                     "flex-1 transition-all duration-300 z-10", 
                     isChecked ? "text-green-500/70 line-through decoration-green-500/40" : "text-[var(--color-text)] font-medium",
                     variant === 'fullscreen' ? "text-base" : "text-sm",
-                    isChecked && !subtask.completed ? "translate-x-1" : ""
+                    isChecked ? "translate-x-1" : ""
                   )}>
                     {subtask.title}
                   </span>
@@ -476,7 +484,7 @@ export function TimerWidget() {
                                 className={cn(
                                   'rounded-xl border bg-[var(--color-surface-hover)]/35 transition-all',
                                   isSelected
-                                    ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/8 shadow-[0_0_0_1px_rgba(244,63,94,0.18)]'
+                                    ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/8 shadow-[0_0_0_1px_rgba(139,92,246,0.18)]'
                                     : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-primary)]/6',
                                 )}
                               >
