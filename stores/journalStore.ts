@@ -14,6 +14,7 @@ export interface JournalEntry {
     date: string;
     content: string;
     entryType?: JournalEntryType; // Default 'text' if undefined
+    isFinalized?: boolean;
     drawingPages?: DrawingPage[];
     mood?: Mood;
     tags?: string[];

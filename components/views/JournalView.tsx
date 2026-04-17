@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Suspense, useCallback, useRef } from 'react';
 import {
-    Book, Calendar, Plus, Trash2, CheckSquare2,
-    Smile, Meh, Frown, CloudRain, Zap, Quote, Target, PenLine
+    Book, Calendar, Plus, Trash2, CheckSquare2, Square,
+    Smile, Meh, Frown, CloudRain, Zap, Quote, Target, PenLine, CheckCircle2
 } from 'lucide-react';
 import { useJournalStore, JournalEntry } from '../../stores/journalStore';
 import { useTabStore } from '../../stores/tabStore';
@@ -25,12 +25,64 @@ const INITIAL_ENTRIES: UIJournalEntry[] = [
         id: `initial_${Date.now()}`,
         date: new Date().toISOString().split('T')[0],
         content: "Hoje foi um dia produtivo. Consegui finalizar o módulo de trabalho do projeto. Me sinto um pouco cansado, mas satisfeito com o progresso.",
+        isFinalized: false,
         mood: 'great', // Matches Mood type
         entryType: 'text',
         createdAt: Date.now(),
         updatedAt: Date.now()
     }
 ];
+
+const CHECKLIST_LINE_REGEX = /^(\s*)([-*+])\s+\[( |x|X)\]\s*(.*)$/;
+
+const toggleChecklistLine = (content: string, lineIndex: number) => {
+    const lines = content.split('\n');
+    const line = lines[lineIndex];
+    if (typeof line !== 'string') return content;
+
+    const match = line.match(CHECKLIST_LINE_REGEX);
+    if (!match) return content;
+
+    const checked = match[3].toLowerCase() === 'x';
+    lines[lineIndex] = line.replace(/\[( |x|X)\]/, checked ? '[ ]' : '[x]');
+    return lines.join('\n');
+};
+
+const renderFormattedJournalLine = (line: string, lineIndex: number, onToggleChecklistLine: (lineIndex: number) => void) => {
+    const match = line.match(CHECKLIST_LINE_REGEX);
+
+    if (match) {
+        const [, indent, , checkedMark, text] = match;
+        const isChecked = checkedMark.toLowerCase() === 'x';
+
+        return (
+            <button
+                key={`line-${lineIndex}`}
+                type="button"
+                onClick={() => onToggleChecklistLine(lineIndex)}
+                className="w-full flex items-start gap-3 rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3 text-left transition-colors hover:border-purple-500/40 hover:bg-slate-900/60"
+            >
+                <span className="mt-0.5 shrink-0 text-purple-300">
+                    {isChecked ? <CheckSquare2 size={20} /> : <Square size={20} />}
+                </span>
+                <span className="flex-1 text-slate-100 leading-relaxed whitespace-pre-wrap">
+                    <span className="whitespace-pre">{indent}</span>
+                    {text || ' '}
+                </span>
+            </button>
+        );
+    }
+
+    if (line.trim().length === 0) {
+        return <div key={`line-${lineIndex}`} className="h-3" />;
+    }
+
+    return (
+        <p key={`line-${lineIndex}`} className="text-slate-200 text-lg leading-relaxed whitespace-pre-wrap">
+            {line}
+        </p>
+    );
+};
 
 // --- COMPONENTS ---
 
@@ -152,6 +204,7 @@ const JournalView: React.FC = () => {
             id: Date.now().toString(),
             date: new Date().toISOString().split('T')[0],
             content: '',
+            isFinalized: false,
             mood: 'neutral',
             entryType: 'text',
             createdAt: Date.now(),
@@ -188,6 +241,14 @@ const JournalView: React.FC = () => {
         if (updates.content) {
             trackActivity();
         }
+    };
+
+    const handleToggleFinalized = () => {
+        if (!activeEntry) return;
+
+        handleUpdateEntry(activeEntry.id, {
+            isFinalized: !activeEntry.isFinalized
+        });
     };
 
     const handleInsertChecklistItem = useCallback(() => {
@@ -333,6 +394,20 @@ const JournalView: React.FC = () => {
                                     />
                                 </div>
                                 <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    {activeEntry.entryType !== 'drawing' && (
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleFinalized}
+                                            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border text-sm font-medium ${activeEntry.isFinalized
+                                                ? 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-violet-400/40 hover:text-white'
+                                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/30'
+                                                }`}
+                                            title={activeEntry.isFinalized ? 'Voltar para edição' : 'Finalizar nota'}
+                                        >
+                                            {activeEntry.isFinalized ? <PencilLine size={16} /> : <CheckCircle2 size={16} />}
+                                            {activeEntry.isFinalized ? 'Editar nota' : 'Finalizar nota'}
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => handleDeleteEntry(activeEntry.id)}
                                         className="p-2.5 text-slate-400 hover:text-red-400 hover:bg-slate-900 rounded-lg transition-colors"
@@ -343,28 +418,64 @@ const JournalView: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* TEXT AREA */}
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <p className="text-xs text-slate-500">
-                                    Dica rápida: adicione checklist com um clique e marque depois quando quiser.
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={handleInsertChecklistItem}
-                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-300 hover:bg-violet-500/15 hover:border-violet-500/35 transition-colors text-sm font-medium"
-                                    title="Inserir checkbox"
-                                >
-                                    <CheckSquare2 size={16} />
-                                    Checklist
-                                </button>
-                            </div>
-                            <textarea
-                                ref={textareaRef}
-                                value={activeEntry.content}
-                                onChange={(e) => handleUpdateEntry(activeEntry.id, { content: e.target.value })}
-                                placeholder="Como você está se sentindo hoje? O que você aprendeu? No que você progrediu?"
-                                className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 text-slate-200 resize-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 text-lg leading-relaxed scrollbar-thin placeholder:text-slate-600"
-                            />
+                            {activeEntry.entryType !== 'drawing' && !activeEntry.isFinalized && (
+                                <>
+                                    {/* TEXT AREA */}
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <p className="text-xs text-slate-500">
+                                            Dica rápida: adicione checklist com um clique e finalize quando quiser ver o formato.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={handleInsertChecklistItem}
+                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-300 hover:bg-violet-500/15 hover:border-violet-500/35 transition-colors text-sm font-medium"
+                                            title="Inserir checkbox"
+                                        >
+                                            <CheckSquare2 size={16} />
+                                            Checklist
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={activeEntry.content}
+                                        onChange={(e) => handleUpdateEntry(activeEntry.id, { content: e.target.value })}
+                                        placeholder="Como você está se sentindo hoje? O que você aprendeu? No que você progrediu?"
+                                        className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 text-slate-200 resize-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 text-lg leading-relaxed scrollbar-thin placeholder:text-slate-600"
+                                    />
+                                </>
+                            )}
+
+                            {activeEntry.entryType !== 'drawing' && activeEntry.isFinalized && (
+                                <div className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 overflow-y-auto">
+                                    <div className="flex items-center justify-between gap-3 mb-4">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-200">Nota finalizada</p>
+                                            <p className="text-xs text-slate-500">Clique nos checkboxes para alternar o status quando quiser.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleFinalized}
+                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-violet-400/40 hover:text-white transition-colors text-sm font-medium"
+                                        >
+                                            <PencilLine size={16} />
+                                            Editar nota
+                                        </button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {(activeEntry.content || '').split('\n').map((line, lineIndex) =>
+                                            renderFormattedJournalLine(
+                                                line,
+                                                lineIndex,
+                                                (targetLineIndex) => {
+                                                    handleUpdateEntry(activeEntry.id, {
+                                                        content: toggleChecklistLine(activeEntry.content || '', targetLineIndex)
+                                                    });
+                                                }
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* INSPIRATIONAL QUOTE */}
                             <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 relative overflow-hidden">
