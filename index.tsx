@@ -3,6 +3,17 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 
 const DEV_SW_RESET_KEY = 'p67-dev-sw-reset';
+const HAS_SW_CONTROLLER_AT_BOOT = globalThis.window !== undefined && 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
+
+if (globalThis.window !== undefined && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!HAS_SW_CONTROLLER_AT_BOOT) {
+      return;
+    }
+
+    globalThis.location.reload();
+  });
+}
 
 const disablePwaInDev = async (): Promise<boolean> => {
   if (
