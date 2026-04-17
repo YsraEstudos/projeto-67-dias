@@ -16,13 +16,27 @@ import { AnimatePresence } from 'motion/react';
 import type { Task } from './store/types';
 
 export default function App() {
-  const { isReportOpen, isSettingsOpen, selectedTaskId, tasks, updateTask, settings } = useStore();
+  const {
+    isReportOpen,
+    isSettingsOpen,
+    selectedTaskId,
+    tasks,
+    updateTask,
+    settings,
+    activeTaskId,
+    activeTaskSelectionDate,
+    setActiveTaskId,
+  } = useStore();
   const timerMode = useStore((state) => state.timerState.mode);
   const isBreakMode = timerMode === 'shortBreak' || timerMode === 'longBreak';
 
   useEffect(() => {
     const syncDailyState = () => {
       const todayStr = new Date().toISOString().split('T')[0];
+
+      if (activeTaskId && activeTaskSelectionDate !== todayStr) {
+        setActiveTaskId(null);
+      }
 
       tasks.forEach((task) => {
         const updates: Partial<Task> = {};
@@ -53,9 +67,9 @@ export default function App() {
     };
 
     syncDailyState();
-    const interval = window.setInterval(syncDailyState, 60_000);
-    return () => window.clearInterval(interval);
-  }, [tasks, updateTask]);
+    const interval = globalThis.setInterval(syncDailyState, 60_000);
+    return () => globalThis.clearInterval(interval);
+  }, [activeTaskId, activeTaskSelectionDate, setActiveTaskId, tasks, updateTask]);
 
   // Apply accent color to CSS variables.
   // During rest mode, we temporarily shift the primary color to purple so the timer feels distinct.

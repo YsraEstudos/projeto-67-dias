@@ -250,7 +250,6 @@ export const appReducer = (state: AppState, action: Action): AppState => {
       return markChanged(
         normalizeStateForCurrentPlan({
           ...state,
-          selectedDate: action.startDate,
           planSettings: {
             ...state.planSettings,
             startDate: action.startDate,

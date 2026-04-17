@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     isJournalEntrySaved,
+    formatJournalDate,
     parseJournalLine,
     toggleChecklistLine,
 } from './journalFormatting';
@@ -11,6 +12,10 @@ describe('journalFormatting', () => {
         expect(isJournalEntrySaved({ isFinalized: true })).toBe(true);
         expect(isJournalEntrySaved({ isSaved: false, isFinalized: false })).toBe(false);
         expect(isJournalEntrySaved(null)).toBe(false);
+    });
+
+    it('formats date-only journal values as local calendar dates', () => {
+        expect(formatJournalDate('2026-04-17')).toBe('17 de abril');
     });
 
     it('toggles checklist lines only when the line is a checklist item', () => {

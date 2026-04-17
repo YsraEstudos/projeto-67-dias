@@ -16,6 +16,54 @@ describe('pomodoroStore', () => {
     vi.clearAllMocks();
   });
 
+  it('clears stale active task from a previous day during hydration', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'));
+
+    usePomodoroStore.getState()._hydrateFromFirestore({
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Manha',
+          completed: false,
+          estimatedPomodoros: 1,
+          completedPomodoros: 0,
+          createdAt: '2026-04-16T10:00:00.000Z',
+        },
+      ],
+      activeTaskId: 'task-1',
+      activeTaskSelectionDate: '2026-04-16',
+    } as any);
+
+    expect(usePomodoroStore.getState().activeTaskId).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it('keeps active task when hydration date matches today', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'));
+
+    usePomodoroStore.getState()._hydrateFromFirestore({
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Manha',
+          completed: false,
+          estimatedPomodoros: 1,
+          completedPomodoros: 0,
+          createdAt: '2026-04-16T10:00:00.000Z',
+        },
+      ],
+      activeTaskId: 'task-1',
+      activeTaskSelectionDate: '2026-04-17',
+    } as any);
+
+    expect(usePomodoroStore.getState().activeTaskId).toBe('task-1');
+
+    vi.useRealTimers();
+  });
+
   it('does not sync before initialization', () => {
     usePomodoroStore.getState().addTask({
       title: 'Task before hydrate',
@@ -151,6 +199,9 @@ describe('pomodoroStore', () => {
   });
 
   it('syncs active task changes with realtime debounce', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'));
+
     usePomodoroStore.getState()._hydrateFromFirestore(null);
 
     usePomodoroStore.getState().setActiveTaskId('task-1');
@@ -159,8 +210,11 @@ describe('pomodoroStore', () => {
       'pomodoro-storage',
       expect.objectContaining({
         activeTaskId: 'task-1',
+        activeTaskSelectionDate: '2026-04-17',
       }),
       REALTIME_DEBOUNCE_MS
     );
+
+    vi.useRealTimers();
   });
 });

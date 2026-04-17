@@ -47,12 +47,15 @@ const createId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
+const getTodayISODate = (): string => new Date().toISOString().split('T')[0];
+
 const createDefaultPersistentState = () => ({
   tasks: [] as Task[],
   projects: [...DEFAULT_PROJECTS],
   records: [] as PomodoroRecord[],
   settings: { ...DEFAULT_SETTINGS },
   activeTaskId: null as string | null,
+  activeTaskSelectionDate: null as string | null,
   shortBreakSelection: null as BreakSelection | null,
   longBreakSelection: null as BreakSelection | null,
   breakExerciseStats: {} as Record<string, BreakExerciseStat>,
@@ -72,6 +75,7 @@ export interface PomodoroStoreState {
   isSettingsOpen: boolean;
   selectedTaskId: string | null;
   activeTaskId: string | null;
+  activeTaskSelectionDate: string | null;
   shortBreakSelection: BreakSelection | null;
   longBreakSelection: BreakSelection | null;
   breakExerciseStats: Record<string, BreakExerciseStat>;
@@ -119,6 +123,7 @@ const getPersistentState = (state: PomodoroStoreState): PomodoroPersistentState 
   records: state.records,
   settings: state.settings,
   activeTaskId: state.activeTaskId,
+  activeTaskSelectionDate: state.activeTaskSelectionDate,
   shortBreakSelection: state.shortBreakSelection,
   longBreakSelection: state.longBreakSelection,
   breakExerciseStats: state.breakExerciseStats,
@@ -159,9 +164,12 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
     updateTask: (id, updates) => {
       set((state) => {
         const isCompleting = updates.completed === true;
+        const nextActiveTaskId = isCompleting && state.activeTaskId === id ? null : state.activeTaskId;
+
         return {
           tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...updates } : task)),
-          activeTaskId: isCompleting && state.activeTaskId === id ? null : state.activeTaskId,
+          activeTaskId: nextActiveTaskId,
+          activeTaskSelectionDate: nextActiveTaskId ? state.activeTaskSelectionDate : null,
         };
       });
       get()._syncToFirestore();
@@ -200,9 +208,12 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           });
         }
 
+        const nextActiveTaskId = isCompleting && state.activeTaskId === id ? null : state.activeTaskId;
+
         return {
           tasks: updatedTasks,
-          activeTaskId: isCompleting && state.activeTaskId === id ? null : state.activeTaskId,
+          activeTaskId: nextActiveTaskId,
+          activeTaskSelectionDate: nextActiveTaskId ? state.activeTaskSelectionDate : null,
         };
       });
       get()._syncToFirestore();
@@ -213,6 +224,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
         tasks: state.tasks.filter((task) => task.id !== id),
         selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
         activeTaskId: state.activeTaskId === id ? null : state.activeTaskId,
+        activeTaskSelectionDate: state.activeTaskId === id ? null : state.activeTaskSelectionDate,
       }));
       get()._syncToFirestore();
     },
@@ -273,7 +285,10 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
     },
 
     setActiveTaskId: (id) => {
-      set({ activeTaskId: id });
+      set({
+        activeTaskId: id,
+        activeTaskSelectionDate: id ? getTodayISODate() : null,
+      });
       get()._syncRealtimeToFirestore();
     },
 
@@ -342,6 +357,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           breakExerciseStats: parsed.breakExerciseStats ?? {},
           timerState: parsed.timerState ?? createDefaultTimerState(),
           activeTaskId: null,
+          activeTaskSelectionDate: null,
           selectedTaskId: null,
           currentFilter: 'today',
         });
@@ -384,6 +400,15 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
         const activeTaskId = typeof data.activeTaskId === 'string'
           ? data.activeTaskId
           : null;
+        const activeTaskSelectionDate = typeof data.activeTaskSelectionDate === 'string'
+          ? data.activeTaskSelectionDate
+          : null;
+        const today = getTodayISODate();
+        const shouldKeepActiveTask = Boolean(
+          activeTaskId
+          && tasks.some((task) => task.id === activeTaskId)
+          && activeTaskSelectionDate === today,
+        );
 
         set({
           tasks,
@@ -394,9 +419,8 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           longBreakSelection: data.longBreakSelection ?? null,
           breakExerciseStats: data.breakExerciseStats ?? {},
           timerState: data.timerState ?? createDefaultTimerState(),
-          activeTaskId: activeTaskId && tasks.some((task) => task.id === activeTaskId)
-            ? activeTaskId
-            : null,
+          activeTaskId: shouldKeepActiveTask ? activeTaskId : null,
+          activeTaskSelectionDate: shouldKeepActiveTask ? activeTaskSelectionDate : null,
           selectedTaskId: null,
           isLoading: false,
           _initialized: true,

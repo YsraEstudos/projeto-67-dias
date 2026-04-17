@@ -1,10 +1,15 @@
 import { JournalEntry } from '../../../stores/journalStore';
+import { formatDateBR } from '../../../utils/dateUtils';
 
 export const CHECKLIST_LINE_REGEX = /^(\s*)([-*+])\s+\[( |x|X)\]\s*(.*)$/;
 
 export const isJournalEntrySaved = (entry?: Pick<JournalEntry, 'isSaved' | 'isFinalized'> | null) => {
     if (!entry) return false;
     return Boolean(entry.isSaved ?? entry.isFinalized ?? false);
+};
+
+export const formatJournalDate = (date: Date | string, formatStr = "d 'de' MMMM") => {
+    return formatDateBR(date, formatStr);
 };
 
 export const toggleChecklistLine = (content: string, lineIndex: number) => {

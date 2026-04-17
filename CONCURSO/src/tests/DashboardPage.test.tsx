@@ -1,5 +1,7 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { appReducer } from '../app/AppContext';
+import { buildPlanRuntime } from '../app/seed';
 import { createStateWithTopics, renderConcursoApp } from './renderConcursoApp';
 
 describe('DashboardPage', () => {
@@ -38,5 +40,33 @@ describe('DashboardPage', () => {
 
     const subjectLink = screen.getAllByRole('link', { name: /abrir matéria/i })[0];
     expect(subjectLink).toHaveAttribute('href', expect.stringMatching(/^\/conteudo\/topico\/item-/));
+  });
+
+  it('recalcula o card do plano quando a data de início muda sem trocar o dia ativo', () => {
+    const selectedDate = '2026-04-17';
+    const initialState = createStateWithTopics((draft) => {
+      draft.selectedDate = selectedDate;
+    });
+
+    const beforePlan = buildPlanRuntime(initialState.planSettings.startDate).dayPlansByDate[selectedDate];
+
+    const updatedState = appReducer(initialState, {
+      type: 'set-plan-start-date',
+      startDate: '2026-04-15',
+    });
+
+    const afterPlan = buildPlanRuntime(updatedState.planSettings.startDate).dayPlansByDate[selectedDate];
+
+    expect(updatedState.selectedDate).toBe(selectedDate);
+    expect(beforePlan.weekNumber).not.toBe(afterPlan.weekNumber);
+
+    renderConcursoApp('/', updatedState);
+
+    expect(
+      screen.getByText((_, element) => element?.textContent === `Plano manual: Semana ${afterPlan.weekNumber}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`${afterPlan.manualBlocks[0].area}: ${afterPlan.manualBlocks[0].title}`),
+    ).toBeInTheDocument();
   });
 }, 10000);

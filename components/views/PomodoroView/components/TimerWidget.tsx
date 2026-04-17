@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -24,10 +24,13 @@ export function TimerWidget() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isBreakPickerOpen, setIsBreakPickerOpen] = useState(false);
   const [breakPickerTab, setBreakPickerTab] = useState<BreakPickerTab>('today');
+  const [isTaskPickerOpen, setIsTaskPickerOpen] = useState(false);
+  const [taskPickerProjectFilter, setTaskPickerProjectFilter] = useState<string>('inbox');
   
   const {
     activeTaskId,
     tasks,
+    projects,
     setActiveTaskId,
     setSettingsOpen,
     settings,
@@ -45,6 +48,41 @@ export function TimerWidget() {
   const toggleRestActivityComplete = useRestStore((state) => state.toggleActivityComplete);
   const activeTask = tasks.find(t => t.id === activeTaskId);
   const todayStr = new Date().toISOString().split('T')[0];
+
+  const taskPickerProjects = useMemo(() => {
+    const inboxCount = tasks.filter((task) => !task.completed && !task.projectId).length;
+
+    return [
+      {
+        id: 'inbox',
+        label: 'Caixa de entrada',
+        color: '#64748b',
+        count: inboxCount,
+      },
+      ...projects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        color: project.color,
+        count: tasks.filter((task) => !task.completed && task.projectId === project.id).length,
+      })),
+    ];
+  }, [projects, tasks]);
+
+  const taskPickerItems = useMemo(() => {
+    const filtered = tasks.filter((task) => (
+      taskPickerProjectFilter === 'inbox'
+        ? !task.projectId
+        : task.projectId === taskPickerProjectFilter
+    ));
+
+    return [...filtered].sort((left, right) => {
+      if (left.completed !== right.completed) {
+        return left.completed ? 1 : -1;
+      }
+
+      return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    });
+  }, [taskPickerProjectFilter, tasks]);
 
   const {
     isActive,
@@ -131,6 +169,19 @@ export function TimerWidget() {
   }, [isBreakMode]);
 
   useEffect(() => {
+    if (isBreakMode) {
+      setIsTaskPickerOpen(false);
+    }
+  }, [isBreakMode]);
+
+  useEffect(() => {
+    if (!isTaskPickerOpen) return;
+
+    const currentTask = tasks.find((task) => task.id === activeTaskId);
+    setTaskPickerProjectFilter(currentTask?.projectId ?? 'inbox');
+  }, [activeTaskId, isTaskPickerOpen, tasks]);
+
+  useEffect(() => {
     if (!selectedQuickExerciseOption) {
       setExerciseRepsDraft(0);
       return;
@@ -198,6 +249,16 @@ export function TimerWidget() {
   };
 
   const [justCompleted, setJustCompleted] = useState(false);
+
+  const handleSelectFocusTask = (taskId: string) => {
+    setActiveTaskId(taskId);
+    setIsTaskPickerOpen(false);
+  };
+
+  const handleClearActiveTask = () => {
+    setActiveTaskId(null);
+    setIsTaskPickerOpen(false);
+  };
 
   const handleMarkSelectedRestAsCompleted = () => {
     if (!selectedRestActivity || selectedRestActivity.isCompleted) return;
@@ -643,6 +704,145 @@ export function TimerWidget() {
     );
   };
 
+  const renderTaskPickerModal = () => {
+    if (!isTaskPickerOpen) return null;
+
+    return (
+      <AnimatePresence>
+        <motion.div
+          key="task-picker-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[220] flex items-center justify-center bg-black/65 px-4 py-8 backdrop-blur-sm"
+          onClick={() => setIsTaskPickerOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            transition={{ duration: 0.18 }}
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-3xl rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">Foco do timer</p>
+                <h3 className="mt-1 text-lg font-semibold text-[var(--color-text)]">Selecionar tarefa de foco</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTaskPickerOpen(false)}
+                className="rounded-full p-2 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+                aria-label="Fechar seletor de tarefa"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="border-b border-[var(--color-border)] px-4 py-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {taskPickerProjects.map((project) => {
+                  const isActive = project.id === taskPickerProjectFilter;
+
+                  return (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => setTaskPickerProjectFilter(project.id)}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap',
+                        isActive
+                          ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                          : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-primary)]/40 hover:text-[var(--color-text)]',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-2.5 w-2.5 rounded-full',
+                          isActive ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-text-muted)]',
+                        )}
+                      />
+                      <span>{project.label}</span>
+                      <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-text-muted)]">
+                        {project.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="max-h-[52vh] overflow-y-auto px-4 py-3">
+              {taskPickerItems.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-8 text-center text-[var(--color-text-muted)]">
+                  <FolderOpen className="mx-auto mb-2 h-5 w-5" />
+                  <p>Nenhuma tarefa encontrada neste projeto.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {taskPickerItems.map((task) => {
+                    const isSelected = task.id === activeTaskId;
+
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => handleSelectFocusTask(task.id)}
+                        disabled={task.completed}
+                        className={cn(
+                          'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
+                          task.completed
+                            ? 'cursor-not-allowed border-[var(--color-border)] bg-[var(--color-surface-hover)]/40 opacity-60'
+                            : isSelected
+                              ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/10'
+                              : 'border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/8',
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-[var(--color-text)]">{task.title}</p>
+                            <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                              {task.completed ? 'Concluída' : 'Clique para focar nesta tarefa'}
+                            </p>
+                          </div>
+                          {isSelected && !task.completed && (
+                            <span className="rounded-full bg-[var(--color-primary)]/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-primary)]">
+                              Ativa
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] px-4 py-3">
+              {activeTaskId && (
+                <button
+                  type="button"
+                  onClick={handleClearActiveTask}
+                  className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/10"
+                >
+                  Limpar seleção atual
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsTaskPickerOpen(false)}
+                className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+              >
+                Fechar
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -757,6 +957,16 @@ export function TimerWidget() {
                 <p className="text-xl text-[var(--color-text-muted)] uppercase tracking-widest mb-4">Foco Livre</p>
                 <p className="text-2xl text-[var(--color-text-muted)]">Nenhuma tarefa selecionada</p>
               </div>
+            )}
+
+            {!isBreakMode && (
+              <button
+                type="button"
+                onClick={() => setIsTaskPickerOpen(true)}
+                className="mb-12 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 px-5 py-2 text-sm font-medium text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+              >
+                Selecionar ou limpar tarefa
+              </button>
             )}
 
             <div className="flex justify-center items-center space-x-8">
@@ -904,6 +1114,16 @@ export function TimerWidget() {
               ) : (
                 <p className="text-sm text-[var(--color-text-muted)]">Foco Livre (Sem tarefa)</p>
               )}
+
+              {!isBreakMode && (
+                <button
+                  type="button"
+                  onClick={() => setIsTaskPickerOpen(true)}
+                  className="mt-3 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-text)]"
+                >
+                  Selecionar ou limpar tarefa
+                </button>
+              )}
             </div>
 
             {renderBreakPickerSection('expanded')}
@@ -934,6 +1154,8 @@ export function TimerWidget() {
           </>
         )}
       </motion.div>
+
+      {renderTaskPickerModal()}
     </>
   );
 }

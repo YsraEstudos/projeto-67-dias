@@ -104,16 +104,17 @@ describe('snapshot storage', () => {
 
   it('recalcula o plano e contabiliza alteracoes ao mudar a data de inicio', () => {
     const state = createInitialState();
+    state.selectedDate = '2026-04-17';
 
     const updated = appReducer(state, {
       type: 'set-plan-start-date',
-      startDate: '2026-03-21',
+      startDate: '2026-04-15',
     });
 
-    expect(updated.planSettings.startDate).toBe('2026-03-21');
+    expect(updated.planSettings.startDate).toBe('2026-04-15');
     expect(updated.planSettings.startDateChangeCount).toBe(1);
-    expect(updated.selectedDate).toBe('2026-03-21');
-    expect(updated.dailyRecords['2026-03-21']).toBeDefined();
+    expect(updated.selectedDate).toBe('2026-04-17');
+    expect(updated.dailyRecords['2026-04-17']).toBeDefined();
     expect(updated.dailyRecords['2026-03-14']).toBeUndefined();
   });
 

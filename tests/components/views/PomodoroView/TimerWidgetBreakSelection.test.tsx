@@ -10,6 +10,34 @@ describe('TimerWidget break selection', () => {
     usePomodoroStore.getState()._reset();
     useRestStore.getState()._reset();
 
+    usePomodoroStore.getState()._hydrateFromFirestore({
+      projects: [
+        { id: 'p1', name: 'Trabalho', color: '#00a8ff' },
+        { id: 'p2', name: 'Projeto Extra', color: '#f43f5e' },
+      ],
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Manha',
+          completed: false,
+          estimatedPomodoros: 1,
+          completedPomodoros: 0,
+          createdAt: '2026-04-17T09:00:00.000Z',
+        },
+        {
+          id: 'task-2',
+          title: 'Implementar endpoint',
+          projectId: 'p2',
+          completed: false,
+          estimatedPomodoros: 2,
+          completedPomodoros: 0,
+          createdAt: '2026-04-17T09:01:00.000Z',
+        },
+      ],
+      activeTaskId: 'task-1',
+      activeTaskSelectionDate: '2026-04-17',
+    } as any);
+
     useRestStore.getState().setActivities([
       {
         id: 'rest-today-1',
@@ -87,5 +115,31 @@ describe('TimerWidget break selection', () => {
     fireEvent.click(screen.getByRole('button', { name: /Marcar como concluído no descanso/i }));
 
     expect(useRestStore.getState().activities.find((activity) => activity.id === 'rest-today-1')?.isCompleted).toBe(true);
+  });
+
+  it('opens a task picker modal, navigates projects and selects a task', () => {
+    render(<TimerWidget />);
+
+    fireEvent.click(screen.getByTitle('Expandir timer'));
+    fireEvent.click(screen.getByRole('button', { name: /selecionar ou limpar tarefa/i }));
+
+    expect(screen.getByText(/selecionar tarefa de foco/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Projeto Extra/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Implementar endpoint/i }));
+
+    expect(usePomodoroStore.getState().activeTaskId).toBe('task-2');
+    expect(screen.getByText('Implementar endpoint')).toBeInTheDocument();
+  });
+
+  it('clears current active task from the same task picker modal', () => {
+    render(<TimerWidget />);
+
+    fireEvent.click(screen.getByTitle('Expandir timer'));
+    fireEvent.click(screen.getByRole('button', { name: /selecionar ou limpar tarefa/i }));
+    fireEvent.click(screen.getByRole('button', { name: /limpar seleção atual/i }));
+
+    expect(usePomodoroStore.getState().activeTaskId).toBeNull();
+    expect(screen.getByText(/Foco Livre/i)).toBeInTheDocument();
   });
 });

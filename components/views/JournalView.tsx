@@ -10,6 +10,7 @@ import { useNavigationHistory } from '../../hooks/useNavigationHistory';
 import { useStreakTracking } from '../../hooks/useStreakTracking';
 import {
     isJournalEntrySaved,
+    formatJournalDate,
     parseJournalLine,
     toggleChecklistLine,
 } from './journal/journalFormatting';
@@ -130,8 +131,6 @@ const JournalView: React.FC = () => {
 
     // Zustand store
     const { entries, addEntry, updateEntry: storeUpdateEntry, deleteEntry: storeDeleteEntry, isLoading } = useJournalStore();
-
-    // Local state fallback
     const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
 
     // Resolved Selected ID
@@ -140,8 +139,9 @@ const JournalView: React.FC = () => {
     // Main tab state (journal vs goals)
     const [activeMainTab, setActiveMainTab] = useState<'journal' | 'goals'>('journal');
 
-    // Drawing mode state
     const [showTypeSelector, setShowTypeSelector] = useState(false);
+
+    // Drawing mode state
     const [drawingMode, setDrawingMode] = useState<{ active: boolean; entryId: string | null }>({
         active: false,
         entryId: null
@@ -284,13 +284,6 @@ const JournalView: React.FC = () => {
 
     const isSavedEntry = isJournalEntrySaved(activeEntry);
 
-    // Format Date Helper
-    const formatDate = (iso: string) => {
-        return new Date(iso).toLocaleDateString('pt-BR', {
-            day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit'
-        });
-    };
-
     return (
         <div className="max-w-6xl mx-auto animate-in fade-in">
             {/* MAIN TABS */}
@@ -349,7 +342,7 @@ const JournalView: React.FC = () => {
                                 >
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="text-xs font-bold text-slate-400">
-                                            {new Date(entry.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                            {formatJournalDate(entry.date, "EEE, dd MMM")}
                                         </span>
                                     </div>
                                     <div className="text-sm text-slate-200 font-medium truncate pr-6 flex items-center gap-2">
@@ -359,7 +352,9 @@ const JournalView: React.FC = () => {
                                             : (entry.content || 'Nova entrada...')}
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
-                                        <span className="truncate max-w-[100px]">{new Date(entry.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span className="truncate max-w-[100px]">
+                                            {new Date(entry.createdAt ?? entry.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
                                     </div>
 
                                     {/* Mood Indicator Dot */}
@@ -378,7 +373,7 @@ const JournalView: React.FC = () => {
                                 <div>
                                     <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
                                         <Calendar size={14} />
-                                        {formatDate(activeEntry.date)}
+                                        {formatJournalDate(activeEntry.date)}
                                     </div>
                                     <MoodSelector
                                         current={activeEntry.mood}
