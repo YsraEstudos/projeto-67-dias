@@ -14,7 +14,8 @@ export interface JournalEntry {
     date: string;
     content: string;
     entryType?: JournalEntryType; // Default 'text' if undefined
-    isFinalized?: boolean;
+    isSaved?: boolean;
+    isFinalized?: boolean; // Backward compatibility with older persisted entries
     drawingPages?: DrawingPage[];
     mood?: Mood;
     tags?: string[];

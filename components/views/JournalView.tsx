@@ -8,6 +8,11 @@ import { useTabStore } from '../../stores/tabStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useNavigationHistory } from '../../hooks/useNavigationHistory';
 import { useStreakTracking } from '../../hooks/useStreakTracking';
+import {
+    isJournalEntrySaved,
+    parseJournalLine,
+    toggleChecklistLine,
+} from './journal/journalFormatting';
 
 import { Mood, MOOD_CONFIG } from '../../types';
 
@@ -25,7 +30,7 @@ const INITIAL_ENTRIES: UIJournalEntry[] = [
         id: `initial_${Date.now()}`,
         date: new Date().toISOString().split('T')[0],
         content: "Hoje foi um dia produtivo. Consegui finalizar o módulo de trabalho do projeto. Me sinto um pouco cansado, mas satisfeito com o progresso.",
-        isFinalized: false,
+        isSaved: false,
         mood: 'great', // Matches Mood type
         entryType: 'text',
         createdAt: Date.now(),
@@ -33,27 +38,11 @@ const INITIAL_ENTRIES: UIJournalEntry[] = [
     }
 ];
 
-const CHECKLIST_LINE_REGEX = /^(\s*)([-*+])\s+\[( |x|X)\]\s*(.*)$/;
-
-const toggleChecklistLine = (content: string, lineIndex: number) => {
-    const lines = content.split('\n');
-    const line = lines[lineIndex];
-    if (typeof line !== 'string') return content;
-
-    const match = line.match(CHECKLIST_LINE_REGEX);
-    if (!match) return content;
-
-    const checked = match[3].toLowerCase() === 'x';
-    lines[lineIndex] = line.replace(/\[( |x|X)\]/, checked ? '[ ]' : '[x]');
-    return lines.join('\n');
-};
-
 const renderFormattedJournalLine = (line: string, lineIndex: number, onToggleChecklistLine: (lineIndex: number) => void) => {
-    const match = line.match(CHECKLIST_LINE_REGEX);
+    const parsed = parseJournalLine(line);
 
-    if (match) {
-        const [, indent, , checkedMark, text] = match;
-        const isChecked = checkedMark.toLowerCase() === 'x';
+    if (parsed.kind === 'checklist') {
+        const { indent, checked, text } = parsed;
 
         return (
             <button
@@ -63,7 +52,7 @@ const renderFormattedJournalLine = (line: string, lineIndex: number, onToggleChe
                 className="w-full flex items-start gap-3 rounded-xl border border-slate-700/70 bg-slate-900/40 px-4 py-3 text-left transition-colors hover:border-purple-500/40 hover:bg-slate-900/60"
             >
                 <span className="mt-0.5 shrink-0 text-purple-300">
-                    {isChecked ? <CheckSquare2 size={20} /> : <Square size={20} />}
+                    {checked ? <CheckSquare2 size={20} /> : <Square size={20} />}
                 </span>
                 <span className="flex-1 text-slate-100 leading-relaxed whitespace-pre-wrap">
                     <span className="whitespace-pre">{indent}</span>
@@ -73,13 +62,13 @@ const renderFormattedJournalLine = (line: string, lineIndex: number, onToggleChe
         );
     }
 
-    if (line.trim().length === 0) {
+    if (parsed.kind === 'blank') {
         return <div key={`line-${lineIndex}`} className="h-3" />;
     }
 
     return (
         <p key={`line-${lineIndex}`} className="text-slate-200 text-lg leading-relaxed whitespace-pre-wrap">
-            {line}
+            {parsed.text}
         </p>
     );
 };
@@ -204,7 +193,7 @@ const JournalView: React.FC = () => {
             id: Date.now().toString(),
             date: new Date().toISOString().split('T')[0],
             content: '',
-            isFinalized: false,
+            isSaved: false,
             mood: 'neutral',
             entryType: 'text',
             createdAt: Date.now(),
@@ -220,6 +209,7 @@ const JournalView: React.FC = () => {
             id: Date.now().toString(),
             date: new Date().toISOString().split('T')[0],
             content: '',
+            isSaved: false,
             entryType: 'drawing',
             drawingPages: [],
             createdAt: Date.now(),
@@ -243,11 +233,11 @@ const JournalView: React.FC = () => {
         }
     };
 
-    const handleToggleFinalized = () => {
+    const handleToggleSaved = () => {
         if (!activeEntry) return;
 
         handleUpdateEntry(activeEntry.id, {
-            isFinalized: !activeEntry.isFinalized
+            isSaved: !isJournalEntrySaved(activeEntry)
         });
     };
 
@@ -291,6 +281,8 @@ const JournalView: React.FC = () => {
             if (selectedId === id) setSelectedId(null);
         }
     };
+
+    const isSavedEntry = isJournalEntrySaved(activeEntry);
 
     // Format Date Helper
     const formatDate = (iso: string) => {
@@ -397,15 +389,15 @@ const JournalView: React.FC = () => {
                                     {activeEntry.entryType !== 'drawing' && (
                                         <button
                                             type="button"
-                                            onClick={handleToggleFinalized}
-                                            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border text-sm font-medium ${activeEntry.isFinalized
+                                            onClick={handleToggleSaved}
+                                            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border text-sm font-medium ${isSavedEntry
                                                 ? 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-violet-400/40 hover:text-white'
                                                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/30'
                                                 }`}
-                                            title={activeEntry.isFinalized ? 'Voltar para edição' : 'Finalizar nota'}
+                                            title={isSavedEntry ? 'Voltar para edição' : 'Salvar nota'}
                                         >
-                                            {activeEntry.isFinalized ? <PencilLine size={16} /> : <CheckCircle2 size={16} />}
-                                            {activeEntry.isFinalized ? 'Editar nota' : 'Finalizar nota'}
+                                            {isSavedEntry ? <PenLine size={16} /> : <CheckCircle2 size={16} />}
+                                            {isSavedEntry ? 'Editar nota' : 'Salvar nota'}
                                         </button>
                                     )}
                                     <button
@@ -418,7 +410,7 @@ const JournalView: React.FC = () => {
                                 </div>
                             </div>
 
-                            {activeEntry.entryType !== 'drawing' && !activeEntry.isFinalized && (
+                            {activeEntry.entryType !== 'drawing' && !isSavedEntry && (
                                 <>
                                     {/* TEXT AREA */}
                                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -445,21 +437,13 @@ const JournalView: React.FC = () => {
                                 </>
                             )}
 
-                            {activeEntry.entryType !== 'drawing' && activeEntry.isFinalized && (
+                            {activeEntry.entryType !== 'drawing' && isSavedEntry && (
                                 <div className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 overflow-y-auto">
                                     <div className="flex items-center justify-between gap-3 mb-4">
                                         <div>
-                                            <p className="text-sm font-semibold text-slate-200">Nota finalizada</p>
+                                            <p className="text-sm font-semibold text-slate-200">Nota salva</p>
                                             <p className="text-xs text-slate-500">Clique nos checkboxes para alternar o status quando quiser.</p>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleToggleFinalized}
-                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-violet-400/40 hover:text-white transition-colors text-sm font-medium"
-                                        >
-                                            <PencilLine size={16} />
-                                            Editar nota
-                                        </button>
                                     </div>
                                     <div className="space-y-3">
                                         {(activeEntry.content || '').split('\n').map((line, lineIndex) =>
