@@ -65,8 +65,16 @@ describe('DashboardPage', () => {
     expect(
       screen.getByText((_, element) => element?.textContent === `Plano manual: Semana ${afterPlan.weekNumber}`),
     ).toBeInTheDocument();
+
+    const firstManualBlock = afterPlan.manualBlocks?.[0];
+    expect(firstManualBlock).toBeDefined();
+
+    if (!firstManualBlock) {
+      throw new Error('Plano manual sem blocos para a data selecionada no teste.');
+    }
+
     expect(
-      screen.getByText(`${afterPlan.manualBlocks[0].area}: ${afterPlan.manualBlocks[0].title}`),
+      screen.getByText(`${firstManualBlock.area}: ${firstManualBlock.title}`),
     ).toBeInTheDocument();
   });
 }, 10000);
