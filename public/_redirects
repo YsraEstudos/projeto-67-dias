@@ -1,1 +1,4 @@
-/*    /index.html   200
+# Intentionally left without SPA fallback redirects for this deployment target.
+# Root app uses state-driven navigation (no browser route deep links).
+# CONCURSO uses HashRouter, so server-side rewrites are not required.
+# Netlify fallback remains defined in netlify.toml when needed.
