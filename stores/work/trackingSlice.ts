@@ -60,7 +60,10 @@ export interface TrackingSlice {
     setLoading: (loading: boolean) => void;
 
     // Date check (internal)
-    _checkAndResetForNewDay: () => void;
+    _checkAndResetForNewDay: () => boolean;
+
+    // Public daily refresh used by the UI heartbeat
+    ensureCurrentDay: () => boolean;
 }
 
 export const createTrackingSlice: StateCreator<
@@ -121,6 +124,12 @@ export const createTrackingSlice: StateCreator<
         const { lastActiveDate } = get();
         const today = getTodayDate();
 
+        if (!lastActiveDate) {
+            // Initialize the anchor day so future rollovers can be detected.
+            set(() => ({ lastActiveDate: today }));
+            return true;
+        }
+
         if (lastActiveDate && lastActiveDate !== today) {
             // Day changed - reset daily counters
             set(() => ({
@@ -128,8 +137,13 @@ export const createTrackingSlice: StateCreator<
                 preBreakCount: 0,
                 lastActiveDate: today,
             }));
+            return true;
         }
+
+        return false;
     },
+
+    ensureCurrentDay: () => get()._checkAndResetForNewDay(),
 });
 
 

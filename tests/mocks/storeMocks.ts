@@ -26,6 +26,8 @@ export const createWorkStoreMock = (overrides = {}) => {
         setEndTime: vi.fn(),
         setBreakTime: vi.fn(),
         setPaceMode: vi.fn(),
+        ensureCurrentDay: vi.fn(() => false),
+        _checkAndResetForNewDay: vi.fn(() => false),
         addSession: vi.fn(),
         deleteSession: vi.fn(),
         setGoals: vi.fn(),

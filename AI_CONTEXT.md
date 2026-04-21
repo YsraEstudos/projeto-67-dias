@@ -1,200 +1,151 @@
-# AI Context
+# Agent guidelines
 
-Resumo técnico atualizado para manutenção do repositório `projeto-67-dias-concurso-sync`.
+## Critical Rules
 
-## 1. O que existe neste repo
+- Put non-negotiable safety, data, and production constraints first.
+- If a rule is labeled `CAVEAT`, `IMPORTANT`, `DO NOT CHANGE`, or equivalent in project docs, rule files, or nearby code comments, it overrides general best practices.
+- Keep always-loaded instructions concise; move long procedures and domain details into linked or scoped documents.
 
-Há dois apps relacionados, mas com responsabilidades diferentes:
+## Agent Behavior & Workflow
 
-- App raiz em `/`: painel principal "Projeto 67 Dias".
-- App standalone em `CONCURSO/`: plano TRT 4 publicado em `/concurso`.
+- Self-correction: treat the first iteration as a draft. run the relevant tests or checks to verify the solution. If not, manually review the generated code for obvious edge cases before finishing.
+- Surgical changes: output only the necessary changes. Do not rewrite entire files just to change a few lines.
 
-O dashboard principal também possui uma área `Concurso`, mas ela não substitui o app standalone. Hoje ela funciona como:
+## Context Routing & Precedence
 
-- `Competição`: arena interna renderizada dentro do app raiz.
-- `Materiais`: acesso ao app standalone e aos arquivos auxiliares do concurso.
+- Progressive disclosure: before making architectural decisions, inspect the neighboring code to understand local conventions. If project documentation exists, read it too. If docs conflict with the code, treat the code as the source of truth and flag the inconsistency.
+- Context routing: use this file as an entry point, not as the only source of truth. If working on a specific domain, first locate and read that domain’s documentation and nearest analogous implementation before proposing changes.
+- Living context: after any meaningful change, update the relevant context files so a future session can understand the current state without rediscovery.
 
-## 2. Stack atual
+## Code style
 
-### App raiz
+**Performance baseline**
+- Default to `O(1)` lookups. Use Sets for uniqueness checks and Maps/Dicts for key-value grouping.
+- Never use nested loops (`O(n^2)`) for data transformation if a flat approach with a hash map is possible.
 
-- React `19.2.3`
-- Vite `7.3.0`
-- TypeScript `5.9.3`
-- Zustand `5.0.9`
-- Firebase `12.7.0`
-- Recharts `3.6.0`
-- Tailwind CSS `4.1.18`
-- Vitest `4.0.18`
-- `vite-plugin-pwa` `1.2.0`
+**Functions**
+- 4–20 lines per function. Split anything longer by responsibility.
+- One function, one job. If you need "and" to describe it, split it.
+- Early returns over nested ifs. Max 2 levels of indentation inside a function body.
 
-### App `CONCURSO`
+**Files**
+- Under 500 lines. Split by responsibility, not by size alone.
+- One module, one responsibility (SRP). No god files.
+- Predictable paths: follow the framework convention (`controller/model/view`,
+  `src/lib/test`, etc.).
 
-- React `19.2.0`
-- React Router `7.13.1`
-- Firebase `12.7.0`
-- Vite `7.3.1`
-- Vitest `4.0.18`
-- Playwright `1.58.2`
-- Período ativo atual: `12/03/2026` a `19/11/2026`
+**Naming**
+- Names must be specific and unique. Avoid `data`, `handler`, `Manager`, `utils`, `helpers`.
+- A good name returns fewer than 5 `grep` hits across the codebase.
+- Boolean names start with `is`, `has`, or `can` (`isLoading`, `hasPermission`).
 
-## 3. Arquitetura do app raiz
+**Types**
+- Explicit types everywhere. No `any`, no untyped `Dict`, no untyped function signatures.
+- Prefer domain types over primitives: `UserId` over `string`, `Price` over `number`.
 
-### Navegação
+**Duplication & indirection**
+- No copy-pasted logic. Extract shared behaviour into a named function or module.
+- Three identical call sites is the threshold — extract on the third occurrence, not the first.
 
-- O app raiz não usa `react-router`.
-- A navegação principal é controlada por estado em `App.tsx`.
-- `ViewState` em `types.ts` define as views disponíveis.
-- `useUIStore` e `useTabStore` controlam view ativa, abas internas e sincronização com histórico do navegador.
+**Error messages**
+- Always include the offending value and the expected shape.
+  - Bad: `raise ValueError("Invalid input")`
+  - Good: `raise ValueError(f"Expected ISO-8601 date, got {value!r}")`
 
-### Módulos principais
+## Comments
 
-`DASHBOARD`, `WORK`, `SUNDAY`, `LINKS`, `READING`, `SKILLS`, `HABITS`, `JOURNAL`, `PROGRESS`, `REST`, `TOOLS`, `SETTINGS`, `GAMES` e `CONCURSO`.
+- Keep every comment you write. Do not strip comments during refactors — they carry
+  intent and provenance.
+- Write **why**, not what. Skip `// increment counter` above `i++`.
+- Docstrings on every public function: state the intent and include one usage example.
+- When a line exists because of a specific bug or upstream constraint, reference
+  the issue number or commit SHA inline.
+  ```python
+  # Workaround for upstream bug: github.com/org/lib/issues/42 (fixed in v2.1, pending upgrade)
+  ```
 
-### Estado
+## Tests
 
-- Cada domínio tem store própria em `stores/`.
-- O padrão atual é:
-  - `_hydrateFromFirestore()`
-  - `_reset()`
-  - sincronização via `writeToFirestore()`
-- Prefira selectors em `stores/selectors/` quando já existirem.
-- O modulo `Habilidades` agora inclui a aba `Plano do Dia IA`, persistida em `p67_daily_planner_store` e renderizada no app raiz, sem depender do subapp `CONCURSO`.
+- All tests run with a single command. Document that command at the top of the README.
+- Every new function gets a test. Every bug fix gets a regression test.
+- Mock external I/O (API, DB, filesystem) with named fake classes, not inline stubs.
+  ```python
+  class FakePaymentGateway:      # not: mock.patch("stripe.charge")
+      def charge(self, amount): ...
+  ```
+- Tests must be F.I.R.S.T:
+  - **Fast** — no real network or disk I/O.
+  - **Independent** — no shared mutable state between tests.
+  - **Repeatable** — same result on any machine, any run order.
+  - **Self-validating** — pass or fail, no human interpretation required.
+  - **Timely** — written alongside the code, not after the PR is merged.
+- Name tests so the failure message is a complete sentence:
+  `test_order_total_includes_tax_when_region_is_eu`
 
-## 4. Persistência e sincronização
+## Error handling
 
-O projeto usa uma arquitetura Firestore-first com cache local do próprio SDK.
+- Handle errors at the boundary where you have enough context to act.
+- Do not swallow exceptions silently. Log or re-raise with added context.
+- Distinguish recoverable errors (retry/fallback) from programming errors (panic/crash).
+- Never use exceptions for control flow in the happy path.
 
-### Regras atuais
+## Dependencies
 
-- Debounce padrão de escrita: `15000ms`
-- Overrides por store:
-  - `5000ms`: projeto, timer, competição
-  - `10000ms`: trabalho
-  - `25000ms`: notas, prompts, links, agenda semanal
-- Fluxos de tempo real usam `REALTIME_DEBOUNCE_MS = 1500`
+- Inject dependencies through the constructor or function parameters. No globals,
+  no module-level singletons.
+- Wrap every third-party library behind a thin interface owned by this project.
+  Internals depend on that interface, not on the library directly. Swapping the
+  vendor requires changing only the adapter.
+- Pin dependency versions in lock files. Review diffs on upgrades.
 
-### O que mudou em relação à documentação antiga
+## Structure
 
-- Não documente mais debounce global de `300ms`.
-- Não trate `localStorage` como camada principal de persistência do app raiz.
-- O cache offline principal vem do Firestore com `persistentLocalCache`.
+- Follow the framework's established layout (Rails, Django, Next.js, etc.).
+- Small, focused modules over large, catch-all files.
 
-## 5. Autenticação
+## Formatting
 
-Arquivo central: `services/firebase.ts`.
+Run the language-default formatter before every commit. Do not discuss style
+beyond what the formatter enforces.
 
-Fluxos suportados:
+| Language   | Formatter         |
+|------------|-------------------|
+| Rust       | `cargo fmt`       |
+| Go         | `gofmt`           |
+| JavaScript | `prettier`        |
+| Python     | `black`           |
+| Ruby       | `rubocop -A`      |
 
-- email e senha
-- Google
-- anônimo
-- fallback de convidado local em desenvolvimento, quando a autenticação anônima do Firebase falha por configuração/credenciais locais
+If there is no formatter, agree on one and add it to CI.
 
-Pontos importantes:
+## Logging
 
-- `useAuth` controla o ciclo de autenticação e hidratação inicial.
-- `clearAllStores()` deve continuar sendo chamado na troca de contexto de usuário.
-- O fallback local grava sessão em `localStorage`, mas isso é um recurso de desenvolvimento, não a estratégia principal de persistência do produto.
+- **Structured JSON** for all internal/observability logs. Include a `level`,
+  `timestamp`, and a `context` object with relevant IDs on every line.
+- **Plain text** only for user-facing CLI output.
+- Log at the right level: `DEBUG` for tracing, `INFO` for lifecycle events,
+  `WARN` for recoverable issues, `ERROR` for failures that need attention.
+- Never log secrets, tokens, PII, or raw request bodies.
 
-## 6. App `CONCURSO` e rota `/concurso`
+## Security
 
-O standalone vive em `CONCURSO/src`, mas a rota publicada `/concurso` usa os arquivos estáticos de `public/concurso/`.
+- Validate and sanitise all input at the entry point (API boundary, CLI args, env vars).
+- Never interpolate user input into queries, shell commands, or HTML. Use
+  parameterised queries and escaping utilities.
+- Secrets come from environment variables or a secrets manager. Never hard-code
+  them, never commit them.
+- Apply least-privilege: request only the permissions a module actually needs.
 
-Consequências práticas:
+## Git hygiene
 
-- Alterar `CONCURSO/src` não atualiza sozinho a versão servida pelo app raiz.
-- Depois de qualquer mudança no standalone, é preciso rodar o build em `CONCURSO/` e sincronizar o resultado para `public/concurso/`.
-- Em `vite.config.ts` da raiz existe um middleware de desenvolvimento para forçar `/concurso` a servir a cópia estática e evitar conflitos com a pasta `CONCURSO` no Windows.
+- One logical change per commit. Commits must build and pass tests in isolation.
+- Commit message format: `<type>(<scope>): <short imperative summary>`
+  Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+- PR descriptions state **why** the change is needed, not just what changed.
+- Do not merge with failing CI.
 
-### Conteúdo Pragmático
+## Versioning
 
-- A hierarquia funcional atual é `Área -> Matéria -> Submatéria -> Conteúdo teórico`.
-- A `nota atual` da matéria é calculada pela pior nota entre suas submatérias.
-- Metadados dos arquivos teóricos ficam no snapshot principal do app.
-- Binários dos arquivos teóricos ficam no IndexedDB local `concurso-theoretical-content`.
-- A sincronização em nuvem atual não replica os binários, apenas o snapshot.
-- Downloads de conteúdo teórico são gerados como `.zip`:
-  - global: tudo agrupado por matéria
-  - matéria: arquivos da matéria + submatérias
-  - submatéria: apenas o contexto selecionado
-- Fonte de verdade do contrato: `CONCURSO/docs/conteudo-pragmatico.md`.
-
-## 7. Compressão de imagens
-
-Há dois fluxos ativos:
-
-### Imagens inline em notas
-
-- Compressão apenas no cliente com `compressImage(..., 800, 0.8)`
-- O conteúdo fica embutido em markdown/base64
-- Não passa por Firebase Storage
-
-### Drawings e imagens de histórias de jogos
-
-- Resize inicial no cliente
-- Conversão segura com `dataURLtoBlob`
-- Tentativa de otimização em `/api/compress`
-- Upload final ao Firebase Storage
-- Fallback para o blob cliente se a API falhar
-
-`api/compress.py` devolve `image/webp`. Se mexer nesse fluxo, mantenha alinhados conteúdo, metadata e extensão do arquivo salvo.
-
-## 8. Variáveis de ambiente
-
-Obrigatórias no runtime atual:
-
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-
-Opcional:
-
-- `VITE_FIREBASE_MEASUREMENT_ID`
-- `VITE_FIREBASE_APP_CHECK_SITE_KEY`
-
-Observação:
-
-- `scripts/ensure-local-env.ps1` ainda preserva `VITE_GEMINI_API_KEY`, agora usado pelo planner diario com Google AI Studio.
-- O app usa `@google/genai` para o planner diario com `gemini-3-pro-preview`, `ThinkingLevel.HIGH` e JSON estruturado.
-- `VITE_GEMINI_API_KEY` e a chave ativa do planner; em producao, nao exponha essa chave no cliente.
-
-## 9. Build, teste e deploy
-
-### App raiz
-
-- `npm run dev`
-- `npm run build`
-- `npm run test`
-
-### App `CONCURSO`
-
-- `cd CONCURSO`
-- `npm run dev`
-- `npm run build`
-- `npm run test`
-- `npm run test:e2e`
-
-### Deploy
-
-- `netlify.toml`: build principal do app raiz e headers
-- `vercel.json`: rewrites da SPA e endpoint `/api/compress`
-
-## 10. Armadilhas que ainda pegam fácil
-
-- A rota `/concurso` pode parecer atualizada no código-fonte, mas continuar servindo bundle antigo se `public/concurso/` não for sincronizado.
-- Firestore rejeita `undefined`; continue usando o caminho de limpeza já centralizado em `writeToFirestore()`.
-- Se adicionar chamadas externas novas, revise CSP em `index.html` e headers de deploy.
-- Se criar novas stores persistidas, atualize hidratação, reset, sync e contadores que dependem de readiness.
-- Se alterar o planner diario, revise tambem o parser Zod em `services/dailyPlannerAI.ts`, os mocks de `@google/genai` em `tests/setup.ts` e o CSP para `generativelanguage.googleapis.com`.
-
-## 11. Docs que valem como fonte de verdade
-
-- `README.md`
-- `CONCURSO/README.md`
-- `COMPRESSION_DOCS.md`
-- `PLANO_AUDITORIA_PROGRESSO_REVISAO.md`
-- `ROADMAP_AI_GUIDE.md`
+- Any change merged into `main` must update the displayed UI version label, starting from `1.4.0`.
+- Choose the version bump based on the size of the change: small fixes use patch bumps, feature additions use minor bumps, and breaking changes use major bumps.
+- Keep the version text in sync wherever the app renders the release badge or monthly update label.

@@ -76,6 +76,16 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         }) as T;
     };
 
+    const withSyncIfChanged = <T extends (...args: any[]) => boolean>(fn: T): T => {
+        return ((...args: Parameters<T>) => {
+            const changed = fn(...args);
+            if (changed) {
+                get()._syncToFirestore();
+            }
+            return changed;
+        }) as T;
+    };
+
     return {
         // Sessions slice - wrap mutating actions
         history: sessionsSlice.history,
@@ -129,6 +139,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         setPaceMode: withSync(trackingSlice.setPaceMode),
         setLoading: trackingSlice.setLoading, // Don't sync loading state
         _checkAndResetForNewDay: trackingSlice._checkAndResetForNewDay, // Internal, no sync needed
+        ensureCurrentDay: withSyncIfChanged(trackingSlice.ensureCurrentDay),
 
         // Weekly Goals slice - wrap mutating actions
         weeklyGoals: weeklyGoalsSlice.weeklyGoals,

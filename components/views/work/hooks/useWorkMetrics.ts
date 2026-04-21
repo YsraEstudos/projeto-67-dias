@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { WorkStatus, WorkMetricsInput } from '../types';
 import { BREAK_DURATION_MINUTES } from '../constants';
 import { getMinutesFromMidnight } from '../utils';
+import { useWorkStore } from '../../../../stores';
 
 /**
  * Handles the business logic for calculating work statistics, pace, and status.
@@ -10,6 +11,8 @@ import { getMinutesFromMidnight } from '../utils';
 export const useWorkMetrics = ({
     goal, startTime, endTime, breakTime, currentCount, preBreakCount, paceMode
 }: WorkMetricsInput) => {
+    const ensureCurrentDay = useWorkStore((s) => s.ensureCurrentDay);
+
     // Store only current minutes (number) instead of Date object to reduce GC
     const [nowMinutes, setNowMinutes] = useState(() => {
         const now = new Date();
@@ -22,6 +25,7 @@ export const useWorkMetrics = ({
         const updateNow = () => {
             const now = new Date();
             setNowMinutes(now.getHours() * 60 + now.getMinutes());
+            ensureCurrentDay();
         };
 
         // Only update every 60 seconds
@@ -43,7 +47,7 @@ export const useWorkMetrics = ({
             clearInterval(interval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, []);
+    }, [ensureCurrentDay]);
 
     return useMemo(() => {
         const startMins = getMinutesFromMidnight(startTime);
