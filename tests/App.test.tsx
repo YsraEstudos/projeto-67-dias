@@ -110,6 +110,7 @@ vi.mock('../stores', () => {
         useWaterStore: createStoreMock({}),
         useTimerStore: createStoreMock({ timer: { display: '00:00' }, setTimer: mockFn() }),
         useDailyPlannerStore: createStoreMock({}),
+        usePomodoroStore: createStoreMock({ _hydrateFromFirestore: mockFn(), _reset: mockFn() }),
         useCompetitionStore: createStoreMock({
             competition: {
                 competitionStartedAt: null,
@@ -203,6 +204,7 @@ describe('App Component', () => {
         await waitFor(() => {
             expect(screen.getByText('Projeto 67 Dias')).toBeInTheDocument();
             expect(screen.getByText('Test User')).toBeInTheDocument();
+            expect(screen.getByText('versão 1.4.1')).toBeInTheDocument();
         });
     });
 
