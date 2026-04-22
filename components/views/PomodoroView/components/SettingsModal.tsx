@@ -68,6 +68,25 @@ export function SettingsModal() {
     </div>
   );
 
+  const NumberRow = ({ label, value, onChange, min = 1 }: any) => (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-[var(--color-text-muted)]">{label}</span>
+      <input
+        type="number"
+        min={min}
+        step={1}
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => {
+          const rawValue = e.target.value;
+          const nextValue = rawValue === '' ? min : Number(rawValue);
+          onChange(Number.isFinite(nextValue) ? Math.max(min, Math.floor(nextValue)) : min);
+        }}
+        className="w-24 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-3 py-1.5 text-sm text-right focus:outline-none focus:border-[var(--color-primary)] text-[var(--color-text)]"
+      />
+    </div>
+  );
+
   const ToggleRow = ({ label, checked, onChange }: any) => (
     <div className="flex items-center justify-between">
       <span className="text-[var(--color-text-muted)]">{label}</span>
@@ -130,11 +149,11 @@ export function SettingsModal() {
               onChange={(v: string) => updateSettings({ longBreakLength: parseInt(v) })}
               options={[10, 15, 20, 25, 30].map(n => ({ value: n, label: `${n} Minutes` }))}
             />
-            <SelectRow 
+            <NumberRow 
               label="Long Break After" 
               value={settings.longBreakAfter} 
-              onChange={(v: string) => updateSettings({ longBreakAfter: parseInt(v) })}
-              options={[2, 3, 4, 5, 6].map(n => ({ value: n, label: `${n} Pomodoros` }))}
+              onChange={(v: number) => updateSettings({ longBreakAfter: v })}
+              min={1}
             />
             <div className="h-px bg-[var(--color-border)] my-4" />
             <ToggleRow 
@@ -235,11 +254,11 @@ export function SettingsModal() {
           </Section>
 
           <Section title="Data & Productivity" icon={Database}>
-            <SelectRow 
+            <NumberRow 
               label="Daily Pomodoro Goal" 
               value={settings.dailyGoal} 
-              onChange={(v: string) => updateSettings({ dailyGoal: parseInt(v) })}
-              options={[4, 6, 8, 10, 12, 14, 16].map(n => ({ value: n, label: `${n} Pomodoros` }))}
+              onChange={(v: number) => updateSettings({ dailyGoal: v })}
+              min={1}
             />
             <SelectRow 
               label="Week Starts On" 

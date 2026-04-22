@@ -154,7 +154,8 @@ export function usePomodoroTimer() {
         return;
       }
 
-      const nextMode = newCount % settings.longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
+      const longBreakAfter = Math.max(1, Math.floor(settings.longBreakAfter) || 1);
+      const nextMode = newCount % longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
       const shouldAutoStartBreak = settings.autoStartBreak || !activeTaskId;
       const nextState = createTimerState(nextMode, shouldAutoStartBreak ? 'RUNNING' : 'IDLE', newCount);
       setPersistedTimerState(nextState);
