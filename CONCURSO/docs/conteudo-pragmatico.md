@@ -90,13 +90,17 @@ Outros tipos devem ser rejeitados na validação de upload.
 
 - O usuário consegue reabrir a organização e a listagem dos arquivos em qualquer snapshot sincronizado.
 - O download local só funciona quando o binário daquele arquivo também existe no navegador atual.
-- Se o metadado existir mas o binário local estiver ausente, o download deve falhar explicitamente.
+- Se o metadado existir mas o binário local estiver ausente:
+  - para downloads globais, o ZIP segue com os arquivos disponíveis e inclui `arquivos-ausentes.txt` com o que faltou;
+  - para downloads por matéria ou submatéria, o comportamento continua estrito e o erro é exibido normalmente.
+- Quando o arquivo teórico for markdown e houver `inlineContent`, o download global pode reconstruir esse conteúdo mesmo sem o binário local.
 
 ## Semântica do download
 
 - Download global:
   - gera um `.zip`
   - agrupa os arquivos por pasta de matéria
+  - inclui `arquivos-ausentes.txt` quando algum arquivo não puder ser lido do armazenamento local
 - Download da matéria:
   - gera um `.zip`
   - inclui arquivos da matéria na raiz da pasta da matéria

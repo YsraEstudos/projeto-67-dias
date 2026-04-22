@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { TheoreticalContentBundleDownloadSummary } from '../app/contentTheoreticalDownloads';
 import {
   createStateWithTopics,
   createSubmatter,
@@ -9,7 +10,14 @@ import {
 } from './renderConcursoApp';
 
 const { downloadTheoreticalContentsBundle } = vi.hoisted(() => ({
-  downloadTheoreticalContentsBundle: vi.fn(async () => undefined),
+  downloadTheoreticalContentsBundle: vi.fn(async (): Promise<TheoreticalContentBundleDownloadSummary> => ({
+    requestedCount: 0,
+    downloadedCount: 0,
+    missingCount: 0,
+    isPartial: false,
+    manifestIncluded: false,
+    bundleFilename: 'conteudo-pragmatico-2026-04-22.zip',
+  })),
 }));
 
 vi.mock('../app/contentTheoreticalDownloads', () => ({
@@ -138,6 +146,52 @@ describe('ContentPage', () => {
         scope: { kind: 'global' },
       }),
     );
+  });
+
+  it('informa quando o download global fica parcial por arquivos ausentes', async () => {
+    const user = userEvent.setup();
+    const topicId = topicIdByTitle('Domínio da ortografia oficial.');
+    const state = createStateWithTopics((draft) => {
+      draft.theoreticalContents = [
+        {
+          id: 'topic-file-1',
+          ownerType: 'topic',
+          ownerId: topicId,
+          topicId,
+          submatterId: null,
+          filename: 'resumo.md',
+          label: 'resumo.md',
+          kind: 'markdown',
+          mimeType: 'text/markdown',
+          storageKey: 'storage-topic-file-1',
+          inlineContent: null,
+          sizeBytes: 42,
+          order: 1,
+          completedAt: null,
+          createdAt: '2026-03-12T10:00:00.000Z',
+          updatedAt: '2026-03-12T10:00:00.000Z',
+        },
+      ];
+    });
+
+    downloadTheoreticalContentsBundle.mockResolvedValueOnce({
+      requestedCount: 3,
+      downloadedCount: 2,
+      missingCount: 1,
+      isPartial: true,
+      manifestIncluded: true,
+      bundleFilename: 'conteudo-pragmatico-2026-04-22.zip',
+    });
+
+    renderConcursoApp('/conteudo', state);
+
+    await user.click(screen.getByRole('button', { name: 'Baixar todo conteúdo teórico' }));
+
+    expect(
+      await screen.findByText(
+        'Download parcial: 2 de 3 arquivo(s) no ZIP. 1 arquivo(s) ausente(s) listado(s) em arquivos-ausentes.txt.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it(

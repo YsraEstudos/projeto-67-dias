@@ -265,13 +265,21 @@ export const ContentPage = () => {
 
   const handleGlobalDownload = async (): Promise<void> => {
     try {
-      await downloadTheoreticalContentsBundle({
+      const summary = await downloadTheoreticalContentsBundle({
         scope: { kind: "global" },
         items: state.theoreticalContents,
         topics,
         topicSubmattersByTopic: state.topicSubmattersByTopic,
       });
-      setDownloadError("");
+
+      if (summary.isPartial) {
+        setDownloadError(
+          `Download parcial: ${summary.downloadedCount} de ${summary.requestedCount} arquivo(s) no ZIP. ${summary.missingCount} arquivo(s) ausente(s) listado(s) em arquivos-ausentes.txt.`,
+        );
+        return;
+      }
+
+      setDownloadError('');
     } catch (error) {
       setDownloadError(
         error instanceof Error

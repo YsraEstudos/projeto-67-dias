@@ -710,12 +710,17 @@ const createId = (): string => {
   return `id-${Math.random().toString(16).slice(2)}-${Date.now()}`;
 };
 
-export const AppProvider = ({ children }: { children: ReactNode }) => {
+export const LOCAL_SNAPSHOT_DEBOUNCE_MS = 250;
+
+type TimeoutHandle = ReturnType<typeof globalThis.setTimeout>;
+
+const createInitialAppState = (): AppState => {
   const loadedSnapshot = loadStateSnapshot();
   const initialState = loadedSnapshot?.appState
     ? normalizeStateForCurrentPlan(loadedSnapshot.appState)
     : createInitialState();
-  const [state, dispatch] = useReducer(appReducer, {
+
+  return {
     ...initialState,
     meta: {
       ...initialState.meta,
@@ -725,15 +730,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           initialState.meta.backup.lastFallbackSnapshotAt ?? loadFallbackSnapshotTimestamp(),
       },
     },
-  });
+  };
+};
+
+export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const [state, dispatch] = useReducer(appReducer, undefined, createInitialAppState);
 
   const backupHandleRef = useRef<FileSystemFileHandle | null>(null);
   const lastBackedTokenRef = useRef<number>(state.meta.changeToken);
   const lastAutoBackupTickRef = useRef<number>(0);
   const stateRef = useRef(state);
+  const saveSnapshotTimeoutRef = useRef<TimeoutHandle | null>(null);
   const cloudUserRef = useRef<CloudUser | null>(null);
   const hasLoadedCloudSnapshotRef = useRef(false);
-  const saveCloudTimeoutRef = useRef<number | null>(null);
+  const saveCloudTimeoutRef = useRef<TimeoutHandle | null>(null);
   const lastCloudSavedTokenRef = useRef<number>(state.meta.changeToken);
   const lastCloudSavedAtRef = useRef<string | null>(null);
   const [cloudSync, setCloudSync] = useReducer(
@@ -770,7 +780,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [state]);
 
   useEffect(() => {
-    saveStateSnapshot(state);
+    if (saveSnapshotTimeoutRef.current !== null) {
+      globalThis.clearTimeout(saveSnapshotTimeoutRef.current);
+    }
+
+    saveSnapshotTimeoutRef.current = globalThis.setTimeout(() => {
+      saveStateSnapshot(stateRef.current);
+      saveSnapshotTimeoutRef.current = null;
+    }, LOCAL_SNAPSHOT_DEBOUNCE_MS);
+
+    return () => {
+      if (saveSnapshotTimeoutRef.current !== null) {
+        globalThis.clearTimeout(saveSnapshotTimeoutRef.current);
+        saveSnapshotTimeoutRef.current = null;
+      }
+    };
   }, [state]);
 
   const persistSnapshot = useCallback(
@@ -1023,10 +1047,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (saveCloudTimeoutRef.current) {
-      window.clearTimeout(saveCloudTimeoutRef.current);
+      globalThis.clearTimeout(saveCloudTimeoutRef.current);
     }
 
-    saveCloudTimeoutRef.current = window.setTimeout(() => {
+    saveCloudTimeoutRef.current = globalThis.setTimeout(() => {
       void syncSnapshotToCloud(stateRef.current).catch((error) => {
         setCloudSync({
           status: 'error',
@@ -1037,7 +1061,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       if (saveCloudTimeoutRef.current) {
-        window.clearTimeout(saveCloudTimeoutRef.current);
+        globalThis.clearTimeout(saveCloudTimeoutRef.current);
         saveCloudTimeoutRef.current = null;
       }
     };

@@ -19,11 +19,31 @@ interface TheoreticalBinaryRecord {
   bytes: Uint8Array;
 }
 
+interface MissingTheoreticalContentEntry {
+  filename: string;
+  path: string;
+}
+
+interface TheoreticalContentDownloadPlan {
+  requestedCount: number;
+  entries: TheoreticalContentDownloadEntry[];
+  missingEntries: MissingTheoreticalContentEntry[];
+}
+
 export interface TheoreticalContentDownloadEntry {
   path: string;
   filename: string;
   mimeType: string;
-  bytes: Uint8Array;
+  bytes: Uint8Array | string;
+}
+
+export interface TheoreticalContentBundleDownloadSummary {
+  requestedCount: number;
+  downloadedCount: number;
+  missingCount: number;
+  isPartial: boolean;
+  manifestIncluded: boolean;
+  bundleFilename: string;
 }
 
 interface BuildTheoreticalContentDownloadEntriesInput {
@@ -34,19 +54,47 @@ interface BuildTheoreticalContentDownloadEntriesInput {
   loadBinary?: (storageKey: string) => Promise<TheoreticalBinaryRecord | null>;
 }
 
-type DownloadTheoreticalContentsBundleInput = Omit<
-  BuildTheoreticalContentDownloadEntriesInput,
-  'loadBinary'
->;
+interface DownloadTheoreticalContentsBundleInput extends BuildTheoreticalContentDownloadEntriesInput {
+  saveBlob?: (blob: Blob, filename: string) => void;
+}
 
-const slugify = (value: string): string =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-');
+const MISSING_CONTENT_MANIFEST_FILENAME = 'arquivos-ausentes.txt';
+
+const slugify = (value: string): string => {
+  let slug = '';
+  let previousDash = false;
+
+  for (const character of value.normalize('NFD')) {
+    if (/\p{M}/u.test(character)) {
+      continue;
+    }
+
+    const lower = character.toLowerCase();
+    if (/[a-z0-9]/.test(lower)) {
+      slug += lower;
+      previousDash = false;
+      continue;
+    }
+
+    if (!previousDash && slug.length > 0) {
+      slug += '-';
+      previousDash = true;
+    }
+  }
+
+  let startIndex = 0;
+  let endIndex = slug.length;
+
+  while (startIndex < endIndex && slug[startIndex] === '-') {
+    startIndex += 1;
+  }
+
+  while (endIndex > startIndex && slug[endIndex - 1] === '-') {
+    endIndex -= 1;
+  }
+
+  return slug.slice(startIndex, endIndex);
+};
 
 const padOrder = (order: number): string => String(Math.max(1, order)).padStart(2, '0');
 
@@ -145,6 +193,95 @@ const triggerBlobDownload = (blob: Blob, filename: string): void => {
   URL.revokeObjectURL(url);
 };
 
+const getInlineMarkdownText = (
+  item: AppState['theoreticalContents'][number],
+): string | null => {
+  if (item.kind !== 'markdown' || typeof item.inlineContent !== 'string') {
+    return null;
+  }
+
+  const normalized = item.inlineContent.split(/\r\n?/).join('\n').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized;
+};
+
+const buildMissingManifestText = (missingEntries: MissingTheoreticalContentEntry[]): string => {
+  const lines = [
+    'Relatorio de arquivos ausentes no dispositivo atual.',
+    `Gerado em: ${new Date().toISOString()}`,
+    `Total ausente(s): ${missingEntries.length}`,
+    '',
+    ...missingEntries.map((entry, index) => `${index + 1}. ${entry.path}`),
+  ];
+
+  return lines.join('\n');
+};
+
+const buildTheoreticalContentDownloadPlan = async ({
+  scope,
+  items,
+  topics,
+  topicSubmattersByTopic,
+  loadBinary = loadTheoreticalContentBinary,
+  allowMissingBinary,
+}: BuildTheoreticalContentDownloadEntriesInput & {
+  allowMissingBinary: boolean;
+}): Promise<TheoreticalContentDownloadPlan> => {
+  const selectedItems = itemsForScope(scope, items);
+  const entries: TheoreticalContentDownloadEntry[] = [];
+  const missingEntries: MissingTheoreticalContentEntry[] = [];
+
+  for (const item of selectedItems) {
+    const path = entryPath(item, topics, topicSubmattersByTopic);
+
+    let binary: TheoreticalBinaryRecord | null = null;
+    try {
+      binary = await loadBinary(item.storageKey);
+    } catch {
+      binary = null;
+    }
+
+    if (binary) {
+      entries.push({
+        path,
+        filename: item.filename,
+        mimeType: binary.mimeType || item.mimeType,
+        bytes: binary.bytes,
+      });
+      continue;
+    }
+
+    const inlineText = getInlineMarkdownText(item);
+    if (inlineText) {
+      entries.push({
+        path,
+        filename: item.filename,
+        mimeType: item.mimeType || 'text/markdown',
+        bytes: inlineText,
+      });
+      continue;
+    }
+
+    if (!allowMissingBinary) {
+      throw new Error(`Arquivo teórico indisponível para download: ${item.filename}`);
+    }
+
+    missingEntries.push({
+      filename: item.filename,
+      path,
+    });
+  }
+
+  return {
+    requestedCount: selectedItems.length,
+    entries,
+    missingEntries,
+  };
+};
+
 export const buildTheoreticalContentDownloadEntries = async ({
   scope,
   items,
@@ -152,23 +289,16 @@ export const buildTheoreticalContentDownloadEntries = async ({
   topicSubmattersByTopic,
   loadBinary = loadTheoreticalContentBinary,
 }: BuildTheoreticalContentDownloadEntriesInput): Promise<TheoreticalContentDownloadEntry[]> => {
-  const selectedItems = itemsForScope(scope, items);
+  const plan = await buildTheoreticalContentDownloadPlan({
+    scope,
+    items,
+    topics,
+    topicSubmattersByTopic,
+    loadBinary,
+    allowMissingBinary: false,
+  });
 
-  return Promise.all(
-    selectedItems.map(async (item) => {
-      const binary = await loadBinary(item.storageKey);
-      if (!binary) {
-        throw new Error(`Arquivo teórico indisponível para download: ${item.filename}`);
-      }
-
-      return {
-        path: entryPath(item, topics, topicSubmattersByTopic),
-        filename: item.filename,
-        mimeType: binary.mimeType || item.mimeType,
-        bytes: binary.bytes,
-      };
-    }),
-  );
+  return plan.entries;
 };
 
 export const downloadTheoreticalContentsBundle = async ({
@@ -176,16 +306,29 @@ export const downloadTheoreticalContentsBundle = async ({
   items,
   topics,
   topicSubmattersByTopic,
-}: DownloadTheoreticalContentsBundleInput): Promise<void> => {
-  const entries = await buildTheoreticalContentDownloadEntries({
+  loadBinary = loadTheoreticalContentBinary,
+  saveBlob = triggerBlobDownload,
+}: DownloadTheoreticalContentsBundleInput): Promise<TheoreticalContentBundleDownloadSummary> => {
+  const allowMissingBinary = scope.kind === 'global';
+  const plan = await buildTheoreticalContentDownloadPlan({
     scope,
     items,
     topics,
     topicSubmattersByTopic,
+    loadBinary,
+    allowMissingBinary,
   });
 
-  if (entries.length === 0) {
+  const entries = [...plan.entries];
+  const missingCount = plan.missingEntries.length;
+  let manifestIncluded = false;
+
+  if (entries.length === 0 && missingCount === 0) {
     throw new Error('Nenhum conteúdo teórico disponível para download neste contexto.');
+  }
+
+  if (missingCount > 0) {
+    manifestIncluded = true;
   }
 
   const zip = new JSZip();
@@ -193,6 +336,20 @@ export const downloadTheoreticalContentsBundle = async ({
     zip.file(entry.path, entry.bytes);
   });
 
+  if (manifestIncluded) {
+    zip.file(MISSING_CONTENT_MANIFEST_FILENAME, buildMissingManifestText(plan.missingEntries));
+  }
+
   const blob = await zip.generateAsync({ type: 'blob' });
-  triggerBlobDownload(blob, bundleFilename(scope, topics, topicSubmattersByTopic));
+  const resolvedBundleFilename = bundleFilename(scope, topics, topicSubmattersByTopic);
+  saveBlob(blob, resolvedBundleFilename);
+
+  return {
+    requestedCount: plan.requestedCount,
+    downloadedCount: entries.length,
+    missingCount,
+    isPartial: missingCount > 0,
+    manifestIncluded,
+    bundleFilename: resolvedBundleFilename,
+  };
 };

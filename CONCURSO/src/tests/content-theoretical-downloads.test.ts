@@ -1,5 +1,9 @@
+import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
-import { buildTheoreticalContentDownloadEntries } from '../app/contentTheoreticalDownloads';
+import {
+  buildTheoreticalContentDownloadEntries,
+  downloadTheoreticalContentsBundle,
+} from '../app/contentTheoreticalDownloads';
 import type { TheoreticalContentItem, TopicNode, TopicSubmatter } from '../app/types';
 
 const topic: TopicNode = {
@@ -159,5 +163,118 @@ describe('content theoretical downloads', () => {
         loadBinary: async () => null,
       }),
     ).rejects.toThrow('Arquivo teórico indisponível para download: lista.pdf');
+  });
+
+  it('download global gera zip parcial e inclui manifesto de ausentes', async () => {
+    let capturedBlob: Blob | null = null;
+    let capturedFilename = '';
+
+    const summary = await downloadTheoreticalContentsBundle({
+      scope: { kind: 'global' },
+      items: [
+        item('topic-1-file', { filename: 'resumo.md', label: 'resumo.md', order: 1 }),
+        item('topic-1-missing', {
+          filename: 'lista.pdf',
+          label: 'lista.pdf',
+          kind: 'pdf',
+          mimeType: 'application/pdf',
+          storageKey: 'storage-topic-1-missing',
+          order: 2,
+        }),
+      ],
+      topics: [topic],
+      topicSubmattersByTopic: {
+        'topic-1': [submatter],
+      },
+      loadBinary: async (storageKey) => {
+        if (storageKey === 'storage-topic-1-file') {
+          return {
+            storageKey,
+            filename: 'resumo.md',
+            mimeType: 'text/markdown',
+            bytes: new Uint8Array([1, 2, 3]),
+          };
+        }
+
+        return null;
+      },
+      saveBlob: (blob, filename) => {
+        capturedBlob = blob;
+        capturedFilename = filename;
+      },
+    });
+
+    expect(summary.requestedCount).toBe(2);
+    expect(summary.downloadedCount).toBe(1);
+    expect(summary.missingCount).toBe(1);
+    expect(summary.isPartial).toBe(true);
+    expect(summary.manifestIncluded).toBe(true);
+    expect(capturedFilename).toMatch(/^conteudo-pragmatico-\d{4}-\d{2}-\d{2}\.zip$/);
+    expect(capturedBlob).not.toBeNull();
+
+    if (!capturedBlob) {
+      throw new Error('Esperava um blob de download global.');
+    }
+
+    const downloadBlob: Blob = capturedBlob;
+    const zip = await JSZip.loadAsync(await downloadBlob.arrayBuffer());
+    const zippedPaths = Object.keys(zip.files);
+    expect(zippedPaths).toContain('dominio-da-ortografia-oficial/01-resumo.md');
+    expect(zippedPaths).toContain('arquivos-ausentes.txt');
+
+    const manifestFile = zip.file('arquivos-ausentes.txt');
+    if (!manifestFile) {
+      throw new Error('Esperava o manifesto de ausentes no zip.');
+    }
+
+    const manifest = await manifestFile.async('text');
+    expect(manifest).toContain('lista.pdf');
+    expect(manifest).toContain('dominio-da-ortografia-oficial/02-lista.pdf');
+  });
+
+  it('usa inlineContent de markdown quando o binario local nao existe', async () => {
+    let capturedBlob: Blob | null = null;
+
+    const summary = await downloadTheoreticalContentsBundle({
+      scope: { kind: 'global' },
+      items: [
+        item('topic-1-inline', {
+          filename: 'aula-colada.md',
+          label: 'Aula colada',
+          inlineContent: '# Aula colada\n\nResumo da revisão',
+          storageKey: 'storage-topic-1-inline',
+          kind: 'markdown',
+          mimeType: 'text/markdown',
+        }),
+      ],
+      topics: [topic],
+      topicSubmattersByTopic: {
+        'topic-1': [submatter],
+      },
+      loadBinary: async () => null,
+      saveBlob: (blob) => {
+        capturedBlob = blob;
+      },
+    });
+
+    expect(summary.requestedCount).toBe(1);
+    expect(summary.downloadedCount).toBe(1);
+    expect(summary.missingCount).toBe(0);
+    expect(summary.isPartial).toBe(false);
+
+    if (!capturedBlob) {
+      throw new Error('Esperava um blob de download global.');
+    }
+
+    const downloadBlob: Blob = capturedBlob;
+    const zip = await JSZip.loadAsync(await downloadBlob.arrayBuffer());
+    const lessonFile = zip.file('dominio-da-ortografia-oficial/01-aula-colada.md');
+    if (!lessonFile) {
+      throw new Error('Esperava a aula em markdown no zip.');
+    }
+
+    const lessonContent = await lessonFile.async('text');
+
+    expect(lessonContent).toContain('Resumo da revisão');
   });
 });
