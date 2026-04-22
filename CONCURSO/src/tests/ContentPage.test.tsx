@@ -1,7 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { TheoreticalContentMarkdownDownloadSummary } from '../app/contentTheoreticalDownloads';
 import {
   createStateWithTopics,
   createSubmatter,
@@ -9,18 +8,12 @@ import {
   topicIdByTitle,
 } from './renderConcursoApp';
 
-const { downloadTheoreticalContentsMarkdown } = vi.hoisted(() => ({
-  downloadTheoreticalContentsMarkdown: vi.fn(
-    async (): Promise<TheoreticalContentMarkdownDownloadSummary> => ({
-    requestedCount: 0,
-      topicCount: 0,
-      bundleFilename: 'conteudo-pragmatico-2026-04-22.md',
-    }),
-  ),
+const { exportFullPlanAsMarkdown } = vi.hoisted(() => ({
+  exportFullPlanAsMarkdown: vi.fn(() => undefined),
 }));
 
-vi.mock('../app/contentTheoreticalDownloads', () => ({
-  downloadTheoreticalContentsMarkdown,
+vi.mock('../app/planExport', () => ({
+  exportFullPlanAsMarkdown,
 }));
 
 describe('ContentPage', () => {
@@ -110,7 +103,7 @@ describe('ContentPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('aciona o download global de todo o conteudo teorico a partir da pagina principal', async () => {
+  it('aciona o download do plano completo a partir da pagina principal', async () => {
     const user = userEvent.setup();
     const topicId = topicIdByTitle('Domínio da ortografia oficial.');
     const state = createStateWithTopics((draft) => {
@@ -138,16 +131,12 @@ describe('ContentPage', () => {
 
     renderConcursoApp('/conteudo', state);
 
-    await user.click(screen.getByRole('button', { name: 'Baixar todo conteúdo teórico' }));
+    await user.click(screen.getByRole('button', { name: 'Baixar plano completo em .md' }));
 
-    expect(downloadTheoreticalContentsMarkdown).toHaveBeenCalledWith(
-      expect.objectContaining({
-        scope: { kind: 'global' },
-      }),
-    );
+    expect(exportFullPlanAsMarkdown).toHaveBeenCalledWith(expect.any(Array));
   });
 
-  it('informa quando a exportação consolidada falha', async () => {
+  it('informa quando a exportação do plano completo falha', async () => {
     const user = userEvent.setup();
     const topicId = topicIdByTitle('Domínio da ortografia oficial.');
     const state = createStateWithTopics((draft) => {
@@ -173,17 +162,17 @@ describe('ContentPage', () => {
       ];
     });
 
-    downloadTheoreticalContentsMarkdown.mockRejectedValueOnce(
-      new Error('Falha ao montar o MD consolidado.'),
-    );
+    exportFullPlanAsMarkdown.mockImplementationOnce(() => {
+      throw new Error('Falha ao montar o plano completo.');
+    });
 
     renderConcursoApp('/conteudo', state);
 
-    await user.click(screen.getByRole('button', { name: 'Baixar todo conteúdo teórico' }));
+    await user.click(screen.getByRole('button', { name: 'Baixar plano completo em .md' }));
 
     expect(
       await screen.findByText(
-        'Falha ao montar o MD consolidado.',
+        'Falha ao montar o plano completo.',
       ),
     ).toBeInTheDocument();
   });

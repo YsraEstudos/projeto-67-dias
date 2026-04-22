@@ -55,7 +55,8 @@ const visibleBlocks = (plan: DayPlan): string[] => {
       const movedSuffix = block.movedFromSunday ? ' [realocado do domingo]' : '';
       const contentSuffix = (() => {
         const refsSummary = getManualBlockContentSummary(block);
-        return refsSummary ? ` | Conteúdo programático: ${refsSummary}` : '';
+        const formattedRefsSummary = refsSummary?.replaceAll(' | ', ' / ');
+        return formattedRefsSummary ? ` | Conteúdo programático: ${formattedRefsSummary}` : '';
       })();
       return `${block.area}: ${block.title} - ${block.detail}${contentSuffix}${movedSuffix}`;
     });

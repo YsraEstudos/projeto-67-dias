@@ -13,8 +13,8 @@ import {
   buildStaleSummary,
   buildTopicRollups,
 } from "../app/contentSubmatters";
-import { downloadTheoreticalContentsMarkdown } from "../app/contentTheoreticalDownloads";
 import { buildTheoreticalContentProgress } from "../app/contentTheoreticalFiles";
+import { exportFullPlanAsMarkdown } from "../app/planExport";
 import { subjectLabel, topicStatusLabel, workActivityLabel } from "../app/formatters";
 import { getTopicDisplayTitle, getTopicSearchText } from "../app/topics";
 import type { SubjectKey, TopicGrade, TopicSubmatter } from "../app/types";
@@ -111,7 +111,7 @@ const getSubjectIcon = (subject: string) => {
 };
 
 export const ContentPage = () => {
-  const { topics, state, dayPlansByDate, setSelectedDate } = useAppContext();
+  const { topics, state, dayPlans, dayPlansByDate, setSelectedDate } = useAppContext();
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState<"all" | SubjectKey>("all");
@@ -261,23 +261,18 @@ export const ContentPage = () => {
   const unreviewedCount = reviewQueue.filter(
     (item) => item.staleBucket === "unreviewed",
   ).length;
-  const hasTheoreticalContent = state.theoreticalContents.length > 0;
+  const hasDayPlans = dayPlans.length > 0;
 
-  const handleGlobalDownload = async (): Promise<void> => {
+  const handleGlobalDownload = (): void => {
     try {
-      await downloadTheoreticalContentsMarkdown({
-        scope: { kind: "global" },
-        items: state.theoreticalContents,
-        topics,
-        topicSubmattersByTopic: state.topicSubmattersByTopic,
-      });
+      exportFullPlanAsMarkdown(dayPlans);
 
       setDownloadError('');
     } catch (error) {
       setDownloadError(
         error instanceof Error
           ? error.message
-          : "Falha ao baixar o conteúdo teórico.",
+          : "Falha ao baixar o plano completo.",
       );
     }
   };
@@ -335,10 +330,10 @@ export const ContentPage = () => {
         </div>
         <button
           className="btn-primary"
-          disabled={!hasTheoreticalContent}
-          onClick={() => void handleGlobalDownload()}
+          disabled={!hasDayPlans}
+          onClick={handleGlobalDownload}
         >
-          Baixar todo conteúdo teórico
+          Baixar plano completo em .md
         </button>
       </div>
       {downloadError && (
