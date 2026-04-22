@@ -20,6 +20,7 @@ export function HeaderActions() {
         <Trophy className="w-4 h-4" />
       </button>
       <button 
+        type="button"
         onClick={() => setReportOpen(true)}
         className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-[var(--color-text)]"
       >
@@ -29,8 +30,14 @@ export function HeaderActions() {
         <Bell className="w-4 h-4" />
       </button>
       <button 
-        onClick={() => setSettingsOpen(true)}
+        type="button"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSettingsOpen(true);
+        }}
         className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-[var(--color-text)]"
+        title="Configurações"
       >
         <Settings className="w-4 h-4" />
       </button>

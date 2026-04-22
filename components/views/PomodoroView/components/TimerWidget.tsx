@@ -889,14 +889,19 @@ export function TimerWidget() {
             animate={{ opacity: 1 }} 
             className="flex flex-col items-center justify-center w-full h-full relative"
           >
-            <div className="absolute top-8 right-8 flex space-x-4">
-              <button 
-                onClick={() => setSettingsOpen(true)} 
-                className="p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
-                title="Configurações"
-              >
-                <Settings className="w-8 h-8" />
-              </button>
+              <div className="absolute top-8 right-8 flex space-x-4">
+                <button 
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSettingsOpen(true);
+                  }} 
+                  className="p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
+                  title="Configurações"
+                >
+                  <Settings className="w-8 h-8" />
+                </button>
               <button 
                 onClick={() => setIsFullscreen(false)} 
                 className="p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
@@ -1072,7 +1077,12 @@ export function TimerWidget() {
                   {settings.volume > 0 ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                 </button>
                 <button 
-                  onClick={() => setSettingsOpen(true)}
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSettingsOpen(true);
+                  }}
                   className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                   title="Configurações"
                 >

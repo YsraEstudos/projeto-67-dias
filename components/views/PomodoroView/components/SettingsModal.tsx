@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Clock, Bell, Palette, Database, Download, Upload, Trash2, Volume2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -7,6 +7,12 @@ import { cn } from '../lib/utils';
 export function SettingsModal() {
   const { settings, updateSettings, setSettingsOpen, exportData, importData, resetData } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [allowBackdropClose, setAllowBackdropClose] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setAllowBackdropClose(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,7 +115,7 @@ export function SettingsModal() {
     <div 
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={(e) => {
-        if (e.target === e.currentTarget) setSettingsOpen(false);
+        if (allowBackdropClose && e.target === e.currentTarget) setSettingsOpen(false);
       }}
     >
       <motion.div
@@ -117,10 +123,12 @@ export function SettingsModal() {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="bg-[var(--color-surface)] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)] shrink-0">
           <h2 className="text-2xl font-semibold">Settings</h2>
           <button 
+            type="button"
             onClick={() => setSettingsOpen(false)}
             className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)] rounded-full transition-colors"
           >
