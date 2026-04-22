@@ -7,6 +7,8 @@ import { useRestStore } from '../../../../stores/restStore';
 
 describe('TimerWidget break selection', () => {
   beforeEach(() => {
+    const today = new Date().toISOString().split('T')[0];
+
     usePomodoroStore.getState()._reset();
     useRestStore.getState()._reset();
 
@@ -35,7 +37,7 @@ describe('TimerWidget break selection', () => {
         },
       ],
       activeTaskId: 'task-1',
-      activeTaskSelectionDate: '2026-04-17',
+      activeTaskSelectionDate: today,
     } as any);
 
     useRestStore.getState().setActivities([

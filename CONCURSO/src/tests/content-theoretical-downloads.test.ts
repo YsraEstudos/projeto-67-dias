@@ -326,11 +326,13 @@ describe('content theoretical downloads', () => {
     expect(capturedFilename).toMatch(/^conteudo-pragmatico-\d{4}-\d{2}-\d{2}\.md$/);
     expect(capturedBlob).not.toBeNull();
 
-    if (!capturedBlob) {
+    const blob = capturedBlob;
+
+    if (!blob) {
       throw new Error('Esperava um blob de markdown consolidado.');
     }
 
-    const markdown = await capturedBlob.text();
+    const markdown = await (blob as Blob).text();
     expect((markdown.match(/## Domínio da ortografia oficial\./g) ?? []).length).toBe(1);
     expect(markdown).toContain('### Conteúdo da matéria');
     expect(markdown).toContain('Resumo 1');

@@ -7,6 +7,7 @@ import {
   renderConcursoApp,
   topicIdByTitle,
 } from './renderConcursoApp';
+import { STORAGE_KEY } from '../app/constants';
 
 const binaryStore = new Map<string, { filename: string; mimeType: string; bytes: Uint8Array }>();
 const { downloadTheoreticalContentsBundle } = vi.hoisted(() => ({
@@ -105,11 +106,26 @@ describe('ContentTopicPage', () => {
       screen.getByText(/esta matéria volta com destaque na página principal de conteúdo/i),
     ).toBeInTheDocument();
 
+    await waitFor(() => {
+      const rawSnapshot = window.localStorage.getItem(STORAGE_KEY);
+      expect(rawSnapshot).not.toBeNull();
+
+      const snapshot = JSON.parse(rawSnapshot ?? 'null') as {
+        appState?: {
+          topicProgress?: Record<string, { status?: string }>;
+        };
+      };
+
+      expect(snapshot.appState?.topicProgress?.[topicId]?.status).toBe('pendente');
+    });
+
     topicView.unmount();
     renderConcursoApp('/conteudo');
 
     const topicCard = screen.getByRole('link', { name: 'Domínio da ortografia oficial.' });
-    expect(within(topicCard).getByText('Pendente')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(topicCard).getByText('Pendente')).toBeInTheDocument();
+    });
   });
 
   it('mostra o nome padronizado do topico e migra a submateria padrao legada', () => {
@@ -166,6 +182,24 @@ describe('ContentTopicPage', () => {
     expect(listBefore[1]).toContain('questoes.pdf');
 
     await user.click(screen.getByRole('button', { name: 'Mover resumo.md para baixo' }));
+
+    await waitFor(() => {
+      const rawSnapshot = window.localStorage.getItem(STORAGE_KEY);
+      expect(rawSnapshot).not.toBeNull();
+
+      const snapshot = JSON.parse(rawSnapshot ?? 'null') as {
+        appState?: {
+          theoreticalContents?: Array<{ filename: string; order?: number }>;
+        };
+      };
+
+      const theoreticalContents = snapshot.appState?.theoreticalContents ?? [];
+      const resumo = theoreticalContents.find((item) => item.filename === 'resumo.md');
+      const questoes = theoreticalContents.find((item) => item.filename === 'questoes.pdf');
+
+      expect(questoes?.order).toBe(1);
+      expect(resumo?.order).toBe(2);
+    });
 
     const listAfterMove = within(screen.getByTestId('topic-theoretical-content-list'))
       .getAllByRole('listitem')
@@ -369,6 +403,29 @@ describe('ContentTopicPage', () => {
         getData: () => '',
         dropEffect: 'move',
       },
+    });
+
+    await waitFor(() => {
+      const rawSnapshot = window.localStorage.getItem(STORAGE_KEY);
+      expect(rawSnapshot).not.toBeNull();
+
+      const snapshot = JSON.parse(rawSnapshot ?? 'null') as {
+        appState?: {
+          theoreticalContents?: Array<{
+            label: string;
+            completedAt: string | null;
+            order?: number;
+          }>;
+        };
+      };
+
+      const theoreticalContents = snapshot.appState?.theoreticalContents ?? [];
+      const aulaColada = theoreticalContents.find((item) => item.label === 'Aula colada');
+      const guiaBase = theoreticalContents.find((item) => item.label === 'Guia base');
+
+      expect(aulaColada?.order).toBe(1);
+      expect(guiaBase?.order).toBe(2);
+      expect(aulaColada?.completedAt).not.toBeNull();
     });
 
     const listAfterDrop = within(screen.getByTestId('topic-theoretical-content-list'))
