@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { TheoreticalContentBundleDownloadSummary } from '../app/contentTheoreticalDownloads';
+import type { TheoreticalContentMarkdownDownloadSummary } from '../app/contentTheoreticalDownloads';
 import {
   createStateWithTopics,
   createSubmatter,
@@ -9,19 +9,18 @@ import {
   topicIdByTitle,
 } from './renderConcursoApp';
 
-const { downloadTheoreticalContentsBundle } = vi.hoisted(() => ({
-  downloadTheoreticalContentsBundle: vi.fn(async (): Promise<TheoreticalContentBundleDownloadSummary> => ({
+const { downloadTheoreticalContentsMarkdown } = vi.hoisted(() => ({
+  downloadTheoreticalContentsMarkdown: vi.fn(
+    async (): Promise<TheoreticalContentMarkdownDownloadSummary> => ({
     requestedCount: 0,
-    downloadedCount: 0,
-    missingCount: 0,
-    isPartial: false,
-    manifestIncluded: false,
-    bundleFilename: 'conteudo-pragmatico-2026-04-22.zip',
-  })),
+      topicCount: 0,
+      bundleFilename: 'conteudo-pragmatico-2026-04-22.md',
+    }),
+  ),
 }));
 
 vi.mock('../app/contentTheoreticalDownloads', () => ({
-  downloadTheoreticalContentsBundle,
+  downloadTheoreticalContentsMarkdown,
 }));
 
 describe('ContentPage', () => {
@@ -141,14 +140,14 @@ describe('ContentPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Baixar todo conteúdo teórico' }));
 
-    expect(downloadTheoreticalContentsBundle).toHaveBeenCalledWith(
+    expect(downloadTheoreticalContentsMarkdown).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'global' },
       }),
     );
   });
 
-  it('informa quando o download global fica parcial por arquivos ausentes', async () => {
+  it('informa quando a exportação consolidada falha', async () => {
     const user = userEvent.setup();
     const topicId = topicIdByTitle('Domínio da ortografia oficial.');
     const state = createStateWithTopics((draft) => {
@@ -174,14 +173,9 @@ describe('ContentPage', () => {
       ];
     });
 
-    downloadTheoreticalContentsBundle.mockResolvedValueOnce({
-      requestedCount: 3,
-      downloadedCount: 2,
-      missingCount: 1,
-      isPartial: true,
-      manifestIncluded: true,
-      bundleFilename: 'conteudo-pragmatico-2026-04-22.zip',
-    });
+    downloadTheoreticalContentsMarkdown.mockRejectedValueOnce(
+      new Error('Falha ao montar o MD consolidado.'),
+    );
 
     renderConcursoApp('/conteudo', state);
 
@@ -189,7 +183,7 @@ describe('ContentPage', () => {
 
     expect(
       await screen.findByText(
-        'Download parcial: 2 de 3 arquivo(s) no ZIP. 1 arquivo(s) ausente(s) listado(s) em arquivos-ausentes.txt.',
+        'Falha ao montar o MD consolidado.',
       ),
     ).toBeInTheDocument();
   });

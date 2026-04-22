@@ -13,7 +13,7 @@ import {
   buildStaleSummary,
   buildTopicRollups,
 } from "../app/contentSubmatters";
-import { downloadTheoreticalContentsBundle } from "../app/contentTheoreticalDownloads";
+import { downloadTheoreticalContentsMarkdown } from "../app/contentTheoreticalDownloads";
 import { buildTheoreticalContentProgress } from "../app/contentTheoreticalFiles";
 import { subjectLabel, topicStatusLabel, workActivityLabel } from "../app/formatters";
 import { getTopicDisplayTitle, getTopicSearchText } from "../app/topics";
@@ -265,19 +265,12 @@ export const ContentPage = () => {
 
   const handleGlobalDownload = async (): Promise<void> => {
     try {
-      const summary = await downloadTheoreticalContentsBundle({
+      await downloadTheoreticalContentsMarkdown({
         scope: { kind: "global" },
         items: state.theoreticalContents,
         topics,
         topicSubmattersByTopic: state.topicSubmattersByTopic,
       });
-
-      if (summary.isPartial) {
-        setDownloadError(
-          `Download parcial: ${summary.downloadedCount} de ${summary.requestedCount} arquivo(s) no ZIP. ${summary.missingCount} arquivo(s) ausente(s) listado(s) em arquivos-ausentes.txt.`,
-        );
-        return;
-      }
 
       setDownloadError('');
     } catch (error) {

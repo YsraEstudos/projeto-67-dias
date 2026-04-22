@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTheoreticalContentDownloadEntries,
   downloadTheoreticalContentsBundle,
+  downloadTheoreticalContentsMarkdown,
 } from '../app/contentTheoreticalDownloads';
 import type { TheoreticalContentItem, TopicNode, TopicSubmatter } from '../app/types';
 
@@ -276,5 +277,65 @@ describe('content theoretical downloads', () => {
     const lessonContent = await lessonFile.async('text');
 
     expect(lessonContent).toContain('Resumo da revisão');
+  });
+
+  it('gera um unico md consolidado agrupando os arquivos por materia', async () => {
+    let capturedBlob: Blob | null = null;
+    let capturedFilename = '';
+
+    const summary = await downloadTheoreticalContentsMarkdown({
+      scope: { kind: 'global' },
+      items: [
+        item('topic-1-first', {
+          filename: 'resumo-1.md',
+          label: 'Resumo 1',
+          order: 1,
+          inlineContent: '# Resumo 1\n\nTexto base da materia.',
+        }),
+        item('topic-1-second', {
+          filename: 'resumo-2.md',
+          label: 'Resumo 2',
+          order: 2,
+          inlineContent: '# Resumo 2\n\nComplemento do assunto.',
+        }),
+        item('sub-1-file', {
+          ownerType: 'submatter',
+          ownerId: 'sub-1',
+          topicId: 'topic-1',
+          submatterId: 'sub-1',
+          filename: 'lista.pdf',
+          label: 'Lista em PDF',
+          kind: 'pdf',
+          mimeType: 'application/pdf',
+          order: 1,
+        }),
+      ],
+      topics: [topic],
+      topicSubmattersByTopic: {
+        'topic-1': [submatter],
+      },
+      loadBinary: async () => null,
+      saveBlob: (blob, filename) => {
+        capturedBlob = blob;
+        capturedFilename = filename;
+      },
+    });
+
+    expect(summary.requestedCount).toBe(3);
+    expect(summary.topicCount).toBe(1);
+    expect(capturedFilename).toMatch(/^conteudo-pragmatico-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(capturedBlob).not.toBeNull();
+
+    if (!capturedBlob) {
+      throw new Error('Esperava um blob de markdown consolidado.');
+    }
+
+    const markdown = await capturedBlob.text();
+    expect((markdown.match(/## Domínio da ortografia oficial\./g) ?? []).length).toBe(1);
+    expect(markdown).toContain('### Conteúdo da matéria');
+    expect(markdown).toContain('Resumo 1');
+    expect(markdown).toContain('Resumo 2');
+    expect(markdown).toContain('### Casos especiais');
+    expect(markdown).toContain('Arquivo PDF original preservado no app: lista.pdf.');
   });
 });

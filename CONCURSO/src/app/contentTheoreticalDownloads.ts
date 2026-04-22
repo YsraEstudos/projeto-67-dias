@@ -5,6 +5,7 @@ import {
   listAllTheoreticalContents,
   listTheoreticalContentsForOwner,
 } from './contentTheoreticalFiles';
+import { getTopicDisplayTitle } from './topics';
 import type { AppState, TopicNode, TopicSubmatter } from './types';
 
 type DownloadScope =
@@ -166,20 +167,7 @@ const bundleFilename = (
   topics: TopicNode[],
   topicSubmattersByTopic: AppState['topicSubmattersByTopic'],
 ): string => {
-  const stamp = todayStamp();
-  if (scope.kind === 'global') {
-    return `conteudo-pragmatico-${stamp}.zip`;
-  }
-
-  const topic = ensureTopic(topics, scope.topicId);
-  const topicSlug = slugify(topic.title || topic.id);
-
-  if (scope.kind === 'topic') {
-    return `${topicSlug}-${stamp}.zip`;
-  }
-
-  const submatter = findSubmatter(topicSubmattersByTopic, scope.topicId, scope.submatterId);
-  return `${topicSlug}-${slugify(submatter.title || submatter.id)}-${stamp}.zip`;
+  return buildDownloadFilename(scope, topics, topicSubmattersByTopic, 'zip');
 };
 
 const triggerBlobDownload = (blob: Blob, filename: string): void => {
@@ -193,6 +181,10 @@ const triggerBlobDownload = (blob: Blob, filename: string): void => {
   URL.revokeObjectURL(url);
 };
 
+const markdownDecoder = new TextDecoder('utf-8');
+
+const normalizeMarkdownText = (markdown: string): string => markdown.replace(/\r\n?/g, '\n').trim();
+
 const getInlineMarkdownText = (
   item: AppState['theoreticalContents'][number],
 ): string | null => {
@@ -200,12 +192,34 @@ const getInlineMarkdownText = (
     return null;
   }
 
-  const normalized = item.inlineContent.split(/\r\n?/).join('\n').trim();
+  const normalized = normalizeMarkdownText(item.inlineContent);
   if (!normalized) {
     return null;
   }
 
   return normalized;
+};
+
+const buildDownloadFilename = (
+  scope: DownloadScope,
+  topics: TopicNode[],
+  topicSubmattersByTopic: AppState['topicSubmattersByTopic'],
+  extension: 'zip' | 'md',
+): string => {
+  const stamp = todayStamp();
+  if (scope.kind === 'global') {
+    return `conteudo-pragmatico-${stamp}.${extension}`;
+  }
+
+  const topic = ensureTopic(topics, scope.topicId);
+  const topicSlug = slugify(topic.title || topic.id);
+
+  if (scope.kind === 'topic') {
+    return `${topicSlug}-${stamp}.${extension}`;
+  }
+
+  const submatter = findSubmatter(topicSubmattersByTopic, scope.topicId, scope.submatterId);
+  return `${topicSlug}-${slugify(submatter.title || submatter.id)}-${stamp}.${extension}`;
 };
 
 const buildMissingManifestText = (missingEntries: MissingTheoreticalContentEntry[]): string => {
@@ -218,6 +232,163 @@ const buildMissingManifestText = (missingEntries: MissingTheoreticalContentEntry
   ];
 
   return lines.join('\n');
+};
+
+const markdownFence = (content: string): string => {
+  const runs = content.match(/`+/g);
+  const longestRun = runs ? Math.max(...runs.map((run) => run.length)) : 0;
+  return '`'.repeat(Math.max(3, longestRun + 1));
+};
+
+const resolveMarkdownItemText = async (
+  item: AppState['theoreticalContents'][number],
+  loadBinary: (storageKey: string) => Promise<TheoreticalBinaryRecord | null>,
+): Promise<{ kind: 'markdown' | 'pdf'; text: string; isFallback: boolean }> => {
+  if (item.kind === 'markdown') {
+    const inlineText = getInlineMarkdownText(item);
+    if (inlineText) {
+      return { kind: 'markdown', text: inlineText, isFallback: false };
+    }
+
+    try {
+      const binary = await loadBinary(item.storageKey);
+      if (binary) {
+        const decoded = normalizeMarkdownText(markdownDecoder.decode(binary.bytes));
+        if (decoded) {
+          return { kind: 'markdown', text: decoded, isFallback: false };
+        }
+      }
+    } catch {
+      // Se o binario local falhar, ainda assim geramos o consolidado.
+    }
+
+    return {
+      kind: 'markdown',
+      text: `Conteúdo markdown indisponível localmente para ${item.filename}.`,
+      isFallback: true,
+    };
+  }
+
+  return {
+    kind: 'pdf',
+    text: `Arquivo PDF original preservado no app: ${item.filename}.`,
+    isFallback: false,
+  };
+};
+
+const renderMarkdownItemSection = async (
+  item: AppState['theoreticalContents'][number],
+  loadBinary: (storageKey: string) => Promise<TheoreticalBinaryRecord | null>,
+): Promise<string[]> => {
+  const resolved = await resolveMarkdownItemText(item, loadBinary);
+  const lines = [`#### ${padOrder(item.order)}. ${item.label}`, `- Tipo: ${item.kind === 'markdown' ? 'Markdown' : 'PDF'}`];
+
+  if (resolved.kind === 'markdown' && !resolved.isFallback) {
+    const fence = markdownFence(resolved.text);
+    lines.push('');
+    lines.push(`${fence}markdown`);
+    lines.push(resolved.text);
+    lines.push(fence);
+  } else {
+    lines.push(`- ${resolved.text}`);
+  }
+
+  lines.push('');
+  return lines;
+};
+
+const renderMarkdownItemSections = async (
+  items: AppState['theoreticalContents'],
+  loadBinary: (storageKey: string) => Promise<TheoreticalBinaryRecord | null>,
+): Promise<string[]> => {
+  const sections = await Promise.all(items.map((item) => renderMarkdownItemSection(item, loadBinary)));
+  return sections.flat();
+};
+
+interface BuildTheoreticalContentMarkdownDocumentResult {
+  markdown: string;
+  requestedCount: number;
+  topicCount: number;
+}
+
+const buildTheoreticalContentMarkdownDocument = async ({
+  scope,
+  items,
+  topics,
+  topicSubmattersByTopic,
+  loadBinary = loadTheoreticalContentBinary,
+}: BuildTheoreticalContentDownloadEntriesInput): Promise<BuildTheoreticalContentMarkdownDocumentResult> => {
+  const selectedItems = itemsForScope(scope, items);
+  const selectedTopicIds = new Set(selectedItems.map((item) => item.topicId));
+  const orderedTopics = topics.filter((topic) => topic.isLeaf && selectedTopicIds.has(topic.id));
+
+  if (selectedItems.length === 0 || orderedTopics.length === 0) {
+    throw new Error('Nenhum conteúdo teórico disponível para download neste contexto.');
+  }
+
+  const lines: string[] = [
+    '# Conteúdo Teórico Consolidado',
+    '',
+    `Gerado em: ${new Date().toISOString()}`,
+    `Matérias incluídas: ${orderedTopics.length}`,
+    `Itens incluídos: ${selectedItems.length}`,
+    '',
+  ];
+
+  for (const topic of orderedTopics) {
+    const topicItems = collectTheoreticalContentsForTopic(selectedItems, topic.id);
+    if (topicItems.length === 0) {
+      continue;
+    }
+
+    lines.push(`## ${getTopicDisplayTitle(topic)}`);
+    lines.push(`- Referência: ${topic.sourceRef}`);
+    lines.push('');
+
+    const topicLevelItems = listTheoreticalContentsForOwner(selectedItems, 'topic', topic.id);
+    if (topicLevelItems.length > 0) {
+      lines.push('### Conteúdo da matéria');
+      lines.push('');
+      lines.push(...(await renderMarkdownItemSections(topicLevelItems, loadBinary)));
+    }
+
+    const renderedSubmatterIds = new Set<string>();
+    const submatters = topicSubmattersByTopic[topic.id] ?? [];
+    for (const submatter of submatters) {
+      const submatterItems = listTheoreticalContentsForOwner(selectedItems, 'submatter', submatter.id);
+      if (submatterItems.length === 0) {
+        continue;
+      }
+
+      renderedSubmatterIds.add(submatter.id);
+      lines.push(`### ${submatter.title}`);
+      lines.push('');
+      lines.push(...(await renderMarkdownItemSections(submatterItems, loadBinary)));
+    }
+
+    const orphanSubmatterIds = [...new Set(
+      topicItems
+        .filter((item) => item.ownerType === 'submatter' && !renderedSubmatterIds.has(item.ownerId))
+        .map((item) => item.ownerId),
+    )];
+
+    for (const submatterId of orphanSubmatterIds) {
+      const submatterItems = listTheoreticalContentsForOwner(selectedItems, 'submatter', submatterId);
+      if (submatterItems.length === 0) {
+        continue;
+      }
+
+      lines.push(`### Submatéria ${submatterId}`);
+      lines.push('');
+      lines.push(...(await renderMarkdownItemSections(submatterItems, loadBinary)));
+    }
+  }
+
+  return {
+    markdown: `${lines.join('\n').trimEnd()}\n`,
+    requestedCount: selectedItems.length,
+    topicCount: orderedTopics.length,
+  };
 };
 
 const buildTheoreticalContentDownloadPlan = async ({
@@ -350,6 +521,38 @@ export const downloadTheoreticalContentsBundle = async ({
     missingCount,
     isPartial: missingCount > 0,
     manifestIncluded,
+    bundleFilename: resolvedBundleFilename,
+  };
+};
+
+export interface TheoreticalContentMarkdownDownloadSummary {
+  requestedCount: number;
+  topicCount: number;
+  bundleFilename: string;
+}
+
+export const downloadTheoreticalContentsMarkdown = async ({
+  scope,
+  items,
+  topics,
+  topicSubmattersByTopic,
+  loadBinary = loadTheoreticalContentBinary,
+  saveBlob = triggerBlobDownload,
+}: DownloadTheoreticalContentsBundleInput): Promise<TheoreticalContentMarkdownDownloadSummary> => {
+  const plan = await buildTheoreticalContentMarkdownDocument({
+    scope,
+    items,
+    topics,
+    topicSubmattersByTopic,
+    loadBinary,
+  });
+
+  const resolvedBundleFilename = buildDownloadFilename(scope, topics, topicSubmattersByTopic, 'md');
+  saveBlob(new Blob([plan.markdown], { type: 'text/markdown;charset=utf-8' }), resolvedBundleFilename);
+
+  return {
+    requestedCount: plan.requestedCount,
+    topicCount: plan.topicCount,
     bundleFilename: resolvedBundleFilename,
   };
 };
