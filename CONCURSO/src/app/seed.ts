@@ -9,6 +9,7 @@ import {
 import { DEFAULT_MOBILE_PINNED_NAV, sanitizeMobilePinnedNav } from './mobileNavigation';
 import { buildDayPlans, buildDayPlansByDate, buildMonthlyTargetsFromDayPlans } from './schedule';
 import { buildCoverageMatrix, buildTopicsFromSeeds, mapExpectedCoverage } from './topics';
+import { clampIsoDateToRange, getLocalTodayIsoDate } from './dateUtils';
 import { getTopicDisplayTitle } from './topics';
 import type { AppState, ChecklistItem, DayPlan, ExamWritingMonthlyTarget, TopicProgress } from './types';
 import { TOPIC_SECTIONS } from '../data/topicSeeds';
@@ -96,14 +97,8 @@ export const buildPlanRuntime = (planStartDate: string): PlanRuntime => {
   };
 };
 
-const resolveInitialDate = (planStartDate: string): string => {
-  const todayIso = new Date().toISOString().slice(0, 10);
-  if (todayIso >= planStartDate && todayIso <= END_DATE) {
-    return todayIso;
-  }
-
-  return planStartDate;
-};
+const resolveSelectedDate = (planStartDate: string): string =>
+  clampIsoDateToRange(getLocalTodayIsoDate(), planStartDate, END_DATE);
 
 const createTopicProgress = (): Record<string, TopicProgress> =>
   LEAF_TOPICS.reduce<Record<string, TopicProgress>>((accumulator, topic) => {
@@ -208,7 +203,7 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
     shellUi: {
       mobilePinnedNav: [...DEFAULT_MOBILE_PINNED_NAV],
     },
-    selectedDate: resolveInitialDate(normalizedPlanStartDate),
+    selectedDate: resolveSelectedDate(normalizedPlanStartDate),
     topicProgress,
     topicSubmattersByTopic: createTopicSubmatters(topicProgress),
     theoreticalContents: [],
@@ -256,7 +251,7 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
     }
   }
 
-  const selectedDate = dailyRecords[state.selectedDate] ? state.selectedDate : resolveInitialDate(planStartDate);
+  const selectedDate = resolveSelectedDate(planStartDate);
 
   const topicSubmattersByTopic = (() => {
     const legacyProgress = state.topicProgress ?? fallback.topicProgress;

@@ -1,5 +1,12 @@
 import { END_DATE, START_DATE } from './constants';
-import { enumerateDateRange, getWeekday, isSunday, parseIsoDate, toIsoDate } from './dateUtils';
+import {
+  enumerateDateRange,
+  getLocalTodayIsoDate,
+  getWeekday,
+  isSunday,
+  parseIsoDate,
+  toIsoDate,
+} from './dateUtils';
 import type { AnkiPauseWeekday, AppState } from './types';
 
 interface ProjectionInput {
@@ -24,7 +31,7 @@ const normalizePauseWeekdays = (pauseWeekdays: AnkiPauseWeekday[] | undefined): 
   );
 
 const resolveProjectionBaseDate = (referenceDate: string | undefined): string => {
-  const today = referenceDate ?? new Date().toISOString().slice(0, 10);
+  const today = referenceDate ?? getLocalTodayIsoDate();
   return today > START_DATE ? today : START_DATE;
 };
 
@@ -78,7 +85,7 @@ export const calculateAnkiConsistencyLast7Days = ({
   consistencyPercent: number;
 } => {
   const pauseSet = normalizePauseWeekdays(pauseWeekdays);
-  const windowEnd = referenceDate ?? new Date().toISOString().slice(0, 10);
+  const windowEnd = referenceDate ?? getLocalTodayIsoDate();
   const windowDates = buildWindowDates(windowEnd, 7);
 
   let plannedActiveDays = 0;

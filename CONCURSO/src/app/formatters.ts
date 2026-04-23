@@ -1,4 +1,5 @@
 import { PROJECT_TECHNOLOGIES, SUBJECT_LABELS, WORK_ACTIVITY_LABELS } from './constants';
+import { parseIsoDate } from './dateUtils';
 import type {
   AnkiPauseWeekday,
   ProjectPhase,
@@ -17,8 +18,7 @@ export const subjectLabel = (subject: SubjectKey): string => SUBJECT_LABELS[subj
 export const workActivityLabel = (activity: WorkActivity): string => WORK_ACTIVITY_LABELS[activity];
 
 export const formatIsoDatePtBr = (isoDate: string): string => {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('pt-BR', {
+  return parseIsoDate(isoDate).toLocaleDateString('pt-BR', {
     timeZone: 'UTC',
     day: '2-digit',
     month: '2-digit',
@@ -26,6 +26,13 @@ export const formatIsoDatePtBr = (isoDate: string): string => {
     weekday: 'short',
   });
 };
+
+export const formatIsoDateCompactPtBr = (isoDate: string): string =>
+  parseIsoDate(isoDate).toLocaleDateString('pt-BR', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: '2-digit',
+  });
 
 export const topicStatusLabel = (status: TopicStatus): string => {
   switch (status) {

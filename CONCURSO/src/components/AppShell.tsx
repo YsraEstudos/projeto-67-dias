@@ -7,7 +7,7 @@ import { useAppContext } from '../app/AppContext';
 import { prefetchConcursoRoutePath } from '../app/routeChunks';
 import { getChecklistProgressPercent } from '../app/progress';
 import { ProgressBar } from './ProgressBar';
-import { subjectLabel, workActivityLabel } from '../app/formatters';
+import { formatIsoDateCompactPtBr, subjectLabel, workActivityLabel } from '../app/formatters';
 import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
 import { FloatingBottomNav } from './Navigation/FloatingBottomNav';
 import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
@@ -311,7 +311,7 @@ export const AppShell = () => {
                 <div className="dynamic-island-collapsed" aria-hidden={isHovered}>
                   <div className="island-collapsed-kicker">
                     <span>Plano TRT 4</span>
-                    <span className="island-collapsed-date">{new Date(state.selectedDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                    <span className="island-collapsed-date">{formatIsoDateCompactPtBr(state.selectedDate)}</span>
                   </div>
                   <strong className="island-collapsed-title">
                     {dayPlan?.isRestDay

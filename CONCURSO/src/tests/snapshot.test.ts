@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appReducer } from '../app/AppContext';
+import * as dateUtils from '../app/dateUtils';
 import { createInitialState, normalizeStateForCurrentPlan, TOPICS } from '../app/seed';
 import { DEFAULT_MOBILE_PINNED_NAV } from '../app/mobileNavigation';
 import { buildSnapshot, loadStateSnapshot, saveStateSnapshot } from '../app/storage';
@@ -8,6 +9,10 @@ import { FALLBACK_BACKUP_KEY, STORAGE_KEY } from '../app/constants';
 describe('snapshot storage', () => {
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('salva e recarrega estado no localStorage', () => {
@@ -76,6 +81,18 @@ describe('snapshot storage', () => {
     expect(normalized.ankiStats.dailyLogs).toEqual({});
   });
 
+  it('alinha selectedDate com o dia local ao normalizar um snapshot antigo', () => {
+    const state = createInitialState();
+    state.selectedDate = '2026-04-22';
+
+    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-04-23');
+    const normalized = normalizeStateForCurrentPlan(state);
+
+    expect(normalized.selectedDate).toBe('2026-04-23');
+
+    todaySpy.mockRestore();
+  });
+
   it('normaliza mobilePinnedNav com deduplicacao, validacao e limite maximo', () => {
     const state = createInitialState();
     state.shellUi.mobilePinnedNav = [
@@ -103,6 +120,7 @@ describe('snapshot storage', () => {
   });
 
   it('recalcula o plano e contabiliza alteracoes ao mudar a data de inicio', () => {
+    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-04-23');
     const state = createInitialState();
     state.selectedDate = '2026-04-17';
 
@@ -113,9 +131,12 @@ describe('snapshot storage', () => {
 
     expect(updated.planSettings.startDate).toBe('2026-04-15');
     expect(updated.planSettings.startDateChangeCount).toBe(1);
-    expect(updated.selectedDate).toBe('2026-04-17');
+    expect(updated.selectedDate).toBe('2026-04-23');
+    expect(updated.dailyRecords['2026-04-23']).toBeDefined();
     expect(updated.dailyRecords['2026-04-17']).toBeDefined();
     expect(updated.dailyRecords['2026-03-14']).toBeUndefined();
+
+    todaySpy.mockRestore();
   });
 
   it('alinha o titulo da submateria padrao com o nome padronizado do topico', () => {

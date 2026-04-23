@@ -5,6 +5,7 @@ import {
   listAllTheoreticalContents,
   listTheoreticalContentsForOwner,
 } from './contentTheoreticalFiles';
+import { getLocalTodayIsoDate } from './dateUtils';
 import { getTopicDisplayTitle } from './topics';
 import type { AppState, TopicNode, TopicSubmatter } from './types';
 
@@ -99,7 +100,7 @@ const slugify = (value: string): string => {
 
 const padOrder = (order: number): string => String(Math.max(1, order)).padStart(2, '0');
 
-const todayStamp = (): string => new Date().toISOString().slice(0, 10);
+const todayStamp = (): string => getLocalTodayIsoDate();
 
 const ensureTopic = (topics: TopicNode[], topicId: string): TopicNode => {
   const topic = topics.find((item) => item.id === topicId);

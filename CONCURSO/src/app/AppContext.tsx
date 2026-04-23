@@ -17,7 +17,7 @@ import {
   subscribeCloudAuthChanges,
   subscribeCloudSnapshotChanges,
 } from './cloudStorage';
-import { AUTO_BACKUP_INTERVAL_MINUTES } from './constants';
+import { AUTO_BACKUP_INTERVAL_MINUTES, END_DATE } from './constants';
 import {
   downloadSnapshot,
   loadFallbackSnapshotTimestamp,
@@ -33,6 +33,11 @@ import {
   createInitialState,
   normalizeStateForCurrentPlan,
 } from './seed';
+import {
+  clampIsoDateToRange,
+  getLocalTodayIsoDate,
+  getMillisecondsUntilNextLocalMidnight,
+} from './dateUtils';
 import { getTodayIsoDate } from './contentSubmatters';
 import {
   createPastedMarkdownFile,
@@ -744,6 +749,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const cloudUserRef = useRef<CloudUser | null>(null);
   const hasLoadedCloudSnapshotRef = useRef(false);
   const saveCloudTimeoutRef = useRef<TimeoutHandle | null>(null);
+  const midnightSyncTimeoutRef = useRef<TimeoutHandle | null>(null);
   const lastCloudSavedTokenRef = useRef<number>(state.meta.changeToken);
   const lastCloudSavedAtRef = useRef<string | null>(null);
   const [cloudSync, setCloudSync] = useReducer(
@@ -778,6 +784,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const syncSelectedDateToToday = useCallback(() => {
+    const nextSelectedDate = clampIsoDateToRange(
+      getLocalTodayIsoDate(),
+      stateRef.current.planSettings.startDate,
+      END_DATE,
+    );
+
+    if (stateRef.current.selectedDate !== nextSelectedDate) {
+      dispatch({ type: 'set-selected-date', date: nextSelectedDate });
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    const scheduleNextMidnightSync = () => {
+      if (midnightSyncTimeoutRef.current !== null) {
+        globalThis.clearTimeout(midnightSyncTimeoutRef.current);
+      }
+
+      midnightSyncTimeoutRef.current = globalThis.setTimeout(() => {
+        midnightSyncTimeoutRef.current = null;
+        syncSelectedDateToToday();
+        scheduleNextMidnightSync();
+      }, getMillisecondsUntilNextLocalMidnight());
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncSelectedDateToToday();
+      }
+    };
+
+    syncSelectedDateToToday();
+    scheduleNextMidnightSync();
+
+    window.addEventListener('focus', syncSelectedDateToToday);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (midnightSyncTimeoutRef.current !== null) {
+        globalThis.clearTimeout(midnightSyncTimeoutRef.current);
+        midnightSyncTimeoutRef.current = null;
+      }
+
+      window.removeEventListener('focus', syncSelectedDateToToday);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [syncSelectedDateToToday]);
 
   useEffect(() => {
     if (saveSnapshotTimeoutRef.current !== null) {

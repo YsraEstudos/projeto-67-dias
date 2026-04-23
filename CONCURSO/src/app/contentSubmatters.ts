@@ -1,8 +1,9 @@
 import { TOPIC_STALE_BUCKETS_DAYS } from './constants';
+import { getLocalTodayIsoDate } from './dateUtils';
 import type { SubjectKey, TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
 import { getTopicDisplayTitle } from './topics';
 
-const nowIsoDate = (): string => new Date().toISOString().slice(0, 10);
+const nowIsoDate = (): string => getLocalTodayIsoDate();
 
 const createSubmatterId = (topicId: string): string =>
   `sub-${topicId}-${Math.random().toString(16).slice(2)}-${Date.now()}`;

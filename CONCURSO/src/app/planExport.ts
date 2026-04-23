@@ -1,4 +1,4 @@
-import { parseIsoDate } from './dateUtils';
+import { getLocalTodayIsoDate, parseIsoDate } from './dateUtils';
 import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from './formatters';
 import { getManualBlockContentSummary } from './manualPlanContentRefs';
 import type { DayPlan } from './types';
@@ -69,7 +69,7 @@ const visibleBlocks = (plan: DayPlan): string[] => {
   ];
 };
 
-const fileTimestamp = (): string => new Date().toISOString().slice(0, 10);
+const fileTimestamp = (): string => getLocalTodayIsoDate();
 
 const downloadTextFile = (content: string, filename: string, mimeType: string): void => {
   const blob = new Blob([content], { type: mimeType });

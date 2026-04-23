@@ -1,5 +1,32 @@
 export const toIsoDate = (value: Date): string => value.toISOString().slice(0, 10);
 
+export const getLocalTodayIsoDate = (now: Date = new Date()): string => {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+export const getMillisecondsUntilNextLocalMidnight = (now: Date = new Date()): number => {
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+
+  return Math.max(1, nextMidnight.getTime() - now.getTime());
+};
+
+export const clampIsoDateToRange = (isoDate: string, minIsoDate: string, maxIsoDate: string): string => {
+  if (isoDate < minIsoDate) {
+    return minIsoDate;
+  }
+
+  if (isoDate > maxIsoDate) {
+    return maxIsoDate;
+  }
+
+  return isoDate;
+};
+
 export const parseIsoDate = (isoDate: string): Date => {
   const [year, month, day] = isoDate.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day));

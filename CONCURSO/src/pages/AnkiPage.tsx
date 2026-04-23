@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { calculateAnkiConsistencyLast7Days, calculateAnkiProjection } from '../app/anki';
 import { useAppContext } from '../app/AppContext';
 import { ANKI_PAUSE_WEEKDAY_OPTIONS, FSRS_IFRAME_SRC } from '../app/constants';
+import { getLocalTodayIsoDate } from '../app/dateUtils';
 import { ankiPauseWeekdayLabel, formatIsoDatePtBr } from '../app/formatters';
 import type { AnkiPauseWeekday } from '../app/types';
 import { MetricCard } from '../components/MetricCard';
@@ -9,7 +10,7 @@ import { PageIntro } from '../components/PageIntro';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionCard } from '../components/SectionCard';
 
-const getTodayIso = (): string => new Date().toISOString().slice(0, 10);
+const getTodayIso = (): string => getLocalTodayIsoDate();
 
 export const AnkiPage = () => {
   const { state, setAnkiConfig, upsertAnkiDailyLog } = useAppContext();

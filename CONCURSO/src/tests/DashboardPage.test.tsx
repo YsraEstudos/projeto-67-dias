@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { appReducer } from '../app/AppContext';
+import { getLocalTodayIsoDate } from '../app/dateUtils';
 import { buildPlanRuntime } from '../app/seed';
 import { createStateWithTopics, renderConcursoApp } from './renderConcursoApp';
 
@@ -43,7 +44,7 @@ describe('DashboardPage', () => {
   });
 
   it('recalcula o card do plano quando a data de início muda sem trocar o dia ativo', () => {
-    const selectedDate = '2026-04-17';
+    const selectedDate = getLocalTodayIsoDate();
     const initialState = createStateWithTopics((draft) => {
       draft.selectedDate = selectedDate;
     });

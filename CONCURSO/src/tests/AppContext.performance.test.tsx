@@ -3,6 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, LOCAL_SNAPSHOT_DEBOUNCE_MS, useAppContext } from '../app/AppContext';
 import * as storage from '../app/storage';
 
+const dateState = vi.hoisted(() => ({
+  currentLocalToday: '2026-04-23',
+}));
+
+vi.mock('../app/dateUtils', async () => {
+  const actual = await vi.importActual<typeof import('../app/dateUtils')>('../app/dateUtils');
+
+  return {
+    ...actual,
+    getLocalTodayIsoDate: vi.fn(() => dateState.currentLocalToday),
+  };
+});
+
 vi.mock('../app/storage', async () => {
   const actual = await vi.importActual<typeof import('../app/storage')>('../app/storage');
   return {
@@ -47,6 +60,7 @@ describe('AppContext performance safeguards', () => {
   });
 
   afterEach(() => {
+    dateState.currentLocalToday = '2026-04-23';
     vi.useRealTimers();
   });
 
@@ -98,5 +112,48 @@ describe('AppContext performance safeguards', () => {
 
     expect(storage.saveStateSnapshot).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('batch-date')).toHaveTextContent('2026-03-16');
+  });
+
+  it('sincroniza a data ativa ao cruzar a meia-noite e persiste a troca', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-23T12:00:00.000Z'));
+
+    const MidnightProbe = () => {
+      const { state } = useAppContext();
+
+      return <p data-testid="midnight-date">{state.selectedDate}</p>;
+    };
+
+    render(
+      <AppProvider>
+        <MidnightProbe />
+      </AppProvider>,
+    );
+
+    expect(screen.getByTestId('midnight-date')).toHaveTextContent('2026-04-23');
+
+    act(() => {
+      vi.advanceTimersByTime(LOCAL_SNAPSHOT_DEBOUNCE_MS + 1);
+    });
+
+    vi.mocked(storage.saveStateSnapshot).mockClear();
+    dateState.currentLocalToday = '2026-04-24';
+
+    act(() => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 0);
+      vi.advanceTimersByTime(nextMidnight.getTime() - now.getTime() + 1);
+    });
+
+    expect(screen.getByTestId('midnight-date')).toHaveTextContent('2026-04-24');
+
+    act(() => {
+      vi.advanceTimersByTime(LOCAL_SNAPSHOT_DEBOUNCE_MS + 1);
+    });
+
+    expect(storage.saveStateSnapshot).toHaveBeenCalled();
+    const lastSavedState = vi.mocked(storage.saveStateSnapshot).mock.calls.at(-1)?.[0];
+    expect(lastSavedState?.selectedDate).toBe('2026-04-24');
   });
 });

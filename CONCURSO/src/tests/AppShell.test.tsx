@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderConcursoApp } from './renderConcursoApp';
+import { createStateWithTopics, renderConcursoApp } from './renderConcursoApp';
 import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
 const mockMatchMedia = ({ compact, coarse }: { compact: boolean; coarse: boolean }) => {
@@ -23,6 +23,7 @@ const mockMatchMedia = ({ compact, coarse }: { compact: boolean; coarse: boolean
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
   mockMatchMedia({ compact: false, coarse: false });
 });
 
@@ -76,6 +77,44 @@ describe('AppShell', () => {
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Voltar ao Projeto 67 Dias' }));
 
     expect(warmMainSiteEntryPoint).toHaveBeenCalled();
+  });
+
+  it('mostra o dia selecionado no shell sem deslocamento de fuso', () => {
+    mockMatchMedia({ compact: false, coarse: false });
+
+    const originalToLocaleDateString = Date.prototype.toLocaleDateString;
+    const toLocaleDateStringSpy = vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(
+      function (
+        this: Date,
+        locale?: Intl.LocalesArgument,
+        options?: Intl.DateTimeFormatOptions,
+      ): string {
+        if (locale === 'pt-BR' && options?.day === '2-digit' && options?.month === '2-digit') {
+          const isoDate = this.toISOString().slice(0, 10);
+
+          if (options.timeZone === 'UTC') {
+            return `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
+          }
+
+          const shifted = new Date(this.getTime() - 3 * 60 * 60 * 1000);
+          const day = String(shifted.getUTCDate()).padStart(2, '0');
+          const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+          return `${day}/${month}`;
+        }
+
+        return originalToLocaleDateString.call(this, locale as never, options as never);
+      },
+    );
+
+    const { container } = renderConcursoApp(
+      '/',
+      createStateWithTopics((draft) => {
+        draft.selectedDate = '2026-04-23';
+      }),
+    );
+
+    expect(container.querySelector('.island-collapsed-date')).toHaveTextContent('23/04');
+    expect(toLocaleDateStringSpy).toHaveBeenCalled();
   });
 
   it('fecha o menu desktop com escape', async () => {
