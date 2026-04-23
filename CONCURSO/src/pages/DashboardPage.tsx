@@ -4,8 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { useAppContext } from '../app/AppContext';
 import { buildReviewQueue } from '../app/contentSubmatters';
 import {
-  buildExamProgressTotals,
-  countCompletedItemById,
+  buildExamProgressSummary,
   countOverdueDays,
   getChecklistProgressPercent,
 } from '../app/progress';
@@ -32,37 +31,49 @@ const findNextEventDate = (
   return null;
 };
 
+const STALE_ICONS: Record<string, string> = {
+  unreviewed: '📄',
+  critical: '🚨',
+  warning: '⚠️',
+  fresh: '✅',
+};
+
 export const DashboardPage = () => {
   const { state, dayPlans, dayPlansByDate, monthlyTargets, topics } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
+  const selectedMonthKey = useMemo(() => state.selectedDate.slice(0, 7), [state.selectedDate]);
 
   const reviewQueue = useMemo(
     () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate).slice(0, 6),
     [state.topicSubmattersByTopic, topics, state.selectedDate]
   );
+  const examProgress = useMemo(
+    () => buildExamProgressSummary(state.dailyRecords, monthlyTargets),
+    [state.dailyRecords, monthlyTargets],
+  );
+  const currentMonthProgress = examProgress.byMonth[selectedMonthKey] ?? {
+    simuladosDone: 0,
+    redacoesDone: 0,
+  };
 
   const progress = record ? getChecklistProgressPercent(record.checklist) : 0;
-  const monthTarget = monthlyTargets.find((target) => target.monthKey === state.selectedDate.slice(0, 7));
-
-  const totals = buildExamProgressTotals(state.dailyRecords, monthlyTargets);
-  const monthSimuladosDone = countCompletedItemById(
-    state.dailyRecords,
-    'simulado',
-    state.selectedDate.slice(0, 7),
+  const monthTarget = useMemo(
+    () => monthlyTargets.find((target) => target.monthKey === selectedMonthKey),
+    [monthlyTargets, selectedMonthKey],
   );
-  const monthRedacoesDone = countCompletedItemById(
-    state.dailyRecords,
-    'redacao',
-    state.selectedDate.slice(0, 7),
+  const overdueCount = useMemo(
+    () => countOverdueDays(dayPlansByDate, state.dailyRecords, state.selectedDate),
+    [dayPlansByDate, state.dailyRecords, state.selectedDate],
   );
-
-  const overdueCount = countOverdueDays(dayPlansByDate, state.dailyRecords, state.selectedDate);
-
-  const nextSimulado = findNextEventDate(
-    state.selectedDate,
-    dayPlans,
-    (date) => dayPlansByDate[date]?.hasSimulado ?? false,
+  const nextSimulado = useMemo(
+    () =>
+      findNextEventDate(
+        state.selectedDate,
+        dayPlans,
+        (date) => dayPlansByDate[date]?.hasSimulado ?? false,
+      ),
+    [dayPlans, dayPlansByDate, state.selectedDate],
   );
   const ankiProjection = useMemo(
     () =>
@@ -252,19 +263,19 @@ export const DashboardPage = () => {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
                   <span>Simulados</span>
-                  <span style={{ color: 'var(--color-primary)' }}>{monthSimuladosDone}/{monthTarget?.simulados ?? 0}</span>
+                  <span style={{ color: 'var(--color-primary)' }}>{currentMonthProgress.simuladosDone}/{monthTarget?.simulados ?? 0}</span>
                 </div>
                 <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                  <div style={{ width: monthTarget?.simulados && monthTarget.simulados > 0 ? `${Math.min((monthSimuladosDone/monthTarget.simulados)*100, 100)}%` : '0%', height: '100%', background: 'var(--color-primary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-primary)' }} />
+                  <div style={{ width: monthTarget?.simulados && monthTarget.simulados > 0 ? `${Math.min((currentMonthProgress.simuladosDone/monthTarget.simulados)*100, 100)}%` : '0%', height: '100%', background: 'var(--color-primary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-primary)' }} />
                 </div>
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
                   <span>Redações</span>
-                  <span style={{ color: 'var(--color-secondary)' }}>{monthRedacoesDone}/{monthTarget?.redacoes ?? 0}</span>
+                  <span style={{ color: 'var(--color-secondary)' }}>{currentMonthProgress.redacoesDone}/{monthTarget?.redacoes ?? 0}</span>
                 </div>
                 <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                  <div style={{ width: monthTarget?.redacoes && monthTarget.redacoes > 0 ? `${Math.min((monthRedacoesDone/monthTarget.redacoes)*100, 100)}%` : '0%', height: '100%', background: 'var(--color-secondary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-secondary)' }} />
+                  <div style={{ width: monthTarget?.redacoes && monthTarget.redacoes > 0 ? `${Math.min((currentMonthProgress.redacoesDone/monthTarget.redacoes)*100, 100)}%` : '0%', height: '100%', background: 'var(--color-secondary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-secondary)' }} />
                 </div>
               </div>
             </div>
@@ -274,11 +285,11 @@ export const DashboardPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
-                  <span>{totals.simuladosDone}/{totals.simuladosTarget} Simulados</span>
-                  <span style={{ color: 'var(--color-primary)' }}>{(totals.simuladosDone/Math.max(totals.simuladosTarget,1)*100).toFixed(0)}%</span>
+                  <span>{examProgress.simuladosDone}/{examProgress.simuladosTarget} Simulados</span>
+                  <span style={{ color: 'var(--color-primary)' }}>{(examProgress.simuladosDone/Math.max(examProgress.simuladosTarget,1)*100).toFixed(0)}%</span>
                 </div>
                 <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                  <div style={{ width: `${Math.min((totals.simuladosDone/Math.max(totals.simuladosTarget,1)*100), 100)}%`, height: '100%', background: 'var(--color-primary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-primary)' }} />
+                  <div style={{ width: `${Math.min((examProgress.simuladosDone/Math.max(examProgress.simuladosTarget,1)*100), 100)}%`, height: '100%', background: 'var(--color-primary)', borderRadius: '2px', boxShadow: '0 0 10px var(--color-primary)' }} />
                 </div>
               </div>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -301,13 +312,6 @@ export const DashboardPage = () => {
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '8px 0' }}>Você está em dia com as revisões.</p>
             ) : (
               reviewQueue.map(item => {
-                const STALE_ICONS: Record<string, string> = {
-                  unreviewed: '📄',
-                  critical: '🚨',
-                  warning: '⚠️',
-                  fresh: '✅',
-                };
-                
                 return (
                   <Link 
                     key={item.submatterId}

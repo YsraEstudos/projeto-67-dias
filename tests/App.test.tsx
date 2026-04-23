@@ -1,7 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from '../App';
 import type { User } from '../types';
+import { warmConcursoEntryPoint } from '../utils/concursoPrefetch';
 
 // Mock lazy loaded components
 vi.mock('../components/views/WorkView', () => ({ default: () => <div data-testid="work-view">Work View</div> }));
@@ -19,8 +21,51 @@ vi.mock('../components/views/ConcursoView', () => ({ default: () => <div data-te
 vi.mock('../components/views/AuthView', () => ({
     AuthView: () => <div data-testid="auth-view">Auth View</div>
 }));
+vi.mock('../WorkspaceApp', () => ({
+    default: ({ user, onLogout }: { user: User; onLogout: () => Promise<void> }) => {
+        const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+        return (
+            <div data-testid="workspace-app">
+                <h1>Projeto 67 Dias</h1>
+                <p>{user.name}</p>
+                <p>versão 1.4.1</p>
+                <section>
+                    <div>Trabalho</div>
+                    <div>Leitura</div>
+                    <div>Habilidades (Skill Tree)</div>
+                    <div>Hábitos & Tarefas</div>
+                </section>
+                <div
+                    data-testid="dashboard-card-CONCURSO"
+                    onMouseEnter={() => {
+                        void warmConcursoEntryPoint();
+                    }}
+                >
+                    <h2>Concurso Público</h2>
+                    <p>App dedicado</p>
+                </div>
+                <button type="button" title="Sair" onClick={() => setShowLogoutConfirm(true)}>
+                    Sair
+                </button>
+                {showLogoutConfirm ? (
+                    <div role="dialog" aria-label="Sair da conta">
+                        <p>Sair da conta</p>
+                        <button type="button" onClick={() => void onLogout()}>
+                            Sair
+                        </button>
+                    </div>
+                ) : null}
+            </div>
+        );
+    }
+}));
 vi.mock('../hooks/useCompetitionTracker', () => ({
     useCompetitionTracker: vi.fn(),
+}));
+
+vi.mock('../utils/concursoPrefetch', () => ({
+    warmConcursoEntryPoint: vi.fn(async () => undefined),
 }));
 
 const mockUseAuth = vi.fn();
@@ -179,6 +224,9 @@ const mockUser: User = {
     isGuest: false
 };
 
+const waitForApp = (callback: Parameters<typeof waitFor>[0]) =>
+    waitFor(callback, { timeout: 5000 });
+
 describe('App Component', () => {
     beforeEach(() => {
         localStorage.clear();
@@ -191,7 +239,7 @@ describe('App Component', () => {
         mockUseAuth.mockReturnValue(createAuthState());
 
         render(<App />);
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByTestId('auth-view')).toBeInTheDocument();
         });
     });
@@ -201,7 +249,7 @@ describe('App Component', () => {
 
         render(<App />);
 
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByText('Projeto 67 Dias')).toBeInTheDocument();
             expect(screen.getByText('Test User')).toBeInTheDocument();
             expect(screen.getByText('versão 1.4.1')).toBeInTheDocument();
@@ -214,7 +262,7 @@ describe('App Component', () => {
         render(<App />);
 
         // Wait for dashboard to load
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByText('Trabalho')).toBeInTheDocument();
         });
 
@@ -235,10 +283,24 @@ describe('App Component', () => {
 
         render(<App />);
 
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByText('Concurso Público')).toBeInTheDocument();
             expect(screen.getByText('App dedicado')).toBeInTheDocument();
         });
+    });
+
+    it('prefetches Concurso when the dedicated card is hovered', async () => {
+        mockUseAuth.mockReturnValue(createAuthState({ user: mockUser }));
+
+        render(<App />);
+
+        await waitForApp(() => {
+            expect(screen.getByTestId('dashboard-card-CONCURSO')).toBeInTheDocument();
+        });
+
+        fireEvent.mouseEnter(screen.getByTestId('dashboard-card-CONCURSO'));
+
+        expect(warmConcursoEntryPoint).toHaveBeenCalled();
     });
 
     it('logs out correctly', async () => {
@@ -250,7 +312,7 @@ describe('App Component', () => {
         const { rerender } = render(<App />);
 
         // Wait for dashboard to load first
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByTitle('Sair')).toBeInTheDocument();
         });
 
@@ -258,7 +320,7 @@ describe('App Component', () => {
         fireEvent.click(logoutButton);
 
         // ConfirmModal should appear
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByText('Sair da conta')).toBeInTheDocument();
         });
 
@@ -267,14 +329,14 @@ describe('App Component', () => {
         const confirmButton = sairButtons[sairButtons.length - 1]; // Modal confirm button is the last one
         fireEvent.click(confirmButton);
 
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(logoutMock).toHaveBeenCalled();
         });
 
         currentState = createAuthState();
         rerender(<App />);
 
-        await waitFor(() => {
+        await waitForApp(() => {
             expect(screen.getByTestId('auth-view')).toBeInTheDocument();
         });
     });

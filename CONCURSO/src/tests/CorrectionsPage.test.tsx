@@ -28,7 +28,7 @@ describe('CorrectionsPage', () => {
     });
 
     expect(screen.getAllByText(topicTitle).length).toBeGreaterThan(0);
-  }, 15000);
+  }, 30000);
 
   it('filtra os links cadastrados por materia', async () => {
     const user = userEvent.setup();

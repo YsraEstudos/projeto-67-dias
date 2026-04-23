@@ -1,9 +1,13 @@
-import React from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { installChunkReloadHandler } from './utils/chunkReload';
+
+const App = lazy(() => import('./App'));
 
 const DEV_SW_RESET_KEY = 'p67-dev-sw-reset';
 const HAS_SW_CONTROLLER_AT_BOOT = globalThis.window !== undefined && 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller);
+
+installChunkReloadHandler();
 
 if (globalThis.window !== undefined && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -79,9 +83,17 @@ const boot = async () => {
   }
 
   root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
+    <StrictMode>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300">
+            Carregando...
+          </div>
+        }
+      >
+        <App />
+      </Suspense>
+    </StrictMode>
   );
 };
 

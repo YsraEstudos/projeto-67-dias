@@ -15,13 +15,23 @@ export const getChecklistItemProgress = (item: ChecklistItem): number => {
 };
 
 export const getChecklistProgressPercent = (items: ChecklistItem[]): number => {
-  const requiredItems = items.filter((item) => item.required);
-  if (requiredItems.length === 0) {
+  let requiredCount = 0;
+  let progressSum = 0;
+
+  for (const item of items) {
+    if (!item.required) {
+      continue;
+    }
+
+    requiredCount += 1;
+    progressSum += getChecklistItemProgress(item);
+  }
+
+  if (requiredCount === 0) {
     return 100;
   }
 
-  const progress =
-    requiredItems.reduce((sum, item) => sum + getChecklistItemProgress(item), 0) / requiredItems.length;
+  const progress = progressSum / requiredCount;
 
   return Math.round(progress * 100);
 };
@@ -31,34 +41,93 @@ export const countCompletedItemById = (
   itemId: 'simulado' | 'redacao',
   monthKey?: string,
 ): number => {
-  const entries = Object.entries(records);
+  let total = 0;
 
-  return entries.reduce((sum, [date, record]) => {
+  for (const [date, record] of Object.entries(records)) {
     if (monthKey && !date.startsWith(monthKey)) {
-      return sum;
+      continue;
     }
 
-    const item = record.checklist.find((check) => check.id === itemId);
-    if (!item) {
-      return sum;
+    for (const check of record.checklist) {
+      if (check.id !== itemId) {
+        continue;
+      }
+
+      total += check.done >= check.target ? 1 : 0;
+      break;
+    }
+  }
+
+  return total;
+};
+
+export interface ExamProgressMonthSummary {
+  simuladosDone: number;
+  redacoesDone: number;
+}
+
+export interface ExamProgressSummary extends ExamProgressTotals {
+  byMonth: Record<string, ExamProgressMonthSummary>;
+}
+
+const createEmptyExamProgressMonthSummary = (): ExamProgressMonthSummary => ({
+  simuladosDone: 0,
+  redacoesDone: 0,
+});
+
+export const buildExamProgressSummary = (
+  records: Record<string, DailyRecord>,
+  monthlyTargets: ExamWritingMonthlyTarget[],
+): ExamProgressSummary => {
+  const byMonth: Record<string, ExamProgressMonthSummary> = {};
+  let simuladosDone = 0;
+  let redacoesDone = 0;
+
+  for (const [date, record] of Object.entries(records)) {
+    const monthKey = date.slice(0, 7);
+    const monthSummary = byMonth[monthKey] ??= createEmptyExamProgressMonthSummary();
+    let simuladoDoneToday = false;
+    let redacaoDoneToday = false;
+
+    for (const check of record.checklist) {
+      if (check.id === 'simulado') {
+        simuladoDoneToday = check.done >= check.target;
+      } else if (check.id === 'redacao') {
+        redacaoDoneToday = check.done >= check.target;
+      }
     }
 
-    return sum + (item.done >= item.target ? 1 : 0);
-  }, 0);
+    if (simuladoDoneToday) {
+      simuladosDone += 1;
+      monthSummary.simuladosDone += 1;
+    }
+
+    if (redacaoDoneToday) {
+      redacoesDone += 1;
+      monthSummary.redacoesDone += 1;
+    }
+  }
+
+  return {
+    simuladosDone,
+    simuladosTarget: monthlyTargets.reduce((acc, row) => acc + row.simulados, 0),
+    redacoesDone,
+    redacoesTarget: monthlyTargets.reduce((acc, row) => acc + row.redacoes, 0),
+    byMonth,
+  };
 };
 
 export const buildExamProgressTotals = (
   records: Record<string, DailyRecord>,
   monthlyTargets: ExamWritingMonthlyTarget[],
 ): ExamProgressTotals => {
-  const simuladosTarget = monthlyTargets.reduce((acc, row) => acc + row.simulados, 0);
-  const redacoesTarget = monthlyTargets.reduce((acc, row) => acc + row.redacoes, 0);
+  const summary = buildExamProgressSummary(records, monthlyTargets);
 
   return {
-    simuladosDone: countCompletedItemById(records, 'simulado'),
-    simuladosTarget,
-    redacoesDone: countCompletedItemById(records, 'redacao'),
-    redacoesTarget,
+    simuladosDone: summary.simuladosDone,
+    simuladosTarget: summary.simuladosTarget,
+    redacoesDone: summary.redacoesDone,
+    redacoesTarget: summary.redacoesTarget,
   };
 };
 

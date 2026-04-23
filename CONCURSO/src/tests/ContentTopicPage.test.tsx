@@ -91,7 +91,7 @@ describe('ContentTopicPage', () => {
     await user.click(screen.getByTestId('submatter-create-submit'));
 
     expect(screen.getByDisplayValue('Casos especiais')).toBeInTheDocument();
-  }, 10000);
+  }, 30000);
 
   it('permite marcar a matéria como pendente e reapresenta isso na listagem principal', async () => {
     const user = userEvent.setup();

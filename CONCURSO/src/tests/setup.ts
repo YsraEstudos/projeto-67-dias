@@ -22,6 +22,61 @@ vi.mock('../app/cloudStorage', () => ({
   ...cloudStorageMock,
 }));
 
+vi.mock('../app/routeChunks', async () => {
+  const [
+    dashboardPage,
+    dailyPlanPage,
+    contentPage,
+    contentTopicPage,
+    ankiPage,
+    correctionsPage,
+    simuladosPage,
+    projectsPage,
+    settingsPage,
+    cutoffMarksPage,
+  ] = await Promise.all([
+    import('../pages/DashboardPage'),
+    import('../pages/DailyPlanPage'),
+    import('../pages/ContentPage'),
+    import('../pages/ContentTopicPage'),
+    import('../pages/AnkiPage'),
+    import('../pages/CorrectionsPage'),
+    import('../pages/SimuladosPage'),
+    import('../pages/ProjectsPage'),
+    import('../pages/SettingsPage'),
+    import('../pages/CutoffMarksPage'),
+  ]);
+
+  return {
+    DashboardPage: dashboardPage.DashboardPage,
+    DailyPlanPage: dailyPlanPage.DailyPlanPage,
+    ContentPage: contentPage.ContentPage,
+    ContentTopicPage: contentTopicPage.ContentTopicPage,
+    AnkiPage: ankiPage.AnkiPage,
+    CorrectionsPage: correctionsPage.CorrectionsPage,
+    SimuladosPage: simuladosPage.SimuladosPage,
+    ProjectsPage: projectsPage.ProjectsPage,
+    SettingsPage: settingsPage.SettingsPage,
+    CutoffMarksPage: cutoffMarksPage.CutoffMarksPage,
+    concursoRouteLoaders: {
+      dashboard: vi.fn(async () => ({ default: dashboardPage.DashboardPage })),
+      dailyPlan: vi.fn(async () => ({ default: dailyPlanPage.DailyPlanPage })),
+      content: vi.fn(async () => ({ default: contentPage.ContentPage })),
+      contentTopic: vi.fn(async () => ({ default: contentTopicPage.ContentTopicPage })),
+      anki: vi.fn(async () => ({ default: ankiPage.AnkiPage })),
+      corrections: vi.fn(async () => ({ default: correctionsPage.CorrectionsPage })),
+      simulados: vi.fn(async () => ({ default: simuladosPage.SimuladosPage })),
+      projects: vi.fn(async () => ({ default: projectsPage.ProjectsPage })),
+      settings: vi.fn(async () => ({ default: settingsPage.SettingsPage })),
+      cutoffMarks: vi.fn(async () => ({ default: cutoffMarksPage.CutoffMarksPage })),
+    },
+    clearConcursoRouteCache: vi.fn(),
+    preloadConcursoRoute: vi.fn(async () => ({ default: dashboardPage.DashboardPage })),
+    prefetchConcursoRoutePath: vi.fn(async () => undefined),
+    resolveConcursoRouteKey: vi.fn(() => null),
+  };
+});
+
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

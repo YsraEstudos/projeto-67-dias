@@ -1,15 +1,17 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
-import { AnkiPage } from './pages/AnkiPage';
-import { ContentPage } from './pages/ContentPage';
-import { ContentTopicPage } from './pages/ContentTopicPage';
-import { CorrectionsPage } from './pages/CorrectionsPage';
-import { DailyPlanPage } from './pages/DailyPlanPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { ProjectsPage } from './pages/ProjectsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { SimuladosPage } from './pages/SimuladosPage';
-import { CutoffMarksPage } from './pages/CutoffMarksPage';
+import {
+  AnkiPage,
+  ContentPage,
+  ContentTopicPage,
+  CorrectionsPage,
+  CutoffMarksPage,
+  DailyPlanPage,
+  DashboardPage,
+  ProjectsPage,
+  SettingsPage,
+  SimuladosPage,
+} from './app/routeChunks';
 
 const App = () => (
   <Routes>
@@ -30,4 +32,3 @@ const App = () => (
 );
 
 export default App;
-

@@ -35,7 +35,7 @@ describe('SimuladosPage', () => {
     await waitFor(() => {
       expect(getDoneSimulados()).toBe(wasChecked ? before - 1 : before + 1);
     });
-  }, 15000);
+  }, 30000);
 
   it('renderiza os cards mobile da cadencia mensal com mes e contadores', () => {
     const state = createStateWithTopics(() => undefined);

@@ -1,20 +1,106 @@
-import type { ChangeEvent } from 'react';
+import { useMemo, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../app/AppContext';
 import { getChecklistProgressPercent } from '../app/progress';
 import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/formatters';
 import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
-import type { ManualBlock, TopicNode, TopicSubmatter } from '../app/types';
+import type { ChecklistItem, ManualBlock, TopicNode, TopicSubmatter } from '../app/types';
 import { PageIntro } from '../components/PageIntro';
 import { MetricCard } from '../components/MetricCard';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionCard } from '../components/SectionCard';
 import '../styles/daily-plan.css';
 
+type SmartReviewItem = {
+  submatter: TopicSubmatter;
+  topic: TopicNode;
+  topicId: string;
+};
+
+const isRiskGrade = (grade: string): boolean =>
+  grade === 'C' || grade === 'D' || grade === 'E';
+
+const isEliteGrade = (grade: string): boolean =>
+  grade === 'A' || grade === 'B';
+
+const EMPTY_CHECKLIST: ChecklistItem[] = [];
+
+const sortSmartReviewByDate = (
+  a: { submatter: TopicSubmatter },
+  b: { submatter: TopicSubmatter },
+) => {
+  if (a.submatter.lastReviewedAt === b.submatter.lastReviewedAt) return 0;
+  if (a.submatter.lastReviewedAt === null) return -1;
+  if (b.submatter.lastReviewedAt === null) return 1;
+  return new Date(a.submatter.lastReviewedAt).getTime() - new Date(b.submatter.lastReviewedAt).getTime();
+};
+
 export const DailyPlanPage = () => {
   const { state, topics, dayPlansByDate, updateChecklistItem, setDailyNote } = useAppContext();
   const dayPlan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
+
+  const checklist = record?.checklist ?? EMPTY_CHECKLIST;
+  const progress = useMemo(
+    () => getChecklistProgressPercent(checklist),
+    [checklist],
+  );
+  const requiredItems = useMemo(
+    () => checklist.filter((item) => item.required),
+    [checklist],
+  );
+  const optionalItems = useMemo(
+    () => checklist.filter((item) => !item.required),
+    [checklist],
+  );
+  const requiredDone = useMemo(
+    () =>
+      checklist.reduce(
+        (count, item) =>
+          count + (item.required && item.status === 'concluido' ? 1 : 0),
+        0,
+      ),
+    [checklist],
+  );
+  const topicById = useMemo(
+    () => new Map(topics.map((topic) => [topic.id, topic])),
+    [topics],
+  );
+  const dailySmartReview = useMemo(() => {
+    const allSubmatters: SmartReviewItem[] = [];
+
+    Object.entries(state.topicSubmattersByTopic ?? {}).forEach(
+      ([topicId, submatters]) => {
+        const topic = topicById.get(topicId);
+        if (!topic || !submatters) return;
+
+        submatters.forEach((submatter) => {
+          allSubmatters.push({ submatter, topic, topicId });
+        });
+      },
+    );
+
+    const riskGroup = allSubmatters.filter((item) =>
+      isRiskGrade(item.submatter.grade),
+    );
+    const eliteGroup = allSubmatters.filter((item) =>
+      isEliteGrade(item.submatter.grade),
+    );
+
+    riskGroup.sort(sortSmartReviewByDate);
+    eliteGroup.sort(sortSmartReviewByDate);
+
+    return [...riskGroup.slice(0, 2), ...eliteGroup.slice(0, 1)];
+  }, [state.topicSubmattersByTopic, topicById]);
+
+  const handleChecklistChange = (
+    itemId: string,
+    event: ChangeEvent<HTMLInputElement>,
+    type: 'counter' | 'boolean',
+  ): void => {
+    const done = type === 'boolean' ? (event.target.checked ? 1 : 0) : Number(event.target.value);
+    updateChecklistItem(state.selectedDate, itemId, done);
+  };
 
   if (!dayPlan || !record) {
     return (
@@ -23,11 +109,6 @@ export const DailyPlanPage = () => {
       </section>
     );
   }
-
-  const progress = getChecklistProgressPercent(record.checklist);
-  const requiredItems = record.checklist.filter((item) => item.required);
-  const optionalItems = record.checklist.filter((item) => !item.required);
-  const requiredDone = requiredItems.filter((item) => item.status === 'concluido').length;
 
   const fallbackBlocks: ManualBlock[] = [
     {
@@ -69,49 +150,6 @@ export const DailyPlanPage = () => {
         : dayPlan.hasRedacao
           ? 'Redação'
           : 'Sem evento especial';
-
-  const handleChecklistChange = (
-    itemId: string,
-    event: ChangeEvent<HTMLInputElement>,
-    type: 'counter' | 'boolean',
-  ): void => {
-    const done = type === 'boolean' ? (event.target.checked ? 1 : 0) : Number(event.target.value);
-    updateChecklistItem(state.selectedDate, itemId, done);
-  };
-
-  // Smart Review Logic
-  const allSubmatters: { submatter: TopicSubmatter; topic: TopicNode; topicId: string }[] = [];
-  if (state.topicSubmattersByTopic) {
-    Object.entries(state.topicSubmattersByTopic).forEach(([topicId, submatters]) => {
-      const topic = topics.find((t) => t.id === topicId);
-      if (topic && submatters) {
-        submatters.forEach((submatter) => {
-          allSubmatters.push({ submatter, topic, topicId });
-        });
-      }
-    });
-  }
-
-  const riskGroup = allSubmatters.filter((item) => ['C', 'D', 'E'].includes(item.submatter.grade));
-  const eliteGroup = allSubmatters.filter((item) => ['A', 'B'].includes(item.submatter.grade));
-
-  const sortByDate = (
-    a: { submatter: TopicSubmatter },
-    b: { submatter: TopicSubmatter }
-  ) => {
-    if (a.submatter.lastReviewedAt === b.submatter.lastReviewedAt) return 0;
-    if (a.submatter.lastReviewedAt === null) return -1;
-    if (b.submatter.lastReviewedAt === null) return 1;
-    return new Date(a.submatter.lastReviewedAt).getTime() - new Date(b.submatter.lastReviewedAt).getTime();
-  };
-
-  const sortedRisk = [...riskGroup].sort(sortByDate);
-  const sortedElite = [...eliteGroup].sort(sortByDate);
-
-  const dailySmartReview = [
-    ...sortedRisk.slice(0, 2),
-    ...sortedElite.slice(0, 1),
-  ];
 
   return (
     <section className="page">

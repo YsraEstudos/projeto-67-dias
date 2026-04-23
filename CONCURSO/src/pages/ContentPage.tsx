@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronDown, BookOpen, Calculator, Scale, Briefcase } from "lucide-react";
 import { useAppContext } from "../app/AppContext";
@@ -17,7 +17,7 @@ import { buildTheoreticalContentProgress } from "../app/contentTheoreticalFiles"
 import { exportFullPlanAsMarkdown } from "../app/planExport";
 import { subjectLabel, topicStatusLabel, workActivityLabel } from "../app/formatters";
 import { getTopicDisplayTitle, getTopicSearchText } from "../app/topics";
-import type { SubjectKey, TopicGrade, TopicSubmatter } from "../app/types";
+import type { SubjectKey, TopicGrade, TopicNode, TopicSubmatter } from "../app/types";
 
 type QuickFilter = "all" | "pending" | "review-now" | "stale" | "unreviewed" | TopicGrade;
 
@@ -142,7 +142,11 @@ export const ContentPage = () => {
           dayPlan?.subjects[1] ?? "rlm",
         )} | ${workActivityLabel(dayPlan?.workActivity ?? "programacao")}`;
 
-  const normalizedSearch = search.trim().toLowerCase();
+  const deferredSearch = useDeferredValue(search);
+  const normalizedSearch = useMemo(
+    () => deferredSearch.trim().toLowerCase(),
+    [deferredSearch],
+  );
 
   const gradesSummary = useMemo(
     () => buildGradesSummary(state.topicSubmattersByTopic),
@@ -190,15 +194,32 @@ export const ContentPage = () => {
     () => new Map(reviewQueue.map((item) => [item.submatterId, item])),
     [reviewQueue],
   );
+  const sectionTopics = useMemo(
+    () => topics.filter((topic) => !topic.isLeaf),
+    [topics],
+  );
+  const leafTopicsBySectionId = useMemo(() => {
+    const groupedTopics = new Map<string, TopicNode[]>();
+
+    for (const topic of topics) {
+      if (!topic.isLeaf || !topic.parentId) continue;
+
+      const siblings = groupedTopics.get(topic.parentId);
+      if (siblings) {
+        siblings.push(topic);
+      } else {
+        groupedTopics.set(topic.parentId, [topic]);
+      }
+    }
+
+    return groupedTopics;
+  }, [topics]);
   const pendingTopicsCount = pendingTopicIds.size;
 
   const groupedSections = useMemo(() => {
-    const sectionTopics = topics.filter((topic) => !topic.isLeaf);
-
     return sectionTopics
       .map((section) => {
-        const children = topics
-          .filter((topic) => topic.parentId === section.id && topic.isLeaf)
+        const children = (leafTopicsBySectionId.get(section.id) ?? [])
           .filter(
             (topic) =>
               subjectFilter === "all" || topic.subject === subjectFilter,
@@ -246,6 +267,7 @@ export const ContentPage = () => {
       })
       .filter((item) => item.children.length > 0);
   }, [
+    leafTopicsBySectionId,
     lessonProgressByTopic,
     normalizedSearch,
     quickFilter,
@@ -254,13 +276,25 @@ export const ContentPage = () => {
     pendingTopicIds,
     subjectFilter,
     topicRollups,
-    topics,
+    sectionTopics,
   ]);
 
-  const reviewNowCount = reviewQueue.filter((item) => item.needsReview).length;
-  const unreviewedCount = reviewQueue.filter(
-    (item) => item.staleBucket === "unreviewed",
-  ).length;
+  const reviewCounts = useMemo(
+    () =>
+      reviewQueue.reduce(
+        (accumulator, item) => {
+          if (item.needsReview) accumulator.reviewNow += 1;
+          if (item.staleBucket === "unreviewed") accumulator.unreviewed += 1;
+          return accumulator;
+        },
+        { reviewNow: 0, unreviewed: 0 },
+      ),
+    [reviewQueue],
+  );
+  const visibleTopicCount = useMemo(
+    () => groupedSections.reduce((accumulator, curr) => accumulator + curr.children.length, 0),
+    [groupedSections],
+  );
   const hasDayPlans = dayPlans.length > 0;
 
   const handleGlobalDownload = (): void => {
@@ -355,7 +389,7 @@ export const ContentPage = () => {
               <span>Total submatérias</span>
             </div>
             <div className="tot-box highlight">
-              <h4>{reviewNowCount}</h4>
+              <h4>{reviewCounts.reviewNow}</h4>
               <span>Revisar Agora</span>
             </div>
           </div>
@@ -379,7 +413,7 @@ export const ContentPage = () => {
         {/* Atrasos */}
         <div className="metric-card">
           <div className="metric-card-title">
-            <span>Sem Revisão ({unreviewedCount})</span>
+            <span>Sem Revisão ({reviewCounts.unreviewed})</span>
             <span>Atrasos</span>
           </div>
           <div className="delay-list">
@@ -449,7 +483,7 @@ export const ContentPage = () => {
       <div className="list-header">
         <h3>AÇÕES Mapeadas — Fila priorizada por matéria e nota</h3>
         <span>
-          {groupedSections.reduce((acc, curr) => acc + curr.children.length, 0)}{" "}
+          {visibleTopicCount}{" "}
           tópico(s) visíveis
         </span>
       </div>

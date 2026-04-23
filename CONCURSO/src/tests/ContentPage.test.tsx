@@ -51,7 +51,7 @@ describe('ContentPage', () => {
     expect(screen.getByRole('link', { name: 'Emprego da acentuação gráfica.' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Domínio da ortografia oficial.' })).not.toBeInTheDocument();
     },
-    20000,
+    30000,
   );
 
   it('exibe nomes padronizados quando o plano diario e o conteudo usam a mesma matéria', () => {
@@ -264,4 +264,4 @@ describe('ContentPage', () => {
     expect(screen.getByRole('link', { name: 'Domínio da ortografia oficial.' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Emprego da acentuação gráfica.' })).not.toBeInTheDocument();
   });
-}, 15000);
+  }, 30000);

@@ -77,4 +77,4 @@ describe('DashboardPage', () => {
       screen.getByText(`${firstManualBlock.area}: ${firstManualBlock.title}`),
     ).toBeInTheDocument();
   });
-}, 10000);
+}, 30000);

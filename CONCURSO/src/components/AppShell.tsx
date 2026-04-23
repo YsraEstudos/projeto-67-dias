@@ -1,9 +1,10 @@
 import { ArrowLeft, Menu, Settings } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { END_DATE, NAV_ITEMS } from '../app/constants';
 import { MAIN_SITE_URL } from '../app/mainSite';
 import { useAppContext } from '../app/AppContext';
+import { prefetchConcursoRoutePath } from '../app/routeChunks';
 import { getChecklistProgressPercent } from '../app/progress';
 import { ProgressBar } from './ProgressBar';
 import { subjectLabel, workActivityLabel } from '../app/formatters';
@@ -14,6 +15,17 @@ const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/conteudo', '/anki', '
 const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
 const settingsNavItem = NAV_ITEMS.find((item) => item.to === '/configuracoes');
 const READER_EVENT_NAME = 'concurso-reader-mode';
+const ROUTE_PREFETCH_PATHS = ['/plano-diario', '/conteudo', '/anki', '/simulados-redacoes', '/configuracoes'] as const;
+
+const RouteLoadingFallback = () => (
+  <section className="page" aria-busy="true" aria-live="polite">
+    <div className="section-card section-card-flat route-loading-card">
+      <p className="kicker-label">Carregando módulo</p>
+      <h3>Preparando a próxima tela</h3>
+      <p>O shell já está pronto. Estamos buscando apenas o conteúdo específico desta rota.</p>
+    </div>
+  </section>
+);
 
 export const AppShell = () => {
   const { state, dayPlansByDate, setSelectedDate } = useAppContext();
@@ -79,6 +91,22 @@ export const AppShell = () => {
       setIsHovered(false);
     }, 400);
   };
+
+  useEffect(() => {
+    const warmRoutes = () => {
+      ROUTE_PREFETCH_PATHS.forEach((path) => {
+        void prefetchConcursoRoutePath(path);
+      });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleHandle = window.requestIdleCallback(warmRoutes, { timeout: 1800 });
+      return () => window.cancelIdleCallback?.(idleHandle);
+    }
+
+    const timer = window.setTimeout(warmRoutes, 1600);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!window.matchMedia) {
@@ -222,6 +250,12 @@ export const AppShell = () => {
                 onClick={() => navigate('/configuracoes')}
                 aria-label="Abrir Configurações"
                 style={{ padding: '8px', marginLeft: '-8px' }}
+                onMouseEnter={() => {
+                  void prefetchConcursoRoutePath('/configuracoes');
+                }}
+                onFocus={() => {
+                  void prefetchConcursoRoutePath('/configuracoes');
+                }}
               >
                 <Settings size={18} />
               </button>
@@ -312,6 +346,12 @@ export const AppShell = () => {
                             isActive ? 'desktop-nav-link desktop-nav-link-active' : 'desktop-nav-link'
                           }
                           onClick={closeShell}
+                          onMouseEnter={() => {
+                            void prefetchConcursoRoutePath(item.to);
+                          }}
+                          onFocus={() => {
+                            void prefetchConcursoRoutePath(item.to);
+                          }}
                         >
                           {item.label}
                         </NavLink>
@@ -329,6 +369,12 @@ export const AppShell = () => {
                             : 'desktop-nav-secondary'
                         }
                         onClick={closeShell}
+                        onMouseEnter={() => {
+                          void prefetchConcursoRoutePath(settingsNavItem.to);
+                        }}
+                        onFocus={() => {
+                          void prefetchConcursoRoutePath(settingsNavItem.to);
+                        }}
                       >
                         <Settings size={16} />
                         <span>{settingsNavItem.label}</span>
@@ -348,11 +394,12 @@ export const AppShell = () => {
         </header>
 
         <main className={`content ${isCompactViewport ? 'content-mobile-spaced' : ''}`} style={contentStyle}>
-          <Outlet />
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <Outlet />
+          </Suspense>
         </main>
         {isCompactViewport && <FloatingBottomNav />}
       </div>
     </div>
   );
 };
-

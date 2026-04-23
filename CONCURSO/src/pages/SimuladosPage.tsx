@@ -1,18 +1,34 @@
+import { useMemo } from 'react';
 import { useAppContext } from '../app/AppContext';
-import { countCompletedItemById } from '../app/progress';
+import { buildExamProgressSummary } from '../app/progress';
 import { formatIsoDatePtBr } from '../app/formatters';
 import { PageIntro } from '../components/PageIntro';
 import { SectionCard } from '../components/SectionCard';
 
+const EMPTY_MONTH_PROGRESS = {
+  simuladosDone: 0,
+  redacoesDone: 0,
+};
+
 export const SimuladosPage = () => {
   const { state, dayPlans, updateChecklistItem, monthlyTargets } = useAppContext();
 
-  const eventDays = dayPlans.filter((day) => day.hasSimulado || day.hasRedacao);
-
-  const totalSimuladosDone = countCompletedItemById(state.dailyRecords, 'simulado');
-  const totalRedacoesDone = countCompletedItemById(state.dailyRecords, 'redacao');
-  const totalSimuladosTarget = monthlyTargets.reduce((sum, target) => sum + target.simulados, 0);
-  const totalRedacoesTarget = monthlyTargets.reduce((sum, target) => sum + target.redacoes, 0);
+  const eventDays = useMemo(
+    () => dayPlans.filter((day) => day.hasSimulado || day.hasRedacao),
+    [dayPlans],
+  );
+  const examProgress = useMemo(
+    () => buildExamProgressSummary(state.dailyRecords, monthlyTargets),
+    [state.dailyRecords, monthlyTargets],
+  );
+  const monthlyProgressRows = useMemo(
+    () =>
+      monthlyTargets.map((target) => ({
+        target,
+        progress: examProgress.byMonth[target.monthKey] ?? EMPTY_MONTH_PROGRESS,
+      })),
+    [examProgress, monthlyTargets],
+  );
 
   return (
     <section className="page">
@@ -25,10 +41,10 @@ export const SimuladosPage = () => {
       <div className="grid-2">
         <SectionCard as="article" kicker="Volume" title="Meta total">
           <p>
-            Simulados: <strong>{totalSimuladosDone}/{totalSimuladosTarget}</strong>
+            Simulados: <strong>{examProgress.simuladosDone}/{examProgress.simuladosTarget}</strong>
           </p>
           <p>
-            Redações: <strong>{totalRedacoesDone}/{totalRedacoesTarget}</strong>
+            Redações: <strong>{examProgress.redacoesDone}/{examProgress.redacoesTarget}</strong>
           </p>
         </SectionCard>
 
@@ -51,20 +67,20 @@ export const SimuladosPage = () => {
               </tr>
             </thead>
             <tbody>
-              {monthlyTargets.map((target) => (
+              {monthlyProgressRows.map(({ target, progress }) => (
                 <tr key={target.monthKey}>
                   <td>{target.monthKey}</td>
                   <td>{target.simulados}</td>
-                  <td>{countCompletedItemById(state.dailyRecords, 'simulado', target.monthKey)}</td>
+                  <td>{progress.simuladosDone}</td>
                   <td>{target.redacoes}</td>
-                  <td>{countCompletedItemById(state.dailyRecords, 'redacao', target.monthKey)}</td>
+                  <td>{progress.redacoesDone}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="block md:hidden">
-          {monthlyTargets.map((target) => (
+          {monthlyProgressRows.map(({ target, progress }) => (
             <div className="mobile-list-card" key={target.monthKey}>
               <div className="mobile-list-card-header">
                 Mês: {target.monthKey}
@@ -72,11 +88,15 @@ export const SimuladosPage = () => {
               <div className="mobile-list-card-body">
                 <div className="mobile-list-card-stat">
                   <span>Simulados</span>
-                  <strong>{countCompletedItemById(state.dailyRecords, 'simulado', target.monthKey)} / {target.simulados}</strong>
+                  <strong>
+                    {progress.simuladosDone} / {target.simulados}
+                  </strong>
                 </div>
                 <div className="mobile-list-card-stat">
                   <span>Redações</span>
-                  <strong>{countCompletedItemById(state.dailyRecords, 'redacao', target.monthKey)} / {target.redacoes}</strong>
+                  <strong>
+                    {progress.redacoesDone} / {target.redacoes}
+                  </strong>
                 </div>
               </div>
             </div>

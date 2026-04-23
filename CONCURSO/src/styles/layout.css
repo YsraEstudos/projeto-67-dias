@@ -21,6 +21,11 @@
   margin: 0 auto;
 }
 
+.route-loading-card {
+  width: min(640px, 100%);
+  margin: 72px auto 0;
+}
+
 .shell-chrome {
   position: fixed;
   top: 0;

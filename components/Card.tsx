@@ -12,6 +12,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
   statsAlert,
   onClick,
   onAuxClick,
+  onWarm,
 }) => {
   // Prevent double-trigger of middle-click (auxclick + mouseup)
   const middleClickHandled = useRef(false);
@@ -50,6 +51,7 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
 
   return (
     <div
+      data-testid={`dashboard-card-${id}`}
       onClick={() => onClick(id)}
       onAuxClick={(e) => {
         if (e.button === 1 && onAuxClick && !middleClickHandled.current) {
@@ -67,6 +69,8 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
           middleClickHandled.current = false; // Reset on mousedown
         }
       }}
+      onMouseEnter={() => onWarm?.(id)}
+      onPointerDown={() => onWarm?.(id)}
       onMouseUp={(e) => {
         if (e.button === 1 && onAuxClick && !middleClickHandled.current) {
           e.preventDefault();
