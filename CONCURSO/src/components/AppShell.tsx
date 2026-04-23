@@ -1,5 +1,5 @@
 import { ArrowLeft, Menu, Settings } from 'lucide-react';
-import { Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { END_DATE, NAV_ITEMS } from '../app/constants';
 import { MAIN_SITE_URL } from '../app/mainSite';
@@ -10,6 +10,7 @@ import { ProgressBar } from './ProgressBar';
 import { subjectLabel, workActivityLabel } from '../app/formatters';
 import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
 import { FloatingBottomNav } from './Navigation/FloatingBottomNav';
+import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
 const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes']);
 const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
@@ -71,6 +72,10 @@ export const AppShell = () => {
     setIsShellOpen(false);
     setIsHovered(false);
   };
+
+  const warmMainSite = useCallback(() => {
+    void warmMainSiteEntryPoint();
+  }, []);
 
   const toggleShell = () => {
     setIsShellOpen((current) => !current);
@@ -282,6 +287,8 @@ export const AppShell = () => {
               className="button button-ghost"
               onClick={() => window.location.assign(MAIN_SITE_URL)}
               aria-label="Voltar ao Projeto 67 Dias"
+              onMouseEnter={warmMainSite}
+              onFocus={warmMainSite}
             >
               <ArrowLeft size={16} />
             </button>

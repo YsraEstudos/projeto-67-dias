@@ -165,9 +165,17 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
       set((state) => {
         const isCompleting = updates.completed === true;
         const nextActiveTaskId = isCompleting && state.activeTaskId === id ? null : state.activeTaskId;
+        const shouldSyncPomodoroDate = Object.prototype.hasOwnProperty.call(updates, 'completedPomodoros');
+        const nextUpdates: Partial<Task> = { ...updates };
+
+        if (shouldSyncPomodoroDate && !Object.prototype.hasOwnProperty.call(updates, 'lastCompletedDate')) {
+          const nextPomodoroCount = Math.max(0, updates.completedPomodoros ?? 0);
+          nextUpdates.completedPomodoros = nextPomodoroCount;
+          nextUpdates.lastCompletedDate = nextPomodoroCount > 0 ? getTodayISODate() : null;
+        }
 
         return {
-          tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...updates } : task)),
+          tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...nextUpdates } : task)),
           activeTaskId: nextActiveTaskId,
           activeTaskSelectionDate: nextActiveTaskId ? state.activeTaskSelectionDate : null,
         };

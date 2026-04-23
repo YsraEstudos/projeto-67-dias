@@ -41,7 +41,7 @@ export default function App() {
       tasks.forEach((task) => {
         const updates: Partial<Task> = {};
 
-        if (task.isInfinite && task.lastCompletedDate && task.lastCompletedDate !== todayStr) {
+        if (task.completedPomodoros > 0 && task.lastCompletedDate !== todayStr) {
           updates.completedPomodoros = 0;
           updates.lastCompletedDate = null;
         }

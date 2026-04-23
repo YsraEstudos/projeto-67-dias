@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderConcursoApp } from './renderConcursoApp';
+import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
 const mockMatchMedia = ({ compact, coarse }: { compact: boolean; coarse: boolean }) => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -66,6 +67,15 @@ describe('AppShell', () => {
       expect(screen.getByRole('heading', { name: 'Configurações e Backup' })).toBeInTheDocument();
       expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
     });
+  });
+
+  it('aquece o retorno ao site principal quando o botao de voltar recebe hover', async () => {
+    mockMatchMedia({ compact: false, coarse: false });
+    renderConcursoApp('/');
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Voltar ao Projeto 67 Dias' }));
+
+    expect(warmMainSiteEntryPoint).toHaveBeenCalled();
   });
 
   it('fecha o menu desktop com escape', async () => {

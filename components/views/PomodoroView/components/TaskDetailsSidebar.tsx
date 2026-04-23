@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Flag, Clock, Calendar as CalendarIcon, List, Bell, Repeat, 
@@ -7,9 +7,10 @@ import {
 import { useStore, Task, Subtask } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
+import { countHistoricalPomodoros } from '../lib/pomodoroStats';
 
 export function TaskDetailsSidebar() {
-  const { tasks, selectedTaskId, setSelectedTaskId, updateTask, deleteTask, projects } = useStore();
+  const { tasks, records, selectedTaskId, setSelectedTaskId, updateTask, deleteTask, projects } = useStore();
   const task = tasks.find(t => t.id === selectedTaskId);
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -17,6 +18,10 @@ export function TaskDetailsSidebar() {
   const [newTagTitle, setNewTagTitle] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const historicalPomodoros = useMemo(
+    () => (task ? countHistoricalPomodoros(records, task.id) : 0),
+    [records, task]
+  );
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -194,11 +199,19 @@ export function TaskDetailsSidebar() {
               <Clock className="w-4 h-4 mr-3" />
               <span>Pomodoro</span>
             </div>
-            <div className="flex items-center">
-              <span className="text-[var(--color-primary)] font-medium">{task.completedPomodoros}</span>
-              <span className="text-[var(--color-text-muted)] mx-1">/</span>
-              <span className="text-[var(--color-text)]">{task.estimatedPomodoros}</span>
-              <span className="text-[var(--color-text-muted)] text-xs ml-2">= {task.estimatedPomodoros * 25}m</span>
+            <div className="flex flex-col items-end gap-2 text-right">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <span className="flex items-center px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-medium">
+                  <Clock className="w-3.5 h-3.5 mr-1" />
+                  Hoje {task.completedPomodoros}
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-[var(--color-surface-hover)] text-[var(--color-text-muted)] font-medium">
+                  Histórico total {historicalPomodoros}
+                </span>
+              </div>
+              <span className="text-[var(--color-text-muted)] text-xs">
+                Meta {task.estimatedPomodoros} = {task.estimatedPomodoros * 25}m
+              </span>
             </div>
           </div>
 

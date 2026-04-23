@@ -217,4 +217,31 @@ describe('pomodoroStore', () => {
 
     vi.useRealTimers();
   });
+
+  it('marks pomodoro edits with the current day', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'));
+
+    usePomodoroStore.getState()._hydrateFromFirestore(null);
+
+    usePomodoroStore.getState().addTask({
+      title: 'Daily task',
+      completed: false,
+      estimatedPomodoros: 2,
+      completedPomodoros: 0,
+    });
+
+    const taskId = usePomodoroStore.getState().tasks[0]?.id;
+    expect(taskId).toBeTruthy();
+
+    usePomodoroStore.getState().updateTask(taskId!, {
+      completedPomodoros: 3,
+    });
+
+    const updatedTask = usePomodoroStore.getState().tasks.find((task) => task.id === taskId);
+    expect(updatedTask?.completedPomodoros).toBe(3);
+    expect(updatedTask?.lastCompletedDate).toBe('2026-04-17');
+
+    vi.useRealTimers();
+  });
 });

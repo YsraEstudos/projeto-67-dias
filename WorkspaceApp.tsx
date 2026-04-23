@@ -410,7 +410,6 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
   // --- CARD CLICK HANDLERS ---
   const handleCardClick = useCallback((view: ViewState) => {
     if (view === ViewState.CONCURSO) {
-      warmConcurso();
       window.location.href = window.location.origin + '/concurso/#/';
       return;
     }
@@ -433,11 +432,10 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       setActiveView(view);
       pushNavigation({ view });
     }
-  }, [tabs, setActiveTab, setActiveView, addTab, pushNavigation, getViewLabel, warmConcurso]);
+  }, [tabs, setActiveTab, setActiveView, addTab, pushNavigation, getViewLabel]);
 
   const handleCardMiddleClick = useCallback((view: ViewState) => {
     if (view === ViewState.CONCURSO) {
-      warmConcurso();
       window.open(window.location.origin + '/concurso/#/', '_blank');
       return;
     }
@@ -446,31 +444,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
     addTab(view, getViewLabel(view));
     setActiveView(view);
     pushNavigation({ view });
-  }, [addTab, setActiveView, pushNavigation, getViewLabel, warmConcurso]);
-
-  useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
-
-    type IdleScheduler = Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-
-    const idleScheduler = window as IdleScheduler;
-    if (typeof idleScheduler.requestIdleCallback !== 'function') {
-      return undefined;
-    }
-
-    const idleHandle = idleScheduler.requestIdleCallback(() => {
-      warmConcurso();
-    }, { timeout: 2000 });
-
-    return () => {
-      idleScheduler.cancelIdleCallback?.(idleHandle);
-    };
-  }, [user, warmConcurso]);
+  }, [addTab, setActiveView, pushNavigation, getViewLabel]);
 
   // --- Back button handler (contextual) ---
   const handleBack = useCallback(() => {
@@ -797,7 +771,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.4.1
+          versão 1.4.2
         </span>
       </footer>
 

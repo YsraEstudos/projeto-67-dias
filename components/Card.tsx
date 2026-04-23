@@ -70,7 +70,6 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
         }
       }}
       onMouseEnter={() => onWarm?.(id)}
-      onPointerDown={() => onWarm?.(id)}
       onMouseUp={(e) => {
         if (e.button === 1 && onAuxClick && !middleClickHandled.current) {
           e.preventDefault();

@@ -77,6 +77,11 @@ vi.mock('../app/routeChunks', async () => {
   };
 });
 
+vi.mock('../../../utils/mainSitePrefetch', () => ({
+  warmMainSiteEntryPoint: vi.fn(async () => undefined),
+  clearMainSitePrefetchCache: vi.fn(),
+}));
+
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

@@ -6,7 +6,7 @@ const AuthView = lazy(() =>
 );
 const WorkspaceApp = lazy(() => import('./WorkspaceApp'));
 
-const APP_SCHEMA_VERSION = '2026.03.17.3';
+const APP_SCHEMA_VERSION = '2026.04.23.1'; // 2026-04-23: Performance warm-up and prefetch refinements
 const SCHEMA_VERSION_KEY = 'p67_schema_version';
 
 const ShellLoading = () => (

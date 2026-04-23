@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, Circle, Play, Flag, Clock, Calendar, Tag, Repeat, FolderInput, Infinity as InfinityIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Task, useStore } from '../store/useStore';
+import { countHistoricalPomodoros } from '../lib/pomodoroStats';
 
 interface TaskItemProps {
   key?: string | number;
@@ -28,11 +29,14 @@ export function TaskItem({
   onDragStart,
   isCompletedView 
 }: TaskItemProps) {
-  const { updateTask, projects } = useStore();
+  const { updateTask, projects, records } = useStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
 
-  const totalPomodorosToRender = Math.max(task.estimatedPomodoros, task.completedPomodoros);
+  const historicalPomodoros = useMemo(
+    () => countHistoricalPomodoros(records, task.id),
+    [records, task.id]
+  );
 
   const handleTitleSubmit = () => {
     if (editedTitle.trim() && editedTitle !== task.title) {
@@ -133,30 +137,18 @@ export function TaskItem({
             </div>
             
             {!isCompletedView && (
-              <div className="flex items-center mt-1 gap-1 flex-wrap">
-                {totalPomodorosToRender <= 10 ? (
-                  Array.from({ length: totalPomodorosToRender }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={cn(
-                        "w-3 h-3 rounded-full flex items-center justify-center transition-colors",
-                        i < task.completedPomodoros ? "text-[var(--color-primary)]" : "text-[var(--color-primary)]/30"
-                      )}
-                    >
-                      <Clock className="w-3 h-3 fill-current" />
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-center text-xs font-medium text-[var(--color-text-muted)]">
-                    <span className="text-[var(--color-primary)] flex items-center">
-                      <Clock className="w-3 h-3 fill-current mr-1" />
-                      {task.completedPomodoros}
-                    </span>
-                    <span className="mx-1">/</span>
-                    <span>{task.estimatedPomodoros}</span>
-                  </div>
-                )}
-                
+              <div className="flex items-center mt-1 gap-2 flex-wrap">
+                <span className="flex items-center text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-1 rounded-full">
+                  <Clock className="w-3 h-3 fill-current mr-1" />
+                  Hoje {task.completedPomodoros}
+                </span>
+                <span className="flex items-center text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-hover)] px-2 py-1 rounded-full">
+                  Histórico total {historicalPomodoros}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                  Meta {task.estimatedPomodoros}
+                </span>
+
                 {/* Tags & Due Date */}
                 {(task.tags?.length || task.dueDate || task.recurringDays?.length) && (
                   <div className="flex items-center space-x-2 ml-2 pl-2 border-l border-[var(--color-border)]">
@@ -226,7 +218,7 @@ export function TaskItem({
 
               {/* Edit Completed Pomodoros */}
               <div className="flex items-center space-x-3">
-                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider font-medium">Concluídos:</span>
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider font-medium">Hoje:</span>
                 <div className="flex items-center bg-[var(--color-surface-hover)] rounded-lg border border-[var(--color-border)]">
                   <button 
                     onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completedPomodoros: Math.max(0, task.completedPomodoros - 1) }); }} 
@@ -242,6 +234,9 @@ export function TaskItem({
                     +
                   </button>
                 </div>
+                <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider font-medium">
+                  Histórico total: <span className="text-[var(--color-primary)]">{historicalPomodoros}</span>
+                </span>
               </div>
             </div>
 

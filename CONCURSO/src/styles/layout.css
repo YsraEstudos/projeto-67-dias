@@ -1232,6 +1232,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: relative;
+  z-index: 120;
 }
 
 @media (max-width: 767px) {
