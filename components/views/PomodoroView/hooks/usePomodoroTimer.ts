@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { playSound } from '../lib/audio';
+import { getLocalISODate, getTaskTodayPomodoros } from '../lib/pomodoroStats';
 import type { PomodoroTimerMode } from '../store/types';
 
 export type TimerMode = PomodoroTimerMode;
@@ -137,9 +138,10 @@ export function usePomodoroTimer() {
       if (activeTaskId) {
         const task = tasks.find((entry) => entry.id === activeTaskId);
         if (task) {
+          const today = getLocalISODate();
           updateTask(activeTaskId, {
-            completedPomodoros: task.completedPomodoros + 1,
-            lastCompletedDate: new Date().toISOString().split('T')[0],
+            completedPomodoros: getTaskTodayPomodoros(task, today) + 1,
+            lastCompletedDate: today,
           });
         }
       }

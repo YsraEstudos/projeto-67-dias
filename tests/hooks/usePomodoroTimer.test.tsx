@@ -120,4 +120,33 @@ describe('usePomodoroTimer', () => {
     expect(result.current.seconds).toBe(0);
     expect(usePomodoroStore.getState().timerState.status).toBe('RUNNING');
   });
+
+  it('starts today pomodoro count from one when the stored task count is stale', () => {
+    usePomodoroStore.getState()._hydrateFromFirestore({
+      tasks: [
+        {
+          id: 'task-3',
+          title: 'Manha',
+          completed: false,
+          estimatedPomodoros: 4,
+          completedPomodoros: 47,
+          lastCompletedDate: '2026-04-12',
+          createdAt: '2026-04-12T12:00:00.000Z',
+        },
+      ],
+      activeTaskId: 'task-3',
+      activeTaskSelectionDate: '2026-04-13',
+    } as any);
+
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    act(() => {
+      result.current.skipPhase();
+    });
+
+    const task = usePomodoroStore.getState().tasks.find((entry) => entry.id === 'task-3');
+    expect(task?.completedPomodoros).toBe(1);
+    expect(task?.lastCompletedDate).toBe('2026-04-13');
+    expect(usePomodoroStore.getState().records).toHaveLength(1);
+  });
 });

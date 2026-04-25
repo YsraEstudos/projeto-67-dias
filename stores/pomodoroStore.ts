@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { REALTIME_DEBOUNCE_MS, writeToFirestore } from './firestoreSync';
+import { getLocalISODate } from '../components/views/PomodoroView/lib/pomodoroStats';
 import type {
   BreakSelection,
   BreakExerciseStat,
@@ -47,7 +48,7 @@ const createId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const getTodayISODate = (): string => new Date().toISOString().split('T')[0];
+const getTodayISODate = (): string => getLocalISODate();
 
 const createDefaultPersistentState = () => ({
   tasks: [] as Task[],

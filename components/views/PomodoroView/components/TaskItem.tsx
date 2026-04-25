@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, Circle, Play, Flag, Clock, Calendar, Tag, Repeat, FolderInput, Infinity as InfinityIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Task, useStore } from '../store/useStore';
-import { countHistoricalPomodoros } from '../lib/pomodoroStats';
+import { countHistoricalPomodoros, getTaskTodayPomodoros } from '../lib/pomodoroStats';
 
 interface TaskItemProps {
   key?: string | number;
@@ -37,6 +37,7 @@ export function TaskItem({
     () => countHistoricalPomodoros(records, task.id),
     [records, task.id]
   );
+  const todayPomodoros = getTaskTodayPomodoros(task);
 
   const handleTitleSubmit = () => {
     if (editedTitle.trim() && editedTitle !== task.title) {
@@ -140,7 +141,7 @@ export function TaskItem({
               <div className="flex items-center mt-1 gap-2 flex-wrap">
                 <span className="flex items-center text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-1 rounded-full">
                   <Clock className="w-3 h-3 fill-current mr-1" />
-                  Hoje {task.completedPomodoros}
+                  Hoje {todayPomodoros}
                 </span>
                 <span className="flex items-center text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-hover)] px-2 py-1 rounded-full">
                   Histórico total {historicalPomodoros}
@@ -221,14 +222,14 @@ export function TaskItem({
                 <span className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider font-medium">Hoje:</span>
                 <div className="flex items-center bg-[var(--color-surface-hover)] rounded-lg border border-[var(--color-border)]">
                   <button 
-                    onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completedPomodoros: Math.max(0, task.completedPomodoros - 1) }); }} 
+                    onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completedPomodoros: Math.max(0, todayPomodoros - 1) }); }} 
                     className="px-3 py-1.5 hover:text-[var(--color-primary)] transition-colors"
                   >
                     -
                   </button>
-                  <span className="text-sm font-medium w-8 text-center">{task.completedPomodoros}</span>
+                  <span className="text-sm font-medium w-8 text-center">{todayPomodoros}</span>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completedPomodoros: task.completedPomodoros + 1 }); }} 
+                    onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completedPomodoros: todayPomodoros + 1 }); }} 
                     className="px-3 py-1.5 hover:text-[var(--color-primary)] transition-colors"
                   >
                     +

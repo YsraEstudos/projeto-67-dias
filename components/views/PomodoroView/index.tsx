@@ -13,6 +13,7 @@ import { TaskDetailsSidebar } from './components/TaskDetailsSidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { useStore } from './store/useStore';
 import { AnimatePresence } from 'motion/react';
+import { getLocalISODate } from './lib/pomodoroStats';
 import type { Task } from './store/types';
 
 export default function App() {
@@ -32,7 +33,7 @@ export default function App() {
 
   useEffect(() => {
     const syncDailyState = () => {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalISODate();
 
       if (activeTaskId && activeTaskSelectionDate !== todayStr) {
         setActiveTaskId(null);
