@@ -255,6 +255,13 @@ export interface PlanSettings {
   startDateChangeCount: number;
 }
 
+export interface ManualBlockReschedule {
+  id: string;
+  failedAt: string;
+  blockId: string;
+  createdAt: string;
+}
+
 export interface ShellUiState {
   mobilePinnedNav: string[];
 }
@@ -270,6 +277,7 @@ export interface AppState {
   dailyRecords: Record<string, DailyRecord>;
   correctionLinks: CorrectionLink[];
   projects: StudyProject[];
+  manualBlockReschedules: ManualBlockReschedule[];
   ankiConfig: AnkiConfig;
   ankiStats: AnkiStats;
   meta: MetaState;

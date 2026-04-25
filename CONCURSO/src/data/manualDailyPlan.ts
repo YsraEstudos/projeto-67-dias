@@ -4638,7 +4638,7 @@ const inferSubjects = (blocks: ManualBlock[]): [SubjectKey, SubjectKey] => {
   return ['especificos', 'portugues'];
 };
 
-const buildManualChecklistSpec = (
+export const buildManualChecklistSpec = (
   blocks: ManualBlock[],
   objectiveQuestions: number,
   hasSimulado: boolean,

@@ -39,7 +39,7 @@ const STALE_ICONS: Record<string, string> = {
 };
 
 export const DashboardPage = () => {
-  const { state, dayPlans, dayPlansByDate, monthlyTargets, topics } = useAppContext();
+  const { state, dayPlans, dayPlansByDate, monthlyTargets, topics, failManualBlock } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
   const selectedMonthKey = useMemo(() => state.selectedDate.slice(0, 7), [state.selectedDate]);
@@ -191,6 +191,15 @@ export const DashboardPage = () => {
                           ) : null}
                         </div>
                       ) : null}
+                      <div className="dashboard-plan-task-actions">
+                        <button
+                          type="button"
+                          className="dashboard-plan-task-fail"
+                          onClick={() => failManualBlock(state.selectedDate, block.id)}
+                        >
+                          Falhei
+                        </button>
+                      </div>
                     </div>
                     <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ccc' }}>
                       IN PROGRESS

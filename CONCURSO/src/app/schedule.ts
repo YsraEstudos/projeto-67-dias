@@ -6,8 +6,16 @@ import {
   WORK_ACTIVITY_ROTATION,
 } from './constants';
 import { enumerateDateRange, getWeekday, isSunday, monthKeyOf } from './dateUtils';
-import type { DayPlan, DayTargets, ExamWritingMonthlyTarget, SubjectKey } from './types';
+import type {
+  DayPlan,
+  DayTargets,
+  ExamWritingMonthlyTarget,
+  ManualBlock,
+  ManualBlockReschedule,
+  SubjectKey,
+} from './types';
 import {
+  buildManualChecklistSpec,
   buildManualDayOverrides,
   MANUAL_PLAN_START_DATE,
 } from '../data/manualDailyPlan';
@@ -209,9 +217,107 @@ const applyManualOverrides = (
   });
 };
 
-export const buildDayPlans = (planStartDate: string = START_DATE): DayPlan[] => {
+const cloneManualPlan = (plan: DayPlan): DayPlan => ({
+  ...plan,
+  manualBlocks: plan.manualBlocks ? [...plan.manualBlocks] : plan.manualBlocks,
+  manualChecklistSpec: plan.manualChecklistSpec ? [...plan.manualChecklistSpec] : plan.manualChecklistSpec,
+});
+
+const refreshManualChecklistSpec = (plan: DayPlan): DayPlan => {
+  if (plan.planMode !== 'manual' || !plan.manualBlocks) {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    manualChecklistSpec: buildManualChecklistSpec(
+      plan.manualBlocks,
+      plan.targets.objectiveQuestions,
+      plan.hasSimulado,
+      plan.hasRedacao,
+    ),
+  };
+};
+
+const findNextManualPlanIndex = (plans: DayPlan[], fromIndex: number): number =>
+  plans.findIndex(
+    (plan, index) =>
+      index > fromIndex
+      && plan.planMode === 'manual'
+      && !plan.isRestDay
+      && (plan.manualBlocks?.length ?? 0) > 0,
+  );
+
+const insertBlockWithCascade = (
+  plans: DayPlan[],
+  capacities: Map<string, number>,
+  targetIndex: number,
+  block: ManualBlock,
+): void => {
+  let pendingBlock: ManualBlock | null = block;
+  let currentIndex = targetIndex;
+
+  while (pendingBlock && currentIndex >= 0 && currentIndex < plans.length) {
+    const currentPlan = cloneManualPlan(plans[currentIndex]);
+    const manualBlocks: ManualBlock[] = [pendingBlock, ...(currentPlan.manualBlocks ?? [])];
+    const capacity = capacities.get(currentPlan.date) ?? manualBlocks.length;
+
+    pendingBlock = manualBlocks.length > capacity ? manualBlocks.pop() ?? null : null;
+    plans[currentIndex] = refreshManualChecklistSpec({
+      ...currentPlan,
+      manualBlocks,
+    });
+
+    currentIndex = pendingBlock ? findNextManualPlanIndex(plans, currentIndex) : currentIndex;
+  }
+};
+
+const applyManualBlockReschedules = (
+  dayPlans: DayPlan[],
+  manualBlockReschedules: ManualBlockReschedule[] = [],
+): DayPlan[] => {
+  if (manualBlockReschedules.length === 0) {
+    return dayPlans;
+  }
+
+  const plans = dayPlans.map(cloneManualPlan);
+  const capacities = new Map(
+    dayPlans.map((plan) => [plan.date, plan.manualBlocks?.length ?? 0]),
+  );
+
+  for (const reschedule of [...manualBlockReschedules].sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {
+    const sourceIndex = plans.findIndex((plan) => plan.date === reschedule.failedAt);
+    if (sourceIndex < 0) {
+      continue;
+    }
+
+    const sourcePlan = cloneManualPlan(plans[sourceIndex]);
+    const sourceBlocks = sourcePlan.manualBlocks ?? [];
+    const blockIndex = sourceBlocks.findIndex((block) => block.id === reschedule.blockId);
+    const nextManualIndex = findNextManualPlanIndex(plans, sourceIndex);
+
+    if (blockIndex < 0 || nextManualIndex < 0) {
+      continue;
+    }
+
+    const [failedBlock] = sourceBlocks.splice(blockIndex, 1);
+    plans[sourceIndex] = refreshManualChecklistSpec({
+      ...sourcePlan,
+      manualBlocks: sourceBlocks,
+    });
+    insertBlockWithCascade(plans, capacities, nextManualIndex, failedBlock);
+  }
+
+  return plans;
+};
+
+export const buildDayPlans = (
+  planStartDate: string = START_DATE,
+  manualBlockReschedules: ManualBlockReschedule[] = [],
+): DayPlan[] => {
   const automaticPlans = buildAutomaticDayPlans(planStartDate);
-  return applyManualOverrides(automaticPlans, planStartDate);
+  const dayPlans = applyManualOverrides(automaticPlans, planStartDate);
+  return applyManualBlockReschedules(dayPlans, manualBlockReschedules);
 };
 
 export const buildMonthlyTargetsFromDayPlans = (

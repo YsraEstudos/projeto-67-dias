@@ -11,7 +11,14 @@ import { buildDayPlans, buildDayPlansByDate, buildMonthlyTargetsFromDayPlans } f
 import { buildCoverageMatrix, buildTopicsFromSeeds, mapExpectedCoverage } from './topics';
 import { clampIsoDateToRange, getLocalTodayIsoDate } from './dateUtils';
 import { getTopicDisplayTitle } from './topics';
-import type { AppState, ChecklistItem, DayPlan, ExamWritingMonthlyTarget, TopicProgress } from './types';
+import type {
+  AppState,
+  ChecklistItem,
+  DayPlan,
+  ExamWritingMonthlyTarget,
+  ManualBlockReschedule,
+  TopicProgress,
+} from './types';
 import { TOPIC_SECTIONS } from '../data/topicSeeds';
 import { normalizeProject } from './projects';
 import { migrateTopicSubmattersFromLegacy, normalizeTopicSubmatter } from './contentSubmatters';
@@ -88,8 +95,11 @@ export interface PlanRuntime {
   monthlyTargets: ExamWritingMonthlyTarget[];
 }
 
-export const buildPlanRuntime = (planStartDate: string): PlanRuntime => {
-  const dayPlans = buildDayPlans(planStartDate);
+export const buildPlanRuntime = (
+  planStartDate: string,
+  manualBlockReschedules: ManualBlockReschedule[] = [],
+): PlanRuntime => {
+  const dayPlans = buildDayPlans(planStartDate, manualBlockReschedules);
   return {
     dayPlans,
     dayPlansByDate: buildDayPlansByDate(dayPlans),
@@ -210,6 +220,7 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
     dailyRecords: createDailyRecords(runtime.dayPlans),
     correctionLinks: [],
     projects: [],
+    manualBlockReschedules: [],
     ankiConfig: {
       fsrsWeights: FSRS_WEIGHTS,
       retentionTarget: 90,
@@ -240,7 +251,10 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
 export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
   const planStartDate = normalizePlanStartDate(state.planSettings?.startDate);
   const fallback = createInitialState(planStartDate);
-  const runtime = buildPlanRuntime(planStartDate);
+  const manualBlockReschedules = Array.isArray(state.manualBlockReschedules)
+    ? state.manualBlockReschedules
+    : fallback.manualBlockReschedules;
+  const runtime = buildPlanRuntime(planStartDate, manualBlockReschedules);
   const dailyRecords = normalizeDailyRecords(state, runtime.dayPlans);
 
   const topicProgress = { ...fallback.topicProgress };
@@ -298,6 +312,7 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
     projects: Array.isArray(state.projects)
       ? state.projects.map((project) => normalizeProject(project))
       : fallback.projects,
+    manualBlockReschedules,
     ankiConfig: {
       ...fallback.ankiConfig,
       ...state.ankiConfig,

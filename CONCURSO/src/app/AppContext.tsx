@@ -90,6 +90,7 @@ const markChanged = (state: AppState): AppState => ({
 type Action =
   | { type: 'set-selected-date'; date: string }
   | { type: 'set-plan-start-date'; startDate: string }
+  | { type: 'fail-manual-block'; date: string; blockId: string; at: string }
   | { type: 'update-checklist-item'; date: string; itemId: string; done: number }
   | { type: 'set-daily-note'; date: string; notes: string }
   | { type: 'set-topic-status'; topicId: string; status: TopicStatus }
@@ -262,6 +263,27 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           },
         }),
       );
+    }
+    case 'fail-manual-block': {
+      const hasSameFailure = state.manualBlockReschedules.some(
+        (item) => item.failedAt === action.date && item.blockId === action.blockId,
+      );
+      if (hasSameFailure) {
+        return state;
+      }
+
+      return markChanged({
+        ...state,
+        manualBlockReschedules: [
+          ...state.manualBlockReschedules,
+          {
+            id: createId(),
+            failedAt: action.date,
+            blockId: action.blockId,
+            createdAt: action.at,
+          },
+        ],
+      });
     }
     case 'update-checklist-item': {
       const record = state.dailyRecords[action.date];
@@ -615,6 +637,7 @@ interface AppContextValue {
   moveMobileNavItem: (path: NavPath, targetIndex: number) => void;
   setSelectedDate: (date: string) => void;
   setPlanStartDate: (date: string) => void;
+  failManualBlock: (date: string, blockId: string) => void;
   updateChecklistItem: (date: string, itemId: string, done: number) => void;
   setDailyNote: (date: string, notes: string) => void;
   setTopicStatus: (topicId: string, status: TopicStatus) => void;
@@ -777,8 +800,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const planRuntime = useMemo(
-    () => buildPlanRuntime(state.planSettings.startDate),
-    [state.planSettings.startDate],
+    () => buildPlanRuntime(state.planSettings.startDate, state.manualBlockReschedules),
+    [state.manualBlockReschedules, state.planSettings.startDate],
   );
 
   useEffect(() => {
@@ -1136,6 +1159,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       moveMobileNavItem: (path, targetIndex) => dispatch({ type: 'move-mobile-nav-item', path, targetIndex }),
       setSelectedDate: (date) => dispatch({ type: 'set-selected-date', date }),
       setPlanStartDate: (date) => dispatch({ type: 'set-plan-start-date', startDate: date }),
+      failManualBlock: (date, blockId) =>
+        dispatch({ type: 'fail-manual-block', date, blockId, at: nowIso() }),
       updateChecklistItem: (date, itemId, done) =>
         dispatch({ type: 'update-checklist-item', date, itemId, done }),
       setDailyNote: (date, notes) => dispatch({ type: 'set-daily-note', date, notes }),
