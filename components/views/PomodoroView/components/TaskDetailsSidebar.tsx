@@ -76,6 +76,14 @@ export function TaskDetailsSidebar() {
     });
   };
 
+  const handleUpdateSubtaskDescription = (subtaskId: string, description: string) => {
+    updateTask(task.id, {
+      subtasks: task.subtasks?.map(st => (
+        st.id === subtaskId ? { ...st, description } : st
+      ))
+    });
+  };
+
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && newTagTitle.trim()) {
       updateTask(task.id, {
@@ -271,16 +279,25 @@ export function TaskDetailsSidebar() {
             const isChecked = subtask.completed && subtask.lastCompletedDate === todayStr;
 
             return (
-              <div key={subtask.id} className="flex items-center group">
+              <div key={subtask.id} className="flex items-start group">
                 <button
                   onClick={() => handleToggleSubtask(subtask.id)}
-                  className="mr-3 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                  className="mr-3 mt-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
                 >
                   {isChecked ? <CheckCircle2 className="w-4 h-4 text-[var(--color-primary)]" /> : <Circle className="w-4 h-4" />}
                 </button>
-                <span className={cn("text-sm flex-1", isChecked && "line-through text-[var(--color-text-muted)]")}>
-                  {subtask.title}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <span className={cn("block text-sm", isChecked && "line-through text-[var(--color-text-muted)]")}>
+                    {subtask.title}
+                  </span>
+                  <textarea
+                    value={subtask.description || ''}
+                    onChange={(e) => handleUpdateSubtaskDescription(subtask.id, e.target.value)}
+                    placeholder="Adicionar descrição..."
+                    rows={2}
+                    className="mt-1 w-full bg-transparent border-none focus:outline-none text-xs leading-relaxed resize-none placeholder:text-[var(--color-text-muted)] text-[var(--color-text-muted)]"
+                  />
+                </div>
                 <button
                   onClick={() => updateTask(task.id, { subtasks: task.subtasks?.filter(st => st.id !== subtask.id) })}
                   className="opacity-0 group-hover:opacity-100 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-all"

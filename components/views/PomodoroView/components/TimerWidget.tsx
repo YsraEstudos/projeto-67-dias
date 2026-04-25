@@ -317,14 +317,28 @@ export function TimerWidget() {
                   >
                     {isChecked ? <CheckCircle2 className="w-5 h-5 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" /> : <Circle className="w-5 h-5" />}
                   </button>
-                  <span className={cn(
-                    "flex-1 transition-all duration-300 z-10", 
-                    isChecked ? "text-green-500/70 line-through decoration-green-500/40" : "text-[var(--color-text)] font-medium",
-                    variant === 'fullscreen' ? "text-base" : "text-sm",
+                  <div className={cn(
+                    "flex-1 min-w-0 transition-all duration-300 z-10",
+                    isChecked ? "text-green-500/70" : "text-[var(--color-text)]",
                     isChecked ? "translate-x-1" : ""
                   )}>
-                    {subtask.title}
-                  </span>
+                    <span className={cn(
+                      "block font-medium",
+                      variant === 'fullscreen' ? "text-base" : "text-sm",
+                      isChecked ? "line-through decoration-green-500/40" : ""
+                    )}>
+                      {subtask.title}
+                    </span>
+                    {subtask.description && (
+                      <span className={cn(
+                        "mt-1 block leading-relaxed text-[var(--color-text-muted)]",
+                        variant === 'fullscreen' ? "text-sm" : "text-xs",
+                        isChecked ? "line-through decoration-green-500/40" : ""
+                      )}>
+                        {subtask.description}
+                      </span>
+                    )}
+                  </div>
                   {/* Subtle success flash background */}
                   <AnimatePresence>
                     {isChecked && (
