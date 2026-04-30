@@ -14,47 +14,40 @@ describe('mobileNavigation helpers', () => {
     expect(sanitizeMobilePinnedNav(undefined)).toEqual(DEFAULT_MOBILE_PINNED_NAV);
   });
 
-  it('deduplica, rejeita rotas invalidas e respeita o limite de seis atalhos', () => {
+  it('deduplica e rejeita rotas antigas ou invalidas', () => {
     expect(
       sanitizeMobilePinnedNav([
         '/',
         '/plano-diario',
         '/conteudo',
-        '/anki',
+        '/correcoes',
         '/simulados-redacoes',
         '/configuracoes',
         '/correcoes',
-        '/anki',
         '/rota-inexistente',
       ]),
-    ).toEqual([
-      '/',
-      '/plano-diario',
-      '/conteudo',
-      '/anki',
-      '/simulados-redacoes',
-      '/configuracoes',
-    ]);
+    ).toEqual(['/']);
   });
 
   it('nao adiciona um novo item quando a ilha ja esta cheia', () => {
-    expect(insertMobilePinnedNavAt(DEFAULT_MOBILE_PINNED_NAV, '/correcoes', 2)).toHaveLength(
-      MAX_MOBILE_PINNED_NAV_ITEMS,
+    expect(insertMobilePinnedNavAt(DEFAULT_MOBILE_PINNED_NAV, '/projetos', 2)).toHaveLength(
+      1,
     );
-    expect(insertMobilePinnedNavAt(DEFAULT_MOBILE_PINNED_NAV, '/correcoes', 2)).not.toContain('/correcoes');
+    expect(insertMobilePinnedNavAt(DEFAULT_MOBILE_PINNED_NAV, '/projetos', 2)).not.toContain('/projetos');
+    expect(MAX_MOBILE_PINNED_NAV_ITEMS).toBe(6);
   });
 
   it('reordena e remove atalhos fixados', () => {
     const moved = moveMobilePinnedNav(['/', '/plano-diario', '/conteudo'], '/', 2);
-    expect(moved).toEqual(['/plano-diario', '/conteudo', '/']);
+    expect(moved).toEqual(['/']);
 
     const removed = removeMobilePinnedNav(moved, '/conteudo');
-    expect(removed).toEqual(['/plano-diario', '/']);
+    expect(removed).toEqual(['/']);
   });
 
-  it('resolve a rota ativa pelo match mais especifico', () => {
-    expect(resolveActiveNavPath('/conteudo/topico/abc')).toBe('/conteudo');
-    expect(resolveActiveNavPath('/configuracoes')).toBe('/configuracoes');
+  it('resolve qualquer rota antiga para a raiz do novo modulo', () => {
+    expect(resolveActiveNavPath('/conteudo/topico/abc')).toBe('/');
+    expect(resolveActiveNavPath('/configuracoes')).toBe('/');
     expect(resolveActiveNavPath('/outra-rota')).toBe('/');
   });
 });

@@ -19,6 +19,7 @@ import {
   buildManualDayOverrides,
   MANUAL_PLAN_START_DATE,
 } from '../data/manualDailyPlan';
+import { inferManualBlockSubject } from './manualBlockSubjects';
 
 interface EventDistribution {
   simuladoDates: Set<string>;
@@ -248,6 +249,30 @@ const findNextManualPlanIndex = (plans: DayPlan[], fromIndex: number): number =>
       && (plan.manualBlocks?.length ?? 0) > 0,
   );
 
+const findNextCompatibleManualPlanIndex = (
+  plans: DayPlan[],
+  fromIndex: number,
+  block: ManualBlock,
+): number => {
+  const subject = inferManualBlockSubject(block);
+  if (!subject) {
+    return findNextManualPlanIndex(plans, fromIndex);
+  }
+
+  const compatibleIndex = plans.findIndex(
+    (plan, index) =>
+      index > fromIndex
+      && plan.planMode === 'manual'
+      && !plan.isRestDay
+      && (
+        plan.subjects.includes(subject)
+        || (plan.manualBlocks ?? []).some((candidate) => inferManualBlockSubject(candidate) === subject)
+      ),
+  );
+
+  return compatibleIndex >= 0 ? compatibleIndex : findNextManualPlanIndex(plans, fromIndex);
+};
+
 const insertBlockWithCascade = (
   plans: DayPlan[],
   capacities: Map<string, number>,
@@ -294,13 +319,17 @@ const applyManualBlockReschedules = (
     const sourcePlan = cloneManualPlan(plans[sourceIndex]);
     const sourceBlocks = sourcePlan.manualBlocks ?? [];
     const blockIndex = sourceBlocks.findIndex((block) => block.id === reschedule.blockId);
-    const nextManualIndex = findNextManualPlanIndex(plans, sourceIndex);
 
-    if (blockIndex < 0 || nextManualIndex < 0) {
+    if (blockIndex < 0) {
       continue;
     }
 
     const [failedBlock] = sourceBlocks.splice(blockIndex, 1);
+    const nextManualIndex = findNextCompatibleManualPlanIndex(plans, sourceIndex, failedBlock);
+    if (nextManualIndex < 0) {
+      continue;
+    }
+
     plans[sourceIndex] = refreshManualChecklistSpec({
       ...sourcePlan,
       manualBlocks: sourceBlocks,

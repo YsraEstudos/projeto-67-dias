@@ -100,7 +100,7 @@ describe('snapshot storage', () => {
       '/plano-diario',
       '/plano-diario',
       '/conteudo',
-      '/anki',
+      '/correcoes',
       '/simulados-redacoes',
       '/configuracoes',
       '/correcoes',
@@ -109,14 +109,7 @@ describe('snapshot storage', () => {
 
     const normalized = normalizeStateForCurrentPlan(state);
 
-    expect(normalized.shellUi.mobilePinnedNav).toEqual([
-      '/',
-      '/plano-diario',
-      '/conteudo',
-      '/anki',
-      '/simulados-redacoes',
-      '/configuracoes',
-    ]);
+    expect(normalized.shellUi.mobilePinnedNav).toEqual(['/']);
   });
 
   it('recalcula o plano e contabiliza alteracoes ao mudar a data de inicio', () => {
@@ -167,7 +160,7 @@ describe('snapshot storage', () => {
     );
   });
 
-  it('persiste a ordem dos atalhos mobile ao pinar, mover e remover', () => {
+  it('mantem apenas o atalho do novo modulo ao pinar, mover e remover rotas antigas', () => {
     const state = createInitialState();
 
     const pinned = appReducer(state, {
@@ -185,12 +178,12 @@ describe('snapshot storage', () => {
       targetIndex: 0,
     });
 
-    expect(moved.shellUi.mobilePinnedNav[0]).toBe('/correcoes');
+    expect(moved.shellUi.mobilePinnedNav).toEqual(['/']);
 
     const removed = appReducer(moved, {
       type: 'remove-mobile-nav-item',
       path: '/correcoes',
     });
-    expect(removed.shellUi.mobilePinnedNav).not.toContain('/correcoes');
+    expect(removed.shellUi.mobilePinnedNav).toEqual(['/']);
   });
 });

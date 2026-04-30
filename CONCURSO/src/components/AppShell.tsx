@@ -1,6 +1,6 @@
-import { ArrowLeft, Menu, Settings } from 'lucide-react';
+import { ArrowLeft, Menu } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { END_DATE, NAV_ITEMS } from '../app/constants';
 import { MAIN_SITE_URL } from '../app/mainSite';
 import { useAppContext } from '../app/AppContext';
@@ -12,11 +12,10 @@ import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
 import { FloatingBottomNav } from './Navigation/FloatingBottomNav';
 import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
-const PRIMARY_NAV_PATHS = new Set(['/', '/plano-diario', '/conteudo', '/anki', '/simulados-redacoes']);
+const PRIMARY_NAV_PATHS = new Set(['/']);
 const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
-const settingsNavItem = NAV_ITEMS.find((item) => item.to === '/configuracoes');
 const READER_EVENT_NAME = 'concurso-reader-mode';
-const ROUTE_PREFETCH_PATHS = ['/plano-diario', '/conteudo', '/anki', '/simulados-redacoes', '/configuracoes'] as const;
+const ROUTE_PREFETCH_PATHS = ['/'] as const;
 
 const RouteLoadingFallback = () => (
   <section className="page" aria-busy="true" aria-live="polite">
@@ -50,7 +49,6 @@ export const AppShell = () => {
   const [isReaderMode, setIsReaderMode] = useState(false);
   const [contentOffset, setContentOffset] = useState(34);
   const location = useLocation();
-  const navigate = useNavigate();
   const manualSummary = dayPlan?.manualBlocks ? buildManualPlanSummary(dayPlan.manualBlocks) : '';
   const shellToggleAriaLabel = isCompactViewport
     ? isShellOpen
@@ -248,23 +246,7 @@ export const AppShell = () => {
           data-shell-state={shellState}
         >
           <div className="mobile-brand-bar">
-            {isCompactViewport ? (
-              <button
-                type="button"
-                className="button button-ghost"
-                onClick={() => navigate('/configuracoes')}
-                aria-label="Abrir Configurações"
-                style={{ padding: '8px', marginLeft: '-8px' }}
-                onMouseEnter={() => {
-                  void prefetchConcursoRoutePath('/configuracoes');
-                }}
-                onFocus={() => {
-                  void prefetchConcursoRoutePath('/configuracoes');
-                }}
-              >
-                <Settings size={18} />
-              </button>
-            ) : (
+            {!isCompactViewport ? (
               <button
                 type="button"
                 className="shell-handle shell-handle-mobile"
@@ -277,7 +259,7 @@ export const AppShell = () => {
                 <Menu size={18} />
                 <span>Menu</span>
               </button>
-            )}
+            ) : null}
             <div>
               <p className="kicker-label">Plano TRT 4</p>
               <strong className="mobile-brand-title">Command center do edital</strong>
@@ -348,7 +330,7 @@ export const AppShell = () => {
                       <li key={item.to}>
                         <NavLink
                           to={item.to}
-                          data-testid={`nav-${item.to === '/' ? 'dashboard' : item.to.replace('/', '')}`}
+                          data-testid="nav-novo-concurso"
                           className={({ isActive }) =>
                             isActive ? 'desktop-nav-link desktop-nav-link-active' : 'desktop-nav-link'
                           }
@@ -367,26 +349,6 @@ export const AppShell = () => {
                   </ul>
 
                   <div className="desktop-nav-footer">
-                    {settingsNavItem ? (
-                      <NavLink
-                        to={settingsNavItem.to}
-                        className={({ isActive }) =>
-                          isActive
-                            ? 'desktop-nav-secondary desktop-nav-secondary-active'
-                            : 'desktop-nav-secondary'
-                        }
-                        onClick={closeShell}
-                        onMouseEnter={() => {
-                          void prefetchConcursoRoutePath(settingsNavItem.to);
-                        }}
-                        onFocus={() => {
-                          void prefetchConcursoRoutePath(settingsNavItem.to);
-                        }}
-                      >
-                        <Settings size={16} />
-                        <span>{settingsNavItem.label}</span>
-                      </NavLink>
-                    ) : null}
                     <div className="island-fixed-rhythm">
                       <span className="context-label">Ritmo fixo</span>
                       <strong className="context-main-value">Domingo descanso · 50 questões</strong>

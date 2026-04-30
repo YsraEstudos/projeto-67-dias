@@ -149,3 +149,11 @@ If there is no formatter, agree on one and add it to CI.
 - Any change merged into `main` must update the displayed UI version label, starting from `1.4.0`.
 - Choose the version bump based on the size of the change: small fixes use patch bumps, feature additions use minor bumps, and breaking changes use major bumps.
 - Keep the version text in sync wherever the app renders the release badge or monthly update label.
+
+## 2026-04-25 Concurso clean module
+
+- The app root dashboard card `ViewState.CONCURSO` now opens `/concurso/#/`.
+- As of 2026-04-30, the clean module is the only accessible concurso surface: `/concurso/#/` renders `CleanConcursoPage`, and previous standalone routes redirect back to `/`.
+- The clean module lives at `CONCURSO/src/pages/CleanConcursoPage.tsx`, with pure scheduling helpers in `CONCURSO/src/app/cleanConcursoModule.ts`.
+- Manual block failures are persisted through `manualBlockReschedules` and now prefer the next compatible manual day by inferred subject before falling back to the next manual day.
+- The clean module is deterministic UI/state logic; it does not require an AI model call.

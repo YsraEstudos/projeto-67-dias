@@ -67,4 +67,27 @@ describe('buildDayPlans', () => {
     expect(studyBlocks.every((block) => (block.contentRefs?.length ?? 0) > 0)).toBe(true);
     expect(studyBlocks.every((block) => (block.contentTargets?.length ?? 0) > 0)).toBe(true);
   });
+
+  it('realoca falha para o proximo dia manual compativel com a materia', () => {
+    const sourcePlan = plans.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.id === 'w1-mon-pt-interpretacao'),
+    );
+    expect(sourcePlan).toBeDefined();
+
+    const rescheduled = buildDayPlans('2026-03-14', [
+      {
+        id: 'failure-pt',
+        failedAt: sourcePlan?.date ?? '2026-03-14',
+        blockId: 'w1-mon-pt-interpretacao',
+        createdAt: '2026-03-14T12:00:00.000Z',
+      },
+    ]);
+    const destinationPlan = rescheduled.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.id === 'w1-mon-pt-interpretacao'),
+    );
+
+    expect(destinationPlan?.date).not.toBe(sourcePlan?.date);
+    expect((destinationPlan?.date ?? '').localeCompare(sourcePlan?.date ?? '')).toBeGreaterThan(0);
+    expect(destinationPlan?.subjects).toContain('portugues');
+  });
 });

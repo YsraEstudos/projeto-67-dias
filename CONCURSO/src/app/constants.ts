@@ -73,15 +73,7 @@ export const FALLBACK_BACKUP_KEY = 'concurso.study.auto-backup.fallback';
 export const AUTO_BACKUP_INTERVAL_MINUTES = 10;
 
 export const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', shortLabel: 'Painel' },
-  { to: '/plano-diario', label: 'Plano Diário', shortLabel: 'Plano' },
-  { to: '/conteudo', label: 'Conteúdo Pragmático', shortLabel: 'Conteúdo' },
-  { to: '/anki', label: 'Anki & FSRS', shortLabel: 'Anki' },
-  { to: '/correcoes', label: 'Links de Correção', shortLabel: 'Correções' },
-  { to: '/simulados-redacoes', label: 'Simulados e Redações', shortLabel: 'Simulados' },
-  { to: '/projetos', label: 'Projetos', shortLabel: 'Projetos' },
-  { to: '/notas-de-corte', label: 'Notas de Corte', shortLabel: 'Cortes' },
-  { to: '/configuracoes', label: 'Configurações', shortLabel: 'Config' },
+  { to: '/', label: 'Novo Concurso', shortLabel: 'Novo' },
 ] as const;
 
 export const PROJECT_TECHNOLOGIES: Array<{ key: TechnologyKey; label: string }> = [

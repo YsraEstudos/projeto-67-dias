@@ -28,6 +28,22 @@ afterEach(() => {
 });
 
 describe('AppShell', () => {
+  it('abre o novo modulo na raiz do concurso', () => {
+    mockMatchMedia({ compact: false, coarse: false });
+    renderConcursoApp('/');
+
+    expect(screen.getByTestId('clean-concurso-module')).toBeInTheDocument();
+  });
+
+  it('redireciona rotas antigas para o novo modulo', async () => {
+    mockMatchMedia({ compact: false, coarse: false });
+    renderConcursoApp('/plano-diario');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('clean-concurso-module')).toBeInTheDocument();
+    });
+  });
+
   it('inicia recolhida e nao deixa o tray contextual visivel por padrao', () => {
     mockMatchMedia({ compact: false, coarse: false });
     renderConcursoApp('/');
@@ -38,7 +54,7 @@ describe('AppShell', () => {
     expect(screen.queryByTestId('desktop-shell-backdrop')).not.toBeInTheDocument();
   });
 
-  it('abre o menu desktop por clique e mostra as entradas principais mais configuracoes', async () => {
+  it('abre o menu desktop com apenas a entrada do novo modulo', async () => {
     mockMatchMedia({ compact: false, coarse: false });
     const user = userEvent.setup();
     renderConcursoApp('/');
@@ -47,25 +63,25 @@ describe('AppShell', () => {
 
     const shell = screen.getByTestId('shell-chrome');
     expect(shell).toHaveAttribute('data-shell-state', 'expanded');
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Plano Diário' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Conteúdo Pragmático' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Anki & FSRS' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Simulados e Redações' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Configurações' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Novo Concurso' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Plano Diário' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Conteúdo Pragmático' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Simulados e Redações' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Configurações' })).not.toBeInTheDocument();
     expect(screen.getByTestId('desktop-shell-backdrop')).toBeInTheDocument();
   });
 
-  it('navega para configuracoes pelo menu desktop e fecha o shell ao concluir', async () => {
+  it('mantem o novo modulo ao clicar na unica entrada do menu desktop', async () => {
     mockMatchMedia({ compact: false, coarse: false });
     const user = userEvent.setup();
     renderConcursoApp('/');
 
     await user.click(screen.getByRole('button', { name: 'Abrir menu superior' }));
-    await user.click(screen.getByRole('link', { name: 'Configurações' }));
+    await user.click(screen.getByRole('link', { name: 'Novo Concurso' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Configurações e Backup' })).toBeInTheDocument();
+      expect(screen.getByTestId('clean-concurso-module')).toBeInTheDocument();
       expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
     });
   });
@@ -168,20 +184,20 @@ it('exibe a barra inferior de navegacao no mobile e oculta o menu superior/hambu
     // A barra inferior deve estar visível
     const nav = screen.getByRole('navigation', { name: 'Navegação Principal Mobile' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Plano' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Novo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Plano' })).not.toBeInTheDocument();
   });
 
-  it('navega pelas rotas corretas ao clicar nos botoes da barra inferior mobile', async () => {
+  it('mantem a rota unica ao clicar na barra inferior mobile', async () => {
     mockMatchMedia({ compact: true, coarse: true });
     const user = userEvent.setup();
     renderConcursoApp('/');
 
-    const planoBtn = screen.getByRole('button', { name: 'Plano' });
-    await user.click(planoBtn);
+    const novoBtn = screen.getByRole('button', { name: 'Novo' });
+    await user.click(novoBtn);
 
     await waitFor(() => {
-      expect(planoBtn).toHaveClass('floating-bottom-nav-btn-active');
+      expect(novoBtn).toHaveClass('floating-bottom-nav-btn-active');
     });
   });
 }, 15000);

@@ -13,12 +13,12 @@ describe('routeChunks', () => {
     const { clearConcursoRouteCache, concursoRouteLoaders, preloadConcursoRoute } = await import('../app/routeChunks');
     clearConcursoRouteCache();
 
-    const loader = vi.spyOn(concursoRouteLoaders, 'content').mockResolvedValue({
+    const loader = vi.spyOn(concursoRouteLoaders, 'clean').mockResolvedValue({
       default: mockPage,
     });
 
-    const first = preloadConcursoRoute('content');
-    const second = preloadConcursoRoute('content');
+    const first = preloadConcursoRoute('clean');
+    const second = preloadConcursoRoute('clean');
 
     expect(second).toBe(first);
 
@@ -27,23 +27,26 @@ describe('routeChunks', () => {
     expect(loader).toHaveBeenCalledTimes(1);
   });
 
-  it('resolve query strings e topicos para o chunk correto', async () => {
+  it('usa o chunk do novo modulo para a raiz do concurso', async () => {
     const { clearConcursoRouteCache, concursoRouteLoaders, prefetchConcursoRoutePath } = await import(
       '../app/routeChunks'
     );
     clearConcursoRouteCache();
 
-    const contentLoader = vi.spyOn(concursoRouteLoaders, 'content').mockResolvedValue({
-      default: mockPage,
-    });
-    const topicLoader = vi.spyOn(concursoRouteLoaders, 'contentTopic').mockResolvedValue({
+    const cleanLoader = vi.spyOn(concursoRouteLoaders, 'clean').mockResolvedValue({
       default: mockPage,
     });
 
-    await prefetchConcursoRoutePath('/conteudo?focus=review-now');
-    await prefetchConcursoRoutePath('/conteudo/topico/item-123?foo=bar');
+    await prefetchConcursoRoutePath('/');
 
-    expect(contentLoader).toHaveBeenCalledTimes(1);
-    expect(topicLoader).toHaveBeenCalledTimes(1);
+    expect(cleanLoader).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignora rotas antigas no prefetch', async () => {
+    const { clearConcursoRouteCache, prefetchConcursoRoutePath } = await import('../app/routeChunks');
+    clearConcursoRouteCache();
+
+    expect(prefetchConcursoRoutePath('/conteudo?focus=review-now')).toBeNull();
+    expect(prefetchConcursoRoutePath('/conteudo/topico/item-123?foo=bar')).toBeNull();
   });
 });

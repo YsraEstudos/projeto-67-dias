@@ -12,16 +12,8 @@ import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities';
 import type { LucideIcon } from 'lucide-react';
 import {
-  BookOpen,
-  Brain,
-  Calendar,
-  FileText,
-  Folder,
   GripVertical,
-  Home,
-  Link2,
-  Settings,
-  TrendingUp,
+  Trophy,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -50,15 +42,7 @@ interface MobileNavigationChromeProps {
 }
 
 const NAV_ICON_MAP: Record<NavPath, LucideIcon> = {
-  '/': Home,
-  '/plano-diario': Calendar,
-  '/conteudo': BookOpen,
-  '/anki': Brain,
-  '/correcoes': Link2,
-  '/simulados-redacoes': FileText,
-  '/projetos': Folder,
-  '/notas-de-corte': TrendingUp,
-  '/configuracoes': Settings,
+  '/': Trophy,
 };
 
 const buildSlotId = (index: number) => `${ISLAND_SLOT_PREFIX}${index}`;

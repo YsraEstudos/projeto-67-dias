@@ -55,6 +55,7 @@ O diretório `CONCURSO/` contém o app standalone do plano TRT 4.
   - `Competição`: arena interna dentro do próprio dashboard principal.
   - `Materiais`: ponte para o app standalone e arquivos auxiliares.
 - O `Conteúdo Pragmático` do standalone agora também organiza conteúdo teórico `.md` e `.pdf` por matéria e submatéria, com download `.zip` por contexto e global.
+- O novo módulo clean do concurso fica em `/concurso/#/`: ele mostra filtro por dia, conteúdo programático sem cadastro de material, mapa de revisão e calendário de estudos/revisões. As rotas antigas do standalone redirecionam para esse módulo.
 
 ### Relação entre `CONCURSO/` e `/concurso`
 

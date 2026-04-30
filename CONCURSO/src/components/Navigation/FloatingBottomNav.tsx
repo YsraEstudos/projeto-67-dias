@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Calendar, Plus, Brain, FileText } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { prefetchConcursoRoutePath } from '../../app/routeChunks';
 import { resolveActiveNavPath } from '../../app/mobileNavigation';
@@ -14,54 +14,11 @@ export const FloatingBottomNav = () => {
     <nav className="floating-bottom-nav-container" aria-label="Navegação Principal Mobile">
       <div className="floating-bottom-nav-glass">
         <NavButton
-          icon={<Home size={24} />}
-          label="Home"
+          icon={<Trophy size={24} />}
+          label="Novo"
           isActive={activePath === '/'}
           onClick={() => navigate('/')}
           prefetchPath="/"
-        />
-        <NavButton
-          icon={<Calendar size={24} />}
-          label="Plano"
-          isActive={activePath === '/plano-diario'}
-          onClick={() => navigate('/plano-diario')}
-          prefetchPath="/plano-diario"
-        />
-
-        {/* Central FAB - Quick Add / Action */}
-        <div className="floating-bottom-nav-fab-wrapper">
-          <button
-            type="button"
-            className="floating-bottom-nav-fab"
-            onClick={() => navigate('/conteudo')}
-            aria-label="Ação rápida"
-            onMouseEnter={() => {
-              void prefetchConcursoRoutePath('/conteudo');
-            }}
-            onFocus={() => {
-              void prefetchConcursoRoutePath('/conteudo');
-            }}
-            onPointerDown={() => {
-              void prefetchConcursoRoutePath('/conteudo');
-            }}
-          >
-            <Plus size={28} strokeWidth={2.5} />
-          </button>
-        </div>
-
-        <NavButton
-          icon={<Brain size={24} />}
-          label="Anki"
-          isActive={activePath === '/anki'}
-          onClick={() => navigate('/anki')}
-          prefetchPath="/anki"
-        />
-        <NavButton
-          icon={<FileText size={24} />}
-          label="Simulados"
-          isActive={activePath === '/simulados-redacoes'}
-          onClick={() => navigate('/simulados-redacoes')}
-          prefetchPath="/simulados-redacoes"
         />
       </div>
     </nav>
