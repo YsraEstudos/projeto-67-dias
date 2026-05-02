@@ -31,6 +31,7 @@ export type RequirementDifficulty = 'simples' | 'media' | 'dificil';
 export type TopicPriority = 'alta' | 'media' | 'baixa';
 export type TopicStatus = 'nao_iniciado' | 'pendente' | 'em_progresso' | 'acertado';
 export type TopicGrade = 'A' | 'B' | 'C' | 'D' | 'E';
+export type CalendarEventStatus = 'pending' | 'done' | 'failed';
 export type TheoreticalContentKind = 'markdown' | 'pdf';
 export type TheoreticalContentOwnerType = 'topic' | 'submatter';
 
@@ -259,7 +260,15 @@ export interface ManualBlockReschedule {
   id: string;
   failedAt: string;
   blockId: string;
+  title?: string;
+  subtitle?: string;
+  subject?: SubjectKey | null;
   createdAt: string;
+}
+
+export interface CalendarEventProgress {
+  status: CalendarEventStatus;
+  updatedAt: string;
 }
 
 export interface ShellUiState {
@@ -278,6 +287,7 @@ export interface AppState {
   correctionLinks: CorrectionLink[];
   projects: StudyProject[];
   manualBlockReschedules: ManualBlockReschedule[];
+  calendarEventProgress: Record<string, CalendarEventProgress>;
   ankiConfig: AnkiConfig;
   ankiStats: AnkiStats;
   meta: MetaState;

@@ -13,6 +13,7 @@ import { clampIsoDateToRange, getLocalTodayIsoDate } from './dateUtils';
 import { getTopicDisplayTitle } from './topics';
 import type {
   AppState,
+  CalendarEventProgress,
   ChecklistItem,
   DayPlan,
   ExamWritingMonthlyTarget,
@@ -61,6 +62,50 @@ const normalizeDailyLogs = (
     };
     return accumulator;
   }, {});
+};
+
+const isCalendarEventStatus = (value: unknown): value is CalendarEventProgress['status'] =>
+  value === 'pending' || value === 'done' || value === 'failed';
+
+const normalizeCalendarEventProgress = (
+  progress: AppState['calendarEventProgress'] | undefined,
+): AppState['calendarEventProgress'] => {
+  if (!progress || typeof progress !== 'object') {
+    return {};
+  }
+
+  return Object.entries(progress).reduce<AppState['calendarEventProgress']>((accumulator, [eventId, item]) => {
+    if (!item || typeof item !== 'object') {
+      return accumulator;
+    }
+
+    if (!isCalendarEventStatus(item.status) || typeof item.updatedAt !== 'string') {
+      return accumulator;
+    }
+
+    accumulator[eventId] = {
+      status: item.status,
+      updatedAt: item.updatedAt,
+    };
+    return accumulator;
+  }, {});
+};
+
+const normalizeManualBlockReschedules = (
+  reschedules: AppState['manualBlockReschedules'] | undefined,
+): AppState['manualBlockReschedules'] => {
+  if (!Array.isArray(reschedules)) {
+    return [];
+  }
+
+  return reschedules.filter(
+    (item) =>
+      item
+      && typeof item.id === 'string'
+      && typeof item.failedAt === 'string'
+      && typeof item.blockId === 'string'
+      && typeof item.createdAt === 'string',
+  );
 };
 
 export const DAY_PLANS = buildDayPlans();
@@ -221,6 +266,7 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
     correctionLinks: [],
     projects: [],
     manualBlockReschedules: [],
+    calendarEventProgress: {},
     ankiConfig: {
       fsrsWeights: FSRS_WEIGHTS,
       retentionTarget: 90,
@@ -251,11 +297,10 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
 export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
   const planStartDate = normalizePlanStartDate(state.planSettings?.startDate);
   const fallback = createInitialState(planStartDate);
-  const manualBlockReschedules = Array.isArray(state.manualBlockReschedules)
-    ? state.manualBlockReschedules
-    : fallback.manualBlockReschedules;
+  const manualBlockReschedules = normalizeManualBlockReschedules(state.manualBlockReschedules);
   const runtime = buildPlanRuntime(planStartDate, manualBlockReschedules);
   const dailyRecords = normalizeDailyRecords(state, runtime.dayPlans);
+  const calendarEventProgress = normalizeCalendarEventProgress(state.calendarEventProgress);
 
   const topicProgress = { ...fallback.topicProgress };
   for (const topicId of Object.keys(topicProgress)) {
@@ -313,6 +358,7 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
       ? state.projects.map((project) => normalizeProject(project))
       : fallback.projects,
     manualBlockReschedules,
+    calendarEventProgress,
     ankiConfig: {
       ...fallback.ankiConfig,
       ...state.ankiConfig,

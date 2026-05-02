@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   Filter,
   Map as MapIcon,
   Play,
@@ -31,6 +32,7 @@ import type { ManualBlock, SubjectKey, TopicGrade } from '../app/types';
 type ModuleView = 'dia' | 'conteudo' | 'calendario';
 type ContentFilter = 'all' | 'review' | TopicGrade;
 
+const CALENDAR_EVENT_BATCH_SIZE = 50;
 const gradeFilters: ContentFilter[] = ['all', 'review', 'A', 'B', 'C', 'D', 'E'];
 
 const gradeLabel = (filter: ContentFilter): string => {
@@ -48,8 +50,11 @@ const calendarToneLabel: Record<string, string> = {
   failed: 'Realocado',
 };
 
-const inferTopicTargetsFromBlock = (block: ManualBlock): string[] =>
-  Array.from(new Set((block.contentTargets ?? []).map((target) => target.topicId)));
+const calendarStatusLabel = {
+  pending: 'Pendente',
+  done: 'Feito',
+  failed: 'Falhou',
+} as const;
 
 const groupPlanItemsBySubject = (
   items: Array<{ subject: SubjectKey | null }>,
@@ -93,16 +98,20 @@ export const CleanConcursoPage = () => {
     dayPlans,
     dayPlansByDate,
     setSelectedDate,
-    failManualBlock,
-    setTopicStatus,
-    updateTopicSubmatter,
+    completeCalendarEvent,
+    failCalendarManualBlock,
     markTopicSubmatterReviewedToday,
+    setCalendarEventStatus,
+    undoCalendarManualBlockFailure,
+    unsetCalendarEventDone,
   } = useAppContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [subjectFilter, setSubjectFilter] = useState<'all' | SubjectKey>('all');
   const [search, setSearch] = useState('');
   const [mappedTopicId, setMappedTopicId] = useState<string | null>(null);
+  const [expandedCalendarEventId, setExpandedCalendarEventId] = useState<string | null>(null);
+  const [calendarVisibleCount, setCalendarVisibleCount] = useState(CALENDAR_EVENT_BATCH_SIZE);
 
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
@@ -116,7 +125,12 @@ export const CleanConcursoPage = () => {
     () => buildTopicRollups(state.topicSubmattersByTopic, topics, state.selectedDate),
     [state.topicSubmattersByTopic, state.selectedDate, topics],
   );
+  const pendingReviewQueue = useMemo(
+    () => reviewQueue.filter((item) => item.needsReview),
+    [reviewQueue],
+  );
   const leafTopics = useMemo(() => topics.filter((topic) => topic.isLeaf), [topics]);
+  const topicById = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
   const planContentItems = useMemo(() => buildCleanPlanContentItems(dayPlans), [dayPlans]);
   const planItemsBySubject = useMemo(() => groupPlanItemsBySubject(planContentItems), [planContentItems]);
   const failedBlocksByDate = useMemo(
@@ -134,14 +148,20 @@ export const CleanConcursoPage = () => {
         state.topicSubmattersByTopic,
         topics,
         dayPlans[0]?.date,
+        state.calendarEventProgress,
+        state.manualBlockReschedules,
       ),
-    [dayPlans, state.topicSubmattersByTopic, topics],
+    [dayPlans, state.calendarEventProgress, state.manualBlockReschedules, state.topicSubmattersByTopic, topics],
   );
   const mappedTopic = useMemo(
     () => leafTopics.find((topic) => topic.id === mappedTopicId) ?? leafTopics[0] ?? null,
     [leafTopics, mappedTopicId],
   );
   const mappedSubmatters = mappedTopic ? state.topicSubmattersByTopic[mappedTopic.id] ?? [] : [];
+  const visibleCalendarEvents = useMemo(
+    () => calendarEvents.slice(0, calendarVisibleCount),
+    [calendarEvents, calendarVisibleCount],
+  );
 
   const filteredPlanItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -174,7 +194,7 @@ export const CleanConcursoPage = () => {
   }, [contentFilter, planContentItems, reviewQueue, rollups, search, subjectFilter]);
 
   const dashboardStats = useMemo(() => {
-    const reviewNow = reviewQueue.filter((item) => item.needsReview).length;
+    const reviewNow = pendingReviewQueue.length;
     const completedItems = planContentItems.filter((item) => pickPlanItemGrade(item.topicIds, rollups) === 'A').length;
     const failedBlocks = state.manualBlockReschedules.length;
     const progress = planContentItems.length > 0 ? Math.round((completedItems / planContentItems.length) * 100) : 0;
@@ -187,21 +207,10 @@ export const CleanConcursoPage = () => {
       totalPlanItems: planContentItems.length,
       calendarEvents: calendarEvents.length,
     };
-  }, [calendarEvents.length, leafTopics.length, planContentItems, reviewQueue, rollups, state.manualBlockReschedules.length]);
+  }, [calendarEvents.length, leafTopics.length, pendingReviewQueue.length, planContentItems, rollups, state.manualBlockReschedules.length]);
 
   const handleBlockFailure = (block: ManualBlock): void => {
-    failManualBlock(state.selectedDate, block.id);
-
-    inferTopicTargetsFromBlock(block).forEach((topicId) => {
-      setTopicStatus(topicId, 'pendente');
-      const [firstSubmatter] = state.topicSubmattersByTopic[topicId] ?? [];
-      if (firstSubmatter) {
-        updateTopicSubmatter(topicId, firstSubmatter.id, {
-          grade: 'E',
-          actionNote: `Reagendada por falha em ${formatIsoDateCompactPtBr(state.selectedDate)}.`,
-        });
-      }
-    });
+    failCalendarManualBlock(state.selectedDate, block);
   };
 
   const handleReviewTopic = (topicId: string): void => {
@@ -215,6 +224,32 @@ export const CleanConcursoPage = () => {
     if (!topicId) return;
     setMappedTopicId(topicId);
     setActiveView('conteudo');
+  };
+
+  const handleCalendarFailure = (event: (typeof calendarEvents)[number]): void => {
+    if (event.block) {
+      failCalendarManualBlock(event.date, event.block);
+      return;
+    }
+
+    if (event.blockId && event.kind === 'failed') {
+      undoCalendarManualBlockFailure(event.date, event.blockId);
+    }
+  };
+
+  const getCalendarEventSubmatters = (event: (typeof calendarEvents)[number]) =>
+    event.topicIds.flatMap((topicId) =>
+      (state.topicSubmattersByTopic[topicId] ?? []).map((submatter) => ({
+        topicId,
+        submatter,
+        topic: topicById.get(topicId) ?? null,
+      })),
+    );
+
+  const handleOpenCalendarView = (): void => {
+    setActiveView('calendario');
+    setCalendarVisibleCount(CALENDAR_EVENT_BATCH_SIZE);
+    setExpandedCalendarEventId(null);
   };
 
   return (
@@ -252,7 +287,13 @@ export const CleanConcursoPage = () => {
               type="button"
               key={item.key}
               className={activeView === item.key ? 'clean-tab clean-tab-active' : 'clean-tab'}
-              onClick={() => setActiveView(item.key as ModuleView)}
+              onClick={() => {
+                if (item.key === 'calendario') {
+                  handleOpenCalendarView();
+                  return;
+                }
+                setActiveView(item.key as ModuleView);
+              }}
             >
               <Icon size={16} />
               {item.label}
@@ -358,7 +399,7 @@ export const CleanConcursoPage = () => {
               <RotateCcw size={20} />
             </div>
             <div className="clean-review-list">
-              {reviewQueue.slice(0, 7).map((item) => (
+              {pendingReviewQueue.slice(0, 7).map((item) => (
                 <article className="clean-review-item" key={item.submatterId}>
                   <span>Nota {item.grade}</span>
                   <strong>{item.submatterTitle}</strong>
@@ -369,6 +410,9 @@ export const CleanConcursoPage = () => {
                   </button>
                 </article>
               ))}
+              {pendingReviewQueue.length === 0 ? (
+                <div className="clean-empty-state">Nenhuma revisão vencida para esta data.</div>
+              ) : null}
             </div>
           </aside>
         </div>
@@ -512,20 +556,132 @@ export const CleanConcursoPage = () => {
             <span className="clean-count">{dashboardStats.calendarEvents} eventos</span>
           </div>
           <div className="clean-calendar-list">
-            {calendarEvents.map((event) => (
-              <article className={`clean-calendar-event tone-${event.tone}`} key={event.id}>
-                <time>{formatIsoDateCompactPtBr(event.date)}</time>
-                <div>
-                  <span>{calendarToneLabel[event.tone]}</span>
-                  <strong>{event.title}</strong>
-                  <p>{event.subtitle}</p>
-                  {failedBlocksByDate[event.date] ? (
-                    <small>{failedBlocksByDate[event.date]} falha(s) realocada(s) deste dia.</small>
-                  ) : null}
-                </div>
-              </article>
-            ))}
+            {visibleCalendarEvents.map((event) => {
+              const isExpanded = expandedCalendarEventId === event.id;
+              const eventSubmatters = getCalendarEventSubmatters(event);
+              const canFail = event.block !== null || event.kind === 'failed';
+
+              return (
+                <article
+                  className={`clean-calendar-event tone-${event.tone} status-${event.status}`}
+                  key={event.id}
+                >
+                  <time>{formatIsoDateCompactPtBr(event.date)}</time>
+                  <div className="clean-calendar-event-body">
+                    <div className="clean-calendar-event-top">
+                      <span>{calendarToneLabel[event.tone]}</span>
+                      <span className={`clean-status-pill status-${event.status}`}>
+                        {calendarStatusLabel[event.status]}
+                      </span>
+                    </div>
+                    <strong>{event.title}</strong>
+                    <p>{event.subtitle}</p>
+                    {failedBlocksByDate[event.date] && event.kind !== 'failed' ? (
+                      <small>{failedBlocksByDate[event.date]} falha(s) realocada(s) deste dia.</small>
+                    ) : null}
+                    <div className="clean-calendar-actions">
+                      <button
+                        type="button"
+                        className="clean-calendar-manage"
+                        onClick={() => setExpandedCalendarEventId(isExpanded ? null : event.id)}
+                        aria-expanded={isExpanded}
+                      >
+                        <ChevronDown size={15} />
+                        Gerenciar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => completeCalendarEvent(event.id, event.topicIds)}
+                        disabled={event.status === 'done'}
+                      >
+                        <CheckCircle2 size={15} />
+                        Feito
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => unsetCalendarEventDone(event.id)}
+                        disabled={event.status !== 'done'}
+                      >
+                        <RotateCcw size={15} />
+                        Desmarcar
+                      </button>
+                      {canFail ? (
+                        <button
+                          type="button"
+                          className="clean-fail-button"
+                          onClick={() => handleCalendarFailure(event)}
+                        >
+                          <XCircle size={15} />
+                          {event.kind === 'failed' ? 'Desfazer falha' : 'Falhei'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCalendarEventStatus(event.id, 'failed')}
+                          disabled={event.status === 'failed'}
+                        >
+                          <XCircle size={15} />
+                          Falhei
+                        </button>
+                      )}
+                    </div>
+                    <div className={isExpanded ? 'clean-calendar-drawer open' : 'clean-calendar-drawer'}>
+                      <div className="clean-calendar-drawer-grid">
+                        <section>
+                          <span className="clean-kicker">Opções</span>
+                          <h3>{event.status === 'failed' ? 'Falha registrada' : 'Controle do evento'}</h3>
+                          <p>
+                            Use este painel para ver o que já foi feito, desfazer marcações ou mandar a
+                            matéria de volta para o fluxo quando falhar.
+                          </p>
+                        </section>
+                        <section>
+                          <span className="clean-kicker">Calendário de revisão</span>
+                          {eventSubmatters.length > 0 ? (
+                            <div className="clean-review-calendar">
+                              {eventSubmatters.map(({ topic, submatter }) => (
+                                <article key={`${event.id}-${submatter.id}`}>
+                                  <strong>{submatter.title}</strong>
+                                  <p>{topic ? subjectLabel(topic.subject) : event.subtitle} | Nota {submatter.grade}</p>
+                                  <div>
+                                    {buildReviewSchedule(submatter, event.date).map((item) => (
+                                      <small key={`${submatter.id}-${item.date}`}>
+                                        {item.label}: {formatIsoDateCompactPtBr(item.date)}
+                                      </small>
+                                    ))}
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          ) : (
+                            <p>Este evento não tem matéria oficial vinculada para revisão automática.</p>
+                          )}
+                        </section>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
+          {calendarVisibleCount < calendarEvents.length ? (
+            <div className="clean-calendar-more">
+              <span>
+                Mostrando {visibleCalendarEvents.length} de {calendarEvents.length} eventos
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setCalendarVisibleCount((current) =>
+                    Math.min(current + CALENDAR_EVENT_BATCH_SIZE, calendarEvents.length),
+                  )
+                }
+              >
+                <ChevronDown size={16} />
+                Carregar mais
+              </button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

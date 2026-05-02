@@ -205,7 +205,7 @@ export const shouldReviewSubmatterNow = (
   const daysSinceReview = getSubmatterReviewAgeDays(submatter, referenceDate);
 
   if (daysSinceReview === null) {
-    return true;
+    return false;
   }
 
   if (submatter.grade === 'E' || submatter.grade === 'D') {

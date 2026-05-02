@@ -58,16 +58,19 @@ import {
   sanitizeMobilePinnedNav,
   type NavPath,
 } from './mobileNavigation';
+import { inferManualBlockSubject } from './manualBlockSubjects';
 import type {
   AnkiDailyLog,
   AppSnapshot,
   AppState,
+  CalendarEventStatus,
   CorrectionLink,
   DayPlan,
   ExamWritingMonthlyTarget,
   ProjectRequirement,
   ProjectStatus,
   StudyProject,
+  ManualBlock,
   TechnologyKey,
   TheoreticalContentItem,
   TheoreticalContentOwnerType,
@@ -87,10 +90,93 @@ const markChanged = (state: AppState): AppState => ({
   },
 });
 
+const getCalendarEventId = (date: string, blockId: string): string => `${date}-${blockId}`;
+
+const setCalendarEventProgress = (
+  state: AppState,
+  eventId: string,
+  status: CalendarEventStatus,
+  updatedAt: string,
+): AppState => ({
+  ...state,
+  calendarEventProgress: {
+    ...state.calendarEventProgress,
+    [eventId]: { status, updatedAt },
+  },
+});
+
+const markTopicsAsDone = (
+  state: AppState,
+  topicIds: string[],
+  reviewedAt: string,
+  updatedAt: string,
+): AppState => {
+  const uniqueTopicIds = Array.from(new Set(topicIds));
+  const topicProgress = { ...state.topicProgress };
+  const topicSubmattersByTopic = { ...state.topicSubmattersByTopic };
+
+  uniqueTopicIds.forEach((topicId) => {
+    const progress = topicProgress[topicId];
+    if (progress) {
+      topicProgress[topicId] = { ...progress, status: 'acertado', updatedAt };
+    }
+
+    const [firstSubmatter] = topicSubmattersByTopic[topicId] ?? [];
+    if (firstSubmatter) {
+      topicSubmattersByTopic[topicId] = (topicSubmattersByTopic[topicId] ?? []).map((submatter) =>
+        submatter.id === firstSubmatter.id
+          ? { ...submatter, lastReviewedAt: reviewedAt, updatedAt }
+          : submatter,
+      );
+    }
+  });
+
+  return { ...state, topicProgress, topicSubmattersByTopic };
+};
+
+const markTopicsAsFailed = (
+  state: AppState,
+  topicIds: string[],
+  failedDate: string,
+  updatedAt: string,
+): AppState => {
+  const uniqueTopicIds = Array.from(new Set(topicIds));
+  const topicProgress = { ...state.topicProgress };
+  const topicSubmattersByTopic = { ...state.topicSubmattersByTopic };
+
+  uniqueTopicIds.forEach((topicId) => {
+    const progress = topicProgress[topicId];
+    if (progress) {
+      topicProgress[topicId] = { ...progress, status: 'pendente', updatedAt };
+    }
+
+    const [firstSubmatter] = topicSubmattersByTopic[topicId] ?? [];
+    if (firstSubmatter) {
+      topicSubmattersByTopic[topicId] = (topicSubmattersByTopic[topicId] ?? []).map((submatter) =>
+        submatter.id === firstSubmatter.id
+          ? {
+              ...submatter,
+              grade: 'E',
+              actionNote: `Reagendada por falha em ${failedDate}.`,
+              updatedAt,
+            }
+          : submatter,
+      );
+    }
+  });
+
+  return { ...state, topicProgress, topicSubmattersByTopic };
+};
+
 type Action =
   | { type: 'set-selected-date'; date: string }
   | { type: 'set-plan-start-date'; startDate: string }
   | { type: 'fail-manual-block'; date: string; blockId: string; at: string }
+  | { type: 'set-calendar-event-status'; eventId: string; status: CalendarEventStatus; at: string }
+  | { type: 'complete-calendar-event'; eventId: string; topicIds: string[]; reviewedAt: string; at: string }
+  | { type: 'unset-calendar-event-done'; eventId: string; at: string }
+  | { type: 'fail-calendar-manual-block'; date: string; block: ManualBlock; at: string }
+  | { type: 'undo-calendar-manual-block-failure'; date: string; blockId: string; at: string }
   | { type: 'update-checklist-item'; date: string; itemId: string; done: number }
   | { type: 'set-daily-note'; date: string; notes: string }
   | { type: 'set-topic-status'; topicId: string; status: TopicStatus }
@@ -284,6 +370,61 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           },
         ],
       });
+    }
+    case 'set-calendar-event-status': {
+      return markChanged(setCalendarEventProgress(state, action.eventId, action.status, action.at));
+    }
+    case 'complete-calendar-event': {
+      const nextState = setCalendarEventProgress(state, action.eventId, 'done', action.at);
+      return markChanged(markTopicsAsDone(nextState, action.topicIds, action.reviewedAt, action.at));
+    }
+    case 'unset-calendar-event-done': {
+      return markChanged(setCalendarEventProgress(state, action.eventId, 'pending', action.at));
+    }
+    case 'fail-calendar-manual-block': {
+      const eventId = getCalendarEventId(action.date, action.block.id);
+      const hasSameFailure = state.manualBlockReschedules.some(
+        (item) => item.failedAt === action.date && item.blockId === action.block.id,
+      );
+      const topicIds = (action.block.contentTargets ?? []).map((target) => target.topicId);
+      const failedState = markTopicsAsFailed(state, topicIds, action.date, action.at);
+      const progressState = setCalendarEventProgress(failedState, eventId, 'failed', action.at);
+
+      if (hasSameFailure) {
+        return markChanged(progressState);
+      }
+
+      return markChanged({
+        ...progressState,
+        manualBlockReschedules: [
+          ...progressState.manualBlockReschedules,
+          {
+            id: createId(),
+            failedAt: action.date,
+            blockId: action.block.id,
+            title: action.block.title,
+            subtitle: action.block.detail,
+            subject: inferManualBlockSubject(action.block),
+            createdAt: action.at,
+          },
+        ],
+      });
+    }
+    case 'undo-calendar-manual-block-failure': {
+      const eventId = getCalendarEventId(action.date, action.blockId);
+      return markChanged(
+        setCalendarEventProgress(
+          {
+            ...state,
+            manualBlockReschedules: state.manualBlockReschedules.filter(
+              (item) => !(item.failedAt === action.date && item.blockId === action.blockId),
+            ),
+          },
+          eventId,
+          'pending',
+          action.at,
+        ),
+      );
     }
     case 'update-checklist-item': {
       const record = state.dailyRecords[action.date];
@@ -638,6 +779,11 @@ interface AppContextValue {
   setSelectedDate: (date: string) => void;
   setPlanStartDate: (date: string) => void;
   failManualBlock: (date: string, blockId: string) => void;
+  setCalendarEventStatus: (eventId: string, status: CalendarEventStatus) => void;
+  completeCalendarEvent: (eventId: string, topicIds: string[]) => void;
+  unsetCalendarEventDone: (eventId: string) => void;
+  failCalendarManualBlock: (date: string, block: ManualBlock) => void;
+  undoCalendarManualBlockFailure: (date: string, blockId: string) => void;
   updateChecklistItem: (date: string, itemId: string, done: number) => void;
   setDailyNote: (date: string, notes: string) => void;
   setTopicStatus: (topicId: string, status: TopicStatus) => void;
@@ -1161,6 +1307,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setPlanStartDate: (date) => dispatch({ type: 'set-plan-start-date', startDate: date }),
       failManualBlock: (date, blockId) =>
         dispatch({ type: 'fail-manual-block', date, blockId, at: nowIso() }),
+      setCalendarEventStatus: (eventId, status) =>
+        dispatch({ type: 'set-calendar-event-status', eventId, status, at: nowIso() }),
+      completeCalendarEvent: (eventId, topicIds) => {
+        const timestamp = nowIso();
+        dispatch({
+          type: 'complete-calendar-event',
+          eventId,
+          topicIds,
+          reviewedAt: getTodayIsoDate(),
+          at: timestamp,
+        });
+      },
+      unsetCalendarEventDone: (eventId) =>
+        dispatch({ type: 'unset-calendar-event-done', eventId, at: nowIso() }),
+      failCalendarManualBlock: (date, block) =>
+        dispatch({ type: 'fail-calendar-manual-block', date, block, at: nowIso() }),
+      undoCalendarManualBlockFailure: (date, blockId) =>
+        dispatch({ type: 'undo-calendar-manual-block-failure', date, blockId, at: nowIso() }),
       updateChecklistItem: (date, itemId, done) =>
         dispatch({ type: 'update-checklist-item', date, itemId, done }),
       setDailyNote: (date, notes) => dispatch({ type: 'set-daily-note', date, notes }),

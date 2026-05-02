@@ -156,4 +156,5 @@ If there is no formatter, agree on one and add it to CI.
 - As of 2026-04-30, the clean module is the only accessible concurso surface: `/concurso/#/` renders `CleanConcursoPage`, and previous standalone routes redirect back to `/`.
 - The clean module lives at `CONCURSO/src/pages/CleanConcursoPage.tsx`, with pure scheduling helpers in `CONCURSO/src/app/cleanConcursoModule.ts`.
 - Manual block failures are persisted through `manualBlockReschedules` and now prefer the next compatible manual day by inferred subject before falling back to the next manual day.
+- Calendar event completion/failure state is persisted in `calendarEventProgress`; marking a calendar event done updates linked topic progress/review dates, and failed manual blocks remain visible on the original date while `manualBlockReschedules` reorganizes the plan.
 - The clean module is deterministic UI/state logic; it does not require an AI model call.

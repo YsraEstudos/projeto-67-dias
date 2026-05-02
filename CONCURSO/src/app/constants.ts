@@ -12,7 +12,7 @@ import type {
   WorkActivity,
 } from './types';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const START_DATE = '2026-03-14';
 export const END_DATE = '2026-11-19';

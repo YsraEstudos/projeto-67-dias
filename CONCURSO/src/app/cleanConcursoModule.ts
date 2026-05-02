@@ -2,7 +2,17 @@ import { END_DATE } from './constants';
 import { enumerateDateRange, getLocalTodayIsoDate, parseIsoDate, toIsoDate } from './dateUtils';
 import { subjectLabel } from './formatters';
 import { getManualBlockSubjectLabel, inferManualBlockSubject } from './manualBlockSubjects';
-import type { DayPlan, ManualBlock, SubjectKey, TopicGrade, TopicNode, TopicSubmatter } from './types';
+import type {
+  AppState,
+  CalendarEventStatus,
+  DayPlan,
+  ManualBlock,
+  ManualBlockReschedule,
+  SubjectKey,
+  TopicGrade,
+  TopicNode,
+  TopicSubmatter,
+} from './types';
 
 export { getManualBlockSubjectLabel, inferManualBlockSubject };
 
@@ -20,6 +30,12 @@ export interface CleanCalendarEvent {
   title: string;
   subtitle: string;
   tone: 'study' | 'review' | 'exam' | 'writing' | 'rest' | 'failed';
+  kind: 'study' | 'review' | 'exam' | 'writing' | 'rest' | 'failed';
+  status: CalendarEventStatus;
+  blockId: string | null;
+  block: ManualBlock | null;
+  topicIds: string[];
+  submatterId: string | null;
 }
 
 export interface CleanReviewScheduleItem {
@@ -63,6 +79,39 @@ const hasOfficialContentTarget = (block: ManualBlock): boolean =>
 
 const isStudyPlanBlock = (block: ManualBlock): boolean =>
   hasOfficialContentTarget(block) || inferManualBlockSubject(block) !== null;
+
+const getProgressStatus = (
+  eventProgress: AppState['calendarEventProgress'],
+  eventId: string,
+  fallback: CalendarEventStatus = 'pending',
+): CalendarEventStatus => eventProgress[eventId]?.status ?? fallback;
+
+const getBlockTopicIds = (block: ManualBlock): string[] =>
+  Array.from(new Set((block.contentTargets ?? []).map((target) => target.topicId)));
+
+const groupReviewsByDate = (
+  topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
+  topics: TopicNode[],
+  referenceDate: string,
+): Map<string, Array<{ topic: TopicNode; submatter: TopicSubmatter }>> => {
+  const reviewsByDate = new Map<string, Array<{ topic: TopicNode; submatter: TopicSubmatter }>>();
+  const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+
+  Object.entries(topicSubmattersByTopic).forEach(([topicId, submatters]) => {
+    const topic = topicById.get(topicId);
+    if (!topic) return;
+
+    submatters.forEach((submatter) => {
+      buildReviewSchedule(submatter, referenceDate).forEach((item) => {
+        const current = reviewsByDate.get(item.date) ?? [];
+        current.push({ topic, submatter });
+        reviewsByDate.set(item.date, current);
+      });
+    });
+  });
+
+  return reviewsByDate;
+};
 
 export const buildCleanPlanContentItems = (plans: DayPlan[]): CleanPlanContentItem[] =>
   plans.flatMap((plan) =>
@@ -113,76 +162,124 @@ export const buildCleanCalendarEvents = (
   topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
   topics: TopicNode[],
   startDate: string = plans[0]?.date ?? getLocalTodayIsoDate(),
+  calendarEventProgress: AppState['calendarEventProgress'] = {},
+  manualBlockReschedules: ManualBlockReschedule[] = [],
 ): CleanCalendarEvent[] => {
   const lastPlanDate = plans[plans.length - 1]?.date ?? END_DATE;
   const dateRange = enumerateDateRange(startDate, lastPlanDate).filter((date) => date <= END_DATE);
   const planByDate = new Map(plans.map((plan) => [plan.date, plan]));
-  const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+  const reviewsByDate = groupReviewsByDate(topicSubmattersByTopic, topics, startDate);
+  const failuresByDate = manualBlockReschedules.reduce<Map<string, ManualBlockReschedule[]>>((accumulator, item) => {
+    const current = accumulator.get(item.failedAt) ?? [];
+    current.push(item);
+    accumulator.set(item.failedAt, current);
+    return accumulator;
+  }, new Map());
 
   return dateRange.flatMap((date) => {
     const plan = planByDate.get(date);
     const events: CleanCalendarEvent[] = [];
 
     if (plan?.isRestDay) {
+      const eventId = `${date}-rest`;
       events.push({
-        id: `${date}-rest`,
+        id: eventId,
         date,
         title: 'Descanso fixo',
         subtitle: 'Sem pendência obrigatória',
         tone: 'rest',
+        kind: 'rest',
+        status: getProgressStatus(calendarEventProgress, eventId),
+        blockId: null,
+        block: null,
+        topicIds: [],
+        submatterId: null,
       });
       return events;
     }
 
     (plan?.manualBlocks ?? []).filter(isStudyPlanBlock).forEach((block) => {
+      const eventId = `${date}-${block.id}`;
       events.push({
-        id: `${date}-${block.id}`,
+        id: eventId,
         date,
         title: block.title,
         subtitle: getManualBlockSubjectLabel(block),
         tone: 'study',
+        kind: 'study',
+        status: getProgressStatus(calendarEventProgress, eventId),
+        blockId: block.id,
+        block,
+        topicIds: getBlockTopicIds(block),
+        submatterId: null,
       });
     });
 
     if (plan?.hasSimulado) {
+      const eventId = `${date}-simulado`;
       events.push({
-        id: `${date}-simulado`,
+        id: eventId,
         date,
         title: 'Simulado programado',
         subtitle: 'Evento do cronograma',
         tone: 'exam',
+        kind: 'exam',
+        status: getProgressStatus(calendarEventProgress, eventId),
+        blockId: null,
+        block: null,
+        topicIds: [],
+        submatterId: null,
       });
     }
 
     if (plan?.hasRedacao) {
+      const eventId = `${date}-redacao`;
       events.push({
-        id: `${date}-redacao`,
+        id: eventId,
         date,
         title: 'Redação programada',
         subtitle: 'Evento do cronograma',
         tone: 'writing',
+        kind: 'writing',
+        status: getProgressStatus(calendarEventProgress, eventId),
+        blockId: null,
+        block: null,
+        topicIds: [],
+        submatterId: null,
       });
     }
 
-    const reviews = Object.entries(topicSubmattersByTopic).flatMap(([topicId, submatters]) => {
-      const topic = topicById.get(topicId);
-      if (!topic) return [];
-
-      return submatters
-        .filter((submatter) => buildReviewSchedule(submatter, startDate).some((item) => item.date === date))
-        .map((submatter) => ({
-          topic,
-          submatter,
-        }));
+    (failuresByDate.get(date) ?? []).forEach((reschedule) => {
+      const eventId = `${date}-${reschedule.blockId}`;
+      events.push({
+        id: `${eventId}-failed`,
+        date,
+        title: reschedule.title ?? 'Bloco falhou e foi realocado',
+        subtitle: reschedule.subtitle ?? 'Falha registrada no calendário',
+        tone: 'failed',
+        kind: 'failed',
+        status: 'failed',
+        blockId: reschedule.blockId,
+        block: null,
+        topicIds: [],
+        submatterId: null,
+      });
     });
 
-    reviews.forEach(({ topic, submatter }) => {
+    (reviewsByDate.get(date) ?? []).forEach(({ topic, submatter }) => {
+      const eventId = `${date}-${submatter.id}-review`;
       events.push({
-        id: `${date}-${submatter.id}-review`,
+        id: eventId,
         date,
         title: `Revisar: ${submatter.title}`,
         subtitle: `${subjectLabel(topic.subject)} | Nota ${submatter.grade}`,
         tone: 'review',
+        kind: 'review',
+        status: getProgressStatus(calendarEventProgress, eventId),
+        blockId: null,
+        block: null,
+        topicIds: [topic.id],
+        submatterId: submatter.id,
       });
     });
 

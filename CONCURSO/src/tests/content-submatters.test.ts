@@ -119,7 +119,8 @@ describe('content submatters summaries', () => {
     );
 
     expect(queue.map((item) => item.submatterId)).toEqual(['c', 'b', 'a']);
-    expect(queue[0].needsReview).toBe(true);
+    expect(queue[0].needsReview).toBe(false);
+    expect(queue[1].needsReview).toBe(true);
     expect(queue[0].staleBucket).toBe('unreviewed');
   });
 
@@ -138,7 +139,7 @@ describe('content submatters summaries', () => {
 
     expect(rollups.topic1.worstGrade).toBe('D');
     expect(rollups.topic1.dominantGrade).toBe('D');
-    expect(rollups.topic1.reviewNowCount).toBe(2);
+    expect(rollups.topic1.reviewNowCount).toBe(1);
     expect(rollups.topic1.unreviewedCount).toBe(1);
   });
 });

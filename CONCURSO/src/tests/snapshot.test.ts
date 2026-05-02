@@ -72,13 +72,85 @@ describe('snapshot storage', () => {
     delete (legacyLike.ankiStats as { dailyLogs?: unknown }).dailyLogs;
     delete (legacyLike as { planSettings?: unknown }).planSettings;
     delete (legacyLike as { shellUi?: unknown }).shellUi;
+    delete (legacyLike as { calendarEventProgress?: unknown }).calendarEventProgress;
 
     const normalized = normalizeStateForCurrentPlan(legacyLike);
     expect(normalized.planSettings.startDate).toBe('2026-03-14');
     expect(normalized.planSettings.startDateChangeCount).toBe(0);
     expect(normalized.shellUi.mobilePinnedNav).toEqual(DEFAULT_MOBILE_PINNED_NAV);
+    expect(normalized.calendarEventProgress).toEqual({});
     expect(normalized.ankiConfig.pauseWeekdays).toEqual([]);
     expect(normalized.ankiStats.dailyLogs).toEqual({});
+  });
+
+  it('marca evento do calendario como feito e atualiza materia vinculada', () => {
+    const state = createInitialState();
+    const topicId = TOPICS.find((topic) => topic.isLeaf)?.id;
+    expect(topicId).toBeDefined();
+    if (!topicId) {
+      return;
+    }
+
+    const updated = appReducer(state, {
+      type: 'complete-calendar-event',
+      eventId: '2026-04-27-test',
+      topicIds: [topicId],
+      reviewedAt: '2026-04-27',
+      at: '2026-04-27T10:00:00.000Z',
+    });
+
+    expect(updated.calendarEventProgress['2026-04-27-test'].status).toBe('done');
+    expect(updated.topicProgress[topicId].status).toBe('acertado');
+    expect(updated.topicSubmattersByTopic[topicId][0].lastReviewedAt).toBe('2026-04-27');
+  });
+
+  it('registra falha de bloco manual e permite desfazer realocacao', () => {
+    const state = createInitialState();
+    const date = '2026-04-27';
+    const manualBlock = {
+      id: 'manual-test',
+      area: 'Português',
+      title: 'Interpretação de texto',
+      detail: 'Português',
+      contentTargets: [
+        {
+          topicId: TOPICS.find((topic) => topic.isLeaf)?.id ?? 'missing-topic',
+          title: 'Interpretação',
+          sourceTitle: 'Português',
+          sectionTitle: 'Português',
+          sourceRef: 'seed',
+          path: 'Português > Interpretação',
+        },
+      ],
+    };
+
+    const failed = appReducer(state, {
+      type: 'fail-calendar-manual-block',
+      date,
+      block: manualBlock,
+      at: '2026-04-27T10:00:00.000Z',
+    });
+
+    expect(failed.calendarEventProgress['2026-04-27-manual-test'].status).toBe('failed');
+    expect(failed.manualBlockReschedules).toContainEqual(
+      expect.objectContaining({
+        failedAt: date,
+        blockId: 'manual-test',
+        title: 'Interpretação de texto',
+      }),
+    );
+
+    const undone = appReducer(failed, {
+      type: 'undo-calendar-manual-block-failure',
+      date,
+      blockId: 'manual-test',
+      at: '2026-04-27T11:00:00.000Z',
+    });
+
+    expect(undone.calendarEventProgress['2026-04-27-manual-test'].status).toBe('pending');
+    expect(undone.manualBlockReschedules).not.toContainEqual(
+      expect.objectContaining({ failedAt: date, blockId: 'manual-test' }),
+    );
   });
 
   it('alinha selectedDate com o dia local ao normalizar um snapshot antigo', () => {
