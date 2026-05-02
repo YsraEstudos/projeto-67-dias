@@ -47,7 +47,7 @@ const planModeLabel = (plan: DayPlan): string =>
 
 const visibleBlocks = (plan: DayPlan): string[] => {
   if (plan.isRestDay) {
-    return ['Domingo de descanso fixo'];
+    return ['Dia de descanso fixo'];
   }
 
   if (plan.planMode === 'manual' && plan.manualBlocks && plan.manualBlocks.length > 0) {

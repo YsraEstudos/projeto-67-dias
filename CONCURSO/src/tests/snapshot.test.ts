@@ -77,6 +77,13 @@ describe('snapshot storage', () => {
     const normalized = normalizeStateForCurrentPlan(legacyLike);
     expect(normalized.planSettings.startDate).toBe('2026-03-14');
     expect(normalized.planSettings.startDateChangeCount).toBe(0);
+    expect(normalized.planSettings.restWeekday).toBe(0);
+    expect(normalized.planSettings.defaultQuestionGoals).toEqual({
+      portugues: 80,
+      rlm: 65,
+      legislacao: 64,
+      especificos: 50,
+    });
     expect(normalized.shellUi.mobilePinnedNav).toEqual(DEFAULT_MOBILE_PINNED_NAV);
     expect(normalized.calendarEventProgress).toEqual({});
     expect(normalized.ankiConfig.pauseWeekdays).toEqual([]);

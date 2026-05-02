@@ -3,18 +3,28 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  CheckSquare2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Filter,
+  ListChecks,
   Map as MapIcon,
   Play,
   RotateCcw,
   Search,
+  Settings,
   Target,
   Trophy,
   XCircle,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAppContext } from '../app/AppContext';
+import {
+  END_DATE,
+  START_DATE,
+  SUBJECT_ORDER,
+} from '../app/constants';
 import {
   buildCleanCalendarEvents,
   buildCleanDayShortcuts,
@@ -26,13 +36,35 @@ import {
 import { getLocalTodayIsoDate } from '../app/dateUtils';
 import { buildReviewQueue, buildTopicRollups } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
+import { inferManualBlockSubject } from '../app/manualBlockSubjects';
 import { getTopicDisplayTitle } from '../app/topics';
 import type { ManualBlock, SubjectKey, TopicGrade } from '../app/types';
 
-type ModuleView = 'dia' | 'conteudo' | 'calendario';
+type ModuleView = 'dia' | 'conteudo' | 'calendario' | 'configuracoes';
 type ContentFilter = 'all' | 'review' | TopicGrade;
+type StudySession = {
+  id: string;
+  title: string;
+  detail: string;
+  subject: string;
+  subjectKey: SubjectKey | null;
+  topicId: string;
+};
 
-const CALENDAR_EVENT_BATCH_SIZE = 50;
+type StudyProgressDraft = {
+  questionGoal: number;
+  questionsDone: number;
+  hasCards: boolean;
+  hasClasses: boolean;
+  isComplete: boolean;
+};
+type CalendarMonthDay<TEvent> = {
+  date: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  events: TEvent[];
+};
+
 const gradeFilters: ContentFilter[] = ['all', 'review', 'A', 'B', 'C', 'D', 'E'];
 
 const gradeLabel = (filter: ContentFilter): string => {
@@ -91,6 +123,72 @@ const hasPlanItemReviewNow = (
   return reviewQueue.some((item) => targetIds.has(item.topicId) && item.needsReview);
 };
 
+const createInitialStudyProgress = (questionGoal = 30): StudyProgressDraft => ({
+  questionGoal,
+  questionsDone: 0,
+  hasCards: false,
+  hasClasses: false,
+  isComplete: false,
+});
+
+const clampStudyNumber = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
+};
+
+const parseLocalIsoDate = (date: string): Date => new Date(`${date}T00:00:00`);
+
+const toIsoDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthLabelPtBr = (monthIso: string): string =>
+  parseLocalIsoDate(`${monthIso}-01`).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+const shiftMonth = (monthIso: string, offset: number): string => {
+  const date = parseLocalIsoDate(`${monthIso}-01`);
+  date.setMonth(date.getMonth() + offset);
+  return toIsoDate(date).slice(0, 7);
+};
+
+const buildCalendarMonthDays = <TEvent extends { date: string }>(
+  monthIso: string,
+  eventsByDate: Map<string, TEvent[]>,
+): Array<CalendarMonthDay<TEvent>> => {
+  const monthStart = parseLocalIsoDate(`${monthIso}-01`);
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(monthStart.getDate() - monthStart.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    const isoDate = toIsoDate(date);
+
+    return {
+      date: isoDate,
+      dayNumber: date.getDate(),
+      isCurrentMonth: isoDate.startsWith(monthIso),
+      events: eventsByDate.get(isoDate) ?? [],
+    };
+  });
+};
+
+const weekdayOptions = [
+  { value: 0, label: 'Domingo' },
+  { value: 1, label: 'Segunda' },
+  { value: 2, label: 'Terça' },
+  { value: 3, label: 'Quarta' },
+  { value: 4, label: 'Quinta' },
+  { value: 5, label: 'Sexta' },
+  { value: 6, label: 'Sábado' },
+] as const;
+
 export const CleanConcursoPage = () => {
   const {
     state,
@@ -102,16 +200,24 @@ export const CleanConcursoPage = () => {
     failCalendarManualBlock,
     markTopicSubmatterReviewedToday,
     setCalendarEventStatus,
+    setDailyNote,
     undoCalendarManualBlockFailure,
     unsetCalendarEventDone,
+    setPlanStartDate,
+    setRestWeekday,
+    setDefaultQuestionGoal,
   } = useAppContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [subjectFilter, setSubjectFilter] = useState<'all' | SubjectKey>('all');
   const [search, setSearch] = useState('');
   const [mappedTopicId, setMappedTopicId] = useState<string | null>(null);
+  const [activeStudySession, setActiveStudySession] = useState<StudySession | null>(null);
+  const [studyProgressBySession, setStudyProgressBySession] = useState<Record<string, StudyProgressDraft>>({});
   const [expandedCalendarEventId, setExpandedCalendarEventId] = useState<string | null>(null);
-  const [calendarVisibleCount, setCalendarVisibleCount] = useState(CALENDAR_EVENT_BATCH_SIZE);
+  const [calendarMonth, setCalendarMonth] = useState(state.selectedDate.slice(0, 7));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(state.selectedDate);
+  const [isCalendarEventListOpen, setIsCalendarEventListOpen] = useState(true);
 
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
@@ -158,10 +264,38 @@ export const CleanConcursoPage = () => {
     [leafTopics, mappedTopicId],
   );
   const mappedSubmatters = mappedTopic ? state.topicSubmattersByTopic[mappedTopic.id] ?? [] : [];
-  const visibleCalendarEvents = useMemo(
-    () => calendarEvents.slice(0, calendarVisibleCount),
-    [calendarEvents, calendarVisibleCount],
+  const calendarEventsByDate = useMemo(
+    () =>
+      calendarEvents.reduce<Map<string, typeof calendarEvents>>((accumulator, event) => {
+        const dayEvents = accumulator.get(event.date) ?? [];
+        dayEvents.push(event);
+        accumulator.set(event.date, dayEvents);
+        return accumulator;
+      }, new Map()),
+    [calendarEvents],
   );
+  const calendarMonthDays = useMemo(
+    () => buildCalendarMonthDays(calendarMonth, calendarEventsByDate),
+    [calendarEventsByDate, calendarMonth],
+  );
+  const selectedCalendarEvents = calendarEventsByDate.get(selectedCalendarDate) ?? [];
+  const selectedCalendarNote = state.dailyRecords[selectedCalendarDate]?.notes ?? '';
+  const selectedDoneEvents = selectedCalendarEvents.filter((event) => event.status === 'done').length;
+  const selectedFailedEvents = selectedCalendarEvents.filter((event) => event.status === 'failed').length;
+  const activeStudyProgress = activeStudySession
+    ? studyProgressBySession[activeStudySession.id] ?? createInitialStudyProgress()
+    : createInitialStudyProgress();
+  const questionProgress =
+    activeStudyProgress.questionGoal > 0
+      ? Math.min(100, Math.round((activeStudyProgress.questionsDone / activeStudyProgress.questionGoal) * 100))
+      : 0;
+  const planStartDate = state.planSettings.startDate;
+  const planEndDate = dayPlans.at(-1)?.date ?? END_DATE;
+  const remainingPlanDays = dayPlans.filter((plan) => plan.date >= today).length;
+  const defaultQuestionGoals = state.planSettings.defaultQuestionGoals;
+  const activeDefaultQuestionGoal = activeStudySession?.subjectKey
+    ? defaultQuestionGoals[activeStudySession.subjectKey]
+    : 30;
 
   const filteredPlanItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -220,10 +354,27 @@ export const CleanConcursoPage = () => {
     }
   };
 
-  const handleOpenTopicMap = (topicId: string): void => {
-    if (!topicId) return;
-    setMappedTopicId(topicId);
-    setActiveView('conteudo');
+  const updateActiveStudyProgress = (draft: Partial<StudyProgressDraft>): void => {
+    if (!activeStudySession) return;
+    setStudyProgressBySession((current) => ({
+      ...current,
+      [activeStudySession.id]: {
+        ...(current[activeStudySession.id] ?? createInitialStudyProgress()),
+        ...draft,
+      },
+    }));
+  };
+
+  const handleStartStudySession = (session: StudySession): void => {
+    if (!session.topicId) return;
+    setActiveStudySession(session);
+    setStudyProgressBySession((current) => ({
+      ...current,
+      [session.id]: current[session.id] ?? createInitialStudyProgress(
+        session.subjectKey ? defaultQuestionGoals[session.subjectKey] : activeDefaultQuestionGoal,
+      ),
+    }));
+    setMappedTopicId(session.topicId);
   };
 
   const handleCalendarFailure = (event: (typeof calendarEvents)[number]): void => {
@@ -248,30 +399,109 @@ export const CleanConcursoPage = () => {
 
   const handleOpenCalendarView = (): void => {
     setActiveView('calendario');
-    setCalendarVisibleCount(CALENDAR_EVENT_BATCH_SIZE);
+    setCalendarMonth(state.selectedDate.slice(0, 7));
+    setSelectedCalendarDate(state.selectedDate);
+    setIsCalendarEventListOpen(true);
     setExpandedCalendarEventId(null);
   };
+
+  const renderRestDayPlanner = (date: string, note: string) => (
+    <label className="clean-rest-planner">
+      <span>Matéria ou revisão futura</span>
+      <textarea
+        value={note}
+        onChange={(event) => setDailyNote(date, event.target.value)}
+        placeholder="Ex.: revisar Português na próxima semana, separar questões de RLM..."
+        rows={4}
+      />
+      <small>Use este espaço para reservar uma matéria leve ou uma revisão futura sem tirar o dia do descanso fixo.</small>
+    </label>
+  );
 
   return (
     <section className="clean-module-page" data-testid="clean-concurso-module">
       <header className="clean-hero">
-        <div className="clean-hero-copy">
-          <span className="clean-kicker">
-            <Trophy size={16} />
-            Novo módulo de concurso
-          </span>
-          <h1>Lumina Study Command Center</h1>
-          <p>
-            Um painel direto para executar o dia, consultar o conteúdo programático completo,
-            ver revisões e realocar automaticamente qualquer matéria que falhar.
-          </p>
+        <div className={activeStudySession ? 'clean-study-focus is-visible' : 'clean-study-focus'}>
+          {activeStudySession ? (
+            <>
+              <div className="clean-study-focus-head">
+                <span className="clean-kicker">
+                  <Play size={16} />
+                  Estudando agora
+                </span>
+                <span className="clean-study-subject">{activeStudySession.subject}</span>
+              </div>
+              <h1>{activeStudySession.title}</h1>
+              <p>{activeStudySession.detail}</p>
+              <div className="clean-study-controls">
+                <label>
+                  <span>Meta do dia</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={activeStudyProgress.questionGoal}
+                    onChange={(event) =>
+                      updateActiveStudyProgress({ questionGoal: clampStudyNumber(event.target.valueAsNumber) })
+                    }
+                  />
+                </label>
+                <label>
+                  <span>Questões feitas</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={activeStudyProgress.questionsDone}
+                    onChange={(event) =>
+                      updateActiveStudyProgress({ questionsDone: clampStudyNumber(event.target.valueAsNumber) })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={activeStudyProgress.hasCards ? 'clean-study-toggle active' : 'clean-study-toggle'}
+                  onClick={() => updateActiveStudyProgress({ hasCards: !activeStudyProgress.hasCards })}
+                >
+                  <CheckSquare2 size={15} />
+                  Cards
+                </button>
+                <button
+                  type="button"
+                  className={activeStudyProgress.hasClasses ? 'clean-study-toggle active' : 'clean-study-toggle'}
+                  onClick={() => updateActiveStudyProgress({ hasClasses: !activeStudyProgress.hasClasses })}
+                >
+                  <BookOpen size={15} />
+                  Aulas
+                </button>
+                <button
+                  type="button"
+                  className={activeStudyProgress.isComplete ? 'clean-study-complete active' : 'clean-study-complete'}
+                  onClick={() => updateActiveStudyProgress({ isComplete: !activeStudyProgress.isComplete })}
+                >
+                  <CheckCircle2 size={15} />
+                  Estudo completo
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="clean-study-placeholder">
+              <span className="clean-kicker">
+                <Trophy size={16} />
+                Escolha a matéria
+              </span>
+              <h1>Clique em Estudar para abrir o painel do bloco.</h1>
+              <p>A matéria aparece aqui com meta, questões feitas, cards, aulas e conclusão do estudo.</p>
+            </div>
+          )}
         </div>
         <div className="clean-hero-panel">
-          <span>Progresso do edital</span>
-          <strong>{dashboardStats.progress}%</strong>
+          <span>Progresso do dia</span>
+          <strong>{questionProgress}%</strong>
           <div className="clean-meter">
-            <div style={{ width: `${dashboardStats.progress}%` }} />
+            <div style={{ width: `${questionProgress}%` }} />
           </div>
+          <small>
+            {activeStudyProgress.questionsDone}/{activeStudyProgress.questionGoal} questões
+          </small>
         </div>
       </header>
 
@@ -280,6 +510,7 @@ export const CleanConcursoPage = () => {
           { key: 'dia', label: 'Dia', icon: Play },
           { key: 'conteudo', label: 'Conteúdo', icon: BookOpen },
           { key: 'calendario', label: 'Calendário', icon: CalendarDays },
+          { key: 'configuracoes', label: 'Configurações', icon: Settings },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -352,7 +583,10 @@ export const CleanConcursoPage = () => {
             </div>
 
             {selectedPlan?.isRestDay ? (
-              <div className="clean-empty-state">Esse dia está reservado para descanso fixo.</div>
+              <div className="clean-rest-day-box">
+                <div className="clean-empty-state">Esse dia está reservado para descanso fixo.</div>
+                {renderRestDayPlanner(state.selectedDate, state.dailyRecords[state.selectedDate]?.notes ?? '')}
+              </div>
             ) : (
               <div className="clean-task-list">
                 {selectedBlocks.map((block) => {
@@ -372,7 +606,16 @@ export const CleanConcursoPage = () => {
                           <button
                             type="button"
                             className="clean-icon-link"
-                            onClick={() => handleOpenTopicMap(block.contentTargets?.[0]?.topicId ?? '')}
+                            onClick={() =>
+                              handleStartStudySession({
+                                id: `day-${state.selectedDate}-${block.id}`,
+                                title: block.title,
+                                detail: block.detail,
+                                subject: getManualBlockSubjectLabel(block),
+                                subjectKey: inferManualBlockSubject(block),
+                                topicId: block.contentTargets?.[0]?.topicId ?? '',
+                              })
+                            }
                           >
                             <Play size={15} />
                             Estudar
@@ -488,7 +731,20 @@ export const CleanConcursoPage = () => {
                     </div>
                     <div className="clean-topic-actions">
                       {firstTopicId ? (
-                        <button type="button" className="clean-icon-link" onClick={() => handleOpenTopicMap(firstTopicId)}>
+                        <button
+                          type="button"
+                          className="clean-icon-link"
+                          onClick={() =>
+                            handleStartStudySession({
+                              id: `content-${item.id}`,
+                              title: item.block.title,
+                              detail: item.block.detail,
+                              subject: getManualBlockSubjectLabel(item.block),
+                              subjectKey: item.subject,
+                              topicId: firstTopicId,
+                            })
+                          }
+                        >
                           <Play size={15} />
                           Estudar
                         </button>
@@ -547,141 +803,309 @@ export const CleanConcursoPage = () => {
       ) : null}
 
       {activeView === 'calendario' ? (
-        <section className="clean-panel">
-          <div className="clean-panel-head">
+        <section className="clean-panel clean-calendar-panel">
+          <div className="clean-panel-head clean-calendar-head">
             <div>
-              <span className="clean-kicker">Agenda completa</span>
-              <h2>Calendário de estudos e revisões</h2>
+              <span className="clean-kicker">Calendário real</span>
+              <h2>{getMonthLabelPtBr(calendarMonth)}</h2>
             </div>
             <span className="clean-count">{dashboardStats.calendarEvents} eventos</span>
           </div>
-          <div className="clean-calendar-list">
-            {visibleCalendarEvents.map((event) => {
-              const isExpanded = expandedCalendarEventId === event.id;
-              const eventSubmatters = getCalendarEventSubmatters(event);
-              const canFail = event.block !== null || event.kind === 'failed';
+
+          <div className="clean-calendar-toolbar">
+            <button type="button" onClick={() => setCalendarMonth((current) => shiftMonth(current, -1))}>
+              <ChevronLeft size={16} />
+              Mês anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCalendarMonth(today.slice(0, 7));
+                setSelectedCalendarDate(today);
+                setSelectedDate(today);
+                setExpandedCalendarEventId(null);
+              }}
+            >
+              <CalendarDays size={16} />
+              Hoje
+            </button>
+            <button type="button" onClick={() => setCalendarMonth((current) => shiftMonth(current, 1))}>
+              Próximo mês
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="clean-month-grid" role="grid" aria-label="Calendário de estudos">
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((weekday) => (
+              <span className="clean-weekday" key={weekday}>
+                {weekday}
+              </span>
+            ))}
+            {calendarMonthDays.map((day) => {
+              const studyCount = day.events.filter((event) => event.tone === 'study').length;
+              const reviewCount = day.events.filter((event) => event.tone === 'review').length;
+              const failedCount = day.events.filter((event) => event.status === 'failed').length;
+              const isSelected = day.date === selectedCalendarDate;
+              const isToday = day.date === today;
 
               return (
-                <article
-                  className={`clean-calendar-event tone-${event.tone} status-${event.status}`}
-                  key={event.id}
+                <button
+                  type="button"
+                  key={day.date}
+                  className={[
+                    'clean-calendar-day',
+                    day.isCurrentMonth ? '' : 'outside',
+                    isSelected ? 'selected' : '',
+                    isToday ? 'today' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => {
+                    setSelectedCalendarDate(day.date);
+                    setSelectedDate(day.date);
+                    setExpandedCalendarEventId(null);
+                  }}
                 >
-                  <time>{formatIsoDateCompactPtBr(event.date)}</time>
-                  <div className="clean-calendar-event-body">
-                    <div className="clean-calendar-event-top">
-                      <span>{calendarToneLabel[event.tone]}</span>
-                      <span className={`clean-status-pill status-${event.status}`}>
-                        {calendarStatusLabel[event.status]}
-                      </span>
-                    </div>
-                    <strong>{event.title}</strong>
-                    <p>{event.subtitle}</p>
-                    {failedBlocksByDate[event.date] && event.kind !== 'failed' ? (
-                      <small>{failedBlocksByDate[event.date]} falha(s) realocada(s) deste dia.</small>
-                    ) : null}
-                    <div className="clean-calendar-actions">
-                      <button
-                        type="button"
-                        className="clean-calendar-manage"
-                        onClick={() => setExpandedCalendarEventId(isExpanded ? null : event.id)}
-                        aria-expanded={isExpanded}
-                      >
-                        <ChevronDown size={15} />
-                        Gerenciar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => completeCalendarEvent(event.id, event.topicIds)}
-                        disabled={event.status === 'done'}
-                      >
-                        <CheckCircle2 size={15} />
-                        Feito
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => unsetCalendarEventDone(event.id)}
-                        disabled={event.status !== 'done'}
-                      >
-                        <RotateCcw size={15} />
-                        Desmarcar
-                      </button>
-                      {canFail ? (
-                        <button
-                          type="button"
-                          className="clean-fail-button"
-                          onClick={() => handleCalendarFailure(event)}
-                        >
-                          <XCircle size={15} />
-                          {event.kind === 'failed' ? 'Desfazer falha' : 'Falhei'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setCalendarEventStatus(event.id, 'failed')}
-                          disabled={event.status === 'failed'}
-                        >
-                          <XCircle size={15} />
-                          Falhei
-                        </button>
-                      )}
-                    </div>
-                    <div className={isExpanded ? 'clean-calendar-drawer open' : 'clean-calendar-drawer'}>
-                      <div className="clean-calendar-drawer-grid">
-                        <section>
-                          <span className="clean-kicker">Opções</span>
-                          <h3>{event.status === 'failed' ? 'Falha registrada' : 'Controle do evento'}</h3>
-                          <p>
-                            Use este painel para ver o que já foi feito, desfazer marcações ou mandar a
-                            matéria de volta para o fluxo quando falhar.
-                          </p>
-                        </section>
-                        <section>
-                          <span className="clean-kicker">Calendário de revisão</span>
-                          {eventSubmatters.length > 0 ? (
-                            <div className="clean-review-calendar">
-                              {eventSubmatters.map(({ topic, submatter }) => (
-                                <article key={`${event.id}-${submatter.id}`}>
-                                  <strong>{submatter.title}</strong>
-                                  <p>{topic ? subjectLabel(topic.subject) : event.subtitle} | Nota {submatter.grade}</p>
-                                  <div>
-                                    {buildReviewSchedule(submatter, event.date).map((item) => (
-                                      <small key={`${submatter.id}-${item.date}`}>
-                                        {item.label}: {formatIsoDateCompactPtBr(item.date)}
-                                      </small>
-                                    ))}
-                                  </div>
-                                </article>
-                              ))}
-                            </div>
-                          ) : (
-                            <p>Este evento não tem matéria oficial vinculada para revisão automática.</p>
-                          )}
-                        </section>
-                      </div>
-                    </div>
-                  </div>
-                </article>
+                  <span className="clean-calendar-day-number">{day.dayNumber}</span>
+                  {day.events.length > 0 ? (
+                    <span className="clean-calendar-day-summary">
+                      {day.events.length} evento{day.events.length === 1 ? '' : 's'}
+                    </span>
+                  ) : (
+                    <span className="clean-calendar-day-summary muted">Livre</span>
+                  )}
+                  <span className="clean-calendar-dots" aria-hidden="true">
+                    {studyCount > 0 ? <i className="tone-study" /> : null}
+                    {reviewCount > 0 ? <i className="tone-review" /> : null}
+                    {failedCount > 0 ? <i className="tone-failed" /> : null}
+                  </span>
+                </button>
               );
             })}
           </div>
-          {calendarVisibleCount < calendarEvents.length ? (
-            <div className="clean-calendar-more">
-              <span>
-                Mostrando {visibleCalendarEvents.length} de {calendarEvents.length} eventos
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setCalendarVisibleCount((current) =>
-                    Math.min(current + CALENDAR_EVENT_BATCH_SIZE, calendarEvents.length),
-                  )
-                }
-              >
-                <ChevronDown size={16} />
-                Carregar mais
-              </button>
+
+          <div className="clean-calendar-selected">
+            <div>
+              <span className="clean-kicker">Dia selecionado</span>
+              <h3>{formatIsoDatePtBr(selectedCalendarDate)}</h3>
+              <p>
+                {selectedCalendarEvents.length} evento{selectedCalendarEvents.length === 1 ? '' : 's'} no dia
+                {selectedDoneEvents ? ` | ${selectedDoneEvents} feito(s)` : ''}
+                {selectedFailedEvents ? ` | ${selectedFailedEvents} falhou/falharam` : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="clean-calendar-manage"
+              onClick={() => setIsCalendarEventListOpen((current) => !current)}
+              aria-expanded={isCalendarEventListOpen}
+            >
+              <ListChecks size={16} />
+              Ver eventos
+            </button>
+          </div>
+
+          {isCalendarEventListOpen ? (
+            <div className="clean-calendar-list">
+              {selectedCalendarEvents.map((event) => {
+                const isExpanded = expandedCalendarEventId === event.id;
+                const eventSubmatters = getCalendarEventSubmatters(event);
+                const canFail = event.block !== null || event.kind === 'failed';
+
+                return (
+                  <article
+                    className={`clean-calendar-event tone-${event.tone} status-${event.status}`}
+                    key={event.id}
+                  >
+                    <time>{formatIsoDateCompactPtBr(event.date)}</time>
+                    <div className="clean-calendar-event-body">
+                      <div className="clean-calendar-event-top">
+                        <span>{calendarToneLabel[event.tone]}</span>
+                        <span className={`clean-status-pill status-${event.status}`}>
+                          {calendarStatusLabel[event.status]}
+                        </span>
+                      </div>
+                      <strong>{event.title}</strong>
+                      <p>{event.subtitle}</p>
+                      {failedBlocksByDate[event.date] && event.kind !== 'failed' ? (
+                        <small>{failedBlocksByDate[event.date]} falha(s) realocada(s) deste dia.</small>
+                      ) : null}
+                      <div className="clean-calendar-actions">
+                        <button
+                          type="button"
+                          className="clean-calendar-manage"
+                          onClick={() => setExpandedCalendarEventId(isExpanded ? null : event.id)}
+                          aria-expanded={isExpanded}
+                        >
+                          <ChevronDown size={15} />
+                          Gerenciar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => completeCalendarEvent(event.id, event.topicIds)}
+                          disabled={event.status === 'done'}
+                        >
+                          <CheckCircle2 size={15} />
+                          Feito
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => unsetCalendarEventDone(event.id)}
+                          disabled={event.status !== 'done'}
+                        >
+                          <RotateCcw size={15} />
+                          Desmarcar
+                        </button>
+                        {canFail ? (
+                          <button
+                            type="button"
+                            className="clean-fail-button"
+                            onClick={() => handleCalendarFailure(event)}
+                          >
+                            <XCircle size={15} />
+                            {event.kind === 'failed' ? 'Desfazer falha' : 'Falhei'}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setCalendarEventStatus(event.id, 'failed')}
+                            disabled={event.status === 'failed'}
+                          >
+                            <XCircle size={15} />
+                            Falhei
+                          </button>
+                        )}
+                      </div>
+                      <div className={isExpanded ? 'clean-calendar-drawer open' : 'clean-calendar-drawer'}>
+                        <div className="clean-calendar-drawer-grid">
+                          <section>
+                            <span className="clean-kicker">Opções</span>
+                            <h3>{event.status === 'failed' ? 'Falha registrada' : 'Controle do evento'}</h3>
+                            <p>
+                              Use este painel para ver o que já foi feito, desfazer marcações ou mandar a
+                              matéria de volta para o fluxo quando falhar.
+                            </p>
+                            {event.kind === 'rest' ? renderRestDayPlanner(event.date, selectedCalendarNote) : null}
+                          </section>
+                          <section>
+                            <span className="clean-kicker">Calendário de revisão</span>
+                            {eventSubmatters.length > 0 ? (
+                              <div className="clean-review-calendar">
+                                {eventSubmatters.map(({ topic, submatter }) => (
+                                  <article key={`${event.id}-${submatter.id}`}>
+                                    <strong>{submatter.title}</strong>
+                                    <p>{topic ? subjectLabel(topic.subject) : event.subtitle} | Nota {submatter.grade}</p>
+                                    <div>
+                                      {buildReviewSchedule(submatter, event.date).map((item) => (
+                                        <small key={`${submatter.id}-${item.date}`}>
+                                          {item.label}: {formatIsoDateCompactPtBr(item.date)}
+                                        </small>
+                                      ))}
+                                    </div>
+                                  </article>
+                                ))}
+                              </div>
+                            ) : (
+                              <p>Este evento não tem matéria oficial vinculada para revisão automática.</p>
+                            )}
+                          </section>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+              {selectedCalendarEvents.length === 0 ? (
+                <div className="clean-empty-state">Nenhum estudo ou revisão programado para este dia.</div>
+              ) : null}
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {activeView === 'configuracoes' ? (
+        <section className="clean-panel clean-settings-panel">
+          <div className="clean-panel-head">
+            <div>
+              <span className="clean-kicker">Configurações</span>
+              <h2>Ajustes do plano</h2>
+            </div>
+            <Settings size={20} />
+          </div>
+
+          <div className="clean-settings-grid">
+            <label className="clean-settings-field">
+              <span>Início do plano de estudos</span>
+              <input
+                type="date"
+                min={START_DATE}
+                max={END_DATE}
+                value={planStartDate}
+                onChange={(event) => {
+                  setPlanStartDate(event.target.value);
+                  setSelectedDate(event.target.value);
+                  setCalendarMonth(event.target.value.slice(0, 7));
+                  setSelectedCalendarDate(event.target.value);
+                }}
+              />
+              <small>Alterar esta data reorganiza o cronograma determinístico do módulo.</small>
+            </label>
+
+            <label className="clean-settings-field">
+              <span>Dia de descanso</span>
+              <select
+                value={state.planSettings.restWeekday}
+                onChange={(event) => setRestWeekday(Number(event.target.value))}
+              >
+                {weekdayOptions.map((weekday) => (
+                  <option value={weekday.value} key={weekday.value}>
+                    {weekday.label}
+                  </option>
+                ))}
+              </select>
+              <small>O calendário, a fila diária e os eventos de descanso passam a usar este dia.</small>
+            </label>
+
+            <div className="clean-settings-field clean-question-goals">
+              <span>Meta padrão de questões por matéria</span>
+              <div className="clean-question-goal-list">
+                {SUBJECT_ORDER.map((subject) => (
+                  <label key={subject}>
+                    <strong>{subjectLabel(subject)}</strong>
+                    <input
+                      type="number"
+                      min="0"
+                      max="999"
+                      value={defaultQuestionGoals[subject]}
+                      onChange={(event) =>
+                        setDefaultQuestionGoal(subject, clampStudyNumber(event.target.valueAsNumber))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              <small>Ao clicar em Estudar, uma nova sessão já abre com a meta da matéria.</small>
+            </div>
+
+            <div className="clean-settings-summary" aria-label="Resumo das configurações do plano">
+              <article>
+                <span>Data final</span>
+                <strong>{formatIsoDateCompactPtBr(planEndDate)}</strong>
+              </article>
+              <article>
+                <span>Dias restantes</span>
+                <strong>{remainingPlanDays}</strong>
+              </article>
+              <article>
+                <span>Eventos no calendário</span>
+                <strong>{dashboardStats.calendarEvents}</strong>
+              </article>
+              <article>
+                <span>Alterações de início</span>
+                <strong>{state.planSettings.startDateChangeCount}</strong>
+              </article>
+            </div>
+          </div>
         </section>
       ) : null}
 

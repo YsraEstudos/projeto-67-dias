@@ -15,6 +15,7 @@ export function TaskDetailsSidebar() {
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [subtaskDescriptionDrafts, setSubtaskDescriptionDrafts] = useState<Record<string, string>>({});
   const [newTagTitle, setNewTagTitle] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -42,6 +43,17 @@ export function TaskDetailsSidebar() {
     document.addEventListener('pointerdown', handlePointerDown);
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [setSelectedTaskId]);
+
+  useEffect(() => {
+    if (!task) {
+      setSubtaskDescriptionDrafts({});
+      return;
+    }
+
+    setSubtaskDescriptionDrafts(
+      Object.fromEntries((task.subtasks || []).map(subtask => [subtask.id, subtask.description || '']))
+    );
+  }, [task?.id, task?.subtasks]);
 
   if (!task) return null;
 
@@ -76,7 +88,19 @@ export function TaskDetailsSidebar() {
     });
   };
 
-  const handleUpdateSubtaskDescription = (subtaskId: string, description: string) => {
+  const handleChangeSubtaskDescription = (subtaskId: string, description: string) => {
+    setSubtaskDescriptionDrafts(currentDrafts => ({
+      ...currentDrafts,
+      [subtaskId]: description,
+    }));
+  };
+
+  const handleSaveSubtaskDescription = (subtaskId: string) => {
+    const description = subtaskDescriptionDrafts[subtaskId] || '';
+    const currentDescription = task.subtasks?.find(st => st.id === subtaskId)?.description || '';
+
+    if (description === currentDescription) return;
+
     updateTask(task.id, {
       subtasks: task.subtasks?.map(st => (
         st.id === subtaskId ? { ...st, description } : st
@@ -291,8 +315,9 @@ export function TaskDetailsSidebar() {
                     {subtask.title}
                   </span>
                   <textarea
-                    value={subtask.description || ''}
-                    onChange={(e) => handleUpdateSubtaskDescription(subtask.id, e.target.value)}
+                    value={subtaskDescriptionDrafts[subtask.id] ?? subtask.description ?? ''}
+                    onChange={(e) => handleChangeSubtaskDescription(subtask.id, e.target.value)}
+                    onBlur={() => handleSaveSubtaskDescription(subtask.id)}
                     placeholder="Adicionar descrição..."
                     rows={2}
                     className="mt-1 w-full bg-transparent border-none focus:outline-none text-xs leading-relaxed resize-none placeholder:text-[var(--color-text-muted)] text-[var(--color-text-muted)]"

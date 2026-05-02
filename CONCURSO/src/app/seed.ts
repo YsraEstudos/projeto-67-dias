@@ -18,6 +18,7 @@ import type {
   DayPlan,
   ExamWritingMonthlyTarget,
   ManualBlockReschedule,
+  SubjectKey,
   TopicProgress,
 } from './types';
 import { TOPIC_SECTIONS } from '../data/topicSeeds';
@@ -134,6 +135,34 @@ const normalizePlanStartDate = (value: unknown): string => {
   return value;
 };
 
+const DEFAULT_REST_WEEKDAY = 0;
+const DEFAULT_QUESTION_GOALS: Record<SubjectKey, number> = {
+  portugues: 80,
+  rlm: 65,
+  legislacao: 64,
+  especificos: 50,
+};
+
+const normalizeRestWeekday = (value: unknown): number => {
+  if (!Number.isFinite(value)) return DEFAULT_REST_WEEKDAY;
+  return Math.max(0, Math.min(6, Math.round(Number(value))));
+};
+
+const normalizeQuestionGoal = (value: unknown, fallback: number): number => {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(999, Math.round(Number(value))));
+};
+
+const normalizeDefaultQuestionGoals = (value: unknown): Record<SubjectKey, number> => {
+  const input = value && typeof value === 'object' ? value as Partial<Record<SubjectKey, unknown>> : {};
+  return {
+    portugues: normalizeQuestionGoal(input.portugues, DEFAULT_QUESTION_GOALS.portugues),
+    rlm: normalizeQuestionGoal(input.rlm, DEFAULT_QUESTION_GOALS.rlm),
+    legislacao: normalizeQuestionGoal(input.legislacao, DEFAULT_QUESTION_GOALS.legislacao),
+    especificos: normalizeQuestionGoal(input.especificos, DEFAULT_QUESTION_GOALS.especificos),
+  };
+};
+
 export interface PlanRuntime {
   dayPlans: DayPlan[];
   dayPlansByDate: Record<string, DayPlan>;
@@ -143,8 +172,9 @@ export interface PlanRuntime {
 export const buildPlanRuntime = (
   planStartDate: string,
   manualBlockReschedules: ManualBlockReschedule[] = [],
+  restWeekday: number = DEFAULT_REST_WEEKDAY,
 ): PlanRuntime => {
-  const dayPlans = buildDayPlans(planStartDate, manualBlockReschedules);
+  const dayPlans = buildDayPlans(planStartDate, manualBlockReschedules, normalizeRestWeekday(restWeekday));
   return {
     dayPlans,
     dayPlansByDate: buildDayPlansByDate(dayPlans),
@@ -254,6 +284,8 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
     planSettings: {
       startDate: normalizedPlanStartDate,
       startDateChangeCount: 0,
+      restWeekday: DEFAULT_REST_WEEKDAY,
+      defaultQuestionGoals: { ...DEFAULT_QUESTION_GOALS },
     },
     shellUi: {
       mobilePinnedNav: [...DEFAULT_MOBILE_PINNED_NAV],
@@ -296,9 +328,11 @@ export const createInitialState = (planStartDate: string = START_DATE): AppState
 
 export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
   const planStartDate = normalizePlanStartDate(state.planSettings?.startDate);
+  const restWeekday = normalizeRestWeekday(state.planSettings?.restWeekday);
+  const defaultQuestionGoals = normalizeDefaultQuestionGoals(state.planSettings?.defaultQuestionGoals);
   const fallback = createInitialState(planStartDate);
   const manualBlockReschedules = normalizeManualBlockReschedules(state.manualBlockReschedules);
-  const runtime = buildPlanRuntime(planStartDate, manualBlockReschedules);
+  const runtime = buildPlanRuntime(planStartDate, manualBlockReschedules, restWeekday);
   const dailyRecords = normalizeDailyRecords(state, runtime.dayPlans);
   const calendarEventProgress = normalizeCalendarEventProgress(state.calendarEventProgress);
 
@@ -342,6 +376,8 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
       startDateChangeCount: Number.isFinite(state.planSettings?.startDateChangeCount)
         ? Math.max(0, Math.round(state.planSettings.startDateChangeCount))
         : 0,
+      restWeekday,
+      defaultQuestionGoals,
     },
     shellUi: {
       mobilePinnedNav: sanitizeMobilePinnedNav(state.shellUi?.mobilePinnedNav),

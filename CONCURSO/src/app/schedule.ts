@@ -5,13 +5,14 @@ import {
   SUBJECT_ORDER,
   WORK_ACTIVITY_ROTATION,
 } from './constants';
-import { enumerateDateRange, getWeekday, isSunday, monthKeyOf } from './dateUtils';
+import { enumerateDateRange, getWeekday, monthKeyOf } from './dateUtils';
 import type {
   DayPlan,
   DayTargets,
   ExamWritingMonthlyTarget,
   ManualBlock,
   ManualBlockReschedule,
+  PlanSettings,
   SubjectKey,
 } from './types';
 import {
@@ -132,9 +133,12 @@ const buildTargets = (isRestDay: boolean, hasSimulado: boolean, hasRedacao: bool
   };
 };
 
-const buildAutomaticDayPlans = (planStartDate: string = START_DATE): DayPlan[] => {
+const buildAutomaticDayPlans = (
+  planStartDate: string = START_DATE,
+  restWeekday: PlanSettings['restWeekday'] = 0,
+): DayPlan[] => {
   const allDates = enumerateDateRange(planStartDate, END_DATE);
-  const activeDates = allDates.filter((date) => !isSunday(date));
+  const activeDates = allDates.filter((date) => getWeekday(date) !== restWeekday);
   const { simuladoDates, redacaoDates } = buildEventDistribution(activeDates);
 
   const subjectCounters: Record<SubjectKey, number> = {
@@ -147,7 +151,7 @@ const buildAutomaticDayPlans = (planStartDate: string = START_DATE): DayPlan[] =
   let activeDayIndex = 0;
 
   return allDates.map((date): DayPlan => {
-    const rest = isSunday(date);
+    const rest = getWeekday(date) === restWeekday;
     const hasSimulado = simuladoDates.has(date);
     const hasRedacao = redacaoDates.has(date);
 
@@ -343,8 +347,9 @@ const applyManualBlockReschedules = (
 export const buildDayPlans = (
   planStartDate: string = START_DATE,
   manualBlockReschedules: ManualBlockReschedule[] = [],
+  restWeekday: PlanSettings['restWeekday'] = 0,
 ): DayPlan[] => {
-  const automaticPlans = buildAutomaticDayPlans(planStartDate);
+  const automaticPlans = buildAutomaticDayPlans(planStartDate, restWeekday);
   const dayPlans = applyManualOverrides(automaticPlans, planStartDate);
   return applyManualBlockReschedules(dayPlans, manualBlockReschedules);
 };

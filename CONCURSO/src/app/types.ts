@@ -254,6 +254,8 @@ export interface MetaState {
 export interface PlanSettings {
   startDate: string;
   startDateChangeCount: number;
+  restWeekday: number;
+  defaultQuestionGoals: Record<SubjectKey, number>;
 }
 
 export interface ManualBlockReschedule {

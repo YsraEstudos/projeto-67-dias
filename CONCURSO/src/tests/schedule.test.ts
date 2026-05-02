@@ -30,6 +30,14 @@ describe('buildDayPlans', () => {
     expect(byDate['2026-03-15']?.isRestDay).toBe(true);
   });
 
+  it('troca o dia de descanso quando a configuração muda', () => {
+    const saturdayRestPlans = buildDayPlans('2026-03-14', [], 6);
+    const saturdayRestByDate = Object.fromEntries(saturdayRestPlans.map((plan) => [plan.date, plan]));
+
+    expect(saturdayRestByDate['2026-03-14']?.isRestDay).toBe(true);
+    expect(saturdayRestByDate['2026-03-15']?.isRestDay).toBe(false);
+  });
+
   it('realoca eventos de domingo para sábado com bloco marcado', () => {
     const movedDay = plans.find((plan) =>
       (plan.manualBlocks ?? []).some((block) => block.movedFromSunday),

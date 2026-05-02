@@ -71,6 +71,7 @@ import type {
   ProjectStatus,
   StudyProject,
   ManualBlock,
+  SubjectKey,
   TechnologyKey,
   TheoreticalContentItem,
   TheoreticalContentOwnerType,
@@ -171,6 +172,8 @@ const markTopicsAsFailed = (
 type Action =
   | { type: 'set-selected-date'; date: string }
   | { type: 'set-plan-start-date'; startDate: string }
+  | { type: 'set-rest-weekday'; restWeekday: number }
+  | { type: 'set-default-question-goal'; subject: SubjectKey; questionGoal: number }
   | { type: 'fail-manual-block'; date: string; blockId: string; at: string }
   | { type: 'set-calendar-event-status'; eventId: string; status: CalendarEventStatus; at: string }
   | { type: 'complete-calendar-event'; eventId: string; topicIds: string[]; reviewedAt: string; at: string }
@@ -349,6 +352,38 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           },
         }),
       );
+    }
+    case 'set-rest-weekday': {
+      if (action.restWeekday === state.planSettings.restWeekday) {
+        return state;
+      }
+
+      return markChanged(
+        normalizeStateForCurrentPlan({
+          ...state,
+          planSettings: {
+            ...state.planSettings,
+            restWeekday: action.restWeekday,
+          },
+        }),
+      );
+    }
+    case 'set-default-question-goal': {
+      const questionGoal = Math.max(0, Math.min(999, Math.round(action.questionGoal)));
+      if (state.planSettings.defaultQuestionGoals[action.subject] === questionGoal) {
+        return state;
+      }
+
+      return markChanged({
+        ...state,
+        planSettings: {
+          ...state.planSettings,
+          defaultQuestionGoals: {
+            ...state.planSettings.defaultQuestionGoals,
+            [action.subject]: questionGoal,
+          },
+        },
+      });
     }
     case 'fail-manual-block': {
       const hasSameFailure = state.manualBlockReschedules.some(
@@ -778,6 +813,8 @@ interface AppContextValue {
   moveMobileNavItem: (path: NavPath, targetIndex: number) => void;
   setSelectedDate: (date: string) => void;
   setPlanStartDate: (date: string) => void;
+  setRestWeekday: (weekday: number) => void;
+  setDefaultQuestionGoal: (subject: SubjectKey, questionGoal: number) => void;
   failManualBlock: (date: string, blockId: string) => void;
   setCalendarEventStatus: (eventId: string, status: CalendarEventStatus) => void;
   completeCalendarEvent: (eventId: string, topicIds: string[]) => void;
@@ -946,8 +983,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const planRuntime = useMemo(
-    () => buildPlanRuntime(state.planSettings.startDate, state.manualBlockReschedules),
-    [state.manualBlockReschedules, state.planSettings.startDate],
+    () => buildPlanRuntime(
+      state.planSettings.startDate,
+      state.manualBlockReschedules,
+      state.planSettings.restWeekday,
+    ),
+    [state.manualBlockReschedules, state.planSettings.restWeekday, state.planSettings.startDate],
   );
 
   useEffect(() => {
@@ -1305,6 +1346,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       moveMobileNavItem: (path, targetIndex) => dispatch({ type: 'move-mobile-nav-item', path, targetIndex }),
       setSelectedDate: (date) => dispatch({ type: 'set-selected-date', date }),
       setPlanStartDate: (date) => dispatch({ type: 'set-plan-start-date', startDate: date }),
+      setRestWeekday: (weekday) => dispatch({ type: 'set-rest-weekday', restWeekday: weekday }),
+      setDefaultQuestionGoal: (subject, questionGoal) =>
+        dispatch({ type: 'set-default-question-goal', subject, questionGoal }),
       failManualBlock: (date, blockId) =>
         dispatch({ type: 'fail-manual-block', date, blockId, at: nowIso() }),
       setCalendarEventStatus: (eventId, status) =>

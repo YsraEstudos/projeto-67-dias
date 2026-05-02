@@ -25,7 +25,7 @@ export const createChecklistTemplate = (dayPlan: DayPlan): ChecklistItem[] => {
     return [
       {
         id: 'rest-day',
-        label: 'Dia de descanso (domingo)',
+        label: 'Dia de descanso',
         kind: 'boolean',
         target: 1,
         done: 1,

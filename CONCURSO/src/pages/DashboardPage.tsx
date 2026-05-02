@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { useAppContext } from '../app/AppContext';
-import { buildReviewQueue } from '../app/contentSubmatters';
 import {
   buildExamProgressSummary,
   countOverdueDays,
@@ -16,6 +15,7 @@ import { MetricCard } from '../components/MetricCard';
 import { PageIntro } from '../components/PageIntro';
 import { SectionCard } from '../components/SectionCard';
 import { RadialProgress } from '../components/RadialProgress';
+import type { ChecklistItem, DayPlan, ManualBlock } from '../app/types';
 
 const findNextEventDate = (
   fromDate: string,
@@ -31,23 +31,73 @@ const findNextEventDate = (
   return null;
 };
 
-const STALE_ICONS: Record<string, string> = {
-  unreviewed: '📄',
-  critical: '🚨',
-  warning: '⚠️',
-  fresh: '✅',
+type DashboardStudyItem = {
+  id: string;
+  title: string;
+  detail: string;
+  questionTarget: number;
+  checklistItem: ChecklistItem | null;
+  block: ManualBlock | null;
+};
+
+const isStudyManualBlock = (block: ManualBlock): boolean => block.area.toLowerCase() !== 'evento';
+
+const splitQuestionsByStudyItem = (totalQuestions: number, itemIndex: number, itemCount: number): number => {
+  if (totalQuestions <= 0 || itemCount <= 0) {
+    return 0;
+  }
+
+  const baseQuestions = Math.floor(totalQuestions / itemCount);
+  const remainingQuestions = totalQuestions % itemCount;
+  return baseQuestions + (itemIndex < remainingQuestions ? 1 : 0);
+};
+
+const buildDashboardStudyItems = (
+  plan: DayPlan | undefined,
+  checklist: ChecklistItem[],
+): DashboardStudyItem[] => {
+  if (!plan || plan.isRestDay) {
+    return [];
+  }
+
+  if (plan.planMode === 'manual' && plan.manualBlocks?.length) {
+    const studyBlocks = plan.manualBlocks.filter(isStudyManualBlock);
+
+    return plan.manualBlocks.map((block, index) => {
+      const studyIndex = studyBlocks.findIndex((studyBlock) => studyBlock.id === block.id);
+      const questionTarget =
+        studyIndex >= 0
+          ? splitQuestionsByStudyItem(plan.targets.objectiveQuestions, studyIndex, studyBlocks.length)
+          : 0;
+
+      return {
+        id: block.id,
+        title: `${block.area}: ${block.title}`,
+        detail: block.detail,
+        questionTarget,
+        checklistItem: checklist.find((item) => item.id === `manual-block-${index + 1}`) ?? null,
+        block,
+      };
+    });
+  }
+
+  const mainStudyItem = checklist.find((item) => item.id === 'main-study-minutes') ?? null;
+  return plan.subjects.map((subject, index) => ({
+    id: `auto-subject-${index + 1}`,
+    title: subjectLabel(subject),
+    detail: index === 0 ? 'Matéria primária do ciclo' : 'Matéria secundária do ciclo',
+    questionTarget: splitQuestionsByStudyItem(plan.targets.objectiveQuestions, index, plan.subjects.length),
+    checklistItem: mainStudyItem,
+    block: null,
+  }));
 };
 
 export const DashboardPage = () => {
-  const { state, dayPlans, dayPlansByDate, monthlyTargets, topics, failManualBlock } = useAppContext();
+  const { state, dayPlans, dayPlansByDate, monthlyTargets, failManualBlock, updateChecklistItem } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
   const selectedMonthKey = useMemo(() => state.selectedDate.slice(0, 7), [state.selectedDate]);
 
-  const reviewQueue = useMemo(
-    () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate).slice(0, 6),
-    [state.topicSubmattersByTopic, topics, state.selectedDate]
-  );
   const examProgress = useMemo(
     () => buildExamProgressSummary(state.dailyRecords, monthlyTargets),
     [state.dailyRecords, monthlyTargets],
@@ -58,6 +108,15 @@ export const DashboardPage = () => {
   };
 
   const progress = record ? getChecklistProgressPercent(record.checklist) : 0;
+  const checklist = useMemo(() => record?.checklist ?? [], [record?.checklist]);
+  const studyItems = useMemo(
+    () => buildDashboardStudyItems(plan, checklist),
+    [plan, checklist],
+  );
+  const questionsItem = useMemo(
+    () => checklist.find((item) => item.id === 'objective-questions') ?? null,
+    [checklist],
+  );
   const monthTarget = useMemo(
     () => monthlyTargets.find((target) => target.monthKey === selectedMonthKey),
     [monthlyTargets, selectedMonthKey],
@@ -191,15 +250,6 @@ export const DashboardPage = () => {
                           ) : null}
                         </div>
                       ) : null}
-                      <div className="dashboard-plan-task-actions">
-                        <button
-                          type="button"
-                          className="dashboard-plan-task-fail"
-                          onClick={() => failManualBlock(state.selectedDate, block.id)}
-                        >
-                          Falhei
-                        </button>
-                      </div>
                     </div>
                     <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ccc' }}>
                       IN PROGRESS
@@ -312,27 +362,70 @@ export const DashboardPage = () => {
       <div style={{ marginTop: '32px' }}>
         <SectionCard
           as="article"
-          className="review-widget dashboard-review-widget"
-          title="Mapa rápido de revisão do edital"
-          aside={<Link to="/conteudo" style={{ cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'center', textDecoration: 'none', color: 'var(--text-main)' }}>Ver mapa completo ➔</Link>}
+          className="dashboard-execution-widget"
+          title="Controle geral do dia"
+          aside={<Link to="/plano-diario" style={{ cursor: 'pointer', fontSize: '0.85rem', alignSelf: 'center', textDecoration: 'none', color: 'var(--text-main)' }}>Ver plano completo ➔</Link>}
         >
-          <div className="review-grid">
-            {reviewQueue.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '8px 0' }}>Você está em dia com as revisões.</p>
+          <div className="dashboard-execution-summary">
+            <div>
+              <span>Questões do dia</span>
+              <strong>{questionsItem?.done ?? 0}/{questionsItem?.target ?? plan?.targets.objectiveQuestions ?? 0}</strong>
+            </div>
+            <div>
+              <span>Matérias</span>
+              <strong>{studyItems.filter((item) => item.checklistItem?.status === 'concluido').length}/{studyItems.length}</strong>
+            </div>
+            <div>
+              <span>Evento</span>
+              <strong>{plan?.hasSimulado ? 'Simulado' : plan?.hasRedacao ? 'Redação' : 'Normal'}</strong>
+            </div>
+          </div>
+
+          <div className="dashboard-execution-list">
+            {studyItems.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '8px 0' }}>
+                Dia de descanso, sem matéria obrigatória para marcar.
+              </p>
             ) : (
-              reviewQueue.map(item => {
+              studyItems.map((item) => {
+                const isDone = item.checklistItem?.status === 'concluido';
+                const manualBlock = item.block;
+
                 return (
-                  <Link 
-                    key={item.submatterId}
-                    to={`/conteudo/topico/${item.topicId}?submatter=${item.submatterId}`}
-                    className="review-map-card"
-                  >
-                    <div className="review-map-card-label">
-                      <span className="review-map-card-icon">{STALE_ICONS[item.staleBucket] || '📄'}</span>
-                      <span>{item.submatterTitle}</span>
+                  <article className="dashboard-execution-item" key={item.id}>
+                    <div className="dashboard-execution-item-main">
+                      <label className="dashboard-execution-check">
+                        <input
+                          type="checkbox"
+                          aria-label={`Marcar ${item.title} como concluído`}
+                          checked={isDone}
+                          disabled={!item.checklistItem}
+                          onChange={(event) => {
+                            if (!item.checklistItem) return;
+                            updateChecklistItem(
+                              state.selectedDate,
+                              item.checklistItem.id,
+                              event.target.checked ? item.checklistItem.target : 0,
+                            );
+                          }}
+                        />
+                        <span>{item.title}</span>
+                      </label>
+                      <p>{item.detail}</p>
                     </div>
-                    <span className="review-map-card-arrow"><ChevronRight size={18} /></span>
-                  </Link>
+                    <div className="dashboard-execution-item-side">
+                      <span>{item.questionTarget} questões</span>
+                      {manualBlock ? (
+                        <button
+                          type="button"
+                          className="dashboard-plan-task-fail"
+                          onClick={() => failManualBlock(state.selectedDate, manualBlock.id)}
+                        >
+                          Falhei
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
                 );
               })
             )}
