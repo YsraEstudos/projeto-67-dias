@@ -243,7 +243,8 @@
 .clean-calendar-actions button,
 .clean-review-item button,
 .clean-icon-link,
-.clean-fail-button {
+.clean-fail-button,
+.clean-pending-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -256,6 +257,106 @@
   font-weight: 800;
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.clean-pending-panel {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0 20px;
+  padding: 18px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(8, 47, 73, 0.44), rgba(15, 23, 42, 0.72)),
+    rgba(2, 6, 23, 0.82);
+}
+
+.clean-pending-head,
+.clean-pending-card,
+.clean-pending-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.clean-pending-head {
+  justify-content: space-between;
+}
+
+.clean-pending-head h3 {
+  margin: 8px 0 0;
+  color: #f8fafc;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+}
+
+.clean-pending-head small,
+.clean-pending-card small {
+  color: #bae6fd;
+  font-weight: 800;
+}
+
+.clean-pending-list {
+  display: grid;
+  gap: 12px;
+}
+
+.clean-pending-card {
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.clean-pending-card-main {
+  min-width: 0;
+}
+
+.clean-pending-card-main span,
+.clean-pending-actions label span {
+  color: #94a3b8;
+  font-family: var(--font-label);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.clean-pending-card-main strong {
+  display: block;
+  margin-top: 6px;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.clean-pending-card-main p {
+  margin: 5px 0 6px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.clean-pending-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.clean-pending-actions label {
+  display: grid;
+  gap: 5px;
+  width: 132px;
+}
+
+.clean-pending-actions input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.7);
+  color: #f8fafc;
+  font: inherit;
+  font-weight: 900;
+  padding: 0 10px;
 }
 
 .clean-tab {
@@ -1068,6 +1169,15 @@
   .clean-map-panel {
     position: static;
   }
+
+  .clean-pending-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .clean-pending-actions {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1102,11 +1212,18 @@
 
   .clean-task-actions,
   .clean-topic-actions,
-  .clean-study-controls {
+  .clean-study-controls,
+  .clean-pending-head,
+  .clean-pending-actions {
+    align-items: stretch;
+    flex-direction: column;
     justify-content: flex-start;
   }
 
-  .clean-study-controls label {
+  .clean-study-controls label,
+  .clean-pending-actions label,
+  .clean-pending-actions button {
+    width: 100%;
     min-width: 100%;
   }
 

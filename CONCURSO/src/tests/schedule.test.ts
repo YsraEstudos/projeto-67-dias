@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest';
+import { findNextFailurePlanDate } from '../app/cleanConcursoModule';
+import { inferManualBlockSubject } from '../app/manualBlockSubjects';
 import { buildDayPlans } from '../app/schedule';
+import type { DayPlan, ManualBlock, SubjectKey } from '../app/types';
+
+const hasSubject = (plan: DayPlan, subject: SubjectKey): boolean =>
+  plan.subjects.includes(subject)
+  || (plan.manualBlocks ?? []).some((block) => inferManualBlockSubject(block) === subject);
+
+const createPlan = (
+  date: string,
+  subjects: [SubjectKey, SubjectKey],
+  manualBlocks: ManualBlock[],
+): DayPlan => ({
+  date,
+  planMode: 'manual',
+  isRestDay: false,
+  subjects,
+  workActivity: 'programacao',
+  hasSimulado: false,
+  hasRedacao: false,
+  targets: {
+    mainStudyMinutes: 180,
+    ankiMainMinutes: 60,
+    workAnkiMinutes: 60,
+    workActivityMinutes: 60,
+    objectiveQuestions: 50,
+  },
+  monthKey: date.slice(0, 7),
+  manualBlocks,
+});
 
 describe('buildDayPlans', () => {
   const plans = buildDayPlans();
@@ -76,7 +106,7 @@ describe('buildDayPlans', () => {
     expect(studyBlocks.every((block) => (block.contentTargets?.length ?? 0) > 0)).toBe(true);
   });
 
-  it('realoca falha para o proximo dia manual compativel com a materia', () => {
+  it('realoca falha para o proximo dia manual sem a mesma materia quando existe nos proximos 5 dias', () => {
     const sourcePlan = plans.find((plan) =>
       (plan.manualBlocks ?? []).some((block) => block.id === 'w1-mon-pt-interpretacao'),
     );
@@ -96,6 +126,42 @@ describe('buildDayPlans', () => {
 
     expect(destinationPlan?.date).not.toBe(sourcePlan?.date);
     expect((destinationPlan?.date ?? '').localeCompare(sourcePlan?.date ?? '')).toBeGreaterThan(0);
-    expect(destinationPlan?.subjects).toContain('portugues');
+    expect(sourcePlan ? hasSubject(destinationPlan as DayPlan, 'portugues') : false).toBe(true);
+  });
+
+  it('nao realoca TI para o dia seguinte quando o dia seguinte ja tem TI', () => {
+    const tiBlock: ManualBlock = {
+      id: 'ti-source',
+      area: 'TI',
+      title: 'Java',
+      detail: 'Questões de Java',
+    };
+    const plansWithBusyTomorrow = [
+      createPlan('2026-03-16', ['especificos', 'portugues'], [tiBlock]),
+      createPlan('2026-03-17', ['especificos', 'rlm'], [{ id: 'ti-next', area: 'TI', title: 'Web', detail: 'HTML' }]),
+      createPlan('2026-03-18', ['portugues', 'rlm'], [{ id: 'pt-next', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
+    ];
+
+    expect(findNextFailurePlanDate(plansWithBusyTomorrow, '2026-03-16', tiBlock)).toBe('2026-03-18');
+  });
+
+  it('usa o proximo dia manual quando os proximos 5 dias ja contem a mesma materia', () => {
+    const tiBlock: ManualBlock = {
+      id: 'ti-fallback',
+      area: 'TI',
+      title: 'Java',
+      detail: 'Questões de Java',
+    };
+    const plansWithFiveBusyDays = [
+      createPlan('2026-03-16', ['especificos', 'portugues'], [tiBlock]),
+      createPlan('2026-03-17', ['especificos', 'rlm'], [{ id: 'ti-1', area: 'TI', title: 'Web', detail: 'HTML' }]),
+      createPlan('2026-03-18', ['especificos', 'rlm'], [{ id: 'ti-2', area: 'TI', title: 'Java', detail: 'API' }]),
+      createPlan('2026-03-19', ['especificos', 'rlm'], [{ id: 'ti-3', area: 'TI', title: 'SQL', detail: 'Banco' }]),
+      createPlan('2026-03-20', ['especificos', 'rlm'], [{ id: 'ti-4', area: 'TI', title: 'Redes', detail: 'TCP' }]),
+      createPlan('2026-03-21', ['especificos', 'rlm'], [{ id: 'ti-5', area: 'TI', title: 'Docker', detail: 'Linux' }]),
+      createPlan('2026-03-23', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
+    ];
+
+    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-03-16', tiBlock)).toBe('2026-03-17');
   });
 });

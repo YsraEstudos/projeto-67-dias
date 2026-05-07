@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Filter,
   ListChecks,
   Map as MapIcon,
@@ -29,8 +30,9 @@ import {
   buildCleanCalendarEvents,
   buildCleanDayShortcuts,
   buildCleanPlanContentItems,
+  buildPendingStudyDecisions,
   buildReviewSchedule,
-  findNextSubjectPlanDate,
+  findNextFailurePlanDate,
   getManualBlockSubjectLabel,
 } from '../app/cleanConcursoModule';
 import { getLocalTodayIsoDate } from '../app/dateUtils';
@@ -214,6 +216,7 @@ export const CleanConcursoPage = () => {
   const [mappedTopicId, setMappedTopicId] = useState<string | null>(null);
   const [activeStudySession, setActiveStudySession] = useState<StudySession | null>(null);
   const [studyProgressBySession, setStudyProgressBySession] = useState<Record<string, StudyProgressDraft>>({});
+  const [pendingQuestionsByEventId, setPendingQuestionsByEventId] = useState<Record<string, number>>({});
   const [expandedCalendarEventId, setExpandedCalendarEventId] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(state.selectedDate.slice(0, 7));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(state.selectedDate);
@@ -296,6 +299,10 @@ export const CleanConcursoPage = () => {
   const activeDefaultQuestionGoal = activeStudySession?.subjectKey
     ? defaultQuestionGoals[activeStudySession.subjectKey]
     : 30;
+  const pendingStudyDecisions = useMemo(
+    () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, today, defaultQuestionGoals),
+    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, today],
+  );
 
   const filteredPlanItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -345,6 +352,18 @@ export const CleanConcursoPage = () => {
 
   const handleBlockFailure = (block: ManualBlock): void => {
     failCalendarManualBlock(state.selectedDate, block);
+  };
+
+  const handlePendingQuestionsChange = (eventId: string, questionsDone: number): void => {
+    setPendingQuestionsByEventId((current) => ({
+      ...current,
+      [eventId]: clampStudyNumber(questionsDone),
+    }));
+  };
+
+  const handleCompletePendingDecision = (decision: (typeof pendingStudyDecisions)[number]): void => {
+    const questionsDone = pendingQuestionsByEventId[decision.eventId] ?? 0;
+    completeCalendarEvent(decision.eventId, decision.topicIds, questionsDone);
   };
 
   const handleReviewTopic = (topicId: string): void => {
@@ -582,6 +601,68 @@ export const CleanConcursoPage = () => {
               ))}
             </div>
 
+            <section className="clean-pending-panel" aria-label="Pendências para fechar">
+              <div className="clean-pending-head">
+                <div>
+                  <span className="clean-kicker">
+                    <ClipboardCheck size={16} />
+                    Pendências para fechar
+                  </span>
+                  <h3>{pendingStudyDecisions.length} matéria(s) aguardando decisão</h3>
+                </div>
+                <small>Marque o que foi feito ou realoque só quando realmente falhou.</small>
+              </div>
+              {pendingStudyDecisions.length > 0 ? (
+                <div className="clean-pending-list">
+                  {pendingStudyDecisions.map((decision) => (
+                    <article className="clean-pending-card" key={decision.id}>
+                      <div className="clean-pending-card-main">
+                        <span>{formatIsoDateCompactPtBr(decision.date)} | {decision.subjectLabel}</span>
+                        <strong>{decision.title}</strong>
+                        <p>{decision.detail}</p>
+                        {decision.failureDate ? (
+                          <small>Se falhar, volta em {formatIsoDateCompactPtBr(decision.failureDate)}.</small>
+                        ) : null}
+                      </div>
+                      <div className="clean-pending-actions">
+                        <label>
+                          <span>Questões feitas</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={pendingQuestionsByEventId[decision.eventId] ?? 0}
+                            onChange={(event) =>
+                              handlePendingQuestionsChange(decision.eventId, event.target.valueAsNumber)
+                            }
+                            aria-label={`Questões feitas em ${decision.title}`}
+                          />
+                          <small>Meta: {decision.questionGoal}</small>
+                        </label>
+                        <button
+                          type="button"
+                          className="clean-icon-link"
+                          onClick={() => handleCompletePendingDecision(decision)}
+                        >
+                          <CheckCircle2 size={15} />
+                          Marcar feito
+                        </button>
+                        <button
+                          type="button"
+                          className="clean-fail-button"
+                          onClick={() => failCalendarManualBlock(decision.date, decision.block)}
+                        >
+                          <XCircle size={15} />
+                          Falhei
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="clean-empty-state">Nenhuma matéria atrasada aguardando decisão.</div>
+              )}
+            </section>
+
             {selectedPlan?.isRestDay ? (
               <div className="clean-rest-day-box">
                 <div className="clean-empty-state">Esse dia está reservado para descanso fixo.</div>
@@ -590,7 +671,7 @@ export const CleanConcursoPage = () => {
             ) : (
               <div className="clean-task-list">
                 {selectedBlocks.map((block) => {
-                  const nextDate = findNextSubjectPlanDate(dayPlans, state.selectedDate, block);
+                  const nextDate = findNextFailurePlanDate(dayPlans, state.selectedDate, block);
                   return (
                     <article className="clean-task-card" key={block.id}>
                       <div>

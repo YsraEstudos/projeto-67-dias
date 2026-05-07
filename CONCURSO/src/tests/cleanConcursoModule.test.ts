@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCleanCalendarEvents,
   buildCleanPlanContentItems,
+  buildPendingStudyDecisions,
 } from '../app/cleanConcursoModule';
 import { buildDayPlans } from '../app/schedule';
 import { TOPICS } from '../app/seed';
@@ -23,6 +24,15 @@ describe('clean concurso module', () => {
 
     expect(events.length).toBeGreaterThan(110);
     expect(events.some((event) => event.date === '2026-11-19')).toBe(true);
+  });
+
+  it('nao cria revisoes em massa no dia seguinte ao inicio sem historico de revisao', () => {
+    const plans = buildDayPlans('2026-05-05');
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, '2026-05-05');
+    const maySixEvents = events.filter((event) => event.date === '2026-05-06');
+
+    expect(maySixEvents).toHaveLength(2);
+    expect(maySixEvents.every((event) => event.kind === 'study')).toBe(true);
   });
 
   it('aplica status persistido ao evento do calendario', () => {
@@ -75,5 +85,60 @@ describe('clean concurso module', () => {
         title: firstStudy.block.title,
       }),
     );
+  });
+
+  it('detecta todas as materias atrasadas ainda pendentes antes de hoje', () => {
+    const plans = buildDayPlans();
+    const pending = buildPendingStudyDecisions(
+      plans,
+      {},
+      '2026-03-19',
+      {
+        portugues: 80,
+        rlm: 65,
+        legislacao: 64,
+        especificos: 50,
+      },
+    );
+
+    expect(pending.length).toBeGreaterThan(1);
+    expect(pending.every((item) => item.date < '2026-03-19')).toBe(true);
+    expect([...pending].sort((left, right) => left.date.localeCompare(right.date))).toEqual(pending);
+  });
+
+  it('ignora materias feitas ou falhadas e nao inclui descanso, revisao, simulado ou redacao', () => {
+    const plans = buildDayPlans();
+    const firstStudy = buildCleanPlanContentItems(plans)[0];
+    const eventId = `${firstStudy.date}-${firstStudy.block.id}`;
+    const pending = buildPendingStudyDecisions(
+      plans,
+      {
+        [eventId]: {
+          status: 'done',
+          updatedAt: '2026-03-16T10:00:00.000Z',
+          questionsDone: 12,
+        },
+        '2026-03-15-rest': {
+          status: 'pending',
+          updatedAt: '2026-03-15T10:00:00.000Z',
+        },
+        '2026-03-17-simulado': {
+          status: 'pending',
+          updatedAt: '2026-03-17T10:00:00.000Z',
+        },
+      },
+      '2026-03-19',
+      {
+        portugues: 80,
+        rlm: 65,
+        legislacao: 64,
+        especificos: 50,
+      },
+    );
+
+    expect(pending.some((item) => item.eventId === eventId)).toBe(false);
+    expect(pending.every((item) => item.block !== null)).toBe(true);
+    expect(pending.some((item) => item.eventId.endsWith('-rest'))).toBe(false);
+    expect(pending.some((item) => item.eventId.endsWith('-simulado'))).toBe(false);
   });
 });

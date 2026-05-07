@@ -271,6 +271,7 @@ export interface ManualBlockReschedule {
 export interface CalendarEventProgress {
   status: CalendarEventStatus;
   updatedAt: string;
+  questionsDone?: number;
 }
 
 export interface ShellUiState {

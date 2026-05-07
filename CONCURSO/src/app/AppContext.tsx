@@ -98,11 +98,16 @@ const setCalendarEventProgress = (
   eventId: string,
   status: CalendarEventStatus,
   updatedAt: string,
+  questionsDone?: number,
 ): AppState => ({
   ...state,
   calendarEventProgress: {
     ...state.calendarEventProgress,
-    [eventId]: { status, updatedAt },
+    [eventId]: {
+      status,
+      updatedAt,
+      ...(questionsDone !== undefined ? { questionsDone: Math.max(0, Math.round(questionsDone)) } : {}),
+    },
   },
 });
 
@@ -176,7 +181,14 @@ type Action =
   | { type: 'set-default-question-goal'; subject: SubjectKey; questionGoal: number }
   | { type: 'fail-manual-block'; date: string; blockId: string; at: string }
   | { type: 'set-calendar-event-status'; eventId: string; status: CalendarEventStatus; at: string }
-  | { type: 'complete-calendar-event'; eventId: string; topicIds: string[]; reviewedAt: string; at: string }
+  | {
+      type: 'complete-calendar-event';
+      eventId: string;
+      topicIds: string[];
+      reviewedAt: string;
+      at: string;
+      questionsDone?: number;
+    }
   | { type: 'unset-calendar-event-done'; eventId: string; at: string }
   | { type: 'fail-calendar-manual-block'; date: string; block: ManualBlock; at: string }
   | { type: 'undo-calendar-manual-block-failure'; date: string; blockId: string; at: string }
@@ -410,7 +422,13 @@ export const appReducer = (state: AppState, action: Action): AppState => {
       return markChanged(setCalendarEventProgress(state, action.eventId, action.status, action.at));
     }
     case 'complete-calendar-event': {
-      const nextState = setCalendarEventProgress(state, action.eventId, 'done', action.at);
+      const nextState = setCalendarEventProgress(
+        state,
+        action.eventId,
+        'done',
+        action.at,
+        action.questionsDone,
+      );
       return markChanged(markTopicsAsDone(nextState, action.topicIds, action.reviewedAt, action.at));
     }
     case 'unset-calendar-event-done': {
@@ -817,7 +835,7 @@ interface AppContextValue {
   setDefaultQuestionGoal: (subject: SubjectKey, questionGoal: number) => void;
   failManualBlock: (date: string, blockId: string) => void;
   setCalendarEventStatus: (eventId: string, status: CalendarEventStatus) => void;
-  completeCalendarEvent: (eventId: string, topicIds: string[]) => void;
+  completeCalendarEvent: (eventId: string, topicIds: string[], questionsDone?: number) => void;
   unsetCalendarEventDone: (eventId: string) => void;
   failCalendarManualBlock: (date: string, block: ManualBlock) => void;
   undoCalendarManualBlockFailure: (date: string, blockId: string) => void;
@@ -1353,7 +1371,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: 'fail-manual-block', date, blockId, at: nowIso() }),
       setCalendarEventStatus: (eventId, status) =>
         dispatch({ type: 'set-calendar-event-status', eventId, status, at: nowIso() }),
-      completeCalendarEvent: (eventId, topicIds) => {
+      completeCalendarEvent: (eventId, topicIds, questionsDone) => {
         const timestamp = nowIso();
         dispatch({
           type: 'complete-calendar-event',
@@ -1361,6 +1379,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           topicIds,
           reviewedAt: getTodayIsoDate(),
           at: timestamp,
+          questionsDone,
         });
       },
       unsetCalendarEventDone: (eventId) =>

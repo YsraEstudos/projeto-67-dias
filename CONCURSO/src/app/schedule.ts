@@ -253,6 +253,10 @@ const findNextManualPlanIndex = (plans: DayPlan[], fromIndex: number): number =>
       && (plan.manualBlocks?.length ?? 0) > 0,
   );
 
+const hasManualPlanSubject = (plan: DayPlan, subject: SubjectKey): boolean =>
+  plan.subjects.includes(subject)
+  || (plan.manualBlocks ?? []).some((candidate) => inferManualBlockSubject(candidate) === subject);
+
 const findNextCompatibleManualPlanIndex = (
   plans: DayPlan[],
   fromIndex: number,
@@ -263,18 +267,20 @@ const findNextCompatibleManualPlanIndex = (
     return findNextManualPlanIndex(plans, fromIndex);
   }
 
-  const compatibleIndex = plans.findIndex(
-    (plan, index) =>
-      index > fromIndex
-      && plan.planMode === 'manual'
-      && !plan.isRestDay
-      && (
-        plan.subjects.includes(subject)
-        || (plan.manualBlocks ?? []).some((candidate) => inferManualBlockSubject(candidate) === subject)
-      ),
-  );
+  let checkedManualDays = 0;
+  for (let index = fromIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
+    const plan = plans[index];
+    if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
+      continue;
+    }
 
-  return compatibleIndex >= 0 ? compatibleIndex : findNextManualPlanIndex(plans, fromIndex);
+    checkedManualDays += 1;
+    if (!hasManualPlanSubject(plan, subject)) {
+      return index;
+    }
+  }
+
+  return findNextManualPlanIndex(plans, fromIndex);
 };
 
 const insertBlockWithCascade = (

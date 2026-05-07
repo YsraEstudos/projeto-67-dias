@@ -90,6 +90,27 @@ describe('snapshot storage', () => {
     expect(normalized.ankiStats.dailyLogs).toEqual({});
   });
 
+  it('normaliza progresso de calendario legado sem questionsDone', () => {
+    const state = createInitialState();
+    const legacyLike = {
+      ...state,
+      calendarEventProgress: {
+        '2026-04-27-manual-test': {
+          status: 'done',
+          updatedAt: '2026-04-27T10:00:00.000Z',
+        },
+      },
+    } as unknown as ReturnType<typeof createInitialState>;
+
+    const normalized = normalizeStateForCurrentPlan(legacyLike);
+
+    expect(normalized.calendarEventProgress['2026-04-27-manual-test']).toEqual({
+      status: 'done',
+      updatedAt: '2026-04-27T10:00:00.000Z',
+      questionsDone: 0,
+    });
+  });
+
   it('marca evento do calendario como feito e atualiza materia vinculada', () => {
     const state = createInitialState();
     const topicId = TOPICS.find((topic) => topic.isLeaf)?.id;
@@ -109,6 +130,30 @@ describe('snapshot storage', () => {
     expect(updated.calendarEventProgress['2026-04-27-test'].status).toBe('done');
     expect(updated.topicProgress[topicId].status).toBe('acertado');
     expect(updated.topicSubmattersByTopic[topicId][0].lastReviewedAt).toBe('2026-04-27');
+  });
+
+  it('marca evento do calendario como feito com quantidade de questoes', () => {
+    const state = createInitialState();
+    const topicId = TOPICS.find((topic) => topic.isLeaf)?.id;
+    expect(topicId).toBeDefined();
+    if (!topicId) {
+      return;
+    }
+
+    const updated = appReducer(state, {
+      type: 'complete-calendar-event',
+      eventId: '2026-04-27-test',
+      topicIds: [topicId],
+      reviewedAt: '2026-04-27',
+      at: '2026-04-27T10:00:00.000Z',
+      questionsDone: 17,
+    });
+
+    expect(updated.calendarEventProgress['2026-04-27-test']).toEqual({
+      status: 'done',
+      updatedAt: '2026-04-27T10:00:00.000Z',
+      questionsDone: 17,
+    });
   });
 
   it('registra falha de bloco manual e permite desfazer realocacao', () => {

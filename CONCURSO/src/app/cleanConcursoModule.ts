@@ -52,6 +52,20 @@ export interface CleanPlanContentItem {
   topicIds: string[];
 }
 
+export interface CleanPendingStudyDecision {
+  id: string;
+  eventId: string;
+  date: string;
+  title: string;
+  detail: string;
+  subject: SubjectKey | null;
+  subjectLabel: string;
+  questionGoal: number;
+  failureDate: string | null;
+  block: ManualBlock;
+  topicIds: string[];
+}
+
 const REVIEW_INTERVALS_BY_GRADE: Record<TopicGrade, number[]> = {
   A: [30, 60, 90],
   B: [15, 30, 60],
@@ -102,6 +116,8 @@ const groupReviewsByDate = (
     if (!topic) return;
 
     submatters.forEach((submatter) => {
+      if (!submatter.lastReviewedAt) return;
+
       buildReviewSchedule(submatter, referenceDate).forEach((item) => {
         const current = reviewsByDate.get(item.date) ?? [];
         current.push({ topic, submatter });
@@ -156,6 +172,76 @@ export const findNextSubjectPlanDate = (
 
   return nextPlan?.date ?? null;
 };
+
+const hasManualPlanSubject = (plan: DayPlan, subject: SubjectKey): boolean =>
+  plan.subjects.includes(subject)
+  || (plan.manualBlocks ?? []).some((candidate) => inferManualBlockSubject(candidate) === subject);
+
+export const findNextFailurePlanDate = (
+  plans: DayPlan[],
+  currentDate: string,
+  block: ManualBlock,
+): string | null => {
+  const currentIndex = plans.findIndex((plan) => plan.date === currentDate);
+  if (currentIndex < 0) return null;
+
+  const subject = inferManualBlockSubject(block);
+  if (subject) {
+    let checkedManualDays = 0;
+    for (let index = currentIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
+        continue;
+      }
+
+      checkedManualDays += 1;
+      if (!hasManualPlanSubject(plan, subject)) {
+        return plan.date;
+      }
+    }
+  }
+
+  const nextPlan = plans.find(
+    (plan, index) =>
+      index > currentIndex
+      && plan.planMode === 'manual'
+      && !plan.isRestDay
+      && (plan.manualBlocks?.length ?? 0) > 0,
+  );
+  return nextPlan?.date ?? null;
+};
+
+export const buildPendingStudyDecisions = (
+  plans: DayPlan[],
+  calendarEventProgress: AppState['calendarEventProgress'],
+  today: string,
+  defaultQuestionGoals: Record<SubjectKey, number>,
+): CleanPendingStudyDecision[] =>
+  plans
+    .filter((plan) => plan.date < today && plan.planMode === 'manual' && !plan.isRestDay)
+    .flatMap((plan) =>
+      (plan.manualBlocks ?? []).filter(isStudyPlanBlock).flatMap((block) => {
+        const eventId = `${plan.date}-${block.id}`;
+        if ((calendarEventProgress[eventId]?.status ?? 'pending') !== 'pending') {
+          return [];
+        }
+
+        const subject = inferManualBlockSubject(block);
+        return [{
+          id: eventId,
+          eventId,
+          date: plan.date,
+          title: block.title,
+          detail: block.detail,
+          subject,
+          subjectLabel: getManualBlockSubjectLabel(block),
+          questionGoal: subject ? defaultQuestionGoals[subject] : plan.targets.objectiveQuestions,
+          failureDate: findNextFailurePlanDate(plans, plan.date, block),
+          block,
+          topicIds: getBlockTopicIds(block),
+        }];
+      }),
+    );
 
 export const buildCleanCalendarEvents = (
   plans: DayPlan[],

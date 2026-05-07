@@ -84,9 +84,15 @@ const normalizeCalendarEventProgress = (
       return accumulator;
     }
 
+    const rawQuestionsDone = (item as { questionsDone?: unknown }).questionsDone;
+    const questionsDone = Number.isFinite(rawQuestionsDone)
+      ? Math.max(0, Math.round(Number(rawQuestionsDone)))
+      : 0;
+
     accumulator[eventId] = {
       status: item.status,
       updatedAt: item.updatedAt,
+      questionsDone,
     };
     return accumulator;
   }, {});
