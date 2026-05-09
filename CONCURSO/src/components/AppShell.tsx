@@ -1,14 +1,10 @@
-import { ArrowLeft, Menu } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { END_DATE, NAV_ITEMS } from '../app/constants';
 import { MAIN_SITE_URL } from '../app/mainSite';
 import { useAppContext } from '../app/AppContext';
 import { prefetchConcursoRoutePath } from '../app/routeChunks';
-import { getChecklistProgressPercent } from '../app/progress';
-import { ProgressBar } from './ProgressBar';
-import { formatIsoDateCompactPtBr, subjectLabel, workActivityLabel } from '../app/formatters';
-import { buildManualPlanSummary } from '../app/manualPlanContentRefs';
 import { FloatingBottomNav } from './Navigation/FloatingBottomNav';
 import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
@@ -28,10 +24,7 @@ const RouteLoadingFallback = () => (
 );
 
 export const AppShell = () => {
-  const { state, dayPlansByDate, setSelectedDate } = useAppContext();
-  const record = state.dailyRecords[state.selectedDate];
-  const dayPlan = dayPlansByDate[state.selectedDate];
-  const dayProgress = record ? getChecklistProgressPercent(record.checklist) : 0;
+  const { state, setSelectedDate } = useAppContext();
   const shellRef = useRef<HTMLElement | null>(null);
   const [isTouchMode, setIsTouchMode] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.matchMedia
@@ -49,14 +42,6 @@ export const AppShell = () => {
   const [isReaderMode, setIsReaderMode] = useState(false);
   const [contentOffset, setContentOffset] = useState(34);
   const location = useLocation();
-  const manualSummary = dayPlan?.manualBlocks ? buildManualPlanSummary(dayPlan.manualBlocks) : '';
-  const shellToggleAriaLabel = isCompactViewport
-    ? isShellOpen
-      ? 'Fechar menu lateral'
-      : 'Abrir menu lateral'
-    : isShellOpen
-      ? 'Fechar menu superior'
-      : 'Abrir menu superior';
   const isIslandVisible = isShellOpen || isHovered;
   const shellState = isReaderMode
     ? isIslandVisible
@@ -74,10 +59,6 @@ export const AppShell = () => {
   const warmMainSite = useCallback(() => {
     void warmMainSiteEntryPoint();
   }, []);
-
-  const toggleShell = () => {
-    setIsShellOpen((current) => !current);
-  };
 
   const handleMouseEnter = () => {
     if (isCompactViewport || isTouchMode) return;
