@@ -28,7 +28,8 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
     const hasSubHabits = habit.subHabits.length > 0;
     const isFullyCompleted = log.completed;
     const isNegativeHabit = habit.isNegative;
-    const isTimeHabit = habit.goalType !== 'BOOLEAN' && habit.goalType !== undefined;
+    const isTimeHabit = habit.goalType === 'MAX_TIME' || habit.goalType === 'MIN_TIME';
+    const isCounterHabit = habit.goalType === 'COUNTER';
 
     // Calculate Progress Logic
     const { currentValue, target, progressPercent, isOverLimit } = useMemo(() => {
@@ -37,7 +38,7 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
         let pct = 0;
         let over = false;
 
-        if (isTimeHabit) {
+        if (isTimeHabit || isCounterHabit) {
             if (habit.frequency === 'WEEKLY') {
                 // Calculate Weekly Total
                 const currentDay = selectedDate.getDay(); // 0-6
@@ -97,6 +98,16 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
             }
         }
 
+        if (isCounterHabit) {
+            const isMet = target > 0 && currentValue >= target;
+            return {
+                card: isMet ? 'bg-slate-800 border-indigo-500/40' : 'bg-slate-800 border-slate-700 hover:border-indigo-500/30',
+                button: 'text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 hover:text-indigo-300',
+                title: isMet ? 'text-indigo-400' : 'text-white',
+                badge: isMet ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' : 'bg-slate-700 text-slate-400'
+            };
+        }
+
         if (isNegativeHabit) {
             if (isFullyCompleted) {
                 // Falhou - marcou o hábito negativo
@@ -139,7 +150,7 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
             <div className="flex items-start justify-between gap-4 relative z-10">
                 <div className="flex-1">
                     <div className="flex items-start gap-3 mb-2">
-                        {!isTimeHabit && (
+                        {!isTimeHabit && !isCounterHabit && (
                             <button
                                 onClick={() => onToggle(habit.id)}
                                 className={`rounded-full p-1 transition-all mt-1 ${colors.button}`}
@@ -162,7 +173,13 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                                     </span>
                                 )}
 
-                                {!isTimeHabit && isNegativeHabit && (
+                                {isCounterHabit && (
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border tracking-wider uppercase ${colors.badge}`}>
+                                        DIÁRIO | {currentValue} {target > 0 ? `/ ${target} ` : ''}VEZES
+                                    </span>
+                                )}
+
+                                {!isTimeHabit && !isCounterHabit && isNegativeHabit && (
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded border tracking-wider uppercase ${colors.badge}`}>
                                         {isFullyCompleted ? '🚫 FALHOU' : '✓ RESISTINDO'}
                                     </span>
@@ -170,7 +187,7 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                             </div>
 
                             <div className="flex items-center gap-2 mt-1">
-                                {isNegativeHabit && !isTimeHabit && (
+                                {isNegativeHabit && !isTimeHabit && !isCounterHabit && (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded border tracking-wider uppercase bg-red-500/10 text-red-400 border-red-500/20 flex items-center gap-1">
                                         <Ban size={10} /> EVITAR
                                     </span>
@@ -180,8 +197,8 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                                 </span>
                             </div>
 
-                            {/* PROGRESS BAR FOR TIME HABITS */}
-                            {isTimeHabit && (
+                            {/* PROGRESS BAR FOR TIME HABITS AND COUNTER HABITS */}
+                            {(isTimeHabit || (isCounterHabit && target > 0)) && (
                                 <div className="mt-3 bg-slate-900 rounded-full h-2.5 w-full overflow-hidden border border-slate-700/50 relative">
                                     <div
                                         className={`h-full rounded-full transition-all duration-500 ${habit.goalType === 'MAX_TIME'
@@ -228,6 +245,32 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                                             }
                                         }}
                                     />
+                                </div>
+                            )}
+
+                            {/* INPUT FOR COUNTER LOGGING */}
+                            {isCounterHabit && (
+                                <div className="mt-3 flex gap-2 items-center">
+                                    <button
+                                        onClick={(e) => {
+                                            // Disparar confete no clique
+                                            import('canvas-confetti').then((confetti) => {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                const x = (rect.left + rect.width / 2) / window.innerWidth;
+                                                const y = (rect.top + rect.height / 2) / window.innerHeight;
+                                                confetti.default({
+                                                    particleCount: 50,
+                                                    spread: 60,
+                                                    origin: { x, y },
+                                                    colors: ['#4f46e5', '#818cf8', '#c7d2fe']
+                                                });
+                                            });
+                                            onLogValue(habit.id, 1);
+                                        }}
+                                        className="px-6 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm text-white font-bold transition-all shadow-lg shadow-indigo-500/30 flex items-center gap-1 hover:scale-105 active:scale-95"
+                                    >
+                                        <Plus size={16} /> 1 Vez
+                                    </button>
                                 </div>
                             )}
                         </div>

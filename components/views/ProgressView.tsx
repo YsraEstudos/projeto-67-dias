@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
     Award, BookOpen, GraduationCap, Flame, CheckCircle2,
     Calendar, TrendingUp, BrainCircuit, LayoutGrid,
-    Clock, Activity, Trophy, Camera
+    Clock, Activity, Trophy, Camera, Swords
 } from 'lucide-react';
 // Zustand stores
 import { useHabitsStore } from '../../stores/habitsStore';
@@ -41,7 +41,12 @@ const MoodEvolutionChart = React.lazy(() => import('../progress/MoodEvolutionCha
 const FinalJourneySummaryComponent = React.lazy(() => import('../progress/FinalJourneySummary').then(module => ({ default: module.FinalJourneySummaryComponent })));
 const DecadeModeView = React.lazy(() => import('../progress/DecadeModeView').then(module => ({ default: module.DecadeModeView })));
 const SnapshotConfirmationModal = React.lazy(() => import('../progress/SnapshotConfirmationModal').then(module => ({ default: module.SnapshotConfirmationModal })));
+
 const HabitWeeklyChart = React.lazy(() => import('../progress/HabitWeeklyChart'));
+const CounterWeeklyChart = React.lazy(() => import('../progress/CounterWeeklyChart'));
+const ChampionshipView = React.lazy(() => import('../skills/ChampionshipView').then(m => ({ default: m.ChampionshipView })));
+const SkillChartModal = React.lazy(() => import('../progress/SkillChartModal').then(m => ({ default: m.SkillChartModal })));
+const PomodoroChartModal = React.lazy(() => import('../progress/PomodoroChartModal').then(m => ({ default: m.PomodoroChartModal })));
 
 // Loading Fallback
 const TabLoading = () => (
@@ -51,7 +56,7 @@ const TabLoading = () => (
     </div>
 );
 
-type TabType = 'overview' | 'weeks' | 'evolution' | 'decade' | 'final';
+type TabType = 'overview' | 'weeks' | 'evolution' | 'campeonato' | 'decade' | 'final';
 
 const ProgressView: React.FC = () => {
     // --- DATA AGGREGATION (Zustand Stores - Optimized Selectors) ---
@@ -61,6 +66,8 @@ const ProgressView: React.FC = () => {
     const books = useReadingStore((s) => s.books);
     const skills = useSkillsStore((s) => s.skills);
     const config = useConfigStore((s) => s.config);
+    // Add pomodoro store to fetch tasks
+    const pomodoroTasks = usePomodoroStore((s) => s.tasks);
     const games = useGamesStore((s) => s.games);
     const journalEntries = useJournalStore((s) => s.entries);
     const sites = useSitesStore((s) => s.sites);
@@ -79,6 +86,8 @@ const ProgressView: React.FC = () => {
     const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [pendingSnapshot, setPendingSnapshot] = useState<WeeklySnapshot | null>(null);
+    const [showSkillChart, setShowSkillChart] = useState(false);
+    const [showPomodoroChart, setShowPomodoroChart] = useState(false);
 
     const getWeeklyAuxMetrics = useCallback((weekNumber: number) => {
         const { startDate: weekStart, endDate: weekEnd } = getWeekDateRange(config.startDate, weekNumber);
@@ -154,6 +163,29 @@ const ProgressView: React.FC = () => {
         return { consistency, chartData };
     }, [habits]);
 
+    // 2.5. Counter Habits (Last 7 Days)
+    const counterHabitStats = useMemo(() => {
+        const chartData = [];
+        let hasCounterHabits = false;
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateKey = d.toISOString().split('T')[0];
+            const dayName = d.toLocaleDateString('pt-BR', { weekday: 'short' });
+
+            let dailyTotal = 0;
+            habits.forEach(h => {
+                if (!h.archived && h.goalType === 'COUNTER') {
+                    hasCounterHabits = true;
+                    dailyTotal += (h.history[dateKey]?.value || 0);
+                }
+            });
+            chartData.push({ name: dayName, count: dailyTotal });
+        }
+        return { chartData, hasCounterHabits };
+    }, [habits]);
+
     // 3. Books Stats
     const bookStats = useMemo(() => {
         const booksRead = books.filter(b => b.status === 'COMPLETED').length;
@@ -168,13 +200,11 @@ const ProgressView: React.FC = () => {
         return { totalHours };
     }, [skills]);
 
-    // 5. Tasks Stats
+    // 5. Tasks Stats (now pomodoros)
     const taskStats = useMemo(() => {
-        const completedTasks = tasks.filter(t => t.isCompleted).length;
-        const totalTasks = tasks.length;
-        const taskRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-        return { completedTasks, taskRate };
-    }, [tasks]);
+        const totalPomodoros = pomodoroTasks.reduce((acc, t) => acc + (t.completedPomodoros || 0), 0);
+        return { totalPomodoros };
+    }, [pomodoroTasks]);
 
     // Combined stats for easy access (reference will change if any internal stat changes, but calculations are cheap)
     const stats = useMemo(() => ({
@@ -287,10 +317,20 @@ const ProgressView: React.FC = () => {
     }, [reviewData.snapshots]);
 
     // --- TABS ---
+    const tabColorMap: Record<TabType, string> = {
+        overview: 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30',
+        weeks: 'bg-blue-500 text-white shadow-lg shadow-blue-500/30',
+        evolution: 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30',
+        campeonato: 'bg-purple-600 text-white shadow-lg shadow-purple-900/30',
+        decade: 'bg-amber-500 text-white shadow-lg shadow-amber-500/30',
+        final: 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30',
+    };
+
     const tabs: { id: TabType; label: string; icon: React.ReactNode; disabled?: boolean }[] = [
         { id: 'overview', label: 'Visão Geral', icon: <LayoutGrid size={16} /> },
         { id: 'weeks', label: 'Semanas', icon: <Clock size={16} /> },
         { id: 'evolution', label: 'Evolução', icon: <Activity size={16} /> },
+        { id: 'campeonato', label: 'Campeonato', icon: <Swords size={16} /> },
         { id: 'decade', label: '10 Anos', icon: <Calendar size={16} /> },
         { id: 'final', label: 'Resumo Final', icon: <Trophy size={16} />, disabled: !journeyComplete && reviewData.snapshots.length < 5 }
     ];
@@ -310,6 +350,19 @@ const ProgressView: React.FC = () => {
                 </React.Suspense>
             )}
 
+            {/* Chart Modals */}
+            <React.Suspense fallback={null}>
+                <SkillChartModal 
+                    isOpen={showSkillChart} 
+                    onClose={() => setShowSkillChart(false)} 
+                    skills={skills} 
+                />
+                <PomodoroChartModal 
+                    isOpen={showPomodoroChart} 
+                    onClose={() => setShowPomodoroChart(false)} 
+                />
+            </React.Suspense>
+
             {/* TABS */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
                 {tabs.map(tab => (
@@ -320,7 +373,7 @@ const ProgressView: React.FC = () => {
                         className={`
                             flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all
                             ${activeTab === tab.id
-                                ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
+                                ? tabColorMap[tab.id]
                                 : tab.disabled
                                     ? 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
                                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -426,7 +479,10 @@ const ProgressView: React.FC = () => {
                             <p className="text-xs text-slate-500">Livros finalizados</p>
                         </div>
 
-                        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg hover:border-emerald-500/30 transition-all group">
+                        <div 
+                            className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg hover:border-emerald-500/30 transition-all group cursor-pointer"
+                            onClick={() => setShowSkillChart(true)}
+                        >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                                     <GraduationCap size={24} />
@@ -437,15 +493,18 @@ const ProgressView: React.FC = () => {
                             <p className="text-xs text-slate-500">Horas de estudo focado</p>
                         </div>
 
-                        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg hover:border-blue-500/30 transition-all group">
+                        <div 
+                            className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg hover:border-blue-500/30 transition-all group cursor-pointer"
+                            onClick={() => setShowPomodoroChart(true)}
+                        >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                                    <CheckCircle2 size={24} />
+                                    <Clock size={24} />
                                 </div>
-                                <span className="text-2xl font-bold text-white">{stats.completedTasks}</span>
+                                <span className="text-2xl font-bold text-white">{stats.totalPomodoros}</span>
                             </div>
-                            <h3 className="text-slate-300 font-medium">Execução</h3>
-                            <p className="text-xs text-slate-500">Tarefas concluídas</p>
+                            <h3 className="text-slate-300 font-medium">Pomodoro</h3>
+                            <p className="text-xs text-slate-500">Pomodoros concluídos</p>
                         </div>
                     </div>
 
@@ -460,6 +519,12 @@ const ProgressView: React.FC = () => {
                             <React.Suspense fallback={<div className="h-[300px] bg-slate-800 rounded-2xl animate-pulse" />}>
                                 <HabitWeeklyChart chartData={stats.chartData} />
                             </React.Suspense>
+
+                            {counterHabitStats.hasCounterHabits && (
+                                <React.Suspense fallback={<div className="h-[300px] bg-slate-800 rounded-2xl animate-pulse" />}>
+                                    <CounterWeeklyChart chartData={counterHabitStats.chartData} />
+                                </React.Suspense>
+                            )}
                         </div>
 
                         <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-2xl border border-indigo-500/30 shadow-lg flex flex-col items-center justify-center text-center relative overflow-hidden">
@@ -568,6 +633,12 @@ const ProgressView: React.FC = () => {
                         </button>
                     )}
                 </div>
+            )}
+
+            {activeTab === 'campeonato' && (
+                <React.Suspense fallback={<TabLoading />}>
+                    <ChampionshipView />
+                </React.Suspense>
             )}
 
             {activeTab === 'evolution' && (

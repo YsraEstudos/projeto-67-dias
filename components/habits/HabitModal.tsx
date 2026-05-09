@@ -16,7 +16,7 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
     const [category, setCategory] = useState(habit?.category || 'Saúde');
 
     // Configurações de Meta
-    const [goalType, setGoalType] = useState<'BOOLEAN' | 'MAX_TIME' | 'MIN_TIME'>(habit?.goalType || 'BOOLEAN');
+    const [goalType, setGoalType] = useState<'BOOLEAN' | 'MAX_TIME' | 'MIN_TIME' | 'COUNTER'>(habit?.goalType || 'BOOLEAN');
     const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY'>(habit?.frequency || 'DAILY');
     const [targetValue, setTargetValue] = useState<number>(habit?.targetValue || 0);
 
@@ -188,6 +188,12 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
                                 >
                                     Meta Mínima
                                 </button>
+                                <button
+                                    onClick={() => setGoalType('COUNTER')}
+                                    className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${goalType === 'COUNTER' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                >
+                                    Contador
+                                </button>
                             </div>
 
                             {goalType !== 'BOOLEAN' && (
@@ -204,7 +210,9 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Meta (Minutos)</label>
+                                        <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">
+                                            {goalType === 'COUNTER' ? 'Meta (Repetições)' : 'Meta (Minutos)'}
+                                        </label>
                                         <input
                                             type="number"
                                             value={targetValue}

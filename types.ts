@@ -224,7 +224,7 @@ export interface Habit {
   category: string;
 
   // Configuração de meta
-  goalType?: 'BOOLEAN' | 'MAX_TIME' | 'MIN_TIME'; // Padrão: BOOLEAN
+  goalType?: 'BOOLEAN' | 'MAX_TIME' | 'MIN_TIME' | 'COUNTER'; // Padrão: BOOLEAN
   frequency?: 'DAILY' | 'WEEKLY';   // Padrão: DAILY
   targetValue?: number;             // Meta em minutos (se aplicável)
 

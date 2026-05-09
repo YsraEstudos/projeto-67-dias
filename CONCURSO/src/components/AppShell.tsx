@@ -246,24 +246,7 @@ export const AppShell = () => {
           data-shell-state={shellState}
         >
           <div className="mobile-brand-bar">
-            {!isCompactViewport ? (
-              <button
-                type="button"
-                className="shell-handle shell-handle-mobile"
-                data-testid="shell-handle"
-                aria-controls="main-nav"
-                aria-expanded={isShellOpen}
-                aria-label={shellToggleAriaLabel}
-                onClick={toggleShell}
-              >
-                <Menu size={18} />
-                <span>Menu</span>
-              </button>
-            ) : null}
-            <div>
-              <p className="kicker-label">Plano TRT 4</p>
-              <strong className="mobile-brand-title">Command center do edital</strong>
-            </div>
+
             <button
               type="button"
               className="button button-ghost"
@@ -290,24 +273,7 @@ export const AppShell = () => {
                 aria-label="Navegacao principal e Contexto"
                 aria-hidden={!isIslandVisible}
               >
-                <div className="dynamic-island-collapsed" aria-hidden={isHovered}>
-                  <div className="island-collapsed-kicker">
-                    <span>Plano TRT 4</span>
-                    <span className="island-collapsed-date">{formatIsoDateCompactPtBr(state.selectedDate)}</span>
-                  </div>
-                  <strong className="island-collapsed-title">
-                    {dayPlan?.isRestDay
-                      ? 'Domingo de descanso'
-                      : dayPlan?.planMode === 'manual'
-                        ? `Semana ${dayPlan.weekNumber ?? '-'} | ${manualSummary ?? 'Roteiro manual'}`
-                        : `${subjectLabel(dayPlan?.subjects[0] ?? 'portugues')} + ${subjectLabel(
-                            dayPlan?.subjects[1] ?? 'rlm',
-                          )} | ${workActivityLabel(dayPlan?.workActivity ?? 'programacao')}`}
-                  </strong>
-                  <div className="island-collapsed-progress">
-                    <ProgressBar value={dayProgress} compact />
-                  </div>
-                </div>
+
 
                 <nav className="desktop-nav-panel context-tray" aria-hidden={!isIslandVisible}>
                   <div className="desktop-nav-header">

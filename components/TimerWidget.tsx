@@ -26,21 +26,24 @@ export const TimerWidget: React.FC<TimerWidgetProps> = React.memo(({ onClick }) 
 
             const now = Date.now();
             let ms = 0;
+            const elapsed = (timer.status === 'RUNNING' && timer.startTime ? now - timer.startTime : 0) + timer.accumulated;
 
-            if (timer.status === 'PAUSED') {
-                ms = timer.accumulated;
-            } else if (timer.status === 'RUNNING') {
-                if (timer.mode === 'TIMER' && timer.endTime) {
-                    ms = Math.max(0, timer.endTime - now);
-                } else if (timer.mode === 'STOPWATCH' && timer.startTime) {
-                    ms = now - timer.startTime + timer.accumulated;
-                }
+            if (timer.mode === 'TIMER') {
+                ms = Math.max(0, timer.totalDuration * 1000 - elapsed);
+            } else {
+                ms = elapsed;
             }
 
             const totalSec = Math.floor(ms / 1000);
-            const m = Math.floor(totalSec / 60);
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
             const s = totalSec % 60;
-            setDisplay(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            
+            if (h > 0) {
+                setDisplay(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            } else {
+                setDisplay(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            }
         };
 
         update();
@@ -98,8 +101,8 @@ export const TimerWidget: React.FC<TimerWidgetProps> = React.memo(({ onClick }) 
                 {/* Pulsing ring effect when running */}
                 {isRunning && (
                     <>
-                        <span className="absolute inset-0 rounded-full bg-cyan-500/30 animate-ping" style={{ animationDuration: '2s' }} />
-                        <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 blur-md animate-pulse" />
+                        <span className="absolute inset-0 rounded-full bg-cyan-500/30 animate-ping pointer-events-none" style={{ animationDuration: '2s' }} />
+                        <span data-testid="pomodoro-pulse-ring" className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 blur-md animate-pulse pointer-events-none" />
                     </>
                 )}
 

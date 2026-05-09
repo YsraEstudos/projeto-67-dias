@@ -32,7 +32,13 @@ export const getReadingDailyProgressSnapshot = (
 
     books.forEach((book) => {
         const pagesReadToday = getReadingPagesReadForDate(book, dateKey);
-        const shouldCountBook = book.status === 'READING' || pagesReadToday > 0;
+        const hasExplicitDailyGoal = book.dailyGoal != null && book.dailyGoal > 0;
+
+        // A book counts towards the daily obligation if:
+        // 1. It has an explicit dailyGoal set (it's an active reading commitment), OR
+        // 2. Pages were actually read today (regardless of goal)
+        // Books with status 'READING' but no dailyGoal and no pages today do NOT dilute the average
+        const shouldCountBook = hasExplicitDailyGoal || pagesReadToday > 0;
 
         if (!shouldCountBook) return;
 

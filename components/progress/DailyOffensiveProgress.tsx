@@ -1,16 +1,21 @@
-import React, { useMemo } from 'react';
-import { BookOpen, GraduationCap, Flame, AlertCircle, Gamepad2, Target } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { BookOpen, GraduationCap, Flame, Gamepad2, Target, ChevronDown, X } from 'lucide-react';
 import { useReadingStore, useSkillsStore, useConfigStore, useGamesStore } from '../../stores';
 import { calculateDailyOffensiveAdvanced } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
+import { FocusSkill } from '../../types';
 
 export const DailyOffensiveProgress: React.FC = () => {
     const books = useReadingStore((s) => s.books);
     const skills = useSkillsStore((s) => s.skills);
     const { games } = useGamesStore();
     const config = useConfigStore((s) => s.config);
+    const setConfig = useConfigStore((s) => s.setConfig);
+
+    const [showFocusPicker, setShowFocusPicker] = useState(false);
 
     const offensiveConfig = config.offensiveGoals || DEFAULT_OFFENSIVE_GOALS;
+    const currentFocusSkills = offensiveConfig.focusSkills || [];
 
     const {
         weightedProgress,
@@ -22,6 +27,55 @@ export const DailyOffensiveProgress: React.FC = () => {
     } = useMemo(() => {
         return calculateDailyOffensiveAdvanced(books, skills, games, offensiveConfig);
     }, [books, skills, games, offensiveConfig]);
+
+    // Skills disponíveis para seleção de foco (apenas não-completadas com meta)
+    const availableSkills = useMemo(
+        () => skills.filter((s) => !s.isCompleted && s.goalMinutes > 0),
+        [skills],
+    );
+
+    const focusSkillIds = useMemo(
+        () => new Set(currentFocusSkills.map((f) => f.skillId)),
+        [currentFocusSkills],
+    );
+
+    const handleToggleFocusSkill = (skillId: string) => {
+        let nextFocus: FocusSkill[];
+
+        if (focusSkillIds.has(skillId)) {
+            nextFocus = currentFocusSkills.filter((f) => f.skillId !== skillId);
+        } else {
+            nextFocus = [...currentFocusSkills, { skillId, weight: 100 }];
+        }
+
+        // Redistribute weights equally
+        if (nextFocus.length > 0) {
+            const equalWeight = Math.round(100 / nextFocus.length);
+            nextFocus = nextFocus.map((f, idx) => ({
+                ...f,
+                weight: idx === nextFocus.length - 1
+                    ? 100 - equalWeight * (nextFocus.length - 1)
+                    : equalWeight,
+            }));
+        }
+
+        setConfig({
+            offensiveGoals: {
+                ...offensiveConfig,
+                focusSkills: nextFocus,
+            },
+        });
+    };
+
+    const handleClearFocus = () => {
+        setConfig({
+            offensiveGoals: {
+                ...offensiveConfig,
+                focusSkills: [],
+            },
+        });
+        setShowFocusPicker(false);
+    };
 
     // Calcular cores e mensagens baseadas no progresso
     const getProgressColor = (value: number) => {
@@ -87,10 +141,27 @@ export const DailyOffensiveProgress: React.FC = () => {
                                     <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
                                         Peso: {offensiveConfig.categoryWeights.skills}%
                                     </span>
+                                    {currentFocusSkills.length > 0 && (
+                                        <span className="text-[10px] text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                            {currentFocusSkills.length} em foco
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="text-right">
-                                    <span className="text-xs font-mono text-slate-300 mr-2">{skillProgress}%</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono text-slate-300">{skillProgress}%</span>
                                     <span className="text-[10px] text-emerald-500/70">+{categoryBreakdown.skills.contribution}% total</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowFocusPicker(!showFocusPicker)}
+                                        className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${
+                                            showFocusPicker
+                                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                                                : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600'
+                                        }`}
+                                    >
+                                        <ChevronDown size={10} className={`inline mr-0.5 transition-transform ${showFocusPicker ? 'rotate-180' : ''}`} />
+                                        Foco
+                                    </button>
                                 </div>
                             </div>
                             <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
@@ -99,6 +170,57 @@ export const DailyOffensiveProgress: React.FC = () => {
                                     style={{ width: `${Math.min(100, skillProgress)}%` }}
                                 />
                             </div>
+
+                            {/* Focus Skill Picker */}
+                            {showFocusPicker && (
+                                <div className="mt-3 p-3 bg-slate-900/80 rounded-xl border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                            Skills em foco (pesos iguais)
+                                        </span>
+                                        {currentFocusSkills.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearFocus}
+                                                className="text-[10px] text-slate-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
+                                            >
+                                                <X size={10} />
+                                                Limpar foco
+                                            </button>
+                                        )}
+                                    </div>
+                                    {availableSkills.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {availableSkills.map((skill) => {
+                                                const isFocused = focusSkillIds.has(skill.id);
+                                                return (
+                                                    <button
+                                                        key={skill.id}
+                                                        type="button"
+                                                        onClick={() => handleToggleFocusSkill(skill.id)}
+                                                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                                                            isFocused
+                                                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.15)]'
+                                                                : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-300 hover:border-slate-600'
+                                                        }`}
+                                                    >
+                                                        {isFocused ? '✓ ' : ''}{skill.name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-slate-500">
+                                            Nenhuma skill ativa com meta encontrada. Crie skills com meta de horas para focar.
+                                        </p>
+                                    )}
+                                    {currentFocusSkills.length === 0 && availableSkills.length > 0 && (
+                                        <p className="text-[10px] text-slate-500 mt-2">
+                                            Sem foco definido → todas as skills com meta ativa contam igualmente.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

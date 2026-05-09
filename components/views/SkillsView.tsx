@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { GraduationCap, Plus, Calendar, Trophy, Sparkles } from 'lucide-react';
+import { GraduationCap, Plus, Calendar, Sparkles } from 'lucide-react';
 import { Skill, Prompt, PromptCategory } from '../../types';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { usePromptsStore } from '../../stores/promptsStore';
@@ -13,7 +13,6 @@ import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
 import { calculateSkillProgress } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 import { WeeklyAgenda } from '../skills/agenda';
-import { ChampionshipView } from '../skills/ChampionshipView';
 import { DailyPlannerView } from '../skills/DailyPlannerView';
 
 const SkillsView: React.FC = () => {
@@ -35,7 +34,7 @@ const SkillsView: React.FC = () => {
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [dailyPlanSkill, setDailyPlanSkill] = useState<Skill | null>(null);
-  const [activeTab, setActiveTab] = useState<'skills' | 'agenda' | 'campeonato' | 'planner'>('skills');
+  const [activeTab, setActiveTab] = useState<'skills' | 'agenda' | 'planner'>('skills');
   const initializationRef = React.useRef(false);
 
   // Initialize with default skills if empty AND not yet initialized
@@ -173,16 +172,6 @@ const SkillsView: React.FC = () => {
           Agenda Semanal
         </button>
         <button
-          onClick={() => setActiveTab('campeonato')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'campeonato'
-            ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20'
-            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-        >
-          <Trophy size={18} />
-          Campeonato
-        </button>
-        <button
           onClick={() => setActiveTab('planner')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'planner'
             ? 'bg-amber-500 text-black shadow-lg shadow-amber-900/20'
@@ -209,8 +198,6 @@ const SkillsView: React.FC = () => {
       {/* Tab Content */}
       {activeTab === 'agenda' ? (
         <WeeklyAgenda />
-      ) : activeTab === 'campeonato' ? (
-        <ChampionshipView />
       ) : activeTab === 'planner' ? (
         <DailyPlannerView />
       ) : (
