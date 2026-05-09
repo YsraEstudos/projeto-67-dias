@@ -661,6 +661,27 @@
   padding: 16px;
 }
 
+.clean-review-grade {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+}
+
+.grade-text-a { color: #86efac; border-color: rgba(74, 222, 128, 0.3); background: rgba(22, 101, 52, 0.2); }
+.grade-text-b { color: #bae6fd; border-color: rgba(56, 189, 248, 0.3); background: rgba(12, 74, 110, 0.2); }
+.grade-text-c { color: #fef08a; border-color: rgba(250, 204, 21, 0.3); background: rgba(113, 63, 18, 0.2); }
+.grade-text-d { color: #fed7aa; border-color: rgba(251, 146, 60, 0.3); background: rgba(124, 45, 18, 0.2); }
+.grade-text-e { color: #fecaca; border-color: rgba(248, 113, 113, 0.3); background: rgba(127, 29, 29, 0.2); }
+
 .clean-review-item button {
   margin-top: 12px;
   color: #bbf7d0;

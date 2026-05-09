@@ -725,7 +725,7 @@ export const CleanConcursoPage = () => {
             <div className="clean-review-list">
               {pendingReviewQueue.slice(0, 7).map((item) => (
                 <article className="clean-review-item" key={item.submatterId}>
-                  <span>Nota {item.grade}</span>
+                  <span className={`clean-review-grade grade-text-${item.grade.toLowerCase()}`}>Nota {item.grade}</span>
                   <strong>{item.submatterTitle}</strong>
                   <p>{item.topicTitle}</p>
                   <button type="button" onClick={() => handleReviewTopic(item.topicId)}>
