@@ -672,10 +672,22 @@ export const CleanConcursoPage = () => {
               <div className="clean-task-list">
                 {selectedBlocks.map((block) => {
                   const nextDate = findNextFailurePlanDate(dayPlans, state.selectedDate, block);
+                  const blockReschedules = state.manualBlockReschedules.filter((r) => r.blockId === block.id);
+                  const lastReschedule = blockReschedules[blockReschedules.length - 1];
+                  const isRescheduledForToday = lastReschedule && state.selectedDate > lastReschedule.failedAt;
+
                   return (
-                    <article className="clean-task-card" key={block.id}>
+                    <article className={isRescheduledForToday ? 'clean-task-card is-rescheduled' : 'clean-task-card'} key={block.id}>
                       <div>
-                        <span className="clean-task-area">{getManualBlockSubjectLabel(block)}</span>
+                        <div className="clean-task-area-row">
+                          <span className="clean-task-area">{getManualBlockSubjectLabel(block)}</span>
+                          {isRescheduledForToday && (
+                            <span className="clean-task-rescheduled-badge">
+                              <RotateCcw size={12} />
+                              Realocado de {formatIsoDateCompactPtBr(lastReschedule.failedAt)}
+                            </span>
+                          )}
+                        </div>
                         <h3>{block.title}</h3>
                         <p>{block.detail}</p>
                         {nextDate ? (

@@ -592,6 +592,34 @@
   padding: 18px;
 }
 
+.clean-task-card.is-rescheduled {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.12);
+}
+
+.clean-task-area-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.clean-task-rescheduled-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #fca5a5;
+  font-family: var(--font-label);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .clean-task-card h3,
 .clean-topic-row h3,
 .clean-review-item strong,
