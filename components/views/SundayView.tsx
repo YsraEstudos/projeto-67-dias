@@ -4,7 +4,8 @@ import { useShallow } from 'zustand/react/shallow';
 import {
     CalendarCheck, CheckSquare, Plus, Trash2,
     Archive, RotateCcw,
-    ChevronDown, ChevronRight, StickyNote
+    ChevronDown, ChevronRight, StickyNote,
+    Pencil, X, Check
 } from 'lucide-react';
 import { SundayTask } from '../../types';
 import { SundayTimer } from './SundayTimer';
@@ -28,6 +29,7 @@ const SundayView: React.FC = () => {
     const {
         tasks,
         addTask: storeAddTask,
+        updateTask: storeUpdateTask,
         archiveTask: storeArchiveTask,
         restoreTask,
         deleteTask: storeDeleteTask,
@@ -37,6 +39,7 @@ const SundayView: React.FC = () => {
     } = useSundayStore(useShallow((state) => ({
         tasks: state.tasks,
         addTask: state.addTask,
+        updateTask: state.updateTask,
         archiveTask: state.archiveTask,
         restoreTask: state.restoreTask,
         deleteTask: state.deleteTask,
@@ -70,6 +73,12 @@ const SundayView: React.FC = () => {
         storeAddTask(newTask);
         setNewTaskTitle('');
     }, [newTaskTitle, storeAddTask]);
+
+    const handleUpdateTaskTitle = useCallback((id: string, newTitle: string) => {
+        if (newTitle.trim()) {
+            storeUpdateTask(id, { title: newTitle.trim() });
+        }
+    }, [storeUpdateTask]);
 
     const handleArchiveTask = useCallback((id: string) => {
         storeArchiveTask(id);
@@ -189,6 +198,7 @@ const SundayView: React.FC = () => {
                                 task={task}
                                 onArchive={() => handleArchiveTask(task.id)}
                                 onDelete={() => handleDeleteTask(task.id)}
+                                onUpdateTitle={handleUpdateTaskTitle}
                                 onAddSubTask={handleAddSubTask}
                                 onToggleSubTask={handleToggleSubTask}
                                 onRemoveSubTask={handleRemoveSubTask}
@@ -237,14 +247,29 @@ interface SundayTaskCardProps {
     task: SundayTask;
     onArchive: () => void;
     onDelete: () => void;
+    onUpdateTitle: (id: string, title: string) => void;
     onAddSubTask: (id: string, title: string) => void;
     onToggleSubTask: (id: string, subId: string) => void;
     onRemoveSubTask: (id: string, subId: string) => void;
 }
 
-const SundayTaskCard: React.FC<SundayTaskCardProps> = React.memo(({ task, onArchive, onDelete, onAddSubTask, onToggleSubTask, onRemoveSubTask }) => {
+const SundayTaskCard: React.FC<SundayTaskCardProps> = React.memo(({ task, onArchive, onDelete, onUpdateTitle, onAddSubTask, onToggleSubTask, onRemoveSubTask }) => {
     const [expanded, setExpanded] = useState(task.subTasks.length > 0);
     const [subInput, setSubInput] = useState('');
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editTitle, setEditTitle] = useState(task.title);
+
+    const handleSaveTitle = useCallback(() => {
+        if (editTitle.trim() && editTitle !== task.title) {
+            onUpdateTitle(task.id, editTitle);
+        }
+        setIsEditingTitle(false);
+    }, [editTitle, task.title, task.id, onUpdateTitle]);
+
+    const handleCancelEdit = useCallback(() => {
+        setEditTitle(task.title);
+        setIsEditingTitle(false);
+    }, [task.title]);
 
     const handleAdd = useCallback(() => {
         if (subInput.trim()) {
@@ -266,8 +291,43 @@ const SundayTaskCard: React.FC<SundayTaskCardProps> = React.memo(({ task, onArch
                     {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
                 </button>
 
-                <div className="flex-1">
-                    <h3 className="text-lg font-medium text-slate-200">{task.title}</h3>
+                <div className="flex-1 group/title">
+                    {isEditingTitle ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                autoFocus
+                                value={editTitle}
+                                onChange={e => setEditTitle(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') handleSaveTitle();
+                                    if (e.key === 'Escape') handleCancelEdit();
+                                }}
+                                className="flex-1 bg-slate-900 border border-pink-500 rounded-md px-2 py-1 text-lg font-medium text-white outline-none"
+                            />
+                            <button onClick={handleSaveTitle} className="p-1.5 text-emerald-400 hover:bg-slate-700 rounded-md transition-colors" title="Salvar">
+                                <Check size={18} />
+                            </button>
+                            <button onClick={handleCancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-700 hover:text-red-400 rounded-md transition-colors" title="Cancelar">
+                                <X size={18} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <h3 
+                                onDoubleClick={() => setIsEditingTitle(true)}
+                                className="text-lg font-medium text-slate-200 cursor-text"
+                            >
+                                {task.title}
+                            </h3>
+                            <button 
+                                onClick={() => setIsEditingTitle(true)}
+                                className="opacity-0 group-hover/title:opacity-100 p-1.5 text-slate-500 hover:text-pink-400 hover:bg-slate-700 rounded-md transition-all focus:opacity-100"
+                                aria-label="Editar título"
+                            >
+                                <Pencil size={16} />
+                            </button>
+                        </div>
+                    )}
                     {task.subTasks.length > 0 && (
                         <div className="flex items-center gap-2 mt-1">
                             <div className="w-24 h-1.5 bg-slate-900 rounded-full overflow-hidden">
