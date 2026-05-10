@@ -116,6 +116,7 @@ export interface PomodoroStoreState {
   _syncRealtimeToFirestore: () => void;
   _hydrateFromFirestore: (data: Partial<PomodoroPersistentState> | null) => void;
   _reset: () => void;
+  resetWeekly: () => void;
 }
 
 const getPersistentState = (state: PomodoroStoreState): PomodoroPersistentState => ({
@@ -453,6 +454,11 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
         isLoading: true,
         _initialized: false,
       });
+    },
+
+    resetWeekly: () => {
+      set({ breakExerciseStats: {} });
+      get()._syncToFirestore();
     },
   };
 });

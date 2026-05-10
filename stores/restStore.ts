@@ -45,6 +45,11 @@ interface RestState {
     updateLink: (activityId: string, linkId: string, updates: Partial<RestActivityLink>) => void;
     deleteLink: (activityId: string, linkId: string) => void;
 
+
+    addLink: (activityId: string, link: RestActivityLink) => void;
+    updateLink: (activityId: string, linkId: string, updates: Partial<RestActivityLink>) => void;
+    deleteLink: (activityId: string, linkId: string) => void;
+
     setNextTwoHoursIds: (ids: string[]) => void;
     addToNextTwoHours: (id: string) => void;
     removeFromNextTwoHours: (id: string) => void;
@@ -54,6 +59,7 @@ interface RestState {
     _syncToFirestore: () => void;
     _hydrateFromFirestore: (data: { activities: RestActivity[]; nextTwoHoursIds: string[] } | null) => void;
     _reset: () => void;
+    resetWeekly: () => void;
 }
 
 export const useRestStore = create<RestState>()(immer((set, get) => ({
@@ -219,5 +225,24 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
             state.isLoading = true;
             state._initialized = false;
         });
+    },
+
+    resetWeekly: () => {
+        set((state) => {
+            state.activities.forEach(activity => {
+                if (activity.type === 'WEEKLY') {
+                    activity.isCompleted = false;
+                    activity.completedAt = undefined;
+                    activity.completedSets = 0;
+                    if (activity.series) {
+                        activity.series.forEach(s => {
+                            s.isCompleted = false;
+                            s.completedAt = undefined;
+                        });
+                    }
+                }
+            });
+        });
+        get()._syncToFirestore();
     }
 })));

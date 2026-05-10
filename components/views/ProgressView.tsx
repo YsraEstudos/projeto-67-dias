@@ -14,6 +14,8 @@ import { useGamesStore } from '../../stores/gamesStore';
 import { useJournalStore } from '../../stores/journalStore';
 import { useSitesStore } from '../../stores/sitesStore';
 import { useLinksStore } from '../../stores/linksStore';
+import { useRestStore } from '../../stores/restStore';
+import { usePomodoroStore } from '../../stores/pomodoroStore';
 import {
     Habit, Book, Skill, OrganizeTask, ProjectConfig,
     JourneyReviewData, WeeklySnapshot, ImprovementPoint
@@ -79,6 +81,10 @@ const ProgressView: React.FC = () => {
     const addSnapshotWithImprovements = useReviewStore((s) => s.addSnapshotWithImprovements);
     const toggleImprovementAddressed = useReviewStore((s) => s.toggleImprovementAddressed);
     const setFinalSummary = useReviewStore((s) => s.setFinalSummary);
+    
+    // Actions for weekly reset
+    const resetRestWeekly = useRestStore((s) => s.resetWeekly);
+    const resetPomodoroWeekly = usePomodoroStore((s) => s.resetWeekly);
 
 
     // UI State
@@ -266,20 +272,28 @@ const ProgressView: React.FC = () => {
         const confirmedSnapshot = { ...pendingSnapshot, status: 'CONFIRMED' as const };
         const newImprovements = detectImprovements([...reviewData.snapshots, confirmedSnapshot]);
         addSnapshotWithImprovements(confirmedSnapshot, newImprovements);
+        
+        // Reset weekly counters for the new week
+        resetRestWeekly();
+        resetPomodoroWeekly();
 
         setPendingSnapshot(null);
         setShowConfirmModal(false);
-    }, [pendingSnapshot, reviewData.snapshots, addSnapshotWithImprovements]);
+    }, [pendingSnapshot, reviewData.snapshots, addSnapshotWithImprovements, resetRestWeekly, resetPomodoroWeekly]);
 
     const handleSkipSnapshot = useCallback(() => {
         if (!pendingSnapshot) return;
 
         const skippedSnapshot = { ...pendingSnapshot, status: 'SKIPPED' as const };
         addSnapshot(skippedSnapshot);
+        
+        // Reset weekly counters even if snapshot is skipped (moving to new week)
+        resetRestWeekly();
+        resetPomodoroWeekly();
 
         setPendingSnapshot(null);
         setShowConfirmModal(false);
-    }, [pendingSnapshot, addSnapshot]);
+    }, [pendingSnapshot, addSnapshot, resetRestWeekly, resetPomodoroWeekly]);
 
     const handleEditArea = useCallback((area: 'habits' | 'skills' | 'reading' | 'tasks' | 'journal') => {
         // Navigate to the respective view for editing
