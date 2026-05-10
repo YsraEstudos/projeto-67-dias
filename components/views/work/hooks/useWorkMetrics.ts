@@ -50,14 +50,31 @@ export const useWorkMetrics = ({
     }, [ensureCurrentDay]);
 
     return useMemo(() => {
-        const startMins = getMinutesFromMidnight(startTime);
-        const endMins = getMinutesFromMidnight(endTime);
-        const breakStartMins = getMinutesFromMidnight(breakTime);
+        let startMins = getMinutesFromMidnight(startTime);
+        let endMins = getMinutesFromMidnight(endTime);
+        let breakStartMins = getMinutesFromMidnight(breakTime);
+        let currentMins = nowMinutes;
+
+        // Ajuste para turnos que atravessam a meia-noite
+        if (endMins <= startMins) {
+            endMins += 24 * 60; // Soma 24h
+        }
+        
+        // Ajusta o break se ele parecer estar na madrugada do turno
+        if (breakStartMins < startMins && (breakStartMins + 24 * 60) <= endMins) {
+            breakStartMins += 24 * 60;
+        }
+
+        // Ajusta o horário atual se estiver na madrugada do turno
+        if (currentMins < startMins && (currentMins + 24 * 60) <= endMins + 60) {
+            currentMins += 24 * 60;
+        }
+
         const breakEndMins = breakStartMins + BREAK_DURATION_MINUTES;
-        const currentMins = nowMinutes;
 
         // Total Work Duration (excluding 1h break)
-        const totalWorkDuration = (endMins - startMins) - BREAK_DURATION_MINUTES;
+        // Ensure it doesn't go below 1 to avoid division by zero or negative ratios
+        const totalWorkDuration = Math.max(1, (endMins - startMins) - BREAK_DURATION_MINUTES);
 
         // Status Determination
         let status: WorkStatus = 'PRE_BREAK';
@@ -81,9 +98,10 @@ export const useWorkMetrics = ({
         const progressPercent = Math.min(100, Math.round((currentCount / (goal || 1)) * 100));
 
         // Break Analysis (Performance before break)
-        const expectedPreBreakRatio = (breakStartMins - startMins) / (totalWorkDuration || 1);
+        const expectedPreBreakRatio = Math.max(0, Math.min(1, (breakStartMins - startMins) / totalWorkDuration));
         const expectedPreBreakCount = Math.round(goal * expectedPreBreakRatio);
         const breakDiff = preBreakCount - expectedPreBreakCount;
+        
         // Only show negative performance if we've already passed the break time
         // Before the break time, always show positive (user still has time to catch up)
         const breakPerformance = (status === 'PRE_BREAK' || breakDiff >= 0 ? 'positive' : 'negative') as 'positive' | 'negative';

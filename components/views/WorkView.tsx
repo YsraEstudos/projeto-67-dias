@@ -108,8 +108,11 @@ const WorkView: React.FC = () => {
   // UI State only (not persisted)
   const [isMetTargetModalOpen, setIsMetTargetModalOpen] = useState(false);
 
+  // Calculate daily quota from weekly goal to fix pacing bugs and UI progress tracking
+  const dailyGoal = useMemo(() => Math.max(1, Math.round(currentGoal / 7)), [currentGoal]);
+
   const stats = useWorkMetrics({
-    goal: currentGoal,
+    goal: dailyGoal,
     startTime: timeConfig.startTime,
     endTime: timeConfig.endTime,
     breakTime: timeConfig.breakTime,
@@ -165,7 +168,7 @@ const WorkView: React.FC = () => {
 
       <MainTracker
         currentCount={currentCount}
-        goal={currentGoal}
+        goal={dailyGoal}
         progressPercent={stats.progressPercent}
         onUpdate={setCurrentCount}
         status={stats.status}
