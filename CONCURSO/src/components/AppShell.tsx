@@ -1,15 +1,11 @@
 import { ArrowLeft } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { END_DATE, NAV_ITEMS } from '../app/constants';
+import { Outlet } from 'react-router-dom';
 import { MAIN_SITE_URL } from '../app/mainSite';
-import { useAppContext } from '../app/AppContext';
 import { prefetchConcursoRoutePath } from '../app/routeChunks';
 import { FloatingBottomNav } from './Navigation/FloatingBottomNav';
 import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
-const PRIMARY_NAV_PATHS = new Set(['/']);
-const primaryNavItems = NAV_ITEMS.filter((item) => PRIMARY_NAV_PATHS.has(item.to));
 const READER_EVENT_NAME = 'concurso-reader-mode';
 const ROUTE_PREFETCH_PATHS = ['/'] as const;
 
@@ -24,57 +20,19 @@ const RouteLoadingFallback = () => (
 );
 
 export const AppShell = () => {
-  const { state, setSelectedDate } = useAppContext();
   const shellRef = useRef<HTMLElement | null>(null);
-  const [isTouchMode, setIsTouchMode] = useState<boolean>(() =>
-    typeof window !== 'undefined' && window.matchMedia
-      ? window.matchMedia('(hover: none), (pointer: coarse)').matches
-      : false,
-  );
   const [isCompactViewport, setIsCompactViewport] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.matchMedia
       ? window.matchMedia('(max-width: 920px)').matches
       : false,
   );
-  const [isShellOpen, setIsShellOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const hoverTimeoutRef = useRef<number | null>(null);
   const [isReaderMode, setIsReaderMode] = useState(false);
   const [contentOffset, setContentOffset] = useState(34);
-  const location = useLocation();
-  const isIslandVisible = isShellOpen || isHovered;
-  const shellState = isReaderMode
-    ? isIslandVisible
-      ? 'reader-expanded'
-      : 'reader-collapsed'
-    : isIslandVisible
-      ? 'expanded'
-      : 'collapsed';
-
-  const closeShell = () => {
-    setIsShellOpen(false);
-    setIsHovered(false);
-  };
+  const shellState = isReaderMode ? 'reader-collapsed' : 'collapsed';
 
   const warmMainSite = useCallback(() => {
     void warmMainSiteEntryPoint();
   }, []);
-
-  const handleMouseEnter = () => {
-    if (isCompactViewport || isTouchMode) return;
-    if (hoverTimeoutRef.current) {
-      window.clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    setIsHovered(true);
-  };
-
-  const handleMouseLeave = () => {
-    if (isCompactViewport || isTouchMode) return;
-    hoverTimeoutRef.current = window.setTimeout(() => {
-      setIsHovered(false);
-    }, 400);
-  };
 
   useEffect(() => {
     const warmRoutes = () => {
@@ -90,23 +48,6 @@ export const AppShell = () => {
 
     const timer = window.setTimeout(warmRoutes, 1600);
     return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!window.matchMedia) {
-      return undefined;
-    }
-
-    const mediaQuery = window.matchMedia('(hover: none), (pointer: coarse)');
-    const applyMatches = (matches: boolean) => setIsTouchMode(matches);
-    applyMatches(mediaQuery.matches);
-
-    const listener = (event: MediaQueryListEvent) => applyMatches(event.matches);
-    mediaQuery.addEventListener?.('change', listener);
-
-    return () => {
-      mediaQuery.removeEventListener?.('change', listener);
-    };
   }, []);
 
   useEffect(() => {
@@ -137,38 +78,6 @@ export const AppShell = () => {
       window.removeEventListener(READER_EVENT_NAME, handleReaderMode as EventListener);
     };
   }, []);
-
-  useEffect(() => {
-    if (!isCompactViewport) {
-      return undefined;
-    }
-
-    const timer = window.setTimeout(() => {
-      setIsShellOpen(false);
-      setIsHovered(false);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [isCompactViewport, location.pathname]);
-
-  useEffect(() => {
-    if (!isShellOpen) {
-      return undefined;
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeShell();
-      }
-    };
-
-    window.addEventListener('keydown', handleEscape);
-    return () => {
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, [isShellOpen]);
 
   useLayoutEffect(() => {
     const shell = shellRef.current;
@@ -201,7 +110,7 @@ export const AppShell = () => {
       observer.disconnect();
       window.removeEventListener('resize', updateOffset);
     };
-  }, [shellState, isTouchMode]);
+  }, [shellState]);
 
   const contentStyle = {
     '--content-offset': `${contentOffset}px`,
@@ -209,16 +118,6 @@ export const AppShell = () => {
 
   return (
     <div className="shell">
-      {!isCompactViewport && isShellOpen ? (
-        <button
-          type="button"
-          className="shell-backdrop"
-          data-testid="desktop-shell-backdrop"
-          aria-label="Fechar menu superior"
-          onClick={closeShell}
-        />
-      ) : null}
-
       <div className="main-area">
         <header
           ref={shellRef}
@@ -239,74 +138,6 @@ export const AppShell = () => {
               <ArrowLeft size={16} />
             </button>
           </div>
-
-          {/* Desktop Shell menu has been removed in favor of hover island */}
-
-          <div
-            className={`island-wrapper ${isIslandVisible ? 'island-expanded' : 'island-collapsed'}`}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            {!isCompactViewport && (
-              <div
-                className="desktop-dynamic-island"
-                id="main-nav"
-                aria-label="Navegacao principal e Contexto"
-                aria-hidden={!isIslandVisible}
-              >
-
-
-                <nav className="desktop-nav-panel context-tray" aria-hidden={!isIslandVisible}>
-                  <div className="desktop-nav-header">
-                    <div className="island-date-picker">
-                      <label className="context-label" htmlFor="shell-date-input">Dia selecionado</label>
-                      <input
-                        id="shell-date-input"
-                        className="input"
-                        type="date"
-                        min={state.planSettings.startDate}
-                        max={END_DATE}
-                        value={state.selectedDate}
-                        onChange={(event) => setSelectedDate(event.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <ul className="desktop-nav-list">
-                    {primaryNavItems.map((item) => (
-                      <li key={item.to}>
-                        <NavLink
-                          to={item.to}
-                          data-testid="nav-novo-concurso"
-                          className={({ isActive }) =>
-                            isActive ? 'desktop-nav-link desktop-nav-link-active' : 'desktop-nav-link'
-                          }
-                          onClick={closeShell}
-                          onMouseEnter={() => {
-                            void prefetchConcursoRoutePath(item.to);
-                          }}
-                          onFocus={() => {
-                            void prefetchConcursoRoutePath(item.to);
-                          }}
-                        >
-                          {item.label}
-                        </NavLink>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="desktop-nav-footer">
-                    <div className="island-fixed-rhythm">
-                      <span className="context-label">Ritmo fixo</span>
-                      <strong className="context-main-value">Domingo descanso · 50 questões</strong>
-                    </div>
-                  </div>
-                </nav>
-              </div>
-            )}
-          </div>
-
-          {/* ContextBar removed, components merged into Dynamic Island */}
         </header>
 
         <main className={`content ${isCompactViewport ? 'content-mobile-spaced' : ''}`} style={contentStyle}>

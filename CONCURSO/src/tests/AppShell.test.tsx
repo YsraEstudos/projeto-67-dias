@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createStateWithTopics, renderConcursoApp } from './renderConcursoApp';
+import { renderConcursoApp } from './renderConcursoApp';
 import { warmMainSiteEntryPoint } from '../../../utils/mainSitePrefetch';
 
 const mockMatchMedia = ({ compact, coarse }: { compact: boolean; coarse: boolean }) => {
@@ -50,40 +50,22 @@ describe('AppShell', () => {
 
     const shell = screen.getByTestId('shell-chrome');
     expect(shell).toHaveAttribute('data-shell-state', 'collapsed');
-    expect(screen.getByText('Dia selecionado').closest('.context-tray')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByText('Dia selecionado')).not.toBeInTheDocument();
+    expect(document.querySelector('.desktop-dynamic-island')).not.toBeInTheDocument();
+    expect(document.querySelector('.context-tray')).not.toBeInTheDocument();
+    expect(document.getElementById('shell-date-input')).not.toBeInTheDocument();
     expect(screen.queryByTestId('desktop-shell-backdrop')).not.toBeInTheDocument();
   });
 
-  it('abre o menu desktop com apenas a entrada do novo modulo', async () => {
+  it('mantem o novo modulo sem renderizar o menu desktop removido', async () => {
     mockMatchMedia({ compact: false, coarse: false });
-    const user = userEvent.setup();
     renderConcursoApp('/');
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu superior' }));
-
-    const shell = screen.getByTestId('shell-chrome');
-    expect(shell).toHaveAttribute('data-shell-state', 'expanded');
-    expect(screen.getByRole('link', { name: 'Novo Concurso' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Plano Diário' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Conteúdo Pragmático' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Simulados e Redações' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Configurações' })).not.toBeInTheDocument();
-    expect(screen.getByTestId('desktop-shell-backdrop')).toBeInTheDocument();
-  });
-
-  it('mantem o novo modulo ao clicar na unica entrada do menu desktop', async () => {
-    mockMatchMedia({ compact: false, coarse: false });
-    const user = userEvent.setup();
-    renderConcursoApp('/');
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu superior' }));
-    await user.click(screen.getByRole('link', { name: 'Novo Concurso' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('clean-concurso-module')).toBeInTheDocument();
       expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
     });
+    expect(screen.queryByRole('link', { name: 'Novo Concurso' })).not.toBeInTheDocument();
   });
 
   it('aquece o retorno ao site principal quando o botao de voltar recebe hover', async () => {
@@ -93,70 +75,6 @@ describe('AppShell', () => {
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Voltar ao Projeto 67 Dias' }));
 
     expect(warmMainSiteEntryPoint).toHaveBeenCalled();
-  });
-
-  it('mostra o dia selecionado no shell sem deslocamento de fuso', () => {
-    mockMatchMedia({ compact: false, coarse: false });
-
-    const originalToLocaleDateString = Date.prototype.toLocaleDateString;
-    const toLocaleDateStringSpy = vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(
-      function (
-        this: Date,
-        locale?: Intl.LocalesArgument,
-        options?: Intl.DateTimeFormatOptions,
-      ): string {
-        if (locale === 'pt-BR' && options?.day === '2-digit' && options?.month === '2-digit') {
-          const isoDate = this.toISOString().slice(0, 10);
-
-          if (options.timeZone === 'UTC') {
-            return `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
-          }
-
-          const shifted = new Date(this.getTime() - 3 * 60 * 60 * 1000);
-          const day = String(shifted.getUTCDate()).padStart(2, '0');
-          const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-          return `${day}/${month}`;
-        }
-
-        return originalToLocaleDateString.call(this, locale as never, options as never);
-      },
-    );
-
-    const { container } = renderConcursoApp(
-      '/',
-      createStateWithTopics((draft) => {
-        draft.selectedDate = '2026-04-23';
-      }),
-    );
-
-    expect(container.querySelector('.island-collapsed-date')).toHaveTextContent('23/04');
-    expect(toLocaleDateStringSpy).toHaveBeenCalled();
-  });
-
-  it('fecha o menu desktop com escape', async () => {
-    mockMatchMedia({ compact: false, coarse: false });
-    const user = userEvent.setup();
-    renderConcursoApp('/');
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu superior' }));
-    fireEvent.keyDown(window, { key: 'Escape' });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
-    });
-  });
-
-  it('fecha o menu desktop ao clicar no backdrop', async () => {
-    mockMatchMedia({ compact: false, coarse: false });
-    const user = userEvent.setup();
-    renderConcursoApp('/');
-
-    await user.click(screen.getByRole('button', { name: 'Abrir menu superior' }));
-    await user.click(screen.getByTestId('desktop-shell-backdrop'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('shell-chrome')).toHaveAttribute('data-shell-state', 'collapsed');
-    });
   });
 
   it('entra em modo reader quando recebe o sinal da tela de aula', async () => {
@@ -173,7 +91,7 @@ describe('AppShell', () => {
     });
   });
 
-it('exibe a barra inferior de navegacao no mobile e oculta o menu superior/hamburguer', async () => {
+  it('exibe a barra inferior de navegacao no mobile e oculta o menu superior/hamburguer', async () => {
     mockMatchMedia({ compact: true, coarse: true });
     renderConcursoApp('/');
 
