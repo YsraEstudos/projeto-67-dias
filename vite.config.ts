@@ -80,7 +80,7 @@ export default defineConfig(({ mode, command }) => {
       react(),
       // PWA requer HTTPS válido (produção) ou localhost (dev)
       VitePWA({
-        injectRegister: 'script',
+        injectRegister: 'auto',
         registerType: 'prompt',
         devOptions: {
           enabled: enableDevPwa, // Evita conflitos do SW com a subrota /concurso/ durante o desenvolvimento local
