@@ -1,6 +1,6 @@
 import React, { useState, useMemo, Suspense, useCallback } from 'react';
 import {
-   Globe, Search, Plus, X, Sparkles, FolderPlus, MoreVertical, Trash2, Edit2, ChevronRight, Home
+   Globe, Search, Plus, X, Sparkles, FolderPlus, MoreVertical, Trash2, Edit2, ChevronRight, Home, MessageSquare
 } from 'lucide-react';
 import SiteCard from '../links/SiteCard';
 import { LinkItem, SiteCategory, Site } from '../../types';
@@ -14,6 +14,7 @@ const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
 const LinkModal = React.lazy(() => import('../links/LinkModal'));
 const SiteModal = React.lazy(() => import('../links/SiteModal'));
 const SiteCategoryModal = React.lazy(() => import('../links/SiteCategoryModal'));
+const ConversasTab = React.lazy(() => import('../conversas/ConversasTab'));
 
 const formatUrl = (url: string) => {
    if (!url) return '';
@@ -38,7 +39,7 @@ const LinksView: React.FC = () => {
    const { addSite, updateSite, deleteSite, reorderSites } = useSiteActions();
    const folders = useSiteFolders();
 
-   const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts'>('links');
+   const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts' | 'conversas'>('links');
    const [activeTab, setActiveTab] = useState('personal');
    const [searchQuery, setSearchQuery] = useState('');
 
@@ -324,7 +325,7 @@ const LinksView: React.FC = () => {
          </div>
 
          {/* MAIN TABS */}
-         <div className="flex bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700 mb-8 w-full max-w-md">
+         <div className="flex bg-slate-800/50 p-1.5 rounded-2xl border border-slate-700 mb-8 w-full max-w-2xl">
             <button
                onClick={() => setActiveMainTab('links')}
                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeMainTab === 'links' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
@@ -337,12 +338,22 @@ const LinksView: React.FC = () => {
             >
                <Sparkles size={18} /> Meus Prompts
             </button>
+            <button
+               onClick={() => setActiveMainTab('conversas')}
+               className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeMainTab === 'conversas' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
+               <MessageSquare size={18} /> Conversas
+            </button>
          </div>
 
          {/* CONTENT */}
          {activeMainTab === 'prompts' ? (
             <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full"></div></div>}>
                <PromptsTab />
+            </Suspense>
+         ) : activeMainTab === 'conversas' ? (
+            <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full"></div></div>}>
+               <ConversasTab />
             </Suspense>
          ) : (
             <>
