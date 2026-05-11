@@ -81,7 +81,7 @@ export default defineConfig(({ mode, command }) => {
       // PWA requer HTTPS válido (produção) ou localhost (dev)
       VitePWA({
         injectRegister: 'script',
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         devOptions: {
           enabled: enableDevPwa, // Evita conflitos do SW com a subrota /concurso/ durante o desenvolvimento local
         },
@@ -118,8 +118,6 @@ export default defineConfig(({ mode, command }) => {
           ]
         },
         workbox: {
-          clientsClaim: true,
-          skipWaiting: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           globIgnores: ['concurso/**/*'],
           navigateFallback: '/index.html',

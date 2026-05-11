@@ -15,6 +15,8 @@ const ShellLoading = () => (
   </div>
 );
 
+import { ReloadPrompt } from './components/shared/ReloadPrompt';
+
 const App = () => {
   const {
     user,
@@ -77,6 +79,7 @@ const App = () => {
           error={authError}
           clearError={clearError}
         />
+        <ReloadPrompt />
       </Suspense>
     );
   }
@@ -84,6 +87,7 @@ const App = () => {
   return (
     <Suspense fallback={<ShellLoading />}>
       <WorkspaceApp user={user} onLogout={logout} />
+      <ReloadPrompt />
     </Suspense>
   );
 };
