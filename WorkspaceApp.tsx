@@ -341,7 +341,23 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
     }
   }, [isDataReady]);
 
+  // --- AUTOMATIC SUNDAY RESET ---
+  useEffect(() => {
+    if (isDataReady) {
+      const today = new Date();
+      if (today.getDay() === 0) { // Sunday
+        const todayDateStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+        const lastReset = useConfigStore.getState().config.lastSundayResetDate;
 
+        if (lastReset !== todayDateStr) {
+          console.log('[App] Performing automatic Sunday reset...');
+          useRestStore.getState().resetWeekly();
+          usePomodoroStore.getState().resetWeekly();
+          useConfigStore.getState().setConfig({ lastSundayResetDate: todayDateStr });
+        }
+      }
+    }
+  }, [isDataReady]);
 
   // Calculate current day and days until start
   const currentDay = useMemo(() => calculateCurrentDay(config.startDate), [config.startDate]);

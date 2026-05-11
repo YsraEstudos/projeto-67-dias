@@ -66,6 +66,7 @@ const sanitizeConfig = (updates: Partial<ProjectConfig>, base: ProjectConfig): P
         restartCount: Math.max(0, updates.restartCount ?? base.restartCount),
         offensiveGoals: sanitizeOffensive(updates.offensiveGoals ?? base.offensiveGoals),
         theme,
+        lastSundayResetDate: updates.lastSundayResetDate ?? base.lastSundayResetDate,
     };
 };
 
@@ -77,6 +78,7 @@ const DEFAULT_CONFIG: ProjectConfig = {
     restartCount: 0,
     offensiveGoals: DEFAULT_OFFENSIVE_GOALS,
     theme: 'default',
+    lastSundayResetDate: undefined,
 };
 
 interface ConfigState {

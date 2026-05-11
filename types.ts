@@ -42,6 +42,7 @@ export interface ProjectConfig {
   restartCount?: number; // Quantas vezes o plano foi reiniciado sem concluir
   offensiveGoals?: OffensiveGoalsConfig;
   theme?: AppTheme;  // Tema da aplicação
+  lastSundayResetDate?: string; // Data do último reset automático de domingo (YYYY-MM-DD)
 }
 
 // Skill com peso individual para ofensiva
