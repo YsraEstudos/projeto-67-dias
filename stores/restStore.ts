@@ -37,8 +37,8 @@ interface RestState {
     addActivities: (activities: RestActivity[]) => void;
     updateActivity: (id: string, updates: Partial<RestActivity>) => void;
     deleteActivity: (id: string) => void;
-    toggleActivityComplete: (id: string) => void;
-    toggleActivitySeries: (activityId: string, seriesId: string) => void;
+    toggleActivityComplete: (id: string, dateStr?: string) => void;
+    toggleActivitySeries: (activityId: string, seriesId: string, dateStr?: string) => void;
     reorderActivities: (activities: RestActivity[]) => void;
 
     addLink: (activityId: string, link: RestActivityLink) => void;
@@ -107,22 +107,74 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
         get()._syncToFirestore();
     },
 
-    toggleActivityComplete: (id) => {
+    toggleActivityComplete: (id, dateStr) => {
         set((state) => {
             const index = state.activities.findIndex(a => a.id === id);
             if (index === -1) return;
 
-            state.activities[index] = toggleRestActivityQuickComplete(state.activities[index]);
+            const activity = state.activities[index];
+            if (!dateStr || activity.type === 'ONCE') {
+                state.activities[index] = toggleRestActivityQuickComplete(activity);
+                return;
+            }
+
+            const todayStr = dateStr;
+            const isCurrentlyCompleted = activity.history?.[todayStr] ?? activity.isCompleted;
+            const nextCompleted = !isCurrentlyCompleted;
+
+            if (!activity.history) activity.history = {};
+            activity.history[todayStr] = nextCompleted;
+
+            if (activity.series?.length) {
+                if (!activity.seriesHistory) activity.seriesHistory = {};
+                if (!activity.seriesHistory[todayStr]) activity.seriesHistory[todayStr] = {};
+                
+                const todayHistory = activity.seriesHistory[todayStr];
+                
+                const nextPending = activity.series.find(s => !(todayHistory[s.id] ?? s.isCompleted));
+                if (nextPending) {
+                    todayHistory[nextPending.id] = true;
+                } else {
+                    const lastCompleted = [...activity.series]
+                        .sort((l, r) => r.order - l.order)
+                        .find(s => (todayHistory[s.id] ?? s.isCompleted));
+                    if (lastCompleted) {
+                        todayHistory[lastCompleted.id] = false;
+                    }
+                }
+                
+                const allCompleted = activity.series.every(s => todayHistory[s.id] ?? s.isCompleted);
+                activity.history[todayStr] = allCompleted;
+            }
         });
         get()._syncToFirestore();
     },
 
-    toggleActivitySeries: (activityId, seriesId) => {
+    toggleActivitySeries: (activityId, seriesId, dateStr) => {
         set((state) => {
             const index = state.activities.findIndex((activity) => activity.id === activityId);
             if (index === -1) return;
 
-            state.activities[index] = toggleRestActivitySeries(state.activities[index], seriesId);
+            const activity = state.activities[index];
+            if (!dateStr || activity.type === 'ONCE') {
+                state.activities[index] = toggleRestActivitySeries(activity, seriesId);
+                return;
+            }
+
+            if (!activity.seriesHistory) activity.seriesHistory = {};
+            if (!activity.seriesHistory[dateStr]) activity.seriesHistory[dateStr] = {};
+
+            const series = activity.series?.find(s => s.id === seriesId);
+            if (!series) return;
+
+            const isCurrentlyCompleted = activity.seriesHistory[dateStr][seriesId] ?? series.isCompleted;
+            activity.seriesHistory[dateStr][seriesId] = !isCurrentlyCompleted;
+
+            if (activity.series) {
+                 const allCompleted = activity.series.every(s => activity.seriesHistory![dateStr][s.id] ?? s.isCompleted);
+                 if (!activity.history) activity.history = {};
+                 activity.history[dateStr] = allCompleted;
+            }
         });
         get()._syncToFirestore();
     },

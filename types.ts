@@ -176,6 +176,8 @@ export interface RestActivity {
   order: number;
   notes?: string;  // Comentários/notas da atividade
   links?: RestActivityLink[];  // Links associados à atividade
+  history?: Record<string, boolean>; // date -> isCompleted
+  seriesHistory?: Record<string, Record<string, boolean>>; // date -> seriesId -> isCompleted
 }
 
 export interface OrganizeTask {

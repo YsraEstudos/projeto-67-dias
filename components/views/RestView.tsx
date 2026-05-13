@@ -45,25 +45,59 @@ const RestView: React.FC = () => {
                 if (act.type === 'ONCE') return act.specificDate === dateString;
                 return false;
             })
+            .map(act => {
+                if (act.type === 'ONCE') return act;
+
+                // For DAILY and WEEKLY, inject date-specific completion state
+                const isCompletedForDate = act.history?.[dateString] ?? act.isCompleted;
+                
+                let series = act.series;
+                let completedSets = act.completedSets;
+                
+                if (series && series.length > 0) {
+                    const todaySeriesHistory = act.seriesHistory?.[dateString] || {};
+                    series = series.map(s => {
+                        const isSeriesCompleted = todaySeriesHistory[s.id] ?? s.isCompleted;
+                        return { ...s, isCompleted: isSeriesCompleted };
+                    });
+                    completedSets = series.filter(s => s.isCompleted).length;
+                }
+
+                return {
+                    ...act,
+                    isCompleted: isCompletedForDate,
+                    series,
+                    completedSets
+                };
+            })
             .sort((a, b) => a.order - b.order);
     }, [activities, selectedDate]);
 
     const nextTwoHoursActivities = useMemo(() => {
+        const dateString = selectedDate.toISOString().split('T')[0];
         return nextTwoHoursIds
-            .map(id => activities.find(a => a.id === id))
+            .map(id => {
+                const act = activities.find(a => a.id === id);
+                if (!act) return null;
+                if (act.type === 'ONCE') return act;
+                const isCompletedForDate = act.history?.[dateString] ?? act.isCompleted;
+                return { ...act, isCompleted: isCompletedForDate };
+            })
             .filter(Boolean) as RestActivity[];
-    }, [activities, nextTwoHoursIds]);
+    }, [activities, nextTwoHoursIds, selectedDate]);
 
     // --- HANDLERS (Memoized) ---
 
 
     const toggleComplete = useCallback((id: string) => {
-        toggleActivityComplete(id);
-    }, [toggleActivityComplete]);
+        const dateString = selectedDate.toISOString().split('T')[0];
+        toggleActivityComplete(id, dateString);
+    }, [toggleActivityComplete, selectedDate]);
 
     const toggleSeries = useCallback((activityId: string, seriesId: string) => {
-        toggleActivitySeries(activityId, seriesId);
-    }, [toggleActivitySeries]);
+        const dateString = selectedDate.toISOString().split('T')[0];
+        toggleActivitySeries(activityId, seriesId, dateString);
+    }, [toggleActivitySeries, selectedDate]);
 
     const deleteActivity = useCallback((id: string) => {
         removeActivity(id);
