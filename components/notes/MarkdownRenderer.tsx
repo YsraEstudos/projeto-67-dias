@@ -38,7 +38,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
             </h4>
         ),
         p: ({ children }: any) => (
-            <p className="text-slate-300 leading-relaxed mb-3 last:mb-0">
+            <p className="text-slate-300 leading-relaxed mb-3 last:mb-0 whitespace-pre-line wrap-anywhere">
                 {children}
             </p>
         ),
@@ -63,7 +63,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
             </ol>
         ),
         li: ({ children }: any) => (
-            <li className="text-slate-300 leading-relaxed">
+            <li className="text-slate-300 leading-relaxed wrap-anywhere">
                 {children}
             </li>
         ),
@@ -71,7 +71,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
             const isInline = !codeClassName;
             if (isInline) {
                 return (
-                    <code className="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm font-mono">
+                    <code className="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm font-mono wrap-anywhere">
                         {children}
                     </code>
                 );
@@ -157,7 +157,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
     }), []);
 
     return (
-        <div className={`markdown-content ${compact ? 'markdown-compact' : ''} ${className}`}>
+        <div className={`markdown-content min-w-0 max-w-full ${compact ? 'markdown-compact' : ''} ${className}`}>
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={components}

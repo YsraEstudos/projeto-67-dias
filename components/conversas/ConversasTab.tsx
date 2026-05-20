@@ -197,7 +197,7 @@ const ConversasTab: React.FC = () => {
          <div className="animate-in fade-in zoom-in-95 duration-300">
             <section className="min-h-[calc(100vh-220px)] max-w-5xl mx-auto bg-slate-950/90 border border-slate-800 rounded-2xl shadow-2xl shadow-black/30 overflow-hidden flex flex-col">
                <header className="p-5 sm:p-6 border-b border-slate-800 bg-slate-900/70 flex flex-col gap-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                      <div className="min-w-0">
                         <button
                            onClick={closeViewer}
@@ -212,7 +212,7 @@ const ConversasTab: React.FC = () => {
                            Atualizado em {formatDate(viewingConversation.updatedAt)}
                         </p>
                      </div>
-                     <div className="flex items-center gap-2 shrink-0">
+                     <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end">
                         <button
                            onClick={() => deleteConversation(viewingConversation.id)}
                            className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl transition-colors"
