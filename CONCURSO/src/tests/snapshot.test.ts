@@ -132,6 +132,46 @@ describe('snapshot storage', () => {
     expect(updated.topicSubmattersByTopic[topicId][0].lastReviewedAt).toBe('2026-04-27');
   });
 
+  it('desmarcar evento feito restaura progresso anterior da materia vinculada', () => {
+    const state = createInitialState();
+    const topicId = TOPICS.find((topic) => topic.isLeaf)?.id;
+    expect(topicId).toBeDefined();
+    if (!topicId) {
+      return;
+    }
+
+    state.topicProgress[topicId] = {
+      ...state.topicProgress[topicId],
+      status: 'em_progresso',
+      updatedAt: '2026-04-20T09:00:00.000Z',
+    };
+    state.topicSubmattersByTopic[topicId][0] = {
+      ...state.topicSubmattersByTopic[topicId][0],
+      grade: 'B',
+      lastReviewedAt: '2026-04-20',
+      actionNote: 'Estado anterior',
+      updatedAt: '2026-04-20T09:00:00.000Z',
+    };
+
+    const completed = appReducer(state, {
+      type: 'complete-calendar-event',
+      eventId: '2026-04-27-test',
+      topicIds: [topicId],
+      reviewedAt: '2026-04-27',
+      at: '2026-04-27T10:00:00.000Z',
+    });
+    const undone = appReducer(completed, {
+      type: 'unset-calendar-event-done',
+      eventId: '2026-04-27-test',
+      topicIds: [topicId],
+      at: '2026-04-27T11:00:00.000Z',
+    });
+
+    expect(undone.calendarEventProgress['2026-04-27-test'].status).toBe('pending');
+    expect(undone.topicProgress[topicId].status).toBe('em_progresso');
+    expect(undone.topicSubmattersByTopic[topicId][0]).toEqual(state.topicSubmattersByTopic[topicId][0]);
+  });
+
   it('marca evento do calendario como feito com quantidade de questoes', () => {
     const state = createInitialState();
     const topicId = TOPICS.find((topic) => topic.isLeaf)?.id;
@@ -149,10 +189,39 @@ describe('snapshot storage', () => {
       questionsDone: 17,
     });
 
-    expect(updated.calendarEventProgress['2026-04-27-test']).toEqual({
+    expect(updated.calendarEventProgress['2026-04-27-test']).toEqual(expect.objectContaining({
       status: 'done',
       updatedAt: '2026-04-27T10:00:00.000Z',
       questionsDone: 17,
+      isComplete: true,
+    }));
+    expect(updated.calendarEventProgress['2026-04-27-test'].previousProgress).toHaveLength(1);
+  });
+
+  it('salva rascunho de sessao ativa no progresso global do calendario', () => {
+    const state = createInitialState();
+
+    const updated = appReducer(state, {
+      type: 'save-calendar-event-draft',
+      eventId: '2026-04-27-test',
+      at: '2026-04-27T09:30:00.000Z',
+      draft: {
+        questionGoal: 80,
+        questionsDone: 23,
+        hasCards: true,
+        hasClasses: false,
+        isComplete: false,
+      },
+    });
+
+    expect(updated.calendarEventProgress['2026-04-27-test']).toEqual({
+      status: 'pending',
+      updatedAt: '2026-04-27T09:30:00.000Z',
+      questionGoal: 80,
+      questionsDone: 23,
+      hasCards: true,
+      hasClasses: false,
+      isComplete: false,
     });
   });
 
@@ -184,6 +253,8 @@ describe('snapshot storage', () => {
     });
 
     expect(failed.calendarEventProgress['2026-04-27-manual-test'].status).toBe('failed');
+    expect(failed.topicProgress[manualBlock.contentTargets[0].topicId].status).toBe('pendente');
+    expect(failed.topicSubmattersByTopic[manualBlock.contentTargets[0].topicId][0].grade).toBe('E');
     expect(failed.manualBlockReschedules).toContainEqual(
       expect.objectContaining({
         failedAt: date,
@@ -200,6 +271,9 @@ describe('snapshot storage', () => {
     });
 
     expect(undone.calendarEventProgress['2026-04-27-manual-test'].status).toBe('pending');
+    expect(undone.topicProgress[manualBlock.contentTargets[0].topicId].status).toBe('nao_iniciado');
+    expect(undone.topicSubmattersByTopic[manualBlock.contentTargets[0].topicId][0].grade).toBe('E');
+    expect(undone.topicSubmattersByTopic[manualBlock.contentTargets[0].topicId][0].actionNote).toBe('');
     expect(undone.manualBlockReschedules).not.toContainEqual(
       expect.objectContaining({ failedAt: date, blockId: 'manual-test' }),
     );
@@ -251,7 +325,25 @@ describe('snapshot storage', () => {
     expect(updated.selectedDate).toBe('2026-04-23');
     expect(updated.dailyRecords['2026-04-23']).toBeDefined();
     expect(updated.dailyRecords['2026-04-17']).toBeDefined();
-    expect(updated.dailyRecords['2026-03-14']).toBeUndefined();
+    expect(updated.dailyRecords['2026-03-14']).toBeDefined();
+
+    todaySpy.mockRestore();
+  });
+
+  it('preserva notas e checklists antigos ao mudar a data de inicio do plano', () => {
+    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-04-23');
+    const state = createInitialState();
+    state.dailyRecords['2026-03-14'] = {
+      ...state.dailyRecords['2026-03-14'],
+      notes: 'Historico que nao pode sumir.',
+    };
+
+    const updated = appReducer(state, {
+      type: 'set-plan-start-date',
+      startDate: '2026-04-15',
+    });
+
+    expect(updated.dailyRecords['2026-03-14']?.notes).toBe('Historico que nao pode sumir.');
 
     todaySpy.mockRestore();
   });

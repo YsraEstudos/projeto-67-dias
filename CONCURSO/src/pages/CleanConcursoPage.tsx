@@ -46,11 +46,13 @@ type ModuleView = 'dia' | 'conteudo' | 'calendario' | 'configuracoes';
 type ContentFilter = 'all' | 'review' | TopicGrade;
 type StudySession = {
   id: string;
+  eventId: string;
   title: string;
   detail: string;
   subject: string;
   subjectKey: SubjectKey | null;
   topicId: string;
+  topicIds: string[];
 };
 
 type StudyProgressDraft = {
@@ -133,6 +135,24 @@ const createInitialStudyProgress = (questionGoal = 30): StudyProgressDraft => ({
   isComplete: false,
 });
 
+const createStudyProgressFromEventProgress = (
+  progress: {
+    questionGoal?: number;
+    questionsDone?: number;
+    hasCards?: boolean;
+    hasClasses?: boolean;
+    isComplete?: boolean;
+    status?: string;
+  } | undefined,
+  questionGoal = 30,
+): StudyProgressDraft => ({
+  questionGoal: progress?.questionGoal ?? questionGoal,
+  questionsDone: progress?.questionsDone ?? 0,
+  hasCards: progress?.hasCards ?? false,
+  hasClasses: progress?.hasClasses ?? false,
+  isComplete: progress?.isComplete ?? progress?.status === 'done',
+});
+
 const clampStudyNumber = (value: number): number => {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
@@ -201,6 +221,7 @@ export const CleanConcursoPage = () => {
     completeCalendarEvent,
     failCalendarManualBlock,
     markTopicSubmatterReviewedToday,
+    saveCalendarEventDraft,
     setCalendarEventStatus,
     setDailyNote,
     undoCalendarManualBlockFailure,
@@ -263,8 +284,11 @@ export const CleanConcursoPage = () => {
     [dayPlans, state.calendarEventProgress, state.manualBlockReschedules, state.topicSubmattersByTopic, topics],
   );
   const mappedTopic = useMemo(
-    () => leafTopics.find((topic) => topic.id === mappedTopicId) ?? leafTopics[0] ?? null,
-    [leafTopics, mappedTopicId],
+    () =>
+      leafTopics.find((topic) => topic.id === mappedTopicId)
+      ?? leafTopics.find((topic) => subjectFilter === 'all' || topic.subject === subjectFilter)
+      ?? null,
+    [leafTopics, mappedTopicId, subjectFilter],
   );
   const mappedSubmatters = mappedTopic ? state.topicSubmattersByTopic[mappedTopic.id] ?? [] : [];
   const calendarEventsByDate = useMemo(
@@ -285,8 +309,13 @@ export const CleanConcursoPage = () => {
   const selectedCalendarNote = state.dailyRecords[selectedCalendarDate]?.notes ?? '';
   const selectedDoneEvents = selectedCalendarEvents.filter((event) => event.status === 'done').length;
   const selectedFailedEvents = selectedCalendarEvents.filter((event) => event.status === 'failed').length;
+  const defaultQuestionGoals = state.planSettings.defaultQuestionGoals;
   const activeStudyProgress = activeStudySession
-    ? studyProgressBySession[activeStudySession.id] ?? createInitialStudyProgress()
+    ? studyProgressBySession[activeStudySession.id]
+      ?? createStudyProgressFromEventProgress(
+        state.calendarEventProgress[activeStudySession.eventId],
+        activeStudySession.subjectKey ? defaultQuestionGoals[activeStudySession.subjectKey] : 30,
+      )
     : createInitialStudyProgress();
   const questionProgress =
     activeStudyProgress.questionGoal > 0
@@ -295,7 +324,6 @@ export const CleanConcursoPage = () => {
   const planStartDate = state.planSettings.startDate;
   const planEndDate = dayPlans.at(-1)?.date ?? END_DATE;
   const remainingPlanDays = dayPlans.filter((plan) => plan.date >= today).length;
-  const defaultQuestionGoals = state.planSettings.defaultQuestionGoals;
   const activeDefaultQuestionGoal = activeStudySession?.subjectKey
     ? defaultQuestionGoals[activeStudySession.subjectKey]
     : 30;
@@ -366,6 +394,12 @@ export const CleanConcursoPage = () => {
     completeCalendarEvent(decision.eventId, decision.topicIds, questionsDone);
   };
 
+  const handleCompleteCalendarEvent = (event: (typeof calendarEvents)[number]): void => {
+    const progress = state.calendarEventProgress[event.id];
+    const questionsDone = pendingQuestionsByEventId[event.id] ?? progress?.questionsDone ?? 0;
+    completeCalendarEvent(event.id, event.topicIds, questionsDone);
+  };
+
   const handleReviewTopic = (topicId: string): void => {
     const [firstSubmatter] = state.topicSubmattersByTopic[topicId] ?? [];
     if (firstSubmatter) {
@@ -375,12 +409,19 @@ export const CleanConcursoPage = () => {
 
   const updateActiveStudyProgress = (draft: Partial<StudyProgressDraft>): void => {
     if (!activeStudySession) return;
+    const nextDraft = {
+      ...activeStudyProgress,
+      ...draft,
+    };
+    saveCalendarEventDraft(activeStudySession.eventId, nextDraft);
+    if (nextDraft.isComplete) {
+      completeCalendarEvent(activeStudySession.eventId, activeStudySession.topicIds, nextDraft.questionsDone);
+    } else if (state.calendarEventProgress[activeStudySession.eventId]?.status === 'done') {
+      unsetCalendarEventDone(activeStudySession.eventId, activeStudySession.topicIds);
+    }
     setStudyProgressBySession((current) => ({
       ...current,
-      [activeStudySession.id]: {
-        ...(current[activeStudySession.id] ?? createInitialStudyProgress()),
-        ...draft,
-      },
+      [activeStudySession.id]: nextDraft,
     }));
   };
 
@@ -389,7 +430,8 @@ export const CleanConcursoPage = () => {
     setActiveStudySession(session);
     setStudyProgressBySession((current) => ({
       ...current,
-      [session.id]: current[session.id] ?? createInitialStudyProgress(
+      [session.id]: current[session.id] ?? createStudyProgressFromEventProgress(
+        state.calendarEventProgress[session.eventId],
         session.subjectKey ? defaultQuestionGoals[session.subjectKey] : activeDefaultQuestionGoal,
       ),
     }));
@@ -556,7 +598,7 @@ export const CleanConcursoPage = () => {
         <article className="clean-stat-card">
           <Target size={18} />
           <span>Matérias mapeadas</span>
-          <strong>{dashboardStats.totalPlanItems}</strong>
+          <strong>{dashboardStats.totalTopics}</strong>
         </article>
         <article className="clean-stat-card">
           <RotateCcw size={18} />
@@ -702,11 +744,13 @@ export const CleanConcursoPage = () => {
                             onClick={() =>
                               handleStartStudySession({
                                 id: `day-${state.selectedDate}-${block.id}`,
+                                eventId: `${state.selectedDate}-${block.id}`,
                                 title: block.title,
                                 detail: block.detail,
                                 subject: getManualBlockSubjectLabel(block),
                                 subjectKey: inferManualBlockSubject(block),
                                 topicId: block.contentTargets?.[0]?.topicId ?? '',
+                                topicIds: (block.contentTargets ?? []).map((target) => target.topicId),
                               })
                             }
                           >
@@ -830,11 +874,13 @@ export const CleanConcursoPage = () => {
                           onClick={() =>
                             handleStartStudySession({
                               id: `content-${item.id}`,
+                              eventId: `${item.date}-${item.block.id}`,
                               title: item.block.title,
                               detail: item.block.detail,
                               subject: getManualBlockSubjectLabel(item.block),
                               subjectKey: item.subject,
                               topicId: firstTopicId,
+                              topicIds: item.topicIds,
                             })
                           }
                         >
@@ -1033,9 +1079,25 @@ export const CleanConcursoPage = () => {
                           <ChevronDown size={15} />
                           Gerenciar
                         </button>
+                        <label className="clean-calendar-questions">
+                          <span>Questões</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={
+                              pendingQuestionsByEventId[event.id]
+                              ?? state.calendarEventProgress[event.id]?.questionsDone
+                              ?? 0
+                            }
+                            onChange={(inputEvent) =>
+                              handlePendingQuestionsChange(event.id, inputEvent.target.valueAsNumber)
+                            }
+                            aria-label={`Questões feitas em ${event.title}`}
+                          />
+                        </label>
                         <button
                           type="button"
-                          onClick={() => completeCalendarEvent(event.id, event.topicIds)}
+                          onClick={() => handleCompleteCalendarEvent(event)}
                           disabled={event.status === 'done'}
                         >
                           <CheckCircle2 size={15} />
@@ -1043,7 +1105,7 @@ export const CleanConcursoPage = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => unsetCalendarEventDone(event.id)}
+                          onClick={() => unsetCalendarEventDone(event.id, event.topicIds)}
                           disabled={event.status !== 'done'}
                         >
                           <RotateCcw size={15} />

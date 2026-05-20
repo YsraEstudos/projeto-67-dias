@@ -29,7 +29,7 @@ vi.mock('../WorkspaceApp', () => ({
             <div data-testid="workspace-app">
                 <h1>Projeto 67 Dias</h1>
                 <p>{user.name}</p>
-                <p>versão 1.7.7</p>
+                <p>versão 1.7.8</p>
                 <section>
                     <div>Trabalho</div>
                     <div>Leitura</div>
@@ -252,7 +252,7 @@ describe('App Component', () => {
         await waitForApp(() => {
             expect(screen.getByText('Projeto 67 Dias')).toBeInTheDocument();
             expect(screen.getByText('Test User')).toBeInTheDocument();
-            expect(screen.getByText('versão 1.7.7')).toBeInTheDocument();
+            expect(screen.getByText('versão 1.7.8')).toBeInTheDocument();
         });
     });
 

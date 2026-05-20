@@ -19,7 +19,9 @@ import type {
   ExamWritingMonthlyTarget,
   ManualBlockReschedule,
   SubjectKey,
+  TopicGrade,
   TopicProgress,
+  TopicProgressSnapshot,
 } from './types';
 import { TOPIC_SECTIONS } from '../data/topicSeeds';
 import { normalizeProject } from './projects';
@@ -68,6 +70,53 @@ const normalizeDailyLogs = (
 const isCalendarEventStatus = (value: unknown): value is CalendarEventProgress['status'] =>
   value === 'pending' || value === 'done' || value === 'failed';
 
+const isTopicGrade = (value: unknown): value is TopicGrade =>
+  value === 'A' || value === 'B' || value === 'C' || value === 'D' || value === 'E';
+
+const normalizeTopicProgressSnapshot = (snapshot: unknown): TopicProgressSnapshot | null => {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return null;
+  }
+
+  const input = snapshot as Partial<TopicProgressSnapshot>;
+  if (typeof input.topicId !== 'string') {
+    return null;
+  }
+
+  const topicProgress = input.topicProgress && typeof input.topicProgress === 'object'
+    ? {
+        status: input.topicProgress.status,
+        evidenceNote: typeof input.topicProgress.evidenceNote === 'string' ? input.topicProgress.evidenceNote : '',
+        updatedAt: typeof input.topicProgress.updatedAt === 'string' ? input.topicProgress.updatedAt : null,
+      }
+    : undefined;
+
+  if (topicProgress && !['nao_iniciado', 'pendente', 'em_progresso', 'acertado'].includes(topicProgress.status)) {
+    return null;
+  }
+
+  const firstSubmatter = input.firstSubmatter && typeof input.firstSubmatter === 'object'
+    ? normalizeTopicSubmatter(input.firstSubmatter)
+    : undefined;
+
+  return {
+    topicId: input.topicId,
+    ...(topicProgress ? { topicProgress } : {}),
+    ...(firstSubmatter && isTopicGrade(firstSubmatter.grade) ? { firstSubmatter } : {}),
+  };
+};
+
+const normalizeTopicProgressSnapshots = (snapshots: unknown): TopicProgressSnapshot[] | undefined => {
+  if (!Array.isArray(snapshots)) {
+    return undefined;
+  }
+
+  const normalized = snapshots
+    .map((snapshot) => normalizeTopicProgressSnapshot(snapshot))
+    .filter((snapshot): snapshot is TopicProgressSnapshot => Boolean(snapshot));
+  return normalized.length > 0 ? normalized : undefined;
+};
+
 const normalizeCalendarEventProgress = (
   progress: AppState['calendarEventProgress'] | undefined,
 ): AppState['calendarEventProgress'] => {
@@ -93,6 +142,21 @@ const normalizeCalendarEventProgress = (
       status: item.status,
       updatedAt: item.updatedAt,
       questionsDone,
+      ...(Number.isFinite((item as { questionGoal?: unknown }).questionGoal)
+        ? { questionGoal: Math.max(0, Math.round(Number((item as { questionGoal?: unknown }).questionGoal))) }
+        : {}),
+      ...(typeof (item as { hasCards?: unknown }).hasCards === 'boolean'
+        ? { hasCards: Boolean((item as { hasCards?: unknown }).hasCards) }
+        : {}),
+      ...(typeof (item as { hasClasses?: unknown }).hasClasses === 'boolean'
+        ? { hasClasses: Boolean((item as { hasClasses?: unknown }).hasClasses) }
+        : {}),
+      ...(typeof (item as { isComplete?: unknown }).isComplete === 'boolean'
+        ? { isComplete: Boolean((item as { isComplete?: unknown }).isComplete) }
+        : {}),
+      ...(normalizeTopicProgressSnapshots((item as { previousProgress?: unknown }).previousProgress)
+        ? { previousProgress: normalizeTopicProgressSnapshots((item as { previousProgress?: unknown }).previousProgress) }
+        : {}),
     };
     return accumulator;
   }, {});
@@ -112,7 +176,12 @@ const normalizeManualBlockReschedules = (
       && typeof item.failedAt === 'string'
       && typeof item.blockId === 'string'
       && typeof item.createdAt === 'string',
-  );
+  ).map((item) => ({
+    ...item,
+    ...(normalizeTopicProgressSnapshots((item as { previousProgress?: unknown }).previousProgress)
+      ? { previousProgress: normalizeTopicProgressSnapshots((item as { previousProgress?: unknown }).previousProgress) }
+      : {}),
+  }));
 };
 
 export const DAY_PLANS = buildDayPlans();
@@ -277,7 +346,7 @@ const normalizeDailyRecords = (state: AppState, dayPlans: DayPlan[]): AppState['
     };
 
     return accumulator;
-  }, {});
+  }, { ...(state.dailyRecords ?? {}) });
 };
 
 export const createInitialState = (planStartDate: string = START_DATE): AppState => {

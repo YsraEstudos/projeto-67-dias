@@ -75,6 +75,7 @@ import type {
   TechnologyKey,
   TheoreticalContentItem,
   TheoreticalContentOwnerType,
+  TopicProgressSnapshot,
   TopicGrade,
   TopicSubmatter,
   TopicStatus,
@@ -99,6 +100,7 @@ const setCalendarEventProgress = (
   status: CalendarEventStatus,
   updatedAt: string,
   questionsDone?: number,
+  patch: Partial<AppState['calendarEventProgress'][string]> = {},
 ): AppState => ({
   ...state,
   calendarEventProgress: {
@@ -107,9 +109,102 @@ const setCalendarEventProgress = (
       status,
       updatedAt,
       ...(questionsDone !== undefined ? { questionsDone: Math.max(0, Math.round(questionsDone)) } : {}),
+      ...patch,
     },
   },
 });
+
+const saveCalendarEventDraft = (
+  state: AppState,
+  eventId: string,
+  updatedAt: string,
+  draft: {
+    questionGoal: number;
+    questionsDone: number;
+    hasCards: boolean;
+    hasClasses: boolean;
+    isComplete: boolean;
+  },
+): AppState => {
+  const current = state.calendarEventProgress[eventId];
+  return {
+    ...state,
+    calendarEventProgress: {
+      ...state.calendarEventProgress,
+      [eventId]: {
+        status: draft.isComplete ? 'done' : current?.status ?? 'pending',
+        updatedAt,
+        questionsDone: Math.max(0, Math.round(draft.questionsDone)),
+        questionGoal: Math.max(0, Math.round(draft.questionGoal)),
+        hasCards: draft.hasCards,
+        hasClasses: draft.hasClasses,
+        isComplete: draft.isComplete,
+        ...(current?.previousProgress ? { previousProgress: current.previousProgress } : {}),
+      },
+    },
+  };
+};
+
+const buildTopicProgressSnapshots = (state: AppState, topicIds: string[]): TopicProgressSnapshot[] =>
+  Array.from(new Set(topicIds)).map((topicId) => ({
+    topicId,
+    topicProgress: state.topicProgress[topicId] ? { ...state.topicProgress[topicId] } : undefined,
+    firstSubmatter: state.topicSubmattersByTopic[topicId]?.[0]
+      ? { ...state.topicSubmattersByTopic[topicId][0] }
+      : undefined,
+  }));
+
+const restoreTopicProgressSnapshots = (
+  state: AppState,
+  snapshots: TopicProgressSnapshot[],
+): AppState => {
+  const topicProgress = { ...state.topicProgress };
+  const topicSubmattersByTopic = { ...state.topicSubmattersByTopic };
+
+  snapshots.forEach((snapshot) => {
+    if (snapshot.topicProgress) {
+      topicProgress[snapshot.topicId] = { ...snapshot.topicProgress };
+    }
+
+    if (snapshot.firstSubmatter) {
+      const current = topicSubmattersByTopic[snapshot.topicId] ?? [];
+      const firstSubmatter = snapshot.firstSubmatter;
+      topicSubmattersByTopic[snapshot.topicId] = current.map((submatter, index) =>
+        index === 0 ? { ...firstSubmatter } : submatter,
+      );
+    }
+  });
+
+  return { ...state, topicProgress, topicSubmattersByTopic };
+};
+
+const resetCompletedTopicProgress = (
+  state: AppState,
+  topicIds: string[],
+  updatedAt: string,
+): AppState => {
+  const uniqueTopicIds = Array.from(new Set(topicIds));
+  const topicProgress = { ...state.topicProgress };
+  const topicSubmattersByTopic = { ...state.topicSubmattersByTopic };
+
+  uniqueTopicIds.forEach((topicId) => {
+    const progress = topicProgress[topicId];
+    if (progress?.status === 'acertado') {
+      topicProgress[topicId] = { ...progress, status: 'em_progresso', updatedAt };
+    }
+
+    const [firstSubmatter] = topicSubmattersByTopic[topicId] ?? [];
+    if (firstSubmatter?.lastReviewedAt) {
+      topicSubmattersByTopic[topicId] = (topicSubmattersByTopic[topicId] ?? []).map((submatter) =>
+        submatter.id === firstSubmatter.id
+          ? { ...submatter, lastReviewedAt: null, updatedAt }
+          : submatter,
+      );
+    }
+  });
+
+  return { ...state, topicProgress, topicSubmattersByTopic };
+};
 
 const markTopicsAsDone = (
   state: AppState,
@@ -182,6 +277,18 @@ type Action =
   | { type: 'fail-manual-block'; date: string; blockId: string; at: string }
   | { type: 'set-calendar-event-status'; eventId: string; status: CalendarEventStatus; at: string }
   | {
+      type: 'save-calendar-event-draft';
+      eventId: string;
+      at: string;
+      draft: {
+        questionGoal: number;
+        questionsDone: number;
+        hasCards: boolean;
+        hasClasses: boolean;
+        isComplete: boolean;
+      };
+    }
+  | {
       type: 'complete-calendar-event';
       eventId: string;
       topicIds: string[];
@@ -189,7 +296,7 @@ type Action =
       at: string;
       questionsDone?: number;
     }
-  | { type: 'unset-calendar-event-done'; eventId: string; at: string }
+  | { type: 'unset-calendar-event-done'; eventId: string; topicIds?: string[]; at: string }
   | { type: 'fail-calendar-manual-block'; date: string; block: ManualBlock; at: string }
   | { type: 'undo-calendar-manual-block-failure'; date: string; blockId: string; at: string }
   | { type: 'update-checklist-item'; date: string; itemId: string; done: number }
@@ -421,18 +528,43 @@ export const appReducer = (state: AppState, action: Action): AppState => {
     case 'set-calendar-event-status': {
       return markChanged(setCalendarEventProgress(state, action.eventId, action.status, action.at));
     }
+    case 'save-calendar-event-draft': {
+      return markChanged(saveCalendarEventDraft(state, action.eventId, action.at, action.draft));
+    }
     case 'complete-calendar-event': {
+      const currentProgress = state.calendarEventProgress[action.eventId];
+      const previousProgress = currentProgress?.previousProgress ?? buildTopicProgressSnapshots(state, action.topicIds);
       const nextState = setCalendarEventProgress(
         state,
         action.eventId,
         'done',
         action.at,
         action.questionsDone,
+        {
+          isComplete: true,
+          previousProgress,
+          ...(currentProgress?.questionGoal !== undefined ? { questionGoal: currentProgress.questionGoal } : {}),
+          ...(currentProgress?.hasCards !== undefined ? { hasCards: currentProgress.hasCards } : {}),
+          ...(currentProgress?.hasClasses !== undefined ? { hasClasses: currentProgress.hasClasses } : {}),
+        },
       );
       return markChanged(markTopicsAsDone(nextState, action.topicIds, action.reviewedAt, action.at));
     }
     case 'unset-calendar-event-done': {
-      return markChanged(setCalendarEventProgress(state, action.eventId, 'pending', action.at));
+      const currentProgress = state.calendarEventProgress[action.eventId];
+      const restoredState = currentProgress?.previousProgress
+        ? restoreTopicProgressSnapshots(state, currentProgress.previousProgress)
+        : resetCompletedTopicProgress(state, action.topicIds ?? [], action.at);
+
+      return markChanged(
+        setCalendarEventProgress(restoredState, action.eventId, 'pending', action.at, undefined, {
+          ...(currentProgress?.questionsDone !== undefined ? { questionsDone: currentProgress.questionsDone } : {}),
+          ...(currentProgress?.questionGoal !== undefined ? { questionGoal: currentProgress.questionGoal } : {}),
+          ...(currentProgress?.hasCards !== undefined ? { hasCards: currentProgress.hasCards } : {}),
+          ...(currentProgress?.hasClasses !== undefined ? { hasClasses: currentProgress.hasClasses } : {}),
+          isComplete: false,
+        }),
+      );
     }
     case 'fail-calendar-manual-block': {
       const eventId = getCalendarEventId(action.date, action.block.id);
@@ -440,6 +572,7 @@ export const appReducer = (state: AppState, action: Action): AppState => {
         (item) => item.failedAt === action.date && item.blockId === action.block.id,
       );
       const topicIds = (action.block.contentTargets ?? []).map((target) => target.topicId);
+      const previousProgress = buildTopicProgressSnapshots(state, topicIds);
       const failedState = markTopicsAsFailed(state, topicIds, action.date, action.at);
       const progressState = setCalendarEventProgress(failedState, eventId, 'failed', action.at);
 
@@ -458,6 +591,7 @@ export const appReducer = (state: AppState, action: Action): AppState => {
             title: action.block.title,
             subtitle: action.block.detail,
             subject: inferManualBlockSubject(action.block),
+            previousProgress,
             createdAt: action.at,
           },
         ],
@@ -465,11 +599,17 @@ export const appReducer = (state: AppState, action: Action): AppState => {
     }
     case 'undo-calendar-manual-block-failure': {
       const eventId = getCalendarEventId(action.date, action.blockId);
+      const matchingReschedule = state.manualBlockReschedules.find(
+        (item) => item.failedAt === action.date && item.blockId === action.blockId,
+      );
+      const restoredState = matchingReschedule?.previousProgress
+        ? restoreTopicProgressSnapshots(state, matchingReschedule.previousProgress)
+        : state;
       return markChanged(
         setCalendarEventProgress(
           {
-            ...state,
-            manualBlockReschedules: state.manualBlockReschedules.filter(
+            ...restoredState,
+            manualBlockReschedules: restoredState.manualBlockReschedules.filter(
               (item) => !(item.failedAt === action.date && item.blockId === action.blockId),
             ),
           },
@@ -835,8 +975,18 @@ interface AppContextValue {
   setDefaultQuestionGoal: (subject: SubjectKey, questionGoal: number) => void;
   failManualBlock: (date: string, blockId: string) => void;
   setCalendarEventStatus: (eventId: string, status: CalendarEventStatus) => void;
+  saveCalendarEventDraft: (
+    eventId: string,
+    draft: {
+      questionGoal: number;
+      questionsDone: number;
+      hasCards: boolean;
+      hasClasses: boolean;
+      isComplete: boolean;
+    },
+  ) => void;
   completeCalendarEvent: (eventId: string, topicIds: string[], questionsDone?: number) => void;
-  unsetCalendarEventDone: (eventId: string) => void;
+  unsetCalendarEventDone: (eventId: string, topicIds?: string[]) => void;
   failCalendarManualBlock: (date: string, block: ManualBlock) => void;
   undoCalendarManualBlockFailure: (date: string, blockId: string) => void;
   updateChecklistItem: (date: string, itemId: string, done: number) => void;
@@ -1371,6 +1521,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: 'fail-manual-block', date, blockId, at: nowIso() }),
       setCalendarEventStatus: (eventId, status) =>
         dispatch({ type: 'set-calendar-event-status', eventId, status, at: nowIso() }),
+      saveCalendarEventDraft: (eventId, draft) =>
+        dispatch({ type: 'save-calendar-event-draft', eventId, draft, at: nowIso() }),
       completeCalendarEvent: (eventId, topicIds, questionsDone) => {
         const timestamp = nowIso();
         dispatch({
@@ -1382,8 +1534,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           questionsDone,
         });
       },
-      unsetCalendarEventDone: (eventId) =>
-        dispatch({ type: 'unset-calendar-event-done', eventId, at: nowIso() }),
+      unsetCalendarEventDone: (eventId, topicIds) =>
+        dispatch({ type: 'unset-calendar-event-done', eventId, topicIds, at: nowIso() }),
       failCalendarManualBlock: (date, block) =>
         dispatch({ type: 'fail-calendar-manual-block', date, block, at: nowIso() }),
       undoCalendarManualBlockFailure: (date, blockId) =>

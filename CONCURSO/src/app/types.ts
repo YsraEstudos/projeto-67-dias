@@ -265,13 +265,25 @@ export interface ManualBlockReschedule {
   title?: string;
   subtitle?: string;
   subject?: SubjectKey | null;
+  previousProgress?: TopicProgressSnapshot[];
   createdAt: string;
+}
+
+export interface TopicProgressSnapshot {
+  topicId: string;
+  topicProgress?: TopicProgress;
+  firstSubmatter?: TopicSubmatter;
 }
 
 export interface CalendarEventProgress {
   status: CalendarEventStatus;
   updatedAt: string;
   questionsDone?: number;
+  questionGoal?: number;
+  hasCards?: boolean;
+  hasClasses?: boolean;
+  isComplete?: boolean;
+  previousProgress?: TopicProgressSnapshot[];
 }
 
 export interface ShellUiState {
