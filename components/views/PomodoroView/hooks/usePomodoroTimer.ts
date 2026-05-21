@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
-import { playSound } from '../lib/audio';
+import { playSound, playAlertFailSound } from '../lib/audio';
 import { getLocalISODate, getTaskTodayPomodoros } from '../lib/pomodoroStats';
 import type { PomodoroTimerMode } from '../store/types';
 
@@ -23,6 +23,10 @@ export function usePomodoroTimer() {
         return settings.shortBreakLength * 60;
       case 'longBreak':
         return settings.longBreakLength * 60;
+      case 'alert': {
+        const step = typeof window !== 'undefined' ? (localStorage.getItem('alert-timer-step') || 'countdown') : 'countdown';
+        return step === 'breathing' ? 5 * 60 : 60;
+      }
       default:
         return 25 * 60;
     }
@@ -117,6 +121,40 @@ export function usePomodoroTimer() {
 
   const handleComplete = useCallback(() => {
     const completedAt = new Date();
+
+    if (timerState.mode === 'alert') {
+      const step = typeof window !== 'undefined' ? (localStorage.getItem('alert-timer-step') || 'countdown') : 'countdown';
+      if (step === 'countdown') {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('alert-timer-step', 'pix');
+        }
+        playAlertFailSound(settings.volume);
+        const nextState = {
+          mode: 'alert' as TimerMode,
+          status: 'PAUSED' as const,
+          timeLeft: 0,
+          endTime: null,
+          sessionCount: timerState.sessionCount,
+        };
+        setPersistedTimerState(nextState);
+        setTimeLeft(0);
+      } else if (step === 'breathing') {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('alert-timer-step', 'countdown');
+        }
+        if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification('Pausa de Respiração concluída', {
+            body: 'Hora de voltar ao foco.',
+          });
+        }
+        if (settings.volume > 0) playSound('break-end', settings.volume);
+
+        const nextState = createTimerState('pomodoro', 'IDLE', timerState.sessionCount);
+        setPersistedTimerState(nextState);
+        setTimeLeft(nextState.timeLeft);
+      }
+      return;
+    }
 
     if (timerState.mode === 'pomodoro') {
       if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -233,6 +271,22 @@ export function usePomodoroTimer() {
   };
 
   const setMode = (mode: TimerMode) => {
+    if (mode === 'alert') {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('alert-timer-step', 'countdown');
+      }
+      const duration = 60;
+      const nextState = {
+        mode,
+        status: 'RUNNING' as const,
+        timeLeft: duration,
+        endTime: Date.now() + duration * 1000,
+        sessionCount: timerState.sessionCount,
+      };
+      setPersistedTimerState(nextState);
+      setTimeLeft(nextState.timeLeft);
+      return;
+    }
     const nextState = createTimerState(mode, 'IDLE', timerState.sessionCount);
     setPersistedTimerState(nextState);
     setTimeLeft(nextState.timeLeft);

@@ -89,12 +89,12 @@ describe('DailyPlannerView', () => {
     it('allows editing the sleep time field', () => {
         render(<DailyPlannerView />);
 
-        fireEvent.change(screen.getByLabelText('Horario de dormir'), {
+        fireEvent.change(screen.getByLabelText('Horário de dormir'), {
             target: { value: '21:30' },
         });
 
         expect(useDailyPlannerStore.getState().sessionsByDate[today]?.dayInputs.sleepTime).toBe('21:30');
-        expect(screen.getByLabelText('Horario de dormir')).toHaveValue('21:30');
+        expect(screen.getByLabelText('Horário de dormir')).toHaveValue('21:30');
     });
 
     it('shows a closing guidance when the day is already inside wind-down time', () => {
@@ -103,7 +103,7 @@ describe('DailyPlannerView', () => {
         render(<DailyPlannerView />);
 
         expect(screen.getByText('Hora de encerrar')).toBeInTheDocument();
-        expect(screen.getByText(/O dia util ja acabou/i)).toBeInTheDocument();
+        expect(screen.getByText(/O dia útil já acabou/i)).toBeInTheDocument();
     });
 
     it('renders a partial plan without guilt and moves the overflow to deferred items', async () => {
@@ -178,7 +178,7 @@ describe('DailyPlannerView', () => {
             target: { value: 'Reordena isso para eu ficar mais leve' },
         });
         await act(async () => {
-            fireEvent.click(screen.getByText('Replanejar com o que ja concluí'));
+            fireEvent.click(screen.getByText('Replanejar com concluídos'));
         });
 
         expect(vi.mocked(generateDailyPlannerPlan)).toHaveBeenCalledTimes(2);

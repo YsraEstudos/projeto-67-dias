@@ -23,6 +23,23 @@ export function playSound(type: 'work-end' | 'break-end', volume: number = 0.5) 
   }
 }
 
+export function playAlertFailSound(volume: number = 0.5) {
+  try {
+    if (volume <= 0) return;
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    // Play a repeating low discordant sawtooth alarm
+    playTone(ctx, 150, 'sawtooth', 0, 0.3, volume);
+    playTone(ctx, 120, 'sawtooth', 0.15, 0.3, volume);
+    playTone(ctx, 150, 'sawtooth', 0.3, 0.3, volume);
+    playTone(ctx, 120, 'sawtooth', 0.45, 0.3, volume);
+  } catch (e) {
+    console.error("Audio playback failed", e);
+  }
+}
+
 function playTone(ctx: AudioContext, freq: number, type: OscillatorType, delay: number, duration: number, volume: number) {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();

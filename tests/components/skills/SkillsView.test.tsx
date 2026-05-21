@@ -77,17 +77,12 @@ describe('SkillsView Component', () => {
         expect(screen.getByText('Gerencie seu aprendizado e desenvolvimento.')).toBeInTheDocument();
     });
 
-    it('switches between Skill Tree, Agenda Semanal, Campeonato and Plano do Dia IA tabs', async () => {
+    it('switches between Skill Tree, Agenda Semanal, and Plano do Dia IA tabs', async () => {
         render(<SkillsView />);
 
         fireEvent.click(screen.getByText('Agenda Semanal'));
         await waitFor(() => {
             expect(screen.getByText('Arraste para agendar')).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText('Campeonato'));
-        await waitFor(() => {
-            expect(screen.getByText('Ganhos de Hoje')).toBeInTheDocument();
         });
 
         fireEvent.click(screen.getByText('Plano do Dia IA'));

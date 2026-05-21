@@ -41,7 +41,7 @@ export type PomodoroRecord = {
   endTime: string;
 };
 
-export type PomodoroTimerMode = 'pomodoro' | 'shortBreak' | 'longBreak';
+export type PomodoroTimerMode = 'pomodoro' | 'shortBreak' | 'longBreak' | 'alert';
 
 export type PomodoroTimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED';
 
