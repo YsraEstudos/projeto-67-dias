@@ -231,6 +231,9 @@ export function usePomodoroTimer() {
     if (timerState.status !== 'RUNNING') return;
 
     const syncRemaining = () => {
+      if (useStore.getState().timerState.status !== 'RUNNING') {
+        return;
+      }
       const remaining = getRemainingTime();
       if (remaining <= 0) {
         handleComplete();

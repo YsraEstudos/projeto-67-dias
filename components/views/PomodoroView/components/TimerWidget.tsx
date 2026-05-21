@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -42,6 +42,8 @@ export function TimerWidget() {
     clearBreakSelection,
     setBreakExerciseReps,
     updateTask,
+    timerState,
+    setTimerState,
   } = useStore();
 
   const restActivities = useRestStore((state) => state.activities);
@@ -93,8 +95,39 @@ export function TimerWidget() {
     toggleTimer,
     resetTimer,
     setMode,
-    skipPhase
+    skipPhase,
+    timeLeft
   } = usePomodoroTimer();
+
+  const alertStep = useMemo(() => {
+    if (mode === 'alert') {
+      return (typeof window !== 'undefined' ? localStorage.getItem('alert-timer-step') : 'countdown') || 'countdown';
+    }
+    return null;
+  }, [timerState, mode]);
+
+  const isAlertCountdown = mode === 'alert' && alertStep === 'countdown';
+
+  const handleCompleteAlertSteps = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('alert-timer-step', 'breathing');
+    }
+    const duration = 300; // 5 minutes
+    setTimerState({
+      mode: 'alert',
+      status: 'RUNNING',
+      timeLeft: duration,
+      endTime: Date.now() + duration * 1000,
+      sessionCount: timerState.sessionCount,
+    });
+  };
+
+  const getBreathingInstruction = (timeLeft: number) => {
+    const cycle = (300 - timeLeft) % 10;
+    if (cycle < 4) return { text: 'Inspire', action: 'inhale' };
+    if (cycle < 6) return { text: 'Segure', action: 'hold' };
+    return { text: 'Expire', action: 'exhale' };
+  };
 
   const isBreakMode = mode === 'shortBreak' || mode === 'longBreak';
   const currentBreakMode = mode === 'shortBreak' || mode === 'longBreak' ? mode : null;
@@ -871,6 +904,7 @@ export function TimerWidget() {
     { id: 'pomodoro', label: 'Foco', icon: Brain },
     { id: 'shortBreak', label: 'Pausa Curta', icon: Coffee },
     { id: 'longBreak', label: 'Pausa Longa', icon: Coffee },
+    { id: 'alert', label: 'Alerta', icon: AlertTriangle },
   ];
 
   return (
@@ -932,12 +966,14 @@ export function TimerWidget() {
                 return (
                   <button
                     key={m.id}
+                    disabled={isAlertCountdown}
                     onClick={() => setMode(m.id)}
                     className={cn(
                       "px-6 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center",
                       mode === m.id 
                         ? "bg-[var(--color-primary)] text-white shadow-lg" 
-                        : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5"
+                        : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5",
+                      isAlertCountdown && "opacity-40 cursor-not-allowed"
                     )}
                   >
                     <Icon className="w-4 h-4 mr-2" />
@@ -959,7 +995,92 @@ export function TimerWidget() {
               <div className="flex-1" />
             </div>
 
-            {isBreakMode ? (
+            {mode === 'alert' ? (
+              alertStep === 'breathing' ? (
+                <div className="flex flex-col items-center justify-center mb-16 max-w-3xl px-8 text-center">
+                  <p className="text-xl text-emerald-400 uppercase tracking-widest mb-4 font-bold">Modo Alerta: Respiração</p>
+                  <p className="text-3xl md:text-4xl font-medium text-white max-w-2xl">
+                    Siga o ritmo do círculo. Respire fundo e relaxe.
+                  </p>
+                  
+                  {/* Concentric Breathing Circles */}
+                  <div className="relative flex items-center justify-center w-64 h-64 mx-auto my-8">
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.6, 1],
+                        opacity: [0.1, 0.3, 0.1],
+                      }}
+                      transition={{
+                        duration: 10,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute inset-0 rounded-full bg-emerald-500/20"
+                    />
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.3, 1],
+                        opacity: [0.2, 0.5, 0.2],
+                      }}
+                      transition={{
+                        duration: 10,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 1
+                      }}
+                      className="absolute w-48 h-48 rounded-full bg-emerald-500/25"
+                    />
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.1, 1],
+                      }}
+                      transition={{
+                        duration: 10,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute w-32 h-32 rounded-full bg-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-500/25"
+                    >
+                      <span className="text-white font-bold text-lg select-none">
+                        {getBreathingInstruction(timeLeft).text}
+                      </span>
+                    </motion.div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center mb-16 max-w-3xl px-8 text-center">
+                  <p className="text-xl text-amber-400 uppercase tracking-widest mb-2 font-bold animate-pulse">Modo Alerta Iniciado</p>
+                  <p className="text-2xl md:text-3xl font-semibold text-white mb-6">
+                    Você tem 1 minuto para realizar os passos abaixo!
+                  </p>
+                  
+                  {/* Checklist */}
+                  <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-6 text-left mb-8 backdrop-blur-sm">
+                    <ul className="space-y-4">
+                      <li className="flex items-center gap-3 text-slate-200">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">1</span>
+                        <span>Levante-se da cadeira imediatamente</span>
+                      </li>
+                      <li className="flex items-center gap-3 text-slate-200">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">2</span>
+                        <span>Faça polichinelos para ativar a circulação</span>
+                      </li>
+                      <li className="flex items-center gap-3 text-slate-200">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">3</span>
+                        <span>Desligue ou afaste o seu telefone</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <button
+                    onClick={handleCompleteAlertSteps}
+                    className="px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-lg uppercase tracking-wider"
+                  >
+                    Já Fiz os Passos!
+                  </button>
+                </div>
+              )
+            ) : isBreakMode ? (
               <div className="text-center mb-16 max-w-3xl px-8">
                 <p className="text-xl text-[var(--color-text-muted)] uppercase tracking-widest mb-4">Pausa em andamento</p>
                 <p className="text-4xl md:text-5xl font-medium text-white">
@@ -978,7 +1099,7 @@ export function TimerWidget() {
               </div>
             )}
 
-            {!isBreakMode && (
+            {!isBreakMode && mode !== 'alert' && (
               <button
                 type="button"
                 onClick={() => setIsTaskPickerOpen(true)}
@@ -991,20 +1112,32 @@ export function TimerWidget() {
             <div className="flex justify-center items-center space-x-8">
               <button 
                 onClick={resetTimer} 
-                className="w-16 h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-16 h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
+                )}
                 title="Reiniciar"
               >
                 <Square className="w-6 h-6" />
               </button>
               <button 
                 onClick={toggleTimer} 
-                className="w-24 h-24 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center hover:scale-105 transition-transform shadow-2xl shadow-[var(--color-primary)]/30"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-24 h-24 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center hover:scale-105 transition-transform shadow-2xl shadow-[var(--color-primary)]/30",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:scale-100"
+                )}
               >
                 {isActive ? <Pause className="w-10 h-10" /> : <Play className="w-10 h-10 ml-2" />}
               </button>
               <button 
                 onClick={skipPhase} 
-                className="w-16 h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-16 h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
+                )}
                 title="Pular fase"
               >
                 <SkipForward className="w-6 h-6" />
@@ -1038,7 +1171,11 @@ export function TimerWidget() {
             <div className="flex items-center space-x-2">
               <button 
                 onClick={toggleTimer}
-                className="w-8 h-8 rounded-full bg-[var(--color-surface-hover)] hover:bg-[var(--color-primary)] hover:text-white flex items-center justify-center transition-colors"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-8 h-8 rounded-full bg-[var(--color-surface-hover)] hover:bg-[var(--color-primary)] hover:text-white flex items-center justify-center transition-colors",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed"
+                )}
               >
                 {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
               </button>
@@ -1062,12 +1199,14 @@ export function TimerWidget() {
                   return (
                     <button
                       key={m.id}
+                      disabled={isAlertCountdown}
                       onClick={() => setMode(m.id)}
                       className={cn(
                         "p-1.5 rounded-md transition-colors",
                         mode === m.id 
                           ? "bg-[var(--color-primary)]/20 text-[var(--color-primary)]" 
-                          : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"
+                          : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]",
+                        isAlertCountdown && "opacity-40 cursor-not-allowed"
                       )}
                       title={m.label}
                     >
@@ -1123,7 +1262,55 @@ export function TimerWidget() {
               <div className="text-6xl font-light tracking-tight font-mono mb-4">
                 {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
               </div>
-              {isBreakMode ? (
+              {mode === 'alert' ? (
+                alertStep === 'breathing' ? (
+                  <div className="flex flex-col items-center justify-center w-full text-center">
+                    <p className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">Respiração</p>
+                    <div className="relative flex items-center justify-center w-28 h-28 mx-auto my-2">
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.4, 1],
+                          opacity: [0.1, 0.3, 0.1],
+                        }}
+                        transition={{
+                          duration: 10,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute inset-0 rounded-full bg-emerald-500/20"
+                      />
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.1, 1],
+                        }}
+                        transition={{
+                          duration: 10,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-20 h-20 rounded-full bg-emerald-500/40 flex items-center justify-center shadow-md shadow-emerald-500/20"
+                      >
+                        <span className="text-white font-bold text-sm select-none">
+                          {getBreathingInstruction(timeLeft).text}
+                        </span>
+                      </motion.div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full text-center">
+                    <p className="text-xs text-amber-400 uppercase tracking-widest font-bold mb-1 animate-pulse">Modo Alerta</p>
+                    <p className="text-xs text-slate-300 max-w-[240px] mb-3">
+                      Levante-se, faça polichinelos e desligue o telefone!
+                    </p>
+                    <button
+                      onClick={handleCompleteAlertSteps}
+                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold uppercase tracking-wider shadow-md shadow-amber-500/10 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                    >
+                      Já Fiz os Passos!
+                    </button>
+                  </div>
+                )
+              ) : isBreakMode ? (
                 <>
                   <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Pausa em andamento</p>
                   <p className="text-sm font-medium text-[var(--color-text)] truncate w-full px-4">
@@ -1139,7 +1326,7 @@ export function TimerWidget() {
                 <p className="text-sm text-[var(--color-text-muted)]">Foco Livre (Sem tarefa)</p>
               )}
 
-              {!isBreakMode && (
+              {!isBreakMode && mode !== 'alert' && (
                 <button
                   type="button"
                   onClick={() => setIsTaskPickerOpen(true)}
@@ -1156,20 +1343,32 @@ export function TimerWidget() {
             <div className="flex justify-center items-center space-x-6">
               <button 
                 onClick={resetTimer}
-                className="w-12 h-12 rounded-full border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center transition-colors text-[var(--color-text-muted)]"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-12 h-12 rounded-full border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center transition-colors text-[var(--color-text-muted)]",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
+                )}
                 title="Reiniciar"
               >
                 <Square className="w-4 h-4" />
               </button>
               <button 
                 onClick={toggleTimer}
-                className="w-16 h-16 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-[var(--color-primary)]/20"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-16 h-16 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-[var(--color-primary)]/20",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:scale-100"
+                )}
               >
                 {isActive ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
               </button>
               <button 
                 onClick={skipPhase}
-                className="w-12 h-12 rounded-full border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center transition-colors text-[var(--color-text-muted)]"
+                disabled={isAlertCountdown}
+                className={cn(
+                  "w-12 h-12 rounded-full border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] flex items-center justify-center transition-colors text-[var(--color-text-muted)]",
+                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
+                )}
                 title="Pular fase"
               >
                 <SkipForward className="w-4 h-4" />

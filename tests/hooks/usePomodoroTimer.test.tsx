@@ -149,4 +149,82 @@ describe('usePomodoroTimer', () => {
     expect(task?.lastCompletedDate).toBe('2026-04-13');
     expect(usePomodoroStore.getState().records).toHaveLength(1);
   });
+
+  describe('Alerta mode', () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it('initializes alert mode in countdown step with 60 seconds', () => {
+      const { result } = renderHook(() => usePomodoroTimer());
+
+      act(() => {
+        result.current.setMode('alert');
+      });
+
+      expect(localStorage.getItem('alert-timer-step')).toBe('countdown');
+      expect(result.current.mode).toBe('alert');
+      expect(result.current.timeLeft).toBe(60);
+      expect(result.current.isActive).toBe(true);
+    });
+
+    it('transitions to pix step when countdown runs out', () => {
+      const { result } = renderHook(() => usePomodoroTimer());
+
+      act(() => {
+        result.current.setMode('alert');
+      });
+
+      // Advance time by 60 seconds
+      act(() => {
+        vi.advanceTimersByTime(60 * 1000);
+      });
+
+      expect(localStorage.getItem('alert-timer-step')).toBe('pix');
+      expect(result.current.timeLeft).toBe(0);
+      expect(result.current.isActive).toBe(false);
+      expect(usePomodoroStore.getState().timerState.status).toBe('PAUSED');
+    });
+
+    it('sets duration to 300 seconds when step is breathing', () => {
+      localStorage.setItem('alert-timer-step', 'breathing');
+      usePomodoroStore.getState().setTimerState({
+        mode: 'alert',
+        status: 'IDLE',
+        timeLeft: 300,
+        endTime: null,
+        sessionCount: 0,
+      });
+      
+      const { result } = renderHook(() => usePomodoroTimer());
+      
+      expect(result.current.timeLeft).toBe(300);
+    });
+
+    it('transitions back to pomodoro idle when breathing step runs out', () => {
+      localStorage.setItem('alert-timer-step', 'breathing');
+      
+      usePomodoroStore.getState().setTimerState({
+        mode: 'alert',
+        status: 'RUNNING',
+        timeLeft: 300,
+        endTime: Date.now() + 300 * 1000,
+        sessionCount: 0,
+      });
+
+      console.log('BEFORE MOUNT:', localStorage.getItem('alert-timer-step'));
+      const { result } = renderHook(() => usePomodoroTimer());
+      console.log('AFTER MOUNT:', localStorage.getItem('alert-timer-step'), 'mode:', result.current.mode, 'timeLeft:', result.current.timeLeft);
+
+      act(() => {
+        vi.advanceTimersByTime(300 * 1000);
+      });
+
+      console.log('AFTER TIME ADVANCE:', localStorage.getItem('alert-timer-step'), 'mode:', result.current.mode, 'timeLeft:', result.current.timeLeft);
+
+      expect(localStorage.getItem('alert-timer-step')).toBe('countdown');
+      expect(result.current.mode).toBe('pomodoro');
+      expect(result.current.isActive).toBe(false);
+    });
+  });
 });
