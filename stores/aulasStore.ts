@@ -103,6 +103,8 @@ interface AulasState {
     // Chapter Actions
     addChaptersJson: (bookId: string, chaptersJson: any[]) => void;
     updateChapter: (bookId: string, chapterId: string, updates: Partial<AulaChapter>) => void;
+    reorderChapters: (bookId: string, oldIndex: number, newIndex: number) => void;
+    moveChapter: (sourceBookId: string, targetBookId: string, chapterId: string, newPosition?: number) => void;
 
     importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[] }) => void;
 
@@ -359,6 +361,67 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
 
         const updated = get().books.find(b => b.id === bookId);
         if (updated) syncBookToSubcollection(updated);
+
+        get()._syncToFirestore();
+    },
+
+    reorderChapters: (bookId, oldIndex, newIndex) => {
+        set((state) => {
+            const book = state.books.find(b => b.id === bookId);
+            if (!book) return;
+
+            // Sort by position first to be safe
+            book.chapters.sort((a, b) => a.position - b.position);
+
+            const [moved] = book.chapters.splice(oldIndex, 1);
+            book.chapters.splice(newIndex, 0, moved);
+
+            // Re-assign positions
+            book.chapters.forEach((ch, idx) => {
+                ch.position = idx;
+            });
+        });
+
+        const updated = get().books.find(b => b.id === bookId);
+        if (updated) syncBookToSubcollection(updated);
+
+        get()._syncToFirestore();
+    },
+
+    moveChapter: (sourceBookId, targetBookId, chapterId, newPosition) => {
+        set((state) => {
+            const sourceBook = state.books.find(b => b.id === sourceBookId);
+            const targetBook = state.books.find(b => b.id === targetBookId);
+            if (!sourceBook || !targetBook) return;
+
+            const chapterIndex = sourceBook.chapters.findIndex(c => c.id === chapterId);
+            if (chapterIndex === -1) return;
+
+            const [movedChapter] = sourceBook.chapters.splice(chapterIndex, 1);
+
+            // Re-assign positions for source
+            sourceBook.chapters.sort((a, b) => a.position - b.position).forEach((ch, idx) => {
+                ch.position = idx;
+            });
+
+            // Insert into target
+            targetBook.chapters.sort((a, b) => a.position - b.position);
+            if (typeof newPosition === "number") {
+                targetBook.chapters.splice(newPosition, 0, movedChapter);
+            } else {
+                targetBook.chapters.push(movedChapter);
+            }
+
+            // Re-assign positions for target
+            targetBook.chapters.forEach((ch, idx) => {
+                ch.position = idx;
+            });
+        });
+
+        const updatedSource = get().books.find(b => b.id === sourceBookId);
+        const updatedTarget = get().books.find(b => b.id === targetBookId);
+        if (updatedSource) syncBookToSubcollection(updatedSource);
+        if (updatedTarget) syncBookToSubcollection(updatedTarget);
 
         get()._syncToFirestore();
     },

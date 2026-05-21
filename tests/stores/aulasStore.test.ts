@@ -99,4 +99,68 @@ describe('aulasStore', () => {
             collections: state.collections,
         });
     });
+
+    it('correctly reorders chapters inside a book', () => {
+        const store = useAulasStore.getState();
+        store.addFolder('Folder 1');
+        const folder = useAulasStore.getState().folders.find(f => f.name === 'Folder 1')!;
+        
+        store.addBook(folder.id, 'Book 1');
+        const book = useAulasStore.getState().books.find(b => b.title === 'Book 1')!;
+        
+        store.addChaptersJson(book.id, [
+            { title: 'Chapter A' },
+            { title: 'Chapter B' },
+            { title: 'Chapter C' }
+        ]);
+
+        const bookWithChapters = useAulasStore.getState().books.find(b => b.title === 'Book 1')!;
+        expect(bookWithChapters.chapters.map(c => c.title)).toEqual(['Chapter A', 'Chapter B', 'Chapter C']);
+        expect(bookWithChapters.chapters.map(c => c.position)).toEqual([0, 1, 2]);
+
+        // Reorder: Move 'Chapter A' (index 0) to index 2 (after Chapter C)
+        useAulasStore.getState().reorderChapters(book.id, 0, 2);
+
+        const updatedBook = useAulasStore.getState().books.find(b => b.title === 'Book 1')!;
+        expect(updatedBook.chapters.map(c => c.title)).toEqual(['Chapter B', 'Chapter C', 'Chapter A']);
+        expect(updatedBook.chapters.map(c => c.position)).toEqual([0, 1, 2]);
+    });
+
+    it('correctly moves a chapter from one book to another', () => {
+        const store = useAulasStore.getState();
+        store.addFolder('Folder 1');
+        const folder = useAulasStore.getState().folders.find(f => f.name === 'Folder 1')!;
+        
+        store.addBook(folder.id, 'Source Book');
+        store.addBook(folder.id, 'Target Book');
+        
+        const sourceBook = useAulasStore.getState().books.find(b => b.title === 'Source Book')!;
+        const targetBook = useAulasStore.getState().books.find(b => b.title === 'Target Book')!;
+
+        // Add chapters to source
+        store.addChaptersJson(sourceBook.id, [
+            { title: 'Chapter 1' },
+            { title: 'Chapter 2' }
+        ]);
+
+        // Add chapters to target
+        store.addChaptersJson(targetBook.id, [
+            { title: 'Chapter X' }
+        ]);
+
+        const sourceWithChapters = useAulasStore.getState().books.find(b => b.id === sourceBook.id)!;
+        const chapterToMove = sourceWithChapters.chapters.find(c => c.title === 'Chapter 2')!;
+
+        // Move 'Chapter 2' from source to target
+        useAulasStore.getState().moveChapter(sourceBook.id, targetBook.id, chapterToMove.id);
+
+        const updatedSource = useAulasStore.getState().books.find(b => b.id === sourceBook.id)!;
+        const updatedTarget = useAulasStore.getState().books.find(b => b.id === targetBook.id)!;
+
+        expect(updatedSource.chapters.map(c => c.title)).toEqual(['Chapter 1']);
+        expect(updatedSource.chapters.map(c => c.position)).toEqual([0]);
+
+        expect(updatedTarget.chapters.map(c => c.title)).toEqual(['Chapter X', 'Chapter 2']);
+        expect(updatedTarget.chapters.map(c => c.position)).toEqual([0, 1]);
+    });
 });

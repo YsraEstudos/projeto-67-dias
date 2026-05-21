@@ -1,7 +1,45 @@
 import React, { useRef, useState } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
-import { ChevronLeft, Upload, Edit3, Type, FileJson, Trash2, Copy, FileText, Download, Search, X, CheckCircle2 } from "lucide-react";
+import {
+  ChevronLeft,
+  Upload,
+  Edit3,
+  Type,
+  FileJson,
+  Trash2,
+  Copy,
+  FileText,
+  Download,
+  Search,
+  X,
+  CheckCircle2,
+  GripVertical,
+  ArrowRightLeft,
+  Folder,
+  BookOpen,
+} from "lucide-react";
 import { fileToBase64 } from "./utils";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  useDroppable,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { motion, AnimatePresence } from "motion/react";
+import { AulaChapter } from "../../../types";
 
 interface BookDetailsProps {
   bookId: string;
@@ -9,8 +47,183 @@ interface BookDetailsProps {
   onSelectChapter: (chapterId: string) => void;
 }
 
+const SortableChapterItem = React.memo(function SortableChapterItem({
+  chapter,
+  originalIndex,
+  onSelect,
+  otherBooks,
+  onMoveChapter,
+  isSortingDisabled,
+}: {
+  chapter: AulaChapter;
+  originalIndex: number;
+  onSelect: () => void;
+  otherBooks: any[];
+  onMoveChapter: (targetBookId: string) => void;
+  isSortingDisabled: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: chapter.id,
+    disabled: isSortingDisabled,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const [showOptions, setShowOptions] = useState(false);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center text-left bg-slate-900 border hover:border-slate-700 hover:shadow-lg rounded p-4 transition-all group w-full ${
+        isDragging ? "opacity-30 border-[#D4AF37] border-dashed" : "border-slate-800"
+      }`}
+    >
+      {/* Drag handle */}
+      {!isSortingDisabled ? (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="mr-3 p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-350 cursor-grab active:cursor-grabbing shrink-0"
+          title="Arrastar para reordenar"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      ) : (
+        <div className="mr-3 p-1 text-slate-700 shrink-0" title="Reordenação desativada durante busca">
+          <GripVertical className="w-4 h-4 opacity-30" />
+        </div>
+      )}
+
+      {/* Index Badge */}
+      <div
+        onClick={onSelect}
+        className="w-8 h-8 shrink-0 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-400 mr-4 group-hover:bg-[#D4AF37] group-hover:text-slate-950 group-hover:border-[#D4AF37] transition-colors cursor-pointer"
+      >
+        {String(originalIndex + 1).padStart(2, "0")}
+      </div>
+
+      {/* Title & Info */}
+      <div onClick={onSelect} className="flex-1 cursor-pointer min-w-0 pr-2">
+        <h3 className="text-sm font-medium text-slate-200 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2 truncate">
+          {chapter.title}
+          {chapter.readAt && (
+            <span title="Lida">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            </span>
+          )}
+        </h3>
+        {chapter.attachments && Object.keys(chapter.attachments).length > 0 && (
+          <span className="inline-flex mt-1 items-center bg-slate-950 px-1.5 py-0.5 rounded text-[#D4AF37] border border-slate-850 text-[9px] font-semibold uppercase tracking-wider">
+            {Object.keys(chapter.attachments).length} Anexos
+          </span>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Quick manual transfer dropdown */}
+        {otherBooks.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowOptions(!showOptions)}
+              className={`p-1.5 bg-slate-950 hover:bg-slate-850 rounded border border-slate-850 transition-colors text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer ${
+                showOptions ? "text-[#D4AF37] border-[#D4AF37]/50" : "text-slate-400 hover:text-[#D4AF37]"
+              }`}
+              title="Transferir aula"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[9px]">Transferir</span>
+            </button>
+
+            {showOptions && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)} />
+                <div className="absolute right-0 mt-1 w-56 bg-slate-950 border border-slate-800 rounded-md shadow-2xl z-20 py-1 max-h-60 overflow-y-auto">
+                  <div className="px-3 py-1.5 border-b border-slate-900 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                    Mover para:
+                  </div>
+                  {otherBooks.map((ob) => (
+                    <button
+                      key={ob.id}
+                      type="button"
+                      onClick={() => {
+                        onMoveChapter(ob.id);
+                        setShowOptions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-900 transition-colors truncate"
+                    >
+                      {ob.title}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={onSelect}
+          className="flex items-center gap-1 text-slate-400 hover:text-slate-200 text-[10px] font-semibold uppercase tracking-widest px-2 py-1.5 hover:bg-slate-850 rounded border border-transparent hover:border-slate-850 transition-colors cursor-pointer"
+        >
+          Ler
+          <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
+function QuickTransferTarget({
+  targetBook,
+  onTransfer,
+}: {
+  targetBook: any;
+  onTransfer: (chapterId: string) => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `target-book-${targetBook.id}`,
+    data: { type: "book", id: targetBook.id },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`p-3 rounded-lg border transition-all flex items-center gap-3 bg-slate-950/30 hover:bg-slate-900/30 cursor-pointer ${
+        isOver
+          ? "border-[#D4AF37] bg-slate-900/60 shadow-[0_0_12px_rgba(212,175,55,0.15)] scale-[1.02]"
+          : "border-slate-850 hover:border-slate-800"
+      }`}
+    >
+      <BookOpen className={`w-4 h-4 shrink-0 transition-transform ${isOver ? "text-[#D4AF37] animate-pulse scale-110" : "text-slate-650"}`} />
+      <div className="flex-1 min-w-0">
+        <div className={`text-xs font-medium truncate ${isOver ? "text-[#D4AF37]" : "text-slate-350"}`}>
+          {targetBook.title}
+        </div>
+        <div className="text-[10px] text-slate-500 mt-0.5">
+          {targetBook.chapters?.length || 0} Aulas
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDetailsProps) {
-  const { folders, books, updateBook, addChaptersJson, deleteBook } = useAulasStore();
+  const {
+    folders,
+    books,
+    updateBook,
+    addChaptersJson,
+    deleteBook,
+    reorderChapters,
+    moveChapter,
+  } = useAulasStore();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [pasteJsonDialogOpen, setPasteJsonDialogOpen] = useState(false);
@@ -19,9 +232,19 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
   const [editTitleValue, setEditTitleValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  
+  // Drag & drop state
+  const [showTransferPanel, setShowTransferPanel] = useState(false);
+  const [activeChapter, setActiveChapter] = useState<AulaChapter | null>(null);
 
   const book = books.find((b) => b.id === bookId);
   const folder = book ? folders.find((f) => f.id === book.folderId) : null;
+  const otherBooks = books.filter((b) => b.id !== bookId);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   if (!book) return <div className="p-12 text-center text-red-500">Livro/Curso não encontrado.</div>;
 
@@ -80,8 +303,48 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const ch = book.chapters.find((c) => c.id === active.id);
+    if (ch) {
+      setActiveChapter(ch);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveChapter(null);
+    if (!over) return;
+
+    // Check if dropped on a quick transfer target book
+    if (over.id.toString().startsWith("target-book-")) {
+      const targetBookId = over.id.toString().replace("target-book-", "");
+      const chapterId = active.id.toString();
+      moveChapter(book.id, targetBookId, chapterId);
+      return;
+    }
+
+    if (active.id !== over.id) {
+      const oldIndex = book.chapters.findIndex((c) => c.id === active.id);
+      const newIndex = book.chapters.findIndex((c) => c.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderChapters(book.id, oldIndex, newIndex);
+      }
+    }
+  };
+
+  const filteredChapters = (book.chapters || [])
+    .map((c, i) => ({ ...c, originalIndex: i }))
+    .filter((chapter) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        chapter.title.toLowerCase().includes(searchLower) ||
+        (chapter.content && chapter.content.toLowerCase().includes(searchLower))
+      );
+    });
+
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8">
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
       <button
         onClick={onBack}
         className="inline-flex items-center text-[10px] uppercase tracking-widest font-bold text-slate-400 hover:text-slate-200 mb-8 transition-colors cursor-pointer"
@@ -188,12 +451,12 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
       </div>
 
       <div className="border-t border-slate-800 pt-8">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-4 border-b border-slate-900 pb-4 gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 border-b border-slate-900 pb-4 gap-4">
           <h2 className="text-xl font-serif italic text-slate-100">
             Índice de Aulas <span className="text-sm font-sans text-slate-400 not-italic ml-2">({book.chapters?.length || 0})</span>
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2 justify-center md:justify-end w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2 justify-center lg:justify-end w-full lg:w-auto">
             <div className="relative group w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-[#D4AF37] transition-colors" />
               <input
@@ -201,7 +464,7 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
                 placeholder="Buscar em aulas..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-slate-900 border border-slate-800 rounded pl-9 pr-9 py-1.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-[11px] text-slate-100 font-sans placeholder:text-slate-600 w-full transition-all"
+                className="bg-slate-900 border border-slate-800 rounded pl-9 pr-9 py-1.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-[11px] text-slate-100 font-sans placeholder:text-slate-650 w-full transition-all"
               />
               {searchTerm && (
                 <button
@@ -212,6 +475,20 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
                 </button>
               )}
             </div>
+
+            <button
+              onClick={() => setShowTransferPanel(!showTransferPanel)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors border cursor-pointer ${
+                showTransferPanel
+                  ? "bg-[#D4AF37] border-[#D4AF37] text-slate-950"
+                  : "bg-slate-900 border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200"
+              }`}
+              title="Alternar painel de transferência rápida"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Painel Transferir
+            </button>
+
             <button
               onClick={() => {
                 let mdContent = `# ${book.title}\n\n`;
@@ -306,64 +583,114 @@ Regras:
             </div>
           </div>
         ) : (
-          <div className="grid gap-3">
-            {book.chapters
-              .map((c, i) => ({ ...c, originalIndex: i }))
-              .filter((chapter) => {
-                const searchLower = searchTerm.toLowerCase();
-                return (
-                  chapter.title.toLowerCase().includes(searchLower) ||
-                  (chapter.content && chapter.content.toLowerCase().includes(searchLower))
-                );
-              })
-              .map((chapter) => (
-                <button
-                  key={chapter.id}
-                  onClick={() => onSelectChapter(chapter.id)}
-                  className="flex items-center text-left bg-slate-900 border border-slate-800 hover:border-slate-700 hover:shadow-sm rounded p-4 transition-all group w-full cursor-pointer"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex flex-col lg:flex-row gap-6 mt-6 items-start">
+              {/* Chapters List */}
+              <div className="flex-1 min-w-0 space-y-3 w-full">
+                <SortableContext
+                  items={filteredChapters.map((c) => c.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <div className="w-8 h-8 shrink-0 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-400 mr-4 group-hover:bg-[#D4AF37] group-hover:text-slate-950 group-hover:border-[#D4AF37] transition-colors">
-                    {String(chapter.originalIndex + 1).padStart(2, "0")}
+                  {filteredChapters.map((chapter) => (
+                    <SortableChapterItem
+                      key={chapter.id}
+                      chapter={chapter}
+                      originalIndex={chapter.originalIndex}
+                      onSelect={() => onSelectChapter(chapter.id)}
+                      otherBooks={otherBooks}
+                      onMoveChapter={(targetBookId) => {
+                        moveChapter(book.id, targetBookId, chapter.id);
+                        alert(`Aula "${chapter.title}" transferida com sucesso!`);
+                      }}
+                      isSortingDisabled={!!searchTerm}
+                    />
+                  ))}
+                </SortableContext>
+
+                {searchTerm && filteredChapters.length === 0 && (
+                  <div className="text-center py-10 border border-dashed border-slate-800 rounded-lg">
+                    <p className="text-slate-500 text-sm">Nenhuma aula encontrada para "{searchTerm}"</p>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium text-slate-200 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2">
-                      {chapter.title}
-                      {chapter.readAt && (
-                        <span title="Lida">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        </span>
+                )}
+              </div>
+
+              {/* Sidebar Quick Transfer Panel */}
+              <AnimatePresence>
+                {(showTransferPanel || activeChapter) && (
+                  <motion.aside
+                    initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                    animate={{ width: 320, opacity: 1, marginLeft: 16 }}
+                    exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="hidden lg:flex w-[320px] shrink-0 border border-slate-800 bg-slate-900/40 backdrop-blur-md rounded-lg p-4 flex-col h-[65vh] sticky top-4 overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                      <h3 className="text-xs font-bold text-[#D4AF37] uppercase tracking-widest flex items-center gap-2">
+                        <ArrowRightLeft className="w-4 h-4 text-[#D4AF37]" />
+                        Transferência Rápida
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowTransferPanel(false)}
+                        className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-350 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                      {folders.map((f) => {
+                        const folderBooks = otherBooks.filter((ob) => ob.folderId === f.id);
+                        if (folderBooks.length === 0) return null;
+                        return (
+                          <div key={f.id} className="space-y-2">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 px-1">
+                              <Folder className="w-3.5 h-3.5 text-slate-600" />
+                              {f.name}
+                            </div>
+                            <div className="space-y-1.5 pl-1">
+                              {folderBooks.map((ob) => (
+                                <QuickTransferTarget
+                                  key={ob.id}
+                                  targetBook={ob}
+                                  onTransfer={(chapterId) => moveChapter(book.id, ob.id, chapterId)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {otherBooks.length === 0 && (
+                        <div className="text-xs text-slate-500 italic text-center p-4">
+                          Nenhum outro curso disponível para transferência.
+                        </div>
                       )}
-                    </h3>
-                    {searchTerm && chapter.content && chapter.content.toLowerCase().includes(searchTerm.toLowerCase()) && (
-                      <p className="text-[10px] text-slate-500 mt-1 line-clamp-1 italic">
-                        Contém termo buscado no conteúdo...
-                      </p>
-                    )}
+                    </div>
+                  </motion.aside>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Custom Drag Overlay */}
+            <DragOverlay>
+              {activeChapter ? (
+                <div className="flex items-center bg-slate-900 border border-slate-700 rounded p-4 shadow-2xl opacity-90 scale-[1.02] cursor-grabbing select-none w-full max-w-2xl">
+                  <GripVertical className="w-4 h-4 text-slate-500 mr-3 cursor-grabbing" />
+                  <div className="w-8 h-8 shrink-0 bg-[#D4AF37] rounded-full flex items-center justify-center text-[10px] font-bold text-slate-950 mr-4">
+                    {String(book.chapters.findIndex((c) => c.id === activeChapter.id) + 1).padStart(2, "0")}
                   </div>
-                  <div className="flex items-center gap-3 text-slate-500 text-[10px] font-semibold uppercase tracking-widest">
-                    {chapter.attachments && Object.keys(chapter.attachments).length > 0 && (
-                      <span className="flex items-center bg-slate-950 px-2 py-1 rounded text-[#D4AF37] border border-slate-800">
-                        {Object.keys(chapter.attachments).length} Anexos
-                      </span>
-                    )}
-                    <span className="underline underline-offset-4 opacity-0 group-hover:opacity-100 transition-opacity">Ler</span>
-                    <ChevronLeft className="w-4 h-4 rotate-180 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-slate-200 truncate">{activeChapter.title}</h3>
                   </div>
-                </button>
-              ))}
-            {searchTerm &&
-              book.chapters.filter((chapter) => {
-                const searchLower = searchTerm.toLowerCase();
-                return (
-                  chapter.title.toLowerCase().includes(searchLower) ||
-                  (chapter.content && chapter.content.toLowerCase().includes(searchLower))
-                );
-              }).length === 0 && (
-                <div className="text-center py-10 border border-dashed border-slate-800 rounded-lg">
-                  <p className="text-slate-500 text-sm">Nenhuma aula encontrada para "{searchTerm}"</p>
                 </div>
-              )}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 
