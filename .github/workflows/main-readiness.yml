@@ -102,5 +102,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx --prefix CONCURSO playwright install --with-deps chromium
 
+      - name: Build CONCURSO
+        run: npm --prefix CONCURSO run build
+
       - name: Run CONCURSO E2E tests
         run: npm --prefix CONCURSO run test:e2e
