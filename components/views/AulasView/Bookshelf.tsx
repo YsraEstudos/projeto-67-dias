@@ -120,6 +120,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     addBook,
     updateBook,
     reorderBooks,
+    importBackupData,
   } = useAulasStore();
 
   const [activeView, setActiveView] = useState<{ type: "folder" | "collection"; id: string } | null>(null);
@@ -268,35 +269,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
         if (parsed && Array.isArray(parsed.folders)) {
-          // Import into store
-          parsed.folders.forEach((f: any) => {
-            addFolder(f.name, f.parentId);
-          });
-          if (Array.isArray(parsed.collections)) {
-            parsed.collections.forEach((c: any) => {
-              addCollection(c.name);
-              // Wait, collections need books to be added first, we can update book mapping later
-            });
-          }
-          if (Array.isArray(parsed.books)) {
-            parsed.books.forEach((b: any) => {
-              // Create book and populate chapters
-              const bookId = b.id || Math.random().toString();
-              addBook(b.folderId, b.title);
-              // Find newly added book and update
-              setTimeout(() => {
-                const state = useAulasStore.getState();
-                const added = state.books.find((nb) => nb.title === b.title && nb.folderId === b.folderId);
-                if (added) {
-                  updateBook(added.id, {
-                    coverImage: b.coverImage,
-                    targetDate: b.targetDate,
-                    chapters: b.chapters || [],
-                  });
-                }
-              }, 100);
-            });
-          }
+          importBackupData(parsed);
           alert("Backup importado com sucesso! (Os dados serão sincronizados com o Firestore)");
         } else {
           alert("Arquivo de backup inválido.");

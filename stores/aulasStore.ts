@@ -104,6 +104,8 @@ interface AulasState {
     addChaptersJson: (bookId: string, chaptersJson: any[]) => void;
     updateChapter: (bookId: string, chapterId: string, updates: Partial<AulaChapter>) => void;
 
+    importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[] }) => void;
+
     setLoading: (loading: boolean) => void;
 
     // Internal Sync
@@ -358,6 +360,96 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         const updated = get().books.find(b => b.id === bookId);
         if (updated) syncBookToSubcollection(updated);
 
+        get()._syncToFirestore();
+    },
+
+    importBackupData: (backupData) => {
+        const newBookIds: string[] = [];
+        set((state) => {
+            const { folders: incomingFolders, books: incomingBooks, collections: incomingCollections } = backupData;
+            
+            if (!Array.isArray(incomingFolders)) return;
+
+            const folderIdMap = new Map<string, string>();
+            folderIdMap.set('f-1', 'f-1');
+            folderIdMap.set('f-2', 'f-2');
+            folderIdMap.set('f-3', 'f-3');
+
+            incomingFolders.forEach((f: any) => {
+                if (f.id !== 'f-1' && f.id !== 'f-2' && f.id !== 'f-3') {
+                    folderIdMap.set(f.id, generateUUID());
+                }
+            });
+
+            incomingFolders.forEach((f: any) => {
+                const mappedId = folderIdMap.get(f.id);
+                if (!mappedId) return;
+
+                if (f.id === 'f-1' || f.id === 'f-2' || f.id === 'f-3') {
+                    const existing = state.folders.find(sf => sf.id === f.id);
+                    if (existing) {
+                        existing.name = f.name;
+                        return;
+                    }
+                }
+
+                const mappedParentId = f.parentId ? (folderIdMap.get(f.parentId) || f.parentId) : undefined;
+                state.folders.push({
+                    id: mappedId,
+                    name: f.name,
+                    position: f.position ?? state.folders.length,
+                    parentId: mappedParentId
+                });
+            });
+
+            const bookIdMap = new Map<string, string>();
+            if (Array.isArray(incomingBooks)) {
+                incomingBooks.forEach((b: any) => {
+                    const newBookId = generateUUID();
+                    bookIdMap.set(b.id, newBookId);
+                    newBookIds.push(newBookId);
+
+                    const mappedFolderId = folderIdMap.get(b.folderId) || b.folderId;
+
+                    state.books.push({
+                        id: newBookId,
+                        folderId: mappedFolderId,
+                        title: b.title,
+                        coverImage: b.coverImage || null,
+                        targetDate: b.targetDate || null,
+                        position: b.position ?? 0,
+                        chapters: b.chapters || []
+                    });
+                });
+            }
+
+            if (Array.isArray(incomingCollections)) {
+                incomingCollections.forEach((c: any) => {
+                    const newColId = generateUUID();
+                    const mappedBookIds = (c.bookIds || [])
+                        .map((bid: string) => bookIdMap.get(bid))
+                        .filter(Boolean) as string[];
+
+                    state.collections.push({
+                        id: newColId,
+                        name: c.name,
+                        position: c.position ?? state.collections.length,
+                        bookIds: mappedBookIds
+                    });
+                });
+            }
+        });
+
+        // Sync new books to Firestore subcollection
+        const stateBooks = get().books;
+        newBookIds.forEach((id) => {
+            const book = stateBooks.find(b => b.id === id);
+            if (book) {
+                syncBookToSubcollection(book);
+            }
+        });
+
+        // Sync folders and collections to Firestore
         get()._syncToFirestore();
     },
 
