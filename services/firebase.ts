@@ -352,7 +352,7 @@ export const subscribeToAuthChanges = (callback: (user: FirebaseUser | null) => 
         }, 4000);
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseSdkUser | null) => {
         firebaseUser = user;
         emitResolvedUser();
     });
