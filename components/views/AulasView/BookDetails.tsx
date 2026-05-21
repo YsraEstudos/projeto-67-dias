@@ -1,0 +1,437 @@
+import React, { useRef, useState } from "react";
+import { useAulasStore } from "../../../stores/aulasStore";
+import { ChevronLeft, Upload, Edit3, Type, FileJson, Trash2, Copy, FileText, Download, Search, X, CheckCircle2 } from "lucide-react";
+import { fileToBase64 } from "./utils";
+
+interface BookDetailsProps {
+  bookId: string;
+  onBack: () => void;
+  onSelectChapter: (chapterId: string) => void;
+}
+
+export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDetailsProps) {
+  const { folders, books, updateBook, addChaptersJson, deleteBook } = useAulasStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [pasteJsonDialogOpen, setPasteJsonDialogOpen] = useState(false);
+  const [jsonPasteText, setJsonPasteText] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const book = books.find((b) => b.id === bookId);
+  const folder = book ? folders.find((f) => f.id === book.folderId) : null;
+
+  if (!book) return <div className="p-12 text-center text-red-500">Livro/Curso não encontrado.</div>;
+
+  const countImportedChapters = (json: any[]) => {
+    const chaptersJson = json.length === 1 && Array.isArray(json[0]) ? json[0] : json;
+    return chaptersJson.filter((item: any) => !(item && typeof item === "object" && "total_aulas" in item)).length;
+  };
+
+  const handlePasteJsonSubmit = () => {
+    try {
+      const json = JSON.parse(jsonPasteText);
+      if (Array.isArray(json)) {
+        addChaptersJson(book.id, json);
+        setPasteJsonDialogOpen(false);
+        setJsonPasteText("");
+        alert(`${countImportedChapters(json)} aulas adicionadas com sucesso!`);
+      } else {
+        alert("O JSON deve ser um array. Exemplo: [{ \"title\": \"Aula 1\" }]");
+      }
+    } catch (err) {
+      alert("Erro ao ler JSON: " + (err as Error).message);
+    }
+  };
+
+  const handleUploadJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const json = JSON.parse(text);
+        if (Array.isArray(json)) {
+          addChaptersJson(book.id, json);
+          alert(`${countImportedChapters(json)} aulas adicionadas com sucesso!`);
+        } else {
+          alert("O JSON deve ser um array. Exemplo: [{ \"title\": \"Aula 1\" }]");
+        }
+      } catch (err) {
+        alert("Erro ao ler JSON: " + (err as Error).message);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await fileToBase64(file);
+      updateBook(book.id, { coverImage: base64 });
+    } catch (err) {
+      alert("Erro ao carregar imagem.");
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 md:p-8">
+      <button
+        onClick={onBack}
+        className="inline-flex items-center text-[10px] uppercase tracking-widest font-bold text-slate-400 hover:text-slate-200 mb-8 transition-colors cursor-pointer"
+      >
+        <ChevronLeft className="w-4 h-4 mr-1" />
+        Estante
+      </button>
+
+      <div className="flex flex-col md:flex-row gap-8 mb-12">
+        <div className="w-48 shrink-0 relative group mx-auto md:mx-0">
+          <div className="w-48 h-64 bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center border-4 border-slate-800 shadow-xl relative">
+            {book.coverImage ? (
+              <img src={book.coverImage} alt={book.title} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-4 text-center">Sem Capa</span>
+            )}
+
+            <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => coverInputRef.current?.click()}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-slate-200 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 border border-white/20 cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                Alterar
+              </button>
+            </div>
+          </div>
+          <input type="file" accept="image/*" className="hidden" ref={coverInputRef} onChange={handleUploadCover} />
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center text-center md:text-left">
+          <div className="text-[10px] font-bold text-[#D4AF37] mb-2 uppercase tracking-widest border-b border-slate-800 inline-block pb-1 max-w-max mx-auto md:mx-0">
+            {folder?.name || "Pasta Desconhecida"}
+          </div>
+          {isEditingTitle ? (
+            <input
+              autoFocus
+              value={editTitleValue}
+              onChange={(e) => setEditTitleValue(e.target.value)}
+              onBlur={() => {
+                if (editTitleValue.trim() && editTitleValue !== book.title) {
+                  updateBook(book.id, { title: editTitleValue.trim() });
+                }
+                setIsEditingTitle(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (editTitleValue.trim() && editTitleValue !== book.title) {
+                    updateBook(book.id, { title: editTitleValue.trim() });
+                  }
+                  setIsEditingTitle(false);
+                }
+                if (e.key === "Escape") {
+                  setIsEditingTitle(false);
+                }
+              }}
+              className="text-4xl md:text-5xl font-serif italic tracking-tight text-slate-100 mb-4 mt-2 bg-transparent border-b-2 border-[#D4AF37] focus:outline-none w-full"
+            />
+          ) : (
+            <div className="flex items-center justify-center md:justify-start gap-3 mb-4 mt-2 group">
+              <h1
+                onClick={() => {
+                  setEditTitleValue(book.title);
+                  setIsEditingTitle(true);
+                }}
+                className="text-4xl md:text-5xl font-serif italic tracking-tight text-slate-100 cursor-pointer hover:text-[#D4AF37] transition-colors"
+                title="Clique para renomear"
+              >
+                {book.title}
+              </h1>
+              <button
+                onClick={() => {
+                  setEditTitleValue(book.title);
+                  setIsEditingTitle(true);
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-[#D4AF37] cursor-pointer"
+                title="Renomear"
+              >
+                <Edit3 className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-4 items-center justify-center md:justify-start">
+            <label className="flex flex-col text-[10px] text-slate-400 font-semibold uppercase tracking-widest text-left">
+              Meta de Conclusão
+              <input
+                type="date"
+                value={book.targetDate || ""}
+                onChange={(e) => updateBook(book.id, { targetDate: e.target.value })}
+                className="mt-1 bg-slate-900 border border-slate-800 rounded px-3 py-1.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-sm text-slate-100 font-sans shadow-sm [color-scheme:dark]"
+              />
+            </label>
+
+            <button
+              onClick={() => setDeleteConfirmOpen(true)}
+              className="md:ml-auto flex items-center gap-1.5 text-slate-400 hover:text-[#D4AF37] text-xs font-semibold underline underline-offset-4 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              Apagar Curso
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-800 pt-8">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-4 border-b border-slate-900 pb-4 gap-4">
+          <h2 className="text-xl font-serif italic text-slate-100">
+            Índice de Aulas <span className="text-sm font-sans text-slate-400 not-italic ml-2">({book.chapters?.length || 0})</span>
+          </h2>
+
+          <div className="flex flex-wrap items-center gap-2 justify-center md:justify-end w-full md:w-auto">
+            <div className="relative group w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-[#D4AF37] transition-colors" />
+              <input
+                type="text"
+                placeholder="Buscar em aulas..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-slate-900 border border-slate-800 rounded pl-9 pr-9 py-1.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-[11px] text-slate-100 font-sans placeholder:text-slate-600 w-full transition-all"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                let mdContent = `# ${book.title}\n\n`;
+                (book.chapters || []).forEach((chapter, index) => {
+                  mdContent += `## Aula ${index + 1}: ${chapter.title}\n\n`;
+                  mdContent += `${chapter.content || "*Conteúdo indisponível*"}\n\n`;
+                  mdContent += `---\n\n`;
+                });
+
+                const dataStr = "data:text/markdown;charset=utf-8," + encodeURIComponent(mdContent);
+                const downloadAnchorNode = document.createElement("a");
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `${book.title.replace(/\s+/g, "_")}_aulas.md`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+              }}
+              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              Baixar (.md)
+            </button>
+            <button
+              onClick={() => setPasteJsonDialogOpen(true)}
+              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+            >
+              <FileText className="w-4 h-4" />
+              Colar JSON
+            </button>
+            <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleUploadJson} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+            >
+              <FileJson className="w-4 h-4" />
+              Instalar JSON
+            </button>
+          </div>
+        </div>
+
+        {!book.chapters || book.chapters.length === 0 ? (
+          <div className="bg-slate-900 rounded-lg p-10 border-2 border-slate-800 border-dashed text-center">
+            <p className="text-slate-200 mb-4 font-serif text-lg">Este curso ainda não possui aulas.</p>
+            <p className="text-xs text-slate-400 mb-6 max-w-md mx-auto leading-relaxed">
+              Crie um arquivo JSON contendo o cronograma de aulas do seu curso e instale aqui.
+              <br />
+              <br />
+              <code className="bg-slate-950 text-emerald-400 block text-left px-4 py-3 rounded-md text-[10px] font-mono leading-relaxed border border-slate-800 mt-2">
+                [
+                <br />
+                &nbsp;&nbsp;{"{"}"title": "Aula 1 - Introdução"{"}"},
+                <br />
+                &nbsp;&nbsp;{"{"}"title": "Aula 2 - Conceitos Básicos"{"}"}
+                <br />]
+              </code>
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`Transforme o conteudo abaixo em um JSON valido para importar no meu site Estante de Estudos.
+
+Regras:
+- Responda somente com JSON valido.
+- O JSON deve ser um array.
+- Cada item deve ter apenas "title"
+- "title" deve ser o nome da aula.
+
+[
+  {"title": "Aula 1"},
+  {"title": "Aula 2"}
+]
+`);
+                  alert("Prompt copiado!");
+                }}
+                className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Prompt Base
+              </button>
+              <button
+                onClick={() => setPasteJsonDialogOpen(true)}
+                className="bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                Colar JSON
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                Procurar JSON
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {book.chapters
+              .map((c, i) => ({ ...c, originalIndex: i }))
+              .filter((chapter) => {
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                  chapter.title.toLowerCase().includes(searchLower) ||
+                  (chapter.content && chapter.content.toLowerCase().includes(searchLower))
+                );
+              })
+              .map((chapter) => (
+                <button
+                  key={chapter.id}
+                  onClick={() => onSelectChapter(chapter.id)}
+                  className="flex items-center text-left bg-slate-900 border border-slate-800 hover:border-slate-700 hover:shadow-sm rounded p-4 transition-all group w-full cursor-pointer"
+                >
+                  <div className="w-8 h-8 shrink-0 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-400 mr-4 group-hover:bg-[#D4AF37] group-hover:text-slate-950 group-hover:border-[#D4AF37] transition-colors">
+                    {String(chapter.originalIndex + 1).padStart(2, "0")}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-slate-200 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2">
+                      {chapter.title}
+                      {chapter.readAt && (
+                        <span title="Lida">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        </span>
+                      )}
+                    </h3>
+                    {searchTerm && chapter.content && chapter.content.toLowerCase().includes(searchTerm.toLowerCase()) && (
+                      <p className="text-[10px] text-slate-500 mt-1 line-clamp-1 italic">
+                        Contém termo buscado no conteúdo...
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-500 text-[10px] font-semibold uppercase tracking-widest">
+                    {chapter.attachments && Object.keys(chapter.attachments).length > 0 && (
+                      <span className="flex items-center bg-slate-950 px-2 py-1 rounded text-[#D4AF37] border border-slate-800">
+                        {Object.keys(chapter.attachments).length} Anexos
+                      </span>
+                    )}
+                    <span className="underline underline-offset-4 opacity-0 group-hover:opacity-100 transition-opacity">Ler</span>
+                    <ChevronLeft className="w-4 h-4 rotate-180 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
+              ))}
+            {searchTerm &&
+              book.chapters.filter((chapter) => {
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                  chapter.title.toLowerCase().includes(searchLower) ||
+                  (chapter.content && chapter.content.toLowerCase().includes(searchLower))
+                );
+              }).length === 0 && (
+                <div className="text-center py-10 border border-dashed border-slate-800 rounded-lg">
+                  <p className="text-slate-500 text-sm">Nenhuma aula encontrada para "{searchTerm}"</p>
+                </div>
+              )}
+          </div>
+        )}
+      </div>
+
+      {pasteJsonDialogOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-2xl shadow-2xl">
+            <h3 className="text-xl font-serif italic text-slate-100 mb-4">Colar JSON</h3>
+            <p className="text-slate-400 text-sm mb-4">Cole o código JSON com a lista de aulas aqui:</p>
+            <textarea
+              autoFocus
+              value={jsonPasteText}
+              onChange={(e) => setJsonPasteText(e.target.value)}
+              className="w-full h-64 bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] mb-6 font-mono text-xs resize-none"
+              placeholder={'[\n  { "title": "Aula 1" },\n  { "title": "Aula 2" }\n]'}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPasteJsonDialogOpen(false);
+                  setJsonPasteText("");
+                }}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handlePasteJsonSubmit}
+                className="bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-4 py-2 rounded text-sm font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                Instalar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl">
+            <h3 className="text-xl font-serif italic text-slate-100 mb-4">Confirmar Exclusão</h3>
+            <p className="text-slate-400 text-sm mb-6">
+              Deseja realmente apagar este curso e todas as suas aulas? Esta ação é irreversível.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteBook(book.id);
+                  setDeleteConfirmOpen(false);
+                  onBack();
+                }}
+                className="bg-red-500 hover:bg-red-650 text-white px-4 py-2 rounded text-sm font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                Apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -16,7 +16,8 @@ import {
   Timer,
   CalendarCheck,
   Gamepad2,
-  Trophy
+  Trophy,
+  BookOpen
 } from 'lucide-react';
 import { ViewState, DashboardCardProps, OrganizeTask, type User } from './types';
 import { Card } from './components/Card';
@@ -24,7 +25,7 @@ import { LoadingSimple } from './components/shared/Loading';
 import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
 // Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, useCompetitionStore, useDailyPlannerStore, usePomodoroStore, clearAllStores } from './stores';
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useAulasStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, useCompetitionStore, useDailyPlannerStore, usePomodoroStore, clearAllStores } from './stores';
 import { subscribeToDocument, subscribeToSubcollection, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
@@ -73,6 +74,7 @@ const LinksView = React.lazy(() => import('./components/views/LinksView'));
 const SundayView = React.lazy(() => import('./components/views/SundayView'));
 const GamesView = React.lazy(() => import('./components/views/GamesView'));
 const PomodoroView = React.lazy(() => import('./components/views/PomodoroView'));
+const AulasView = React.lazy(() => import('./components/views/AulasView'));
 
 // --- Floating Timer Widget (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
@@ -125,6 +127,38 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       progressPercent
     };
   }, [books]);
+
+  // Read Aulas Data for Dashboard (Zustand)
+  const aulasBooks = useAulasStore((state) => state.books);
+
+  // Calculate aulas stats dynamically
+  const aulasStats = useMemo(() => {
+    const totalBooks = aulasBooks.length;
+    let totalChapters = 0;
+    let readChapters = 0;
+    
+    aulasBooks.forEach(book => {
+      if (book.chapters) {
+        totalChapters += book.chapters.length;
+        book.chapters.forEach(ch => {
+          if (ch.readAt) {
+            readChapters += 1;
+          }
+        });
+      }
+    });
+
+    const progressPercent = totalChapters > 0
+      ? Math.round((readChapters / totalChapters) * 100)
+      : 0;
+
+    return {
+      totalBooks,
+      totalChapters,
+      readChapters,
+      progressPercent
+    };
+  }, [aulasBooks]);
 
   // --- PROJECT CONFIG (Zustand) ---
   const config = useConfigStore((state) => state.config);
@@ -259,6 +293,10 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       {
         key: 'pomodoro-storage',
         hydrate: (data: any) => usePomodoroStore.getState()._hydrateFromFirestore(data)
+      },
+      {
+        key: 'p67_aulas_config',
+        hydrate: (data: any) => useAulasStore.getState()._hydrateFromFirestore(data)
       }
     ];
     const totalStores = storeSubscriptions.length;
@@ -306,9 +344,12 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       ));
     });
 
-    // Special case for subcollection-based stores (like Notes)
+    // Special case for subcollection-based stores (like Notes and Aulas)
     unsubscribers.push(subscribeToSubcollection('p67_notes_store_items', (data: any[]) => {
       useNotesStore.getState()._hydrateNotesFromSubcollection(data);
+    }));
+    unsubscribers.push(subscribeToSubcollection('p67_aulas_books', (data: any[]) => {
+      useAulasStore.getState()._hydrateBooksFromSubcollection(data);
     }));
 
     console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
@@ -420,6 +461,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       [ViewState.GAMES]: 'Jogos',
       [ViewState.CONCURSO]: 'Concurso',
       [ViewState.POMODORO]: 'Pomodoro',
+      [ViewState.AULAS]: 'Estante de Aulas',
     };
     return labels[view] || view;
   }, []);
@@ -604,8 +646,16 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         icon: Timer,
         color: 'text-red-500',
       },
+      {
+        id: ViewState.AULAS,
+        title: 'Estante de Aulas',
+        subtitle: `${aulasStats.totalBooks} curso${aulasStats.totalBooks !== 1 ? 's' : ''} • ${aulasStats.readChapters}/${aulasStats.totalChapters} aulas`,
+        icon: BookOpen,
+        color: 'text-amber-400',
+        stats: aulasStats.progressPercent > 0 ? `${aulasStats.progressPercent}%` : undefined
+      },
     ];
-  }, [notificationCount, workCurrentCount, workGoal, readingStats, warmConcurso]);
+  }, [notificationCount, workCurrentCount, workGoal, readingStats, warmConcurso, aulasStats]);
 
   const renderContent = () => {
     let content: React.ReactNode;
@@ -638,6 +688,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       case ViewState.SUNDAY: content = <SundayView />; break;
       case ViewState.GAMES: content = <GamesView />; break;
       case ViewState.POMODORO: content = <PomodoroView />; break;
+      case ViewState.AULAS: content = <AulasView />; break;
       default: content = <div>View not found</div>;
     }
 

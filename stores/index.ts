@@ -36,6 +36,9 @@ export { usePromptsStore } from './promptsStore';
 // Notes Store - Notes and tags
 export { useNotesStore } from './notesStore';
 
+// Aulas Store - Courses, chapters, folders and collections
+export { useAulasStore } from './aulasStore';
+
 // Links Store - Quick links
 export { useLinksStore, useLinkActions, useLinks, useIsLinksLoading } from './linksStore';
 
@@ -127,6 +130,7 @@ import { useConfigStore } from './configStore';
 import { useHabitsStore } from './habitsStore';
 import { useWorkStore } from './workStore';
 import { useNotesStore } from './notesStore';
+import { useAulasStore } from './aulasStore';
 import { useSundayStore } from './sundayStore';
 import { useJournalStore } from './journalStore';
 import { useLinksStore } from './linksStore';
@@ -161,6 +165,7 @@ export const clearAllStores = () => {
     useHabitsStore.getState()._reset();
     useWorkStore.getState()._reset();
     useNotesStore.getState()._reset();
+    useAulasStore.getState()._reset();
     useSundayStore.getState()._reset();
     useJournalStore.getState()._reset();
     useLinksStore.getState()._reset();
