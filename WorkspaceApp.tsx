@@ -81,6 +81,9 @@ const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m =
 // --- Floating Sunday Timer Widget (lazy loaded, global) ---
 const SundayTimerWidget = React.lazy(() => import('./components/SundayTimerWidget').then(m => ({ default: m.SundayTimerWidget })));
 
+// --- Floating Task Expiration Notification Widget (lazy loaded) ---
+const TaskNotificationWidget = React.lazy(() => import('./components/TaskNotificationWidget').then(m => ({ default: m.TaskNotificationWidget })));
+
 const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
   // --- APP STATE (Zustand) ---
   const activeView = useUIStore((state) => state.activeView);
@@ -818,6 +821,13 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         </Suspense>
       )}
 
+      {/* Floating Task Expiration Notification Widget (Only on Dashboard) */}
+      {activeView === ViewState.DASHBOARD && (
+        <Suspense fallback={null}>
+          <TaskNotificationWidget />
+        </Suspense>
+      )}
+
       {/* Floating Sunday Timer Widget (Global - appears on any view when active) */}
       <Suspense fallback={null}>
         <SundayTimerWidget onClick={() => handleCardClick(ViewState.SUNDAY)} />
@@ -838,7 +848,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.9.1
+          versão 1.10.0
         </span>
       </footer>
 
