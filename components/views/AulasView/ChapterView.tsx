@@ -577,6 +577,8 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
       h4: createHeadingRenderer("h4"),
       h5: createHeadingRenderer("h5"),
       h6: createHeadingRenderer("h6"),
+      code: CodeBlock,
+      pre: ({ children }: any) => <>{children}</>,
     };
   }, [attachments, editMode]);
 
@@ -1696,3 +1698,220 @@ function QuestionPill({
     </motion.div>
   );
 }
+
+interface Token {
+  type: string;
+  value: string;
+}
+
+const tokenizeCSS = (code: string): Token[] => {
+  const regex = /(\/\*[\s\S]*?\*\/)|(".*?"|'.*?')|(#(?:[0-9a-fA-F]{3,4}){1,2})\b|(\b\d+(?:\.\d+)?(?:px|em|rem|%|s|ms|deg)?\b)|(\b[\w-]+\b(?=\s*:))|(@[a-zA-Z-]+)|([{};:(),\.#])|(\b[\w-]+\b)|(\s+)|([^\s\w]+)/g;
+  let match;
+  const tokens: Token[] = [];
+  regex.lastIndex = 0;
+  while ((match = regex.exec(code)) !== null) {
+    const [
+      full,
+      comment,
+      string,
+      hexColor,
+      number,
+      property,
+      atRule,
+      punctuation,
+      word,
+      whitespace,
+      other
+    ] = match;
+    if (comment) tokens.push({ type: "comment", value: comment });
+    else if (string) tokens.push({ type: "string", value: string });
+    else if (hexColor) tokens.push({ type: "hex", value: hexColor });
+    else if (number) tokens.push({ type: "number", value: number });
+    else if (property) tokens.push({ type: "property", value: property });
+    else if (atRule) tokens.push({ type: "at-rule", value: atRule });
+    else if (punctuation) tokens.push({ type: "punctuation", value: punctuation });
+    else if (word) tokens.push({ type: "word", value: word });
+    else if (whitespace) tokens.push({ type: "whitespace", value: whitespace });
+    else if (other) tokens.push({ type: "other", value: other });
+  }
+  return tokens;
+};
+
+const tokenizeHTML = (code: string): Token[] => {
+  const regex = /(<!--[\s\S]*?-->)|(<[a-zA-Z0-9:-]+)|(<\/?[a-zA-Z0-9:-]+>)|(\b[a-zA-Z0-9:-]+(?=\s*=))|(".*?"|'.*?')|([=/<>!?-]+)|(\s+)|([^<\s]+)/g;
+  let match;
+  const tokens: Token[] = [];
+  regex.lastIndex = 0;
+  while ((match = regex.exec(code)) !== null) {
+    const [
+      full,
+      comment,
+      tagStart,
+      tagClose,
+      attribute,
+      string,
+      punctuation,
+      whitespace,
+      text
+    ] = match;
+    if (comment) tokens.push({ type: "comment", value: comment });
+    else if (tagStart) tokens.push({ type: "tag-name", value: tagStart });
+    else if (tagClose) tokens.push({ type: "tag-close", value: tagClose });
+    else if (attribute) tokens.push({ type: "attribute", value: attribute });
+    else if (string) tokens.push({ type: "string", value: string });
+    else if (punctuation) tokens.push({ type: "punctuation", value: punctuation });
+    else if (whitespace) tokens.push({ type: "whitespace", value: whitespace });
+    else if (text) tokens.push({ type: "text", value: text });
+  }
+  return tokens;
+};
+
+const tokenizeJS = (code: string): Token[] => {
+  const keywords = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|class|extends|import|export|from|default|as|try|catch|finally|throw|async|await|typeof|instanceof|in|of|this|super|true|false|null|undefined)\b/;
+  const regex = /(\/\/.*)|(\/\*[\s\S]*?\*\/)|(".*?"|'.*?'|`[\s\S]*?`)|(\b\d+(?:\.\d+)?\b)|([{}()\[\];:,\.])|(\b[a-zA-Z_]\w*(?=\s*\())|(\b[a-zA-Z_]\w*\b)|(\s+)|([^\s\w]+)/g;
+  let match;
+  const tokens: Token[] = [];
+  regex.lastIndex = 0;
+  while ((match = regex.exec(code)) !== null) {
+    const [
+      full,
+      lineComment,
+      blockComment,
+      string,
+      number,
+      punctuation,
+      functionCall,
+      word,
+      whitespace,
+      other
+    ] = match;
+    if (lineComment) tokens.push({ type: "comment", value: lineComment });
+    else if (blockComment) tokens.push({ type: "comment", value: blockComment });
+    else if (string) tokens.push({ type: "string", value: string });
+    else if (number) tokens.push({ type: "number", value: number });
+    else if (punctuation) tokens.push({ type: "punctuation", value: punctuation });
+    else if (functionCall) tokens.push({ type: "function", value: functionCall });
+    else if (word) {
+      if (keywords.test(word)) {
+        tokens.push({ type: "keyword", value: word });
+      } else {
+        tokens.push({ type: "word", value: word });
+      }
+    }
+    else if (whitespace) tokens.push({ type: "whitespace", value: whitespace });
+    else if (other) tokens.push({ type: "operator", value: other });
+  }
+  return tokens;
+};
+
+const HighlightedCode: React.FC<{ code: string; language: string }> = ({ code, language }) => {
+  const tokens = React.useMemo(() => {
+    const lang = (language || "").toLowerCase();
+    if (lang === "css") {
+      return tokenizeCSS(code);
+    } else if (lang === "html" || lang === "xml") {
+      return tokenizeHTML(code);
+    } else if (lang === "javascript" || lang === "js" || lang === "typescript" || lang === "ts" || lang === "json") {
+      return tokenizeJS(code);
+    } else {
+      return [{ type: "text", value: code }];
+    }
+  }, [code, language]);
+
+  let inBraces = false;
+
+  return (
+    <>
+      {tokens.map((token, index) => {
+        let className = "text-slate-200";
+        if (token.type === "comment") className = "text-slate-500 italic";
+        else if (token.type === "string") className = "text-emerald-400 font-medium";
+        else if (token.type === "hex") className = "text-amber-400 font-mono";
+        else if (token.type === "number") className = "text-amber-400 font-mono";
+        else if (token.type === "property") className = "text-cyan-400 font-semibold";
+        else if (token.type === "at-rule") className = "text-pink-400 font-bold";
+        else if (token.type === "punctuation") {
+          className = "text-slate-400";
+          if (token.value === "{") inBraces = true;
+          if (token.value === "}") inBraces = false;
+        }
+        else if (token.type === "keyword") className = "text-pink-400 font-bold";
+        else if (token.type === "function") className = "text-blue-400 font-semibold";
+        else if (token.type === "tag-name") className = "text-pink-400 font-semibold";
+        else if (token.type === "tag-close") className = "text-pink-400 font-semibold";
+        else if (token.type === "attribute") className = "text-cyan-400";
+        else if (token.type === "operator") className = "text-slate-400";
+        else if (token.type === "word") {
+          if ((language || "").toLowerCase() === "css") {
+            className = inBraces ? "text-emerald-300" : "text-[#F3D76F] font-semibold";
+          } else {
+            className = "text-slate-200";
+          }
+        }
+
+        return (
+          <span key={index} className={className}>
+            {token.value}
+          </span>
+        );
+      })}
+    </>
+  );
+};
+
+const CodeBlock: React.FC<any> = ({ className, children, ...props }) => {
+  const match = /language-(\w+)/.exec(className || "");
+  const language = match ? match[1] : "";
+  const codeString = String(children).replace(/\n$/, "");
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(codeString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const isInline = !className || !className.includes("language-");
+
+  if (isInline) {
+    return (
+      <code className="bg-slate-900/90 border border-slate-800/80 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs md:text-sm break-all" {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  const langLabel = language.toUpperCase();
+
+  return (
+    <div className="not-prose my-6 rounded-lg border border-slate-800 overflow-hidden shadow-lg bg-slate-950/60 backdrop-blur-md w-full">
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-850">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] font-sans">
+          {langLabel || "código"}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider font-sans cursor-pointer focus:outline-none"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-emerald-400">Copiado!</span>
+            </>
+          ) : (
+            <>
+              <ClipboardCopy className="w-3.5 h-3.5" />
+              <span>Copiar</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono bg-slate-950 text-slate-100 select-text">
+        <code className="block select-text">
+          <HighlightedCode code={codeString} language={language} />
+        </code>
+      </pre>
+    </div>
+  );
+};
+
