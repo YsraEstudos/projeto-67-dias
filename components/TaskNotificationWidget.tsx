@@ -57,15 +57,28 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
     const popoverRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
 
-    // Filter tasks due in 0, 1, or 3 days
+    // Filter tasks due or reminding in 0, 1, or 3 days
     const expiringTasks = useMemo(() => {
         return tasks
             .filter(t => {
-                if (t.isCompleted || t.isArchived || !t.dueDate) return false;
-                const days = getDaysRemaining(t.dueDate);
-                return days === 0 || days === 1 || days === 3;
+                if (t.isCompleted || t.isArchived) return false;
+                
+                let isMatching = false;
+                if (t.dueDate) {
+                    const days = getDaysRemaining(t.dueDate);
+                    if (days === 0 || days === 1 || days === 3) isMatching = true;
+                }
+                if (t.reminderDate) {
+                    const days = getDaysRemaining(t.reminderDate);
+                    if (days === 0 || days === 1 || days === 3) isMatching = true;
+                }
+                return isMatching;
             })
-            .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!));
+            .sort((a, b) => {
+                const aDate = a.dueDate || a.reminderDate || '';
+                const bDate = b.dueDate || b.reminderDate || '';
+                return aDate.localeCompare(bDate);
+            });
     }, [tasks]);
 
     // Categories list for TaskModal
@@ -158,10 +171,6 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                         {/* Scrollable list of expiring tasks */}
                         <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
                             {expiringTasks.map(task => {
-                                const days = getDaysRemaining(task.dueDate!);
-                                const label = getDaysRemainingLabel(days);
-                                const dateFormatted = formatDate(task.dueDate);
-
                                 return (
                                     <div
                                         key={task.id}
@@ -183,22 +192,43 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                                 <span className="text-base font-medium truncate text-slate-200 block max-w-full">
                                                     {task.title}
                                                 </span>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${getBadgeColor(days)}`}>
-                                                    <Clock size={10} />
-                                                    {label} ({dateFormatted})
-                                                </span>
+                                                {task.dueDate && (() => {
+                                                    const days = getDaysRemaining(task.dueDate);
+                                                    const label = getDaysRemainingLabel(days);
+                                                    const dateFormatted = formatDate(task.dueDate);
+                                                    return (
+                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${getBadgeColor(days)}`}>
+                                                            <Clock size={10} />
+                                                            {label} ({dateFormatted})
+                                                        </span>
+                                                    );
+                                                })()}
+                                                {task.reminderDate && (() => {
+                                                    const days = getDaysRemaining(task.reminderDate);
+                                                    const isExpiring = days === 0 || days === 1 || days === 3;
+                                                    const dateFormatted = formatDate(task.reminderDate);
+                                                    if (isExpiring) {
+                                                        const label = getDaysRemainingLabel(days);
+                                                        return (
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 ${getBadgeColor(days)}`} title={`Lembrete para: ${dateFormatted}`}>
+                                                                <Bell size={10} className="text-yellow-500" />
+                                                                Lembrete: {label} ({dateFormatted})
+                                                            </span>
+                                                        );
+                                                    } else {
+                                                        return (
+                                                            <span className="text-[10px] text-slate-500 flex items-center gap-1" title={`Lembrete para: ${dateFormatted}`}>
+                                                                <Bell size={10} className="text-yellow-500" /> Lembrete
+                                                            </span>
+                                                        );
+                                                    }
+                                                })()}
                                             </div>
 
                                             <div className="flex items-center gap-3">
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border tracking-wider ${getCategoryColor(task.category)}`}>
                                                     {task.category.toUpperCase()}
                                                 </span>
-
-                                                {task.reminderDate && (
-                                                    <span className="text-[10px] text-slate-500 flex items-center gap-1" title={`Lembrete para: ${formatDate(task.reminderDate)}`}>
-                                                        <Bell size={10} className="text-yellow-500" /> Lembrete
-                                                    </span>
-                                                )}
                                             </div>
                                         </div>
 
