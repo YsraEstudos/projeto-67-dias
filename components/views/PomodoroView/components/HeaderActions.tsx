@@ -6,17 +6,17 @@ export function HeaderActions() {
   const { setReportOpen, setSettingsOpen } = useStore();
   
   return (
-    <div className="flex items-center space-x-2 text-[var(--color-text-muted)]">
-      <button className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-yellow-500">
+    <div className="flex items-center space-x-1 sm:space-x-2 text-[var(--color-text-muted)]">
+      <button className="hidden sm:block p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-yellow-500">
         <Crown className="w-4 h-4" />
       </button>
-      <button className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-[var(--color-text)]">
+      <button className="hidden sm:block p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-[var(--color-text)]">
         <Users className="w-4 h-4" />
       </button>
-      <button className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-green-500">
+      <button className="hidden sm:block p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-green-500">
         <Leaf className="w-4 h-4" />
       </button>
-      <button className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-yellow-400">
+      <button className="hidden sm:block p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-yellow-400">
         <Trophy className="w-4 h-4" />
       </button>
       <button 
@@ -26,7 +26,7 @@ export function HeaderActions() {
       >
         <BarChart2 className="w-4 h-4" />
       </button>
-      <button className="p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-[var(--color-text)]">
+      <button className="hidden sm:block p-2 hover:bg-[var(--color-surface)] rounded-md transition-colors hover:text-[var(--color-text)]">
         <Bell className="w-4 h-4" />
       </button>
       <button 

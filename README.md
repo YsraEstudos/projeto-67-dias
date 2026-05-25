@@ -111,7 +111,7 @@ npm run check:concurso
 
 Deploy principal:
 
-- `netlify.toml`: build do app raiz e headers de segurança.
+- `netlify.toml`: `npm run build:deploy`, que instala/builda `CONCURSO`, sincroniza `public/concurso` e builda o app raiz.
 - `vercel.json`: rewrite de SPA e encaminhamento de `/api/*` para `api/compress.py`.
 
 ### App `CONCURSO`

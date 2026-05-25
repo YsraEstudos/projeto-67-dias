@@ -1,4 +1,5 @@
 .clean-module-page {
+  box-sizing: border-box;
   width: min(100%, 1360px);
   margin: 0 auto;
   padding: 28px 24px 112px;
@@ -219,6 +220,7 @@
 }
 
 .clean-tabs {
+  box-sizing: border-box;
   position: sticky;
   top: var(--content-offset, 80px);
   z-index: 10;
@@ -418,6 +420,8 @@
 }
 
 .clean-panel {
+  min-width: 0;
+  width: 100%;
   border-radius: 22px;
   padding: 24px;
 }
@@ -1259,62 +1263,353 @@
 }
 
 @media (max-width: 760px) {
+  /* Hide the redundant overlapping AppShell FloatingBottomNav on mobile */
+  .floating-bottom-nav-container {
+    display: none !important;
+  }
+
   .clean-module-page {
-    padding-inline: 10px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+    padding-inline: 12px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 12px)) !important; /* Spacing for fixed bottom navigation bar + safe area notch */
+  }
+
+  .clean-hero h1 {
+    font-size: 2.2rem;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+  }
+
+  .clean-hero-panel strong {
+    font-size: 2.8rem !important; /* Make hero panel large numbers look compact on mobile screens */
   }
 
   .clean-study-focus,
   .clean-hero-panel,
   .clean-panel {
-    border-radius: 18px;
-    padding: 18px;
+    border-radius: 20px;
+    padding: 16px;
   }
 
-  .clean-stats-grid,
-  .clean-question-goal-list,
-  .clean-settings-summary,
+  /* Premium Bottom Fixed Tab Bar for mobile devices */
+  .clean-tabs {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important; /* override sticky top */
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-top: 1px solid rgba(148, 163, 184, 0.16) !important;
+    background: rgba(9, 9, 11, 0.94) !important;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 16px)) !important; /* bottom padding for notch safe area */
+    box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.6) !important;
+    z-index: 50 !important;
+    display: flex !important;
+    justify-content: space-around !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+
+  .clean-tab {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 12px !important;
+    font-size: 0.78rem;
+    font-weight: 800;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    color: #94a3b8;
+  }
+
+  .clean-tab svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .clean-tab.clean-tab-active {
+    color: #a78bfa !important;
+    background: rgba(167, 139, 250, 0.08) !important;
+  }
+
+  /* Horizontal swipe list for day selection and grade filters, keeping it clean */
+  .clean-day-shortcuts,
+  .clean-grade-filters {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 8px;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Hide scrollbars */
+  }
+
+  .clean-day-shortcuts::-webkit-scrollbar,
+  .clean-grade-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .clean-grade-chip {
+    flex: 0 0 auto !important;
+  }
+
+  .clean-day-chip {
+    flex: 0 0 auto !important;
+    min-width: 110px;
+    min-height: 52px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .clean-day-chip span {
+    font-size: 0.65rem;
+  }
+
+  .clean-day-chip strong {
+    font-size: 0.8rem;
+  }
+
+  /* Stats cards in 3 columns */
+  .clean-stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px;
+  }
+
+  .clean-stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px 6px;
+    min-height: auto;
+    gap: 6px;
+    border-radius: 14px;
+  }
+
+  .clean-stat-card svg {
+    width: 16px;
+    height: 16px;
+    margin-bottom: 2px;
+  }
+
+  .clean-stat-card span {
+    font-size: 0.58rem;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .clean-stat-card strong {
+    font-size: 1.35rem;
+  }
+
+  /* Subject strip in 2 columns */
   .clean-subject-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
   }
 
+  .clean-subject-strip article {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 12px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  .clean-subject-strip span {
+    font-size: 0.65rem;
+  }
+
+  .clean-subject-strip strong {
+    font-size: 1.25rem;
+  }
+
+  /* Settings summary in 2 columns */
+  .clean-settings-summary {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .clean-settings-summary article {
+    min-height: auto;
+    padding: 12px;
+    border-radius: 14px;
+    gap: 6px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .clean-settings-summary span {
+    font-size: 0.65rem;
+  }
+
+  .clean-settings-summary strong {
+    font-size: 1.35rem;
+  }
+
+  /* Question goal list in 2 columns */
+  .clean-question-goal-list {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .clean-question-goal-list label {
+    gap: 4px;
+  }
+
+  /* Study Focus Controls: Grid with 2 columns, done/complete spans 2 cols */
+  .clean-study-controls {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+    width: 100%;
+    align-items: stretch;
+    flex-direction: row; /* reset flex layout */
+  }
+
+  .clean-study-controls label {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .clean-study-toggle {
+    width: 100%;
+    min-height: 38px;
+    font-size: 0.75rem;
+  }
+
+  .clean-study-complete {
+    grid-column: span 2;
+    width: 100%;
+    min-height: 40px;
+    font-size: 0.8rem;
+  }
+
+  /* Prevent browser auto-zoom on iOS by enforcing 16px font-size for inputs */
+  .clean-module-page input,
+  .clean-module-page select,
+  .clean-module-page textarea {
+    font-size: 16px !important;
+  }
+
+  /* Task cards & rows */
   .clean-task-card,
-  .clean-topic-row,
-  .clean-calendar-drawer-grid {
+  .clean-topic-row {
     grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
   }
 
   .clean-grade-dot {
     width: 100%;
-    height: 5px;
+    height: 4px;
+    border-radius: 2px;
   }
 
+  /* Horizontal layout for action buttons to save vertical space */
   .clean-task-actions,
-  .clean-topic-actions,
-  .clean-study-controls,
-  .clean-pending-head,
-  .clean-pending-actions {
-    align-items: stretch;
-    flex-direction: column;
+  .clean-topic-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px;
+    width: 100%;
     justify-content: flex-start;
   }
 
-  .clean-study-controls label,
-  .clean-calendar-questions,
-  .clean-pending-actions label,
-  .clean-pending-actions button {
-    width: 100%;
-    min-width: 100%;
+  .clean-task-actions button,
+  .clean-topic-actions button {
+    flex: 1;
+    min-width: 80px;
+    font-size: 0.75rem;
+    padding: 0 8px;
+    min-height: 36px;
   }
 
-  .clean-calendar-more {
-    align-items: stretch;
-    flex-direction: column;
+  /* Pending card styling */
+  .clean-pending-card {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .clean-pending-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+    width: 100%;
+    flex-direction: row; /* reset flex layout */
+  }
+
+  .clean-pending-actions label {
+    grid-column: span 2;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .clean-pending-actions button {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 0.75rem;
+    min-height: 36px;
+  }
+
+  /* Calendar styling */
+  .clean-month-grid {
+    gap: 4px;
+  }
+
+  .clean-weekday {
+    font-size: 0.58rem;
+    text-align: center;
+    padding: 0 2px 4px;
+  }
+
+  .clean-calendar-day {
+    min-height: 56px; /* Compact calendar */
+    padding: 4px;
+    border-radius: 8px;
+    gap: 2px;
+  }
+
+  .clean-calendar-day-number {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .clean-calendar-day-summary {
+    display: none !important; /* Hide words, show dots instead */
+  }
+
+  .clean-calendar-dots {
+    justify-content: center;
+    gap: 3px;
+    min-height: 5px;
+  }
+
+  .clean-calendar-dots i {
+    width: 5px;
+    height: 5px;
   }
 
   .clean-calendar-toolbar,
   .clean-calendar-selected {
-    align-items: stretch;
     flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
 
   .clean-calendar-toolbar button,
@@ -1322,27 +1617,43 @@
     width: 100%;
   }
 
-  .clean-month-grid {
-    gap: 5px;
+  /* Calendar Events drawer listing */
+  .clean-calendar-event {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
   }
 
-  .clean-weekday {
-    font-size: 0.58rem;
-    text-align: center;
+  .clean-calendar-event time {
+    font-size: 0.82rem;
+    color: #94a3b8;
   }
 
-  .clean-calendar-day {
-    min-height: 82px;
-    padding: 8px;
-    border-radius: 10px;
+  .clean-calendar-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px;
+    width: 100%;
+    flex-direction: row; /* reset flex layout */
   }
 
-  .clean-calendar-day-number {
-    font-size: 1rem;
+  .clean-calendar-actions button {
+    flex: 1 1 calc(50% - 4px);
+    font-size: 0.75rem;
+    min-height: 36px;
+    padding: 0 8px;
+    width: auto !important;
   }
 
-  .clean-calendar-day-summary {
-    font-size: 0.66rem;
+  .clean-calendar-questions {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .clean-calendar-drawer-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
 }
 

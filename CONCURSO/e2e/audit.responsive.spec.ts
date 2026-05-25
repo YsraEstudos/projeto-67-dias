@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 
 const routes = [
-  '/',
-  '/plano-diario',
-  '/conteudo',
-  '/anki',
-  '/correcoes',
-  '/simulados-redacoes',
-  '/projetos',
-  '/configuracoes',
+  '/concurso/',
+  '/concurso/plano-diario',
+  '/concurso/conteudo',
+  '/concurso/anki',
+  '/concurso/correcoes',
+  '/concurso/simulados-redacoes',
+  '/concurso/projetos',
+  '/concurso/configuracoes',
 ];
 
 test('sem scroll horizontal em mobile', async ({ page }) => {

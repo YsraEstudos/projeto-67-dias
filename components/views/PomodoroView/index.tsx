@@ -18,6 +18,7 @@ import { getLocalISODate } from './lib/pomodoroStats';
 import type { Task } from './store/types';
 
 export default function App() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const {
     isReportOpen,
     isSettingsOpen,
@@ -118,11 +119,23 @@ export default function App() {
   }, [isBreakMode, timerMode, alertStep, settings.accentColor]);
 
   return (
-    <div className="pomodoro-app-container flex h-[85vh] min-h-[600px] border border-slate-700 bg-[var(--color-bg)] text-[var(--color-text)] overflow-hidden font-sans selection:bg-[var(--color-primary)] selection:text-white relative shadow-2xl">
-      <Sidebar />
-      <MainContent />
+    <div className="pomodoro-app-container flex h-[85vh] min-h-[500px] md:min-h-[600px] border border-slate-700 bg-[var(--color-bg)] text-[var(--color-text)] overflow-hidden font-sans selection:bg-[var(--color-primary)] selection:text-white relative shadow-2xl">
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <MainContent onToggleSidebar={() => setIsSidebarOpen(true)} />
       <TimerWidget />
       
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {selectedTaskId && <TaskDetailsSidebar key="task-details" />}
       </AnimatePresence>

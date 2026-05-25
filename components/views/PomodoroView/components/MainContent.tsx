@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore, Task } from '../store/useStore';
-import { Inbox } from 'lucide-react';
+import { Inbox, Menu } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AnimatePresence } from 'motion/react';
 import { HeaderActions } from './HeaderActions';
@@ -9,7 +9,11 @@ import { TaskInput } from './TaskInput';
 import { TaskItem } from './TaskItem';
 import { useFilteredTasks } from '../hooks/useFilteredTasks';
 
-export function MainContent() {
+interface MainContentProps {
+  onToggleSidebar?: () => void;
+}
+
+export function MainContent({ onToggleSidebar }: MainContentProps) {
   const { currentFilter, toggleTask, setSelectedTaskId, selectedTaskId, setActiveTaskId } = useStore();
   const [completingTasks, setCompletingTasks] = useState<string[]>([]);
   const { activeTasks, completedTasks, allCompletedCount } = useFilteredTasks();
@@ -48,10 +52,20 @@ export function MainContent() {
   };
 
   return (
-    <div className={cn("flex-1 flex flex-col h-screen bg-[var(--color-bg)] overflow-hidden relative transition-all duration-300", selectedTaskId ? "mr-[400px]" : "")}>
+    <div className={cn("flex-1 flex flex-col h-full bg-[var(--color-bg)] overflow-hidden relative transition-all duration-300", selectedTaskId ? "lg:mr-[400px]" : "")}>
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-8 shrink-0">
-        <h1 className="text-xl font-semibold">{getFilterTitle()}</h1>
+      <header className="h-14 flex items-center justify-between px-4 md:px-8 shrink-0">
+        <div className="flex items-center gap-3">
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="md:hidden p-1.5 hover:bg-[var(--color-surface)] rounded-md transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+          <h1 className="text-xl font-semibold">{getFilterTitle()}</h1>
+        </div>
         <HeaderActions />
       </header>
 
@@ -62,7 +76,7 @@ export function MainContent() {
       <TaskInput />
 
       {/* Task List */}
-      <div className="flex-1 overflow-y-auto px-8 pb-32">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-32">
         {activeTasks.length === 0 && completedTasks.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)] opacity-60">
             <div className="w-32 h-32 mb-4 bg-[var(--color-surface)] rounded-full flex items-center justify-center">

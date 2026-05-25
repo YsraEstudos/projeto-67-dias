@@ -923,7 +923,7 @@ export function TimerWidget() {
             ? "inset-0 w-full h-full rounded-none bg-[var(--color-bg)] flex flex-col items-center justify-center"
             : cn(
                 "bottom-8 left-1/2 -translate-x-1/2 bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)]",
-                isExpanded ? "w-80 p-6" : "w-auto px-4 py-3 flex items-center space-x-4",
+                isExpanded ? "w-[calc(100%-2rem)] sm:w-80 p-4 sm:p-6" : "w-auto px-4 py-3 flex items-center space-x-4",
                 isDragOver && "ring-2 ring-[var(--color-primary)] scale-105"
               )
         )}
@@ -934,33 +934,33 @@ export function TimerWidget() {
         {isFullscreen ? (
           <motion.div 
             initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            className="flex flex-col items-center justify-center w-full h-full relative"
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center w-full h-full relative px-4 sm:px-8"
           >
-              <div className="absolute top-8 right-8 flex space-x-4">
-                <button 
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSettingsOpen(true);
-                  }} 
-                  className="p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
-                  title="Configurações"
-                >
-                  <Settings className="w-8 h-8" />
-                </button>
-              <button 
-                onClick={() => setIsFullscreen(false)} 
-                className="p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
+            <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex space-x-2 sm:space-x-4">
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSettingsOpen(true);
+                }}
+                className="p-2 sm:p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
+                title="Configurações"
+              >
+                <Settings className="w-6 h-6 sm:w-8 sm:h-8" />
+              </button>
+              <button
+                onClick={() => setIsFullscreen(false)}
+                className="p-2 sm:p-3 hover:bg-white/10 rounded-full transition-colors text-[var(--color-text-muted)] hover:text-white"
                 title="Minimizar"
               >
-                <Minimize className="w-8 h-8" />
+                <Minimize className="w-6 h-6 sm:w-8 sm:h-8" />
               </button>
             </div>
 
             {/* Mode Selector */}
-            <div className="flex space-x-2 mb-12 bg-white/5 p-1.5 rounded-xl backdrop-blur-sm">
+            <div className="flex flex-wrap sm:flex-nowrap justify-center gap-1.5 sm:space-x-2 mb-8 md:mb-12 bg-white/5 p-1.5 rounded-xl backdrop-blur-sm max-w-[calc(100%-2rem)]">
               {modes.map((m) => {
                 const Icon = m.icon;
                 return (
@@ -969,7 +969,7 @@ export function TimerWidget() {
                     disabled={isAlertCountdown}
                     onClick={() => setMode(m.id)}
                     className={cn(
-                      "px-6 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center",
+                      "px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap",
                       mode === m.id 
                         ? "bg-[var(--color-primary)] text-white shadow-lg" 
                         : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5",
@@ -985,14 +985,14 @@ export function TimerWidget() {
 
             {renderBreakPickerSection('fullscreen')}
 
-            <div className="flex w-full items-center justify-center space-x-10 mb-8 max-w-6xl px-12">
-              <div className="flex-1 flex justify-end">
+            <div className="flex flex-col lg:flex-row w-full items-center justify-center gap-6 lg:gap-10 mb-8 max-w-6xl px-4 sm:px-12">
+              <div className="flex-1 flex justify-center lg:justify-end order-2 lg:order-1 w-full max-w-md lg:max-w-none">
                 {renderActiveTaskSubtasks('fullscreen')}
               </div>
-              <div className="text-[10rem] md:text-[14rem] shrink-0 font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)]">
+              <div className="text-[6rem] sm:text-[10rem] md:text-[14rem] shrink-0 font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)] order-1 lg:order-2">
                 {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
               </div>
-              <div className="flex-1" />
+              <div className="flex-1 hidden lg:block order-3" />
             </div>
 
             {mode === 'alert' ? (

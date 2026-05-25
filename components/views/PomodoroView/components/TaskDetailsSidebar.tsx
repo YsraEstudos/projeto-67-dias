@@ -146,17 +146,17 @@ export function TaskDetailsSidebar() {
   return (
     <motion.div
       ref={sidebarRef}
-      initial={{ x: 400, opacity: 0 }}
+      initial={{ x: '100%', opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 400, opacity: 0 }}
+      exit={{ x: '100%', opacity: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="w-[400px] h-full bg-[var(--color-surface)] border-l border-[var(--color-border)] flex flex-col absolute right-0 top-0 z-40 shadow-2xl"
+      className="w-full sm:w-[400px] h-full bg-[var(--color-surface)] border-l border-[var(--color-border)] flex flex-col absolute right-0 top-0 z-40 shadow-2xl"
     >
       {/* Header */}
       <div className="p-6 border-b border-[var(--color-border)] shrink-0">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center flex-1 mr-4">
-            <button 
+            <button
               onClick={() => updateTask(task.id, { completed: !task.completed })}
               className="mr-3 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors mt-1"
             >
@@ -177,12 +177,20 @@ export function TaskDetailsSidebar() {
               />
             </div>
           </div>
-          <button 
-            onClick={togglePriority}
-            className={cn("p-1.5 rounded-md hover:bg-[var(--color-surface)] transition-colors", getPriorityColor(task.priority))}
-          >
-            <Flag className={cn("w-5 h-5", task.priority ? "fill-current" : "")} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={togglePriority}
+              className={cn("p-1.5 rounded-md hover:bg-[var(--color-surface)] transition-colors", getPriorityColor(task.priority))}
+            >
+              <Flag className={cn("w-5 h-5", task.priority ? "fill-current" : "")} />
+            </button>
+            <button
+              onClick={() => setSelectedTaskId(null)}
+              className="sm:hidden p-1.5 rounded-md hover:bg-[var(--color-surface)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tags */}

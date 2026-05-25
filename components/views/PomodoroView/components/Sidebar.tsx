@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sun, Calendar, CalendarDays, CalendarCheck, CheckCircle2, Inbox, Plus, Folder, Home, Tag, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { X, Search, Sun, Calendar, CalendarDays, CalendarCheck, CheckCircle2, Inbox, Plus, Folder, Home, Tag, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,7 +15,12 @@ const navItems = [
   { id: 'tasks', label: 'Tarefas', icon: Inbox, color: 'text-blue-400' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { currentFilter, setFilter, projects, tasks, addProject, updateProject, deleteProject } = useStore();
   const { counts } = useFilteredTasks();
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -55,13 +60,29 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-64 h-full bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col text-sm">
+    <div className={cn(
+      "fixed md:relative inset-y-0 left-0 z-50 md:z-auto w-72 md:w-64 h-full bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col text-sm transition-transform duration-300 ease-in-out",
+      isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+    )}>
       {/* User Profile Area */}
-      <div className="h-14 flex items-center px-4 border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors">
-        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white font-medium mr-3">
-          U
+      <div className="h-14 flex items-center px-4 border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors justify-between">
+        <div className="flex items-center truncate flex-1">
+          <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white font-medium mr-3 shrink-0">
+            U
+          </div>
+          <span className="font-medium truncate">Usuário</span>
         </div>
-        <span className="font-medium truncate flex-1">Usuário</span>
+        {onClose && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="md:hidden p-1 hover:bg-[var(--color-surface)] rounded-md transition-colors"
+          >
+            <X className="w-4 h-4 text-[var(--color-text-muted)] hover:text-[var(--color-text)]" />
+          </button>
+        )}
       </div>
 
       {/* Search */}
