@@ -30,6 +30,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const questionPromptCopiedTimeoutRef = useRef<number | null>(null);
   const lessonPromptCopiedTimeoutRef = useRef<number | null>(null);
   const [activeHeadingSlug, setActiveHeadingSlug] = useState<string | null>(null);
+  const [activeScrollSlug, setActiveScrollSlug] = useState<string | null>(null);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [activeMobileDrawer, setActiveMobileDrawer] = useState<"outline" | "comments" | null>(null);
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
@@ -76,6 +77,50 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     document.addEventListener("selectionchange", handleSelectionChange);
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
   }, [editMode, isEditingContent]);
+
+  React.useEffect(() => {
+    if (isEditingContent || headings.length === 0) return;
+
+    const handleScroll = () => {
+      const headingElements = headings
+        .map((h) => document.getElementById(h.slug))
+        .filter((el): el is HTMLElement => el !== null);
+
+      const scrollBuffer = 150;
+      let currentActive: string | null = null;
+
+      for (const el of headingElements) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= scrollBuffer) {
+          currentActive = el.id;
+        } else {
+          break;
+        }
+      }
+
+      if (!currentActive && headingElements.length > 0) {
+        currentActive = headingElements[0].id;
+      }
+
+      if (currentActive) {
+        setActiveScrollSlug(currentActive);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [headings, isEditingContent]);
+
+  React.useEffect(() => {
+    if (activeScrollSlug) {
+      const activeBtn = document.querySelector(`[data-outline-slug="${activeScrollSlug}"]`);
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [activeScrollSlug]);
 
   React.useEffect(() => {
     return () => {
@@ -581,7 +626,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
             fileInputRef.current?.click();
           }}
           className={cn(
-            "not-prose relative group block w-full cursor-pointer transition-colors font-serif rounded-r scroll-mt-6",
+            "not-prose relative group block w-full cursor-pointer transition-colors font-serif rounded-r scroll-mt-[120px] sm:scroll-mt-[136px]",
             isH1 && "text-4xl md:text-5xl border-b border-slate-800 pb-4 mb-6 mt-12 text-slate-50 font-bold leading-tight",
             isH2 && "text-2xl md:text-3xl border-b border-slate-850 pb-3 mb-4 mt-10 text-slate-100 font-semibold leading-snug",
             isH3 && "text-xl md:text-2xl text-[#D4AF37] mb-4 mt-8 font-medium",
@@ -625,12 +670,12 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
   }, [attachments, editMode]);
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-slate-950 overflow-hidden">
+    <div className="flex flex-col bg-slate-950">
       {/* Hidden file input for attachment upload */}
       <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
 
       {/* Top navbar */}
-      <header className="min-h-14 border-b border-slate-900 flex items-center px-4 py-2 bg-slate-950/80 backdrop-blur-md shrink-0 justify-between gap-3 relative z-30">
+      <header className="sticky top-16 sm:top-20 z-30 min-h-14 border-b border-slate-900 flex items-center px-4 py-2 bg-slate-950/90 backdrop-blur-md shrink-0 justify-between gap-3 relative">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <button
             onClick={onBack}
@@ -765,20 +810,21 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
       </header>
 
       {/* Main split area */}
-      <main className="flex-1 flex min-h-0 bg-slate-950">
+      <main className="flex-1 flex min-h-0 bg-slate-950 relative">
         {/* Table of Contents / Outline Preview Sidebar */}
         {!isEditingContent && headings.length > 0 && !selectedImage && (
-          <aside className="hidden lg:flex w-64 xl:w-72 border-r border-slate-900 flex-col h-full bg-slate-950 shrink-0">
+          <aside className="hidden lg:flex w-64 xl:w-72 border-r border-slate-900 flex-col bg-slate-950 shrink-0 sticky top-[120px] sm:top-[136px] h-[calc(100vh-120px)] sm:h-[calc(100vh-136px)]">
             <div className="p-6 border-b border-slate-900 shrink-0">
               <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></div>
                 Nesta Aula
               </h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
+            <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
               {headings.map((h, i) => (
                 <button
                   key={`${h.slug}-${i}`}
+                  data-outline-slug={h.slug}
                   onClick={() => {
                     const el = document.getElementById(h.slug);
                     if (el) {
@@ -798,7 +844,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       : h.level === 3
                       ? "text-slate-500 text-xs border-slate-900 ml-4 hover:border-[#D4AF37] hover:text-[#D4AF37]"
                       : "text-slate-600 text-[10px] border-slate-900 ml-6 hover:border-slate-400 hover:text-slate-400",
-                    chapter?.lastReadSlug === h.slug && "!border-[#D4AF37] bg-slate-900"
+                    activeScrollSlug === h.slug && "!border-[#D4AF37] bg-slate-900"
                   )}
                   title="Duplo clique marca onde você parou"
                 >
@@ -807,7 +853,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       className={cn(
                         "line-clamp-2 flex-1",
                         h.level === 3 && "italic",
-                        chapter?.lastReadSlug === h.slug && "text-[#D4AF37]"
+                        activeScrollSlug === h.slug ? "text-[#D4AF37] font-semibold" : "text-slate-400"
                       )}
                     >
                       {h.text}
@@ -825,7 +871,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
         {/* Left side: Markdown */}
         <div
           className={cn(
-            "h-full overflow-y-auto px-6 md:px-12 py-8 transition-all relative w-full",
+            "px-6 md:px-12 py-8 transition-all relative w-full min-h-[calc(100vh-120px)] sm:min-h-[calc(100vh-136px)]",
             selectedImage ? "w-1/2 border-r border-slate-900" : "flex-1 max-w-4xl mx-auto"
           )}
         >
@@ -1108,7 +1154,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 
         {/* Right side: Image split view */}
         {selectedImage && !isEditingContent && (
-          <div className="w-1/2 h-full bg-slate-900 flex flex-col relative border-l-8 border-slate-950">
+          <div className="w-1/2 bg-slate-900 flex flex-col relative border-l-8 border-slate-950 sticky top-[120px] sm:top-[136px] h-[calc(100vh-120px)] sm:h-[calc(100vh-136px)]">
             <div className="absolute top-4 right-4 z-10 flex gap-2">
               {editMode && (
                 <button
@@ -1150,7 +1196,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 
         {/* Comments section */}
         {comments.length > 0 && !isEditingContent && !selectedImage && (
-          <aside className="hidden xl:flex w-80 border-l border-slate-900 bg-slate-950 flex-col h-full shrink-0">
+          <aside className="hidden xl:flex w-80 border-l border-slate-900 bg-slate-950 flex-col shrink-0 sticky top-[120px] sm:top-[136px] h-[calc(100vh-120px)] sm:h-[calc(100vh-136px)]">
             <div className="p-5 border-b border-slate-900 shrink-0">
               <h3 className="text-slate-100 text-sm font-serif italic flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-blue-400" />
@@ -1160,7 +1206,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 {openComments.length} Abertos
               </p>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {openComments.map((comment) => (
                 <div
                   key={comment.id}
@@ -1884,6 +1930,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
               {headings.map((h, i) => (
                 <button
                   key={`drawer-heading-${h.slug}-${i}`}
+                  data-outline-slug={h.slug}
                   onClick={() => {
                     const el = document.getElementById(h.slug);
                     if (el) {
@@ -1904,7 +1951,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       : h.level === 3
                       ? "text-slate-500 text-xs border-slate-800 ml-4 hover:border-[#D4AF37] hover:text-[#D4AF37]"
                       : "text-slate-600 text-[10px] border-slate-800 ml-6 hover:border-slate-400 hover:text-slate-400",
-                    chapter?.lastReadSlug === h.slug && "!border-[#D4AF37] bg-slate-850"
+                    activeScrollSlug === h.slug && "!border-[#D4AF37] bg-slate-850"
                   )}
                   title="Duplo clique marca onde você parou"
                 >
@@ -1913,7 +1960,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       className={cn(
                         "line-clamp-2 flex-1",
                         h.level === 3 && "italic",
-                        chapter?.lastReadSlug === h.slug && "text-[#D4AF37]"
+                        activeScrollSlug === h.slug && "text-[#D4AF37]"
                       )}
                     >
                       {h.text}
@@ -2130,7 +2177,7 @@ function QuestionPill({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "inline-flex items-center rounded-lg border font-bold transition-all relative overflow-hidden select-none",
+        "inline-flex items-center rounded-lg border font-bold transition-all relative select-none",
         isSm ? "h-6 text-[10px]" : "h-8 text-xs",
         borderClass,
         bgClass,
@@ -2172,17 +2219,17 @@ function QuestionPill({
         <span>{number}</span>
       </button>
 
-      {/* Control Actions - shown on hover or when expanded */}
+      {/* Control Actions - shown in a floating tooltip above the pill */}
       <AnimatePresence>
         {showControls && (
           <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: "auto", opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            initial={{ opacity: 0, y: 8, scale: 0.95, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+            exit={{ opacity: 0, y: 4, scale: 0.95, x: "-50%" }}
+            transition={{ duration: 0.15 }}
             className={cn(
-              "flex items-center h-full border-l border-slate-800/60 bg-slate-900/40 backdrop-blur-sm overflow-hidden",
-              isSm ? "pr-0.5" : "pr-1"
+              "absolute bottom-full left-1/2 mb-2.5 bg-slate-900 border border-slate-850 rounded-lg shadow-2xl py-1 px-1.5 flex items-center gap-1 z-30",
+              isSm ? "h-8" : "h-10"
             )}
           >
             {status !== "correct" && (
@@ -2194,11 +2241,11 @@ function QuestionPill({
                 }}
                 className={cn(
                   "flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 active:scale-90 rounded transition-all cursor-pointer",
-                  isSm ? "w-5 h-5" : "w-7 h-7"
+                  isSm ? "w-6 h-6" : "w-8 h-8"
                 )}
                 title="Acertei!"
               >
-                <Check className={isSm ? "w-3 h-3" : "w-3.5 h-3.5"} />
+                <Check className={isSm ? "w-3.5 h-3.5" : "w-4 h-4"} />
               </button>
             )}
             {status !== "incorrect" && (
@@ -2210,7 +2257,7 @@ function QuestionPill({
                 }}
                 className={cn(
                   "flex items-center justify-center text-rose-400 hover:bg-rose-500/20 active:scale-90 rounded transition-all cursor-pointer",
-                  isSm ? "w-5 h-5" : "w-7 h-7"
+                  isSm ? "w-6 h-6" : "w-8 h-8"
                 )}
                 title="Errei!"
               >
@@ -2226,7 +2273,7 @@ function QuestionPill({
                 }}
                 className={cn(
                   "flex items-center justify-center text-slate-400 hover:bg-slate-800 active:scale-90 rounded transition-all cursor-pointer",
-                  isSm ? "w-5 h-5" : "w-7 h-7"
+                  isSm ? "w-6 h-6" : "w-8 h-8"
                 )}
                 title="Limpar marcação"
               >
@@ -2241,12 +2288,15 @@ function QuestionPill({
               }}
               className={cn(
                 "flex items-center justify-center text-[#D4AF37] hover:bg-[#D4AF37]/20 active:scale-90 rounded transition-all cursor-pointer",
-                isSm ? "w-5 h-5" : "w-7 h-7"
+                isSm ? "w-6 h-6" : "w-8 h-8"
               )}
               title="Ver histórico de tentativas"
             >
               <History className={isSm ? "w-3.5 h-3.5" : "w-4 h-4"} />
             </button>
+            
+            {/* Small arrow indicator */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
           </motion.div>
         )}
       </AnimatePresence>
