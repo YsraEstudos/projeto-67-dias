@@ -20,6 +20,19 @@ export function ReloadPrompt() {
   });
 
   useEffect(() => {
+    // Listen for controller changes (activation of new SW) and reload the page
+    const handleControllerChange = () => {
+      console.log('[PWA] Controller changed, reloading page...');
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+    };
+  }, []);
+
+  useEffect(() => {
     const checkForUpdate = () => {
       if (document.visibilityState === 'hidden' || !navigator.onLine) {
         return;
@@ -43,11 +56,31 @@ export function ReloadPrompt() {
     };
   }, []);
 
+  const handleUpdate = () => {
+    console.log('[PWA] Update button clicked');
+    
+    // 1. Post skipWaiting direct message to waiting service worker
+    const waitingWorker = registrationRef.current?.waiting;
+    if (waitingWorker) {
+      console.log('[PWA] Posting SKIP_WAITING to waiting worker');
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    }
+
+    // 2. Call default pwa register update method
+    updateServiceWorker(true);
+
+    // 3. Fallback reload if browser didn't reload automatically after 1s
+    setTimeout(() => {
+      console.log('[PWA] Fallback reload triggered');
+      window.location.reload();
+    }, 1000);
+  };
+
   if (!needRefresh) return null;
 
   return (
     <button
-      onClick={() => updateServiceWorker(true)}
+      onClick={handleUpdate}
       aria-label="Atualizar aplicativo"
       title="Atualização disponível. Clique para aplicar."
       className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-cyan-900/30 border border-cyan-800/50 transition-all hover:bg-cyan-800/50 hover:border-cyan-500/50 animate-in fade-in zoom-in group cursor-pointer"

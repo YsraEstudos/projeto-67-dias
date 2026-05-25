@@ -48,6 +48,23 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const book = books.find((b) => b.id === bookId);
   const chapter = book?.chapters.find((c) => c.id === chapterId);
 
+  // Extract headings for Table of Contents
+  const headings = React.useMemo(() => {
+    if (!chapter?.content) return [];
+
+    const regex = /^(#{1,3})\s+(.+)$/gm;
+    const matches = [];
+    let match;
+    while ((match = regex.exec(chapter.content)) !== null) {
+      matches.push({
+        level: match[1].length,
+        text: match[2].trim(),
+        slug: generateSlug(match[2]),
+      });
+    }
+    return matches;
+  }, [chapter?.content]);
+
   React.useEffect(() => {
     const handleSelectionChange = () => {
       if (editMode || isEditingContent) {
@@ -277,22 +294,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     if (activeCommentId === commentId) setActiveCommentId(null);
   };
 
-  // Extract headings for Table of Contents
-  const headings = React.useMemo(() => {
-    if (!chapter?.content) return [];
 
-    const regex = /^(#{1,3})\s+(.+)$/gm;
-    const matches = [];
-    let match;
-    while ((match = regex.exec(chapter.content)) !== null) {
-      matches.push({
-        level: match[1].length,
-        text: match[2].trim(),
-        slug: generateSlug(match[2]),
-      });
-    }
-    return matches;
-  }, [chapter?.content]);
 
   const hasScrolledRef = useRef(false);
 
