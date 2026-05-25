@@ -4,9 +4,9 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ImagePlus, X, Edit, Eye, Save, Trash2, Bookmark, Highlighter, CheckCircle, CheckCircle2, ClipboardCopy, FileJson, MessageSquare, Check, RotateCcw, Sparkles, ChevronDown, BookOpen, Menu } from "lucide-react";
+import { ChevronLeft, ImagePlus, X, Edit, Eye, Save, Trash2, Bookmark, Highlighter, CheckCircle, CheckCircle2, ClipboardCopy, FileJson, MessageSquare, Check, RotateCcw, Sparkles, ChevronDown, BookOpen, Menu, History, TrendingUp, LineChart } from "lucide-react";
 import { extractTextFromReactNode, generateSlug, fileToBase64, cn } from "./utils";
-import { AulaRelatedQuestions } from "../../../types";
+import { AulaRelatedQuestions, QuestionAttempt, QuestionStats } from "../../../types";
 
 interface ChapterViewProps {
   bookId: string;
@@ -33,6 +33,8 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [activeMobileDrawer, setActiveMobileDrawer] = useState<"outline" | "comments" | null>(null);
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+  const [selectedHistoryQuestion, setSelectedHistoryQuestion] = useState<number | null>(null);
+  const [generalStatsDialogOpen, setGeneralStatsDialogOpen] = useState(false);
 
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
   const [selectedText, setSelectedText] = useState("");
@@ -319,10 +321,38 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     let nextCorrect = activeCorrect.filter(q => q !== questionNumber);
     let nextIncorrect = incorrectQuestions.filter(q => q !== questionNumber);
 
-    if (status === "correct") {
-      nextCorrect = [...nextCorrect, questionNumber].sort((a, b) => a - b);
-    } else if (status === "incorrect") {
-      nextIncorrect = [...nextIncorrect, questionNumber].sort((a, b) => a - b);
+    const questionAttempts = chapter.questionAttempts || {};
+    let nextAttempts = { ...questionAttempts };
+
+    if (status === "correct" || status === "incorrect") {
+      if (status === "correct") {
+        nextCorrect = [...nextCorrect, questionNumber].sort((a, b) => a - b);
+      } else if (status === "incorrect") {
+        nextIncorrect = [...nextIncorrect, questionNumber].sort((a, b) => a - b);
+      }
+
+      const currentStats = questionAttempts[questionNumber.toString()] || {
+        total: 0,
+        correct: 0,
+        incorrect: 0,
+        history: [],
+      };
+
+      const newAttempt: QuestionAttempt = {
+        timestamp: new Date().toISOString(),
+        status: status,
+      };
+
+      nextAttempts[questionNumber.toString()] = {
+        total: currentStats.total + 1,
+        correct: status === "correct" ? currentStats.correct + 1 : currentStats.correct,
+        incorrect: status === "incorrect" ? currentStats.incorrect + 1 : currentStats.incorrect,
+        history: [newAttempt, ...currentStats.history],
+      };
+    } else if (status === "pending") {
+      // Just clear current status but keep the attempts history intact
+      nextCorrect = activeCorrect.filter(q => q !== questionNumber);
+      nextIncorrect = incorrectQuestions.filter(q => q !== questionNumber);
     }
 
     // Keep completedPrincipalQuestions in sync as the union of correct and incorrect
@@ -332,6 +362,18 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       correctQuestions: nextCorrect,
       incorrectQuestions: nextIncorrect,
       completedPrincipalQuestions: nextCompleted,
+      questionAttempts: nextAttempts,
+    });
+  };
+
+  const handleClearQuestionHistory = (questionNumber: number) => {
+    if (!book || !chapter) return;
+    const questionAttempts = chapter.questionAttempts || {};
+    let nextAttempts = { ...questionAttempts };
+    delete nextAttempts[questionNumber.toString()];
+
+    updateChapter(book.id, chapter.id, {
+      questionAttempts: nextAttempts,
     });
   };
 
@@ -853,8 +895,19 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                           Aula {chapter.relatedQuestions.aula} — {chapter.relatedQuestions.titulo}
                         </p>
                       </div>
-                      <div className="text-[10px] uppercase tracking-widest text-[#D4AF37] border border-[#D4AF37]/30 rounded-full px-3 py-1 bg-slate-950 max-w-max shrink-0 font-sans font-bold">
-                        {totalPrincipal} Principais
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setGeneralStatsDialogOpen(true)}
+                          className="text-[10px] uppercase tracking-widest text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-full px-3 py-1 bg-emerald-950/15 hover:bg-emerald-950/30 transition-all font-sans font-bold flex items-center gap-1.5 cursor-pointer"
+                          title="Ver estatísticas de evolução da aula"
+                        >
+                          <TrendingUp className="w-3.5 h-3.5" />
+                          Desempenho & Evolução
+                        </button>
+                        <div className="text-[10px] uppercase tracking-widest text-[#D4AF37] border border-[#D4AF37]/30 rounded-full px-3 py-1 bg-slate-950 max-w-max shrink-0 font-sans font-bold">
+                          {totalPrincipal} Principais
+                        </div>
                       </div>
                     </div>
 
@@ -913,6 +966,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                 onMarkCorrect={() => handleMarkCorrect(questionNumber)}
                                 onMarkIncorrect={() => handleMarkIncorrect(questionNumber)}
                                 onClear={() => handleClearQuestion(questionNumber)}
+                                onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                 isExpanded={expandedQuestion === questionNumber}
                                 onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
                               />
@@ -942,6 +996,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                     onMarkCorrect={() => handleMarkCorrect(questionNumber)}
                                     onMarkIncorrect={() => handleMarkIncorrect(questionNumber)}
                                     onClear={() => handleClearQuestion(questionNumber)}
+                                    onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                     isExpanded={expandedQuestion === questionNumber}
                                     onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
                                     size="sm"
@@ -970,6 +1025,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                   onMarkCorrect={() => handleMarkCorrect(questionNumber)}
                                   onMarkIncorrect={() => handleMarkIncorrect(questionNumber)}
                                   onClear={() => handleClearQuestion(questionNumber)}
+                                  onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                   isExpanded={expandedQuestion === questionNumber}
                                   onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
                                   size="sm"
@@ -1174,6 +1230,489 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
           </aside>
         )}
       </main>
+
+      {selectedHistoryQuestion !== null && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-md shadow-2xl relative">
+            <button
+              onClick={() => setSelectedHistoryQuestion(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="mb-6 flex items-center gap-3">
+              <div className="p-2.5 bg-[#D4AF37]/10 rounded-xl text-[#D4AF37]">
+                <History className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-serif italic text-slate-100">
+                  Histórico — Questão {selectedHistoryQuestion}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                    Status Atual:
+                  </span>
+                  {(() => {
+                    const status = getQuestionStatus(selectedHistoryQuestion);
+                    if (status === "correct") {
+                      return <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">Acertada</span>;
+                    }
+                    if (status === "incorrect") {
+                      return <span className="text-[10px] bg-rose-500/10 text-rose-450 border border-rose-500/20 px-2 py-0.5 rounded font-bold">Errada</span>;
+                    }
+                    return <span className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-bold">Pendente</span>;
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {(() => {
+              const stats = chapter?.questionAttempts?.[selectedHistoryQuestion.toString()] || {
+                total: 0,
+                correct: 0,
+                incorrect: 0,
+                history: [],
+              };
+              const successRate = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+
+              return (
+                <>
+                  <div className="grid grid-cols-4 gap-2 mb-6 text-center">
+                    <div className="bg-slate-950/60 border border-slate-850 p-2 rounded-lg flex flex-col justify-center">
+                      <span className="text-[8px] uppercase tracking-wider text-slate-500 font-sans block mb-1">
+                        Tentativas
+                      </span>
+                      <strong className="text-slate-100 text-sm font-bold">
+                        {stats.total}
+                      </strong>
+                    </div>
+                    <div className="bg-emerald-950/10 border border-emerald-900/20 p-2 rounded-lg flex flex-col justify-center">
+                      <span className="text-[8px] uppercase tracking-wider text-emerald-500/70 font-sans block mb-1">
+                        Acertos
+                      </span>
+                      <strong className="text-emerald-400 text-sm font-bold">
+                        {stats.correct}
+                      </strong>
+                    </div>
+                    <div className="bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg flex flex-col justify-center">
+                      <span className="text-[8px] uppercase tracking-wider text-rose-500/70 font-sans block mb-1">
+                        Erros
+                      </span>
+                      <strong className="text-rose-400 text-sm font-bold">
+                        {stats.incorrect}
+                      </strong>
+                    </div>
+                    <div className="bg-blue-950/10 border border-blue-900/20 p-2 rounded-lg flex flex-col justify-center">
+                      <span className="text-[8px] uppercase tracking-wider text-blue-400/70 font-sans block mb-1">
+                        Taxa
+                      </span>
+                      <strong className="text-blue-400 text-sm font-bold">
+                        {successRate}%
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] mb-3">
+                      Linha do Tempo
+                    </h4>
+                    <div className="max-h-52 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {stats.history.length > 0 ? (
+                        stats.history.map((attempt, index) => {
+                          const dateObj = new Date(attempt.timestamp);
+                          const dateFormatted = dateObj.toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          });
+                          const timeFormatted = dateObj.toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          });
+                          const isCorrect = attempt.status === "correct";
+
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-2.5 rounded bg-slate-950/40 border border-slate-850 hover:bg-slate-950/60 transition-all"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={cn(
+                                  "p-1 rounded-full shrink-0",
+                                  isCorrect ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-450"
+                                )}>
+                                  {isCorrect ? (
+                                    <Check className="w-3 h-3" />
+                                  ) : (
+                                    <X className="w-3 h-3" />
+                                  )}
+                                </div>
+                                <span className={cn(
+                                  "text-xs font-semibold",
+                                  isCorrect ? "text-emerald-400" : "text-rose-400"
+                                )}>
+                                  {isCorrect ? "Marcou como Certo" : "Marcou como Errado"}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-sans font-medium">
+                                {dateFormatted} às {timeFormatted}
+                              </span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-slate-500 italic text-center py-6 border border-dashed border-slate-800 rounded-lg">
+                          Nenhuma tentativa registrada para esta questão ainda.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-800 pt-4 mt-2">
+                    {stats.total > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Deseja limpar todo o histórico de tentativas da Questão ${selectedHistoryQuestion}?`)) {
+                            handleClearQuestionHistory(selectedHistoryQuestion);
+                          }
+                        }}
+                        className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded transition-all cursor-pointer flex items-center gap-1.5 font-bold uppercase tracking-wider"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Limpar Histórico
+                      </button>
+                    ) : <div />}
+                    
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHistoryQuestion(null)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {generalStatsDialogOpen && chapter?.relatedQuestions && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] flex flex-col">
+            <button
+              onClick={() => setGeneralStatsDialogOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400">
+                <LineChart className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-serif italic text-slate-100">
+                  Desempenho & Evolução
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Aula {chapter.relatedQuestions.aula} — {chapter.relatedQuestions.titulo}
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto pr-1 flex-1 mt-4 space-y-6 custom-scrollbar">
+              {(() => {
+                const totalPrincipal = chapter.relatedQuestions.questoes_principais.length;
+                const currentCorrect = chapter.relatedQuestions.questoes_principais.filter(q => getQuestionStatus(q) === 'correct').length;
+                const currentPct = totalPrincipal > 0 ? (currentCorrect / totalPrincipal) * 100 : 0;
+                
+                const firstAttemptCorrect = chapter.relatedQuestions.questoes_principais.filter(q => {
+                  const history = chapter.questionAttempts?.[q.toString()]?.history || [];
+                  return history.length > 0 ? history[history.length - 1].status === 'correct' : false;
+                }).length;
+                const firstPct = totalPrincipal > 0 ? (firstAttemptCorrect / totalPrincipal) * 100 : 0;
+                
+                const diffPct = currentPct - firstPct;
+                
+                let improved = 0;
+                let declined = 0;
+                let stableCorrect = 0;
+                let stableIncorrect = 0;
+                let unattempted = 0;
+                let totalAttemptsOfAll = 0;
+
+                chapter.relatedQuestions.questoes_principais.forEach(q => {
+                  const history = chapter.questionAttempts?.[q.toString()]?.history || [];
+                  const current = getQuestionStatus(q);
+                  totalAttemptsOfAll += history.length;
+
+                  if (history.length === 0) {
+                    if (current === 'correct') {
+                      stableCorrect += 1;
+                    } else if (current === 'incorrect') {
+                      stableIncorrect += 1;
+                    } else {
+                      unattempted += 1;
+                    }
+                  } else {
+                    const first = history[history.length - 1].status;
+                    if (first === 'incorrect' && current === 'correct') {
+                      improved += 1;
+                    } else if (first === 'correct' && (current === 'incorrect' || current === 'pending')) {
+                      declined += 1;
+                    } else if (first === 'correct' && current === 'correct') {
+                      stableCorrect += 1;
+                    } else {
+                      stableIncorrect += 1;
+                    }
+                  }
+                });
+
+                return (
+                  <section className="bg-slate-950/40 border border-slate-850 p-4 rounded-xl">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] mb-4">
+                      Evolução Geral (Questões Principais)
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                      <div className="bg-slate-900/80 border border-slate-850 p-3.5 rounded-lg text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                          Taxa de Acerto Atual
+                        </span>
+                        <strong className="text-emerald-400 text-2xl font-bold">
+                          {Math.round(currentPct)}%
+                        </strong>
+                        <span className="text-[9px] text-slate-500 mt-1">
+                          {currentCorrect} de {totalPrincipal} questões
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-900/80 border border-slate-850 p-3.5 rounded-lg text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                          Taxa de Acerto Inicial
+                        </span>
+                        <strong className="text-slate-300 text-2xl font-bold">
+                          {Math.round(firstPct)}%
+                        </strong>
+                        <span className="text-[9px] text-slate-500 mt-1">
+                          {firstAttemptCorrect} corretas na 1ª tentativa
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-900/80 border border-slate-850 p-3.5 rounded-lg text-center flex flex-col justify-center">
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-sans block mb-1">
+                          Evolução Geral
+                        </span>
+                        {totalAttemptsOfAll === 0 ? (
+                          <span className="text-slate-400 font-bold text-sm block py-1.5">Sem tentativas ainda</span>
+                        ) : diffPct > 0 ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-emerald-400 text-2xl font-bold flex items-center gap-1">
+                              +{Math.round(diffPct)}% 📈
+                            </span>
+                            <span className="text-[9px] text-emerald-500 font-semibold mt-0.5">
+                              Sua média melhorou!
+                            </span>
+                          </div>
+                        ) : diffPct < 0 ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-rose-400 text-2xl font-bold flex items-center gap-1">
+                              {Math.round(diffPct)}% 📉
+                            </span>
+                            <span className="text-[9px] text-rose-500 font-semibold mt-0.5">
+                              Sua média piorou
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <span className="text-slate-400 text-2xl font-bold flex items-center gap-1">
+                              Estável ➖
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-semibold mt-0.5">
+                              Média mantida
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                      <div className="p-2 bg-emerald-950/15 border border-emerald-900/20 rounded-lg">
+                        <span className="text-emerald-400 font-bold block text-sm">{improved}</span>
+                        <span className="text-[9px] text-slate-400">Melhoraram</span>
+                      </div>
+                      <div className="p-2 bg-rose-950/15 border border-rose-900/20 rounded-lg">
+                        <span className="text-rose-400 font-bold block text-sm">{declined}</span>
+                        <span className="text-[9px] text-slate-400">Pioraram</span>
+                      </div>
+                      <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span className="text-slate-200 font-bold block text-sm">{stableCorrect}</span>
+                        <span className="text-[9px] text-slate-400">Estável (Acerto)</span>
+                      </div>
+                      <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span className="text-slate-400 font-bold block text-sm">{stableIncorrect}</span>
+                        <span className="text-[9px] text-slate-400">Estável (Erro)</span>
+                      </div>
+                    </div>
+                  </section>
+                );
+              })()}
+
+              <section className="space-y-4">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
+                  Análise Focada por Seção da Aula
+                </h4>
+                
+                {chapter.relatedQuestions.por_secao && chapter.relatedQuestions.por_secao.length > 0 ? (
+                  <div className="space-y-4">
+                    {chapter.relatedQuestions.por_secao.map((section) => {
+                      const totalSec = section.questoes.length;
+                      const correctSec = section.questoes.filter(q => getQuestionStatus(q) === 'correct').length;
+                      const incorrectSec = section.questoes.filter(q => getQuestionStatus(q) === 'incorrect').length;
+                      const pendingSec = totalSec - correctSec - incorrectSec;
+
+                      const correctSecPct = totalSec > 0 ? (correctSec / totalSec) * 100 : 0;
+                      const incorrectSecPct = totalSec > 0 ? (incorrectSec / totalSec) * 100 : 0;
+                      const pendingSecPct = totalSec > 0 ? (pendingSec / totalSec) * 100 : 0;
+
+                      const firstCorrectSec = section.questoes.filter(q => {
+                        const history = chapter.questionAttempts?.[q.toString()]?.history || [];
+                        return history.length > 0 ? history[history.length - 1].status === 'correct' : false;
+                      }).length;
+                      const firstSecPct = totalSec > 0 ? (firstCorrectSec / totalSec) * 100 : 0;
+                      const diffSecPct = correctSecPct - firstSecPct;
+
+                      const hasAttemptsSec = section.questoes.some(q => {
+                        const history = chapter.questionAttempts?.[q.toString()]?.history || [];
+                        return history.length > 0;
+                      });
+
+                      return (
+                        <article key={section.secao} className="bg-slate-950/20 border border-slate-850 p-4 rounded-xl">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <h5 className="text-sm font-semibold text-slate-200 truncate pr-2 max-w-[70%]" title={section.secao}>
+                              {section.secao}
+                            </h5>
+                            
+                            {!hasAttemptsSec ? (
+                              <span className="text-[9px] bg-slate-800 text-slate-500 border border-slate-700 px-2 py-0.5 rounded font-bold uppercase shrink-0">
+                                Sem tentativas
+                              </span>
+                            ) : diffSecPct > 0 ? (
+                              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase shrink-0">
+                                +{Math.round(diffSecPct)}% Melhorou! 📈
+                              </span>
+                            ) : diffSecPct < 0 ? (
+                              <span className="text-[9px] bg-rose-500/10 text-rose-450 border border-rose-500/20 px-2 py-0.5 rounded font-bold uppercase shrink-0">
+                                {Math.round(diffSecPct)}% Piorou! 📉
+                              </span>
+                            ) : (
+                              <span className="text-[9px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-bold uppercase shrink-0">
+                                Estável ➖
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-400 mb-2 font-sans">
+                            <span>
+                              Acertos: <strong className="text-slate-200">{correctSec} / {totalSec}</strong>
+                            </span>
+                            <span className="text-slate-300">
+                              Atual: <strong className="text-emerald-400">{Math.round(correctSecPct)}%</strong> 
+                              {" • "}
+                              Inicial: <strong className="text-slate-400">{Math.round(firstSecPct)}%</strong>
+                            </span>
+                          </div>
+
+                          <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-850 flex p-[1px] mb-4">
+                            {correctSecPct > 0 && (
+                              <div 
+                                className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full" 
+                                style={{ width: `${correctSecPct}%` }}
+                              />
+                            )}
+                            {incorrectSecPct > 0 && (
+                              <div 
+                                className="h-full bg-gradient-to-r from-rose-600 to-rose-450 rounded-full" 
+                                style={{ width: `${incorrectSecPct}%` }}
+                              />
+                            )}
+                            {pendingSecPct > 0 && (
+                              <div 
+                                className="h-full bg-slate-800 rounded-full" 
+                                style={{ width: `${pendingSecPct}%` }}
+                              />
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5">
+                            {section.questoes.map((questionNumber) => {
+                              const status = getQuestionStatus(questionNumber);
+                              const qHistory = chapter.questionAttempts?.[questionNumber.toString()]?.history || [];
+                              const attemptsCount = qHistory.length;
+                              
+                              let dotBorder = "border-slate-800";
+                              let dotBg = "bg-slate-950";
+                              let dotText = "text-slate-400";
+                              if (status === "correct") {
+                                dotBorder = "border-emerald-500/30";
+                                dotBg = "bg-emerald-950/15";
+                                dotText = "text-emerald-400";
+                              } else if (status === "incorrect") {
+                                dotBorder = "border-rose-500/30";
+                                dotBg = "bg-rose-950/15";
+                                dotText = "text-rose-400";
+                              }
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={`sec-dot-${section.secao}-${questionNumber}`}
+                                  onClick={() => {
+                                    setGeneralStatsDialogOpen(false);
+                                    setSelectedHistoryQuestion(questionNumber);
+                                  }}
+                                  className={cn(
+                                    "w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold border transition-all cursor-pointer hover:scale-105 active:scale-95",
+                                    dotBorder,
+                                    dotBg,
+                                    dotText
+                                  )}
+                                  title={`Questão ${questionNumber}: ${attemptsCount} tentativa(s) - Clique para ver histórico`}
+                                >
+                                  {questionNumber}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic text-center py-6 border border-dashed border-slate-800 rounded-lg">
+                    Esta aula não possui divisões por seção de teoria cadastradas.
+                  </p>
+                )}
+              </section>
+            </div>
+
+            <div className="flex justify-end border-t border-slate-800 pt-4 mt-6">
+              <button
+                type="button"
+                onClick={() => setGeneralStatsDialogOpen(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-5 py-2.5 rounded text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {questionsJsonDialogOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
@@ -1546,6 +2085,7 @@ interface QuestionPillProps {
   onMarkCorrect: () => void;
   onMarkIncorrect: () => void;
   onClear: () => void;
+  onOpenHistory: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
   size?: "sm" | "md";
@@ -1557,6 +2097,7 @@ function QuestionPill({
   onMarkCorrect,
   onMarkIncorrect,
   onClear,
+  onOpenHistory,
   isExpanded,
   onToggleExpand,
   size = "md",
@@ -1692,6 +2233,20 @@ function QuestionPill({
                 <RotateCcw className={isSm ? "w-3 h-3" : "w-3.5 h-3.5"} />
               </button>
             )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenHistory();
+              }}
+              className={cn(
+                "flex items-center justify-center text-[#D4AF37] hover:bg-[#D4AF37]/20 active:scale-90 rounded transition-all cursor-pointer",
+                isSm ? "w-5 h-5" : "w-7 h-7"
+              )}
+              title="Ver histórico de tentativas"
+            >
+              <History className={isSm ? "w-3.5 h-3.5" : "w-4 h-4"} />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

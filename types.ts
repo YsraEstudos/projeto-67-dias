@@ -1197,6 +1197,18 @@ export interface AulaRelatedQuestions {
   observacao?: string;
 }
 
+export interface QuestionAttempt {
+  timestamp: string;
+  status: 'correct' | 'incorrect';
+}
+
+export interface QuestionStats {
+  total: number;
+  correct: number;
+  incorrect: number;
+  history: QuestionAttempt[];
+}
+
 export interface AulaChapter {
   id: string;
   title: string;
@@ -1210,6 +1222,7 @@ export interface AulaChapter {
   correctQuestions?: number[];
   incorrectQuestions?: number[];
   comments?: AulaChapterComment[];
+  questionAttempts?: Record<string, QuestionStats>;
 }
 
 export interface AulaBook {
