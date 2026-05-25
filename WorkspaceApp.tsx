@@ -29,7 +29,6 @@ import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStor
 import { subscribeToDocument, subscribeToSubcollection, flushPendingWrites } from './stores/firestoreSync';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
-import { ReloadPrompt } from './components/shared/ReloadPrompt';
 import { ConflictModal } from './components/modals/ConflictModal';
 import { TabBar } from './components/shared/TabBar';
 import { useTabStore } from './stores/tabStore';
@@ -790,7 +789,6 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
             {activeView === ViewState.DASHBOARD && (
               <div className="flex items-center gap-3">
                 <SyncStatusIndicator />
-                <ReloadPrompt />
                 <span className="hidden md:block text-sm text-slate-400 text-right">
                   <div className="font-bold text-slate-200">{user.name}</div>
                   <div className="text-[10px] uppercase tracking-wider">{user.isGuest ? 'Visitante' : 'Membro'}</div>
@@ -840,7 +838,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.9.0
+          versão 1.9.1
         </span>
       </footer>
 

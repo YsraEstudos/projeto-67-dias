@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
+import { ReloadPrompt } from './components/shared/ReloadPrompt';
 
 const AuthView = lazy(() =>
   import('./components/views/AuthView').then((module) => ({ default: module.AuthView })),
@@ -60,31 +61,34 @@ const App = () => {
     }
   }, []);
 
-  if (authLoading && !user) {
-    return <ShellLoading />;
-  }
-
-  if (!user) {
-    return (
-      <Suspense fallback={<ShellLoading />}>
-        <AuthView
-          onEmailLogin={login}
-          onRegister={register}
-          onGoogleLogin={loginGoogle}
-          onGuestLogin={loginGuest}
-          onResetPassword={sendResetEmail}
-          isLoading={authLoading}
-          error={authError}
-          clearError={clearError}
-        />
-      </Suspense>
-    );
-  }
-
-  return (
+  const content = authLoading && !user ? (
+    <ShellLoading />
+  ) : !user ? (
+    <Suspense fallback={<ShellLoading />}>
+      <AuthView
+        onEmailLogin={login}
+        onRegister={register}
+        onGoogleLogin={loginGoogle}
+        onGuestLogin={loginGuest}
+        onResetPassword={sendResetEmail}
+        isLoading={authLoading}
+        error={authError}
+        clearError={clearError}
+      />
+    </Suspense>
+  ) : (
     <Suspense fallback={<ShellLoading />}>
       <WorkspaceApp user={user} onLogout={logout} />
     </Suspense>
+  );
+
+  return (
+    <>
+      <div className="fixed right-4 top-4 z-[100]">
+        <ReloadPrompt />
+      </div>
+      {content}
+    </>
   );
 };
 
