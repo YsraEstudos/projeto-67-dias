@@ -1207,6 +1207,8 @@ export interface AulaChapter {
   readAt?: string;
   relatedQuestions?: AulaRelatedQuestions;
   completedPrincipalQuestions?: number[];
+  correctQuestions?: number[];
+  incorrectQuestions?: number[];
   comments?: AulaChapterComment[];
 }
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
-import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -9,7 +9,9 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
   useDroppable,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -19,33 +21,35 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AulaBook } from "../../../types";
+import { motion, AnimatePresence } from "motion/react";
 
 interface BookshelfProps {
   onSelectBook: (bookId: string) => void;
 }
 
-const SortableBookCard = React.memo(function SortableBookCard({
+interface BookCardProps {
+  book: AulaBook;
+  onSelectBook?: (bookId: string) => void;
+  onOpenMoveModal?: (book: AulaBook) => void;
+  isDragging?: boolean;
+  isPlaceholder?: boolean;
+}
+
+const BookCard = React.memo(function BookCard({
   book,
   onSelectBook,
-}: {
-  book: AulaBook;
-  onSelectBook: (bookId: string) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: book.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
+  onOpenMoveModal,
+  isDragging = false,
+  isPlaceholder = false,
+}: BookCardProps) {
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onClick={() => onSelectBook(book.id)}
-      className="bg-slate-900 rounded-lg shadow-xl border-[4px] border-slate-800 overflow-hidden flex flex-col group cursor-grab active:cursor-grabbing hover:scale-[1.02] transition-transform h-72 relative"
+      onClick={() => !isDragging && !isPlaceholder && onSelectBook?.(book.id)}
+      className={`bg-slate-900 rounded-lg shadow-xl border-[4px] border-slate-800 overflow-hidden flex flex-col group h-72 relative ${
+        isDragging
+          ? "cursor-grabbing border-[#D4AF37]"
+          : "cursor-grab active:cursor-grabbing hover:scale-[1.02] transition-transform"
+      } ${isPlaceholder ? "opacity-25" : ""}`}
     >
       <div className="h-44 bg-slate-950 flex items-center justify-center relative overflow-hidden">
         {book.coverImage ? (
@@ -60,6 +64,20 @@ const SortableBookCard = React.memo(function SortableBookCard({
             <BookOpen className="w-8 h-8 mb-2" />
             <span className="text-[10px] uppercase tracking-widest font-semibold">Sem Capa</span>
           </div>
+        )}
+
+        {/* Floating move button - visible on hover or always on touch devices */}
+        {!isDragging && !isPlaceholder && onOpenMoveModal && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMoveModal(book);
+            }}
+            className="absolute top-3 right-3 bg-slate-950/90 hover:bg-[#D4AF37] text-slate-400 hover:text-slate-950 p-2 rounded-full backdrop-blur-sm transition-all duration-300 z-20 shadow-xl opacity-0 group-hover:opacity-100 focus:opacity-100 scale-90 hover:scale-105 active:scale-95 touch-none"
+            title="Mover curso"
+          >
+            <FolderSymlink className="w-4 h-4" />
+          </button>
         )}
       </div>
       <div className="p-4 flex flex-col flex-1 bg-slate-900 border-t border-slate-850">
@@ -77,6 +95,34 @@ const SortableBookCard = React.memo(function SortableBookCard({
           </span>
         </div>
       </div>
+    </div>
+  );
+}, (prevProps, nextProps) => prevProps.book === nextProps.book && prevProps.isDragging === nextProps.isDragging && prevProps.isPlaceholder === nextProps.isPlaceholder);
+
+const SortableBookCard = React.memo(function SortableBookCard({
+  book,
+  onSelectBook,
+  onOpenMoveModal,
+}: {
+  book: AulaBook;
+  onSelectBook: (bookId: string) => void;
+  onOpenMoveModal: (book: AulaBook) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <BookCard 
+        book={book} 
+        onSelectBook={onSelectBook} 
+        onOpenMoveModal={onOpenMoveModal} 
+        isPlaceholder={isDragging} 
+      />
     </div>
   );
 }, (prevProps, nextProps) => prevProps.book === nextProps.book);
@@ -98,7 +144,11 @@ const DroppableFolder = React.memo(function DroppableFolder({
   return (
     <div
       ref={setNodeRef}
-      className={`${className || ""} ${isOver ? "bg-slate-850 rounded" : ""} transition-colors`}
+      className={`${className || ""} transition-all duration-300 ${
+        isOver
+          ? "bg-slate-800/80 ring-2 ring-[#D4AF37] scale-[1.03] shadow-lg shadow-[#D4AF37]/10 rounded-md"
+          : ""
+      }`}
     >
       {children}
     </div>
@@ -138,6 +188,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     message: string;
   } | null>(null);
 
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [moveBookTarget, setMoveBookTarget] = useState<AulaBook | null>(null);
+  const [showMoveSuccess, setShowMoveSuccess] = useState<string | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -166,8 +220,22 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     ? books.filter((b) => collections?.find((c) => c.id === currentView.id)?.bookIds.includes(b.id))
     : [];
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
+  const handleMoveBookToFolder = (bookId: string, folderId: string) => {
+    setShowMoveSuccess(folderId);
+    setTimeout(() => {
+      updateBook(bookId, { folderId });
+      setShowMoveSuccess(null);
+      setMoveBookTarget(null);
+    }, 600);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveDragId(null);
     if (!over) return;
 
     // Check if dropped over a folder
@@ -533,14 +601,41 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                   : "Nenhum curso nesta coleção."}
               </div>
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragCancel={() => setActiveDragId(null)}
+              >
                 <SortableContext items={currentBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {currentBooks.map((book) => (
-                      <SortableBookCard key={book.id} book={book} onSelectBook={onSelectBook} />
-                    ))}
+                    <AnimatePresence mode="popLayout">
+                      {currentBooks.map((book) => (
+                        <motion.div
+                          key={book.id}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <SortableBookCard
+                            book={book}
+                            onSelectBook={onSelectBook}
+                            onOpenMoveModal={setMoveBookTarget}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 </SortableContext>
+                <DragOverlay dropAnimation={null}>
+                  {activeDragId ? (
+                    <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">
+                      <BookCard book={books.find((b) => b.id === activeDragId)!} isDragging />
+                    </div>
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             )}
           </div>
@@ -747,6 +842,114 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                 className="bg-red-500 hover:bg-red-650 text-white px-4 py-2 rounded text-sm font-bold uppercase tracking-widest shadow-sm transition-colors"
               >
                 Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {moveBookTarget && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-slate-900/95 border border-slate-800 p-6 rounded-lg w-full max-w-md shadow-2xl flex flex-col max-h-[80vh] overflow-hidden backdrop-blur-md">
+            <div className="mb-4">
+              <h3 className="text-xl font-serif italic text-slate-100 flex items-center gap-2">
+                <FolderSymlink className="w-5 h-5 text-[#D4AF37]" />
+                Mover Curso
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Selecione o destino para: <strong className="text-slate-200">{moveBookTarget.title}</strong>
+              </p>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 my-2 space-y-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              {folders
+                .filter((f) => !f.parentId)
+                .map((folder) => {
+                  const subfolders = folders.filter((sub) => sub.parentId === folder.id);
+                  const isCurrent = moveBookTarget.folderId === folder.id;
+                  const isMovingSuccess = showMoveSuccess === folder.id;
+                  
+                  return (
+                    <div key={folder.id} className="space-y-1">
+                      <button
+                        type="button"
+                        disabled={isCurrent || !!showMoveSuccess}
+                        onClick={() => handleMoveBookToFolder(moveBookTarget.id, folder.id)}
+                        className={`w-full flex items-center gap-2 text-left px-3 py-2.5 text-sm rounded transition-all duration-200 group/item ${
+                          isCurrent
+                            ? "bg-slate-850/50 text-slate-500 cursor-not-allowed border-l-2 border-slate-700"
+                            : isMovingSuccess
+                            ? "bg-green-950/30 text-green-400 border-l-2 border-green-500 scale-[1.01]"
+                            : "hover:bg-slate-850 text-slate-300 hover:text-[#D4AF37] border-l-2 border-transparent hover:border-[#D4AF37] active:scale-[0.99] cursor-pointer"
+                        }`}
+                      >
+                        <Folder className={`w-4 h-4 shrink-0 ${isCurrent ? "text-slate-600" : "text-[#D4AF37] group-hover/item:scale-110 transition-transform"}`} />
+                        <span className="flex-1 truncate font-medium">{folder.name}</span>
+                        {isCurrent && (
+                          <span className="text-[10px] uppercase bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-bold">
+                            Atual
+                          </span>
+                        )}
+                        {isMovingSuccess && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="text-green-400 bg-green-500/20 p-0.5 rounded-full"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </motion.span>
+                        )}
+                      </button>
+
+                      {/* Subfolders */}
+                      {subfolders.map((subf) => {
+                        const isSubCurrent = moveBookTarget.folderId === subf.id;
+                        const isSubMovingSuccess = showMoveSuccess === subf.id;
+                        return (
+                          <button
+                            key={subf.id}
+                            type="button"
+                            disabled={isSubCurrent || !!showMoveSuccess}
+                            onClick={() => handleMoveBookToFolder(moveBookTarget.id, subf.id)}
+                            className={`w-full flex items-center gap-2 text-left pl-8 pr-3 py-2 text-xs rounded transition-all duration-200 group/item ${
+                              isSubCurrent
+                                ? "bg-slate-850/50 text-slate-500 cursor-not-allowed border-l-2 border-slate-700"
+                                : isSubMovingSuccess
+                                ? "bg-green-950/30 text-green-400 border-l-2 border-green-500 scale-[1.01]"
+                                : "hover:bg-slate-850 text-slate-400 hover:text-[#D4AF37] border-l-2 border-transparent hover:border-[#D4AF37] active:scale-[0.99] cursor-pointer"
+                            }`}
+                          >
+                            <Folder className={`w-3.5 h-3.5 shrink-0 ${isSubCurrent ? "text-slate-600" : "text-slate-400 group-hover/item:text-[#D4AF37] group-hover/item:scale-110 transition-transform"}`} />
+                            <span className="flex-1 truncate font-medium">{subf.name}</span>
+                            {isSubCurrent && (
+                              <span className="text-[9px] uppercase bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-bold">
+                                Atual
+                              </span>
+                            )}
+                            {isSubMovingSuccess && (
+                              <motion.span
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="text-green-400 bg-green-500/20 p-0.5 rounded-full"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </motion.span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMoveBookTarget(null)}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Cancelar
               </button>
             </div>
           </div>
