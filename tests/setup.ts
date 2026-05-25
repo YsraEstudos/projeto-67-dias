@@ -173,3 +173,7 @@ Object.defineProperty(window.URL, 'revokeObjectURL', {
     writable: true,
     value: vi.fn(),
 });
+
+// Mock scrollIntoView and scrollTo for JSDOM
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+window.scrollTo = vi.fn();
