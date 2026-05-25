@@ -2178,19 +2178,19 @@ function QuestionPill({
   const isSm = size === "sm";
 
   // Set colors based on status
-  let borderClass = "border-[#D4AF37]/50";
-  let bgClass = "bg-slate-950";
-  let textClass = "text-slate-100";
+  let borderClass = "border-[#D4AF37]";
+  let bgClass = "bg-[#D4AF37]";
+  let textClass = "text-slate-950";
   let glowClass = "";
 
   if (status === "correct") {
-    borderClass = "border-emerald-500/50";
-    bgClass = "bg-emerald-950/20";
+    borderClass = "border-emerald-500/30";
+    bgClass = "bg-emerald-500/10";
     textClass = "text-emerald-400";
     glowClass = "shadow-sm shadow-emerald-500/5";
   } else if (status === "incorrect") {
-    borderClass = "border-rose-500/50";
-    bgClass = "bg-rose-950/20";
+    borderClass = "border-rose-500/30";
+    bgClass = "bg-rose-500/10";
     textClass = "text-rose-450";
     glowClass = "shadow-sm shadow-rose-500/5";
   }
@@ -2217,9 +2217,9 @@ function QuestionPill({
           onToggleExpand();
         }}
         className={cn(
-          "h-full flex items-center justify-center transition-colors cursor-pointer shrink-0 font-sans",
+          "h-full w-full flex items-center justify-center transition-colors cursor-pointer shrink-0 font-sans border-0 border-none bg-transparent outline-none focus:outline-none min-h-0 rounded-[inherit]",
           isSm ? "px-2 gap-1" : "px-3 gap-1.5",
-          "hover:bg-slate-800/40 active:bg-slate-800/60"
+          status === "pending" ? "hover:bg-black/10 active:bg-black/20" : "hover:bg-slate-800/40 active:bg-slate-800/60"
         )}
       >
         {status === "correct" && (
@@ -2264,7 +2264,7 @@ function QuestionPill({
                   onMarkCorrect();
                 }}
                 className={cn(
-                  "flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 active:scale-90 rounded transition-all cursor-pointer",
+                  "flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent outline-none focus:outline-none min-h-0",
                   isSm ? "w-6 h-6" : "w-8 h-8"
                 )}
                 title="Acertei!"
@@ -2280,7 +2280,7 @@ function QuestionPill({
                   onMarkIncorrect();
                 }}
                 className={cn(
-                  "flex items-center justify-center text-rose-400 hover:bg-rose-500/20 active:scale-90 rounded transition-all cursor-pointer",
+                  "flex items-center justify-center text-rose-400 hover:bg-rose-500/20 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent outline-none focus:outline-none min-h-0",
                   isSm ? "w-6 h-6" : "w-8 h-8"
                 )}
                 title="Errei!"
@@ -2296,7 +2296,7 @@ function QuestionPill({
                   onClear();
                 }}
                 className={cn(
-                  "flex items-center justify-center text-slate-400 hover:bg-slate-800 active:scale-90 rounded transition-all cursor-pointer",
+                  "flex items-center justify-center text-slate-400 hover:bg-slate-800 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent outline-none focus:outline-none min-h-0",
                   isSm ? "w-6 h-6" : "w-8 h-8"
                 )}
                 title="Limpar marcação"
@@ -2311,7 +2311,7 @@ function QuestionPill({
                 onOpenHistory();
               }}
               className={cn(
-                "flex items-center justify-center text-[#D4AF37] hover:bg-[#D4AF37]/20 active:scale-90 rounded transition-all cursor-pointer",
+                "flex items-center justify-center text-[#D4AF37] hover:bg-[#D4AF37]/20 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent outline-none focus:outline-none min-h-0",
                 isSm ? "w-6 h-6" : "w-8 h-8"
               )}
               title="Ver histórico de tentativas"
