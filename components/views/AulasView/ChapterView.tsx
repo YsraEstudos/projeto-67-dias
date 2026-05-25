@@ -350,6 +350,38 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     return "pending";
   };
 
+  const getInitialQuestionStatus = (questionNumber: number): "correct" | "incorrect" | "pending" => {
+    if (!chapter) return "pending";
+
+    const history = chapter.questionAttempts?.[questionNumber.toString()]?.history || [];
+    if (history.length === 0) {
+      return getQuestionStatus(questionNumber);
+    }
+
+    const getDateOnly = (ts?: string) => {
+      if (!ts) return "";
+      return ts.includes("T") ? ts.split("T")[0] : ts.split(" ")[0] || "";
+    };
+
+    const oldestAttempt = history[history.length - 1];
+    const oldestDate = getDateOnly(oldestAttempt.timestamp);
+    const newestAttempt = history[0];
+    const newestDate = getDateOnly(newestAttempt.timestamp);
+
+    if (oldestDate === newestDate) {
+      // If all attempts happened on the same day, there is no cross-day progress yet.
+      // We set the initial status equal to the current status of the question.
+      return getQuestionStatus(questionNumber);
+    }
+
+    const oldestDayAttempts = history.filter(h => getDateOnly(h.timestamp) === oldestDate);
+    if (oldestDayAttempts.length > 0) {
+      return oldestDayAttempts[0].status; // The latest status on the oldest day (index 0 is newest)
+    }
+
+    return oldestAttempt.status;
+  };
+
   const setQuestionStatus = (questionNumber: number, status: "correct" | "incorrect" | "pending") => {
     if (!book || !chapter) return;
 
@@ -1479,8 +1511,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 const currentPct = totalPrincipal > 0 ? (currentCorrect / totalPrincipal) * 100 : 0;
                 
                 const firstAttemptCorrect = chapter.relatedQuestions.questoes_principais.filter(q => {
-                  const history = chapter.questionAttempts?.[q.toString()]?.history || [];
-                  return history.length > 0 ? history[history.length - 1].status === 'correct' : false;
+                  return getInitialQuestionStatus(q) === 'correct';
                 }).length;
                 const firstPct = totalPrincipal > 0 ? (firstAttemptCorrect / totalPrincipal) * 100 : 0;
                 
@@ -1498,25 +1529,17 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                   const current = getQuestionStatus(q);
                   totalAttemptsOfAll += history.length;
 
-                  if (history.length === 0) {
-                    if (current === 'correct') {
-                      stableCorrect += 1;
-                    } else if (current === 'incorrect') {
-                      stableIncorrect += 1;
-                    } else {
-                      unattempted += 1;
-                    }
+                  const first = getInitialQuestionStatus(q);
+                  if (first === 'pending') {
+                    unattempted += 1;
+                  } else if (first === 'incorrect' && current === 'correct') {
+                    improved += 1;
+                  } else if (first === 'correct' && (current === 'incorrect' || current === 'pending')) {
+                    declined += 1;
+                  } else if (first === 'correct' && current === 'correct') {
+                    stableCorrect += 1;
                   } else {
-                    const first = history[history.length - 1].status;
-                    if (first === 'incorrect' && current === 'correct') {
-                      improved += 1;
-                    } else if (first === 'correct' && (current === 'incorrect' || current === 'pending')) {
-                      declined += 1;
-                    } else if (first === 'correct' && current === 'correct') {
-                      stableCorrect += 1;
-                    } else {
-                      stableIncorrect += 1;
-                    }
+                    stableIncorrect += 1;
                   }
                 });
 
@@ -1628,8 +1651,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       const pendingSecPct = totalSec > 0 ? (pendingSec / totalSec) * 100 : 0;
 
                       const firstCorrectSec = section.questoes.filter(q => {
-                        const history = chapter.questionAttempts?.[q.toString()]?.history || [];
-                        return history.length > 0 ? history[history.length - 1].status === 'correct' : false;
+                        return getInitialQuestionStatus(q) === 'correct';
                       }).length;
                       const firstSecPct = totalSec > 0 ? (firstCorrectSec / totalSec) * 100 : 0;
                       const diffSecPct = correctSecPct - firstSecPct;
