@@ -456,7 +456,7 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
             Índice de Aulas <span className="text-sm font-sans text-slate-400 not-italic ml-2">({book.chapters?.length || 0})</span>
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2 justify-center lg:justify-end w-full lg:w-auto">
+          <div className="flex flex-nowrap lg:flex-wrap items-center gap-2 justify-start lg:justify-end w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
             <div className="relative group w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-[#D4AF37] transition-colors" />
               <input
@@ -482,7 +482,7 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
                 showTransferPanel
                   ? "bg-[#D4AF37] border-[#D4AF37] text-slate-950"
                   : "bg-slate-900 border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200"
-              }`}
+              } shrink-0`}
               title="Alternar painel de transferência rápida"
             >
               <ArrowRightLeft className="w-4 h-4" />
@@ -506,14 +506,14 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
                 downloadAnchorNode.click();
                 downloadAnchorNode.remove();
               }}
-              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
             >
               <Download className="w-4 h-4" />
               Baixar (.md)
             </button>
             <button
               onClick={() => setPasteJsonDialogOpen(true)}
-              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
             >
               <FileText className="w-4 h-4" />
               Colar JSON
@@ -521,7 +521,7 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
             <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleUploadJson} />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
             >
               <FileJson className="w-4 h-4" />
               Instalar JSON

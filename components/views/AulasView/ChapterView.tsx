@@ -530,22 +530,22 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
       <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
 
       {/* Top navbar */}
-      <header className="h-14 border-b border-slate-900 flex items-center px-4 bg-slate-950 shrink-0 justify-between gap-2 overflow-x-auto">
-        <div className="flex items-center gap-3 shrink-0">
+      <header className="min-h-14 border-b border-slate-900 flex flex-col lg:flex-row lg:items-center px-4 py-2 lg:py-0 bg-slate-950 shrink-0 justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0 w-full lg:w-auto">
           <button
             onClick={onBack}
             className="text-slate-400 hover:text-slate-200 transition-colors bg-slate-900 border border-slate-800 p-1.5 rounded shadow-sm cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <h1 className="font-serif italic text-slate-100 line-clamp-1 flex gap-2 items-center text-sm md:text-base">
+          <h1 className="font-serif italic text-slate-100 min-w-0 flex-1 lg:flex-none line-clamp-1 flex gap-2 items-center text-sm md:text-base">
             <span className="font-sans font-semibold text-[9px] uppercase tracking-widest text-slate-400 border border-slate-850 px-2 py-0.5 rounded bg-slate-900 shrink-0">
               {book.title}
             </span>
             {chapter.title}
           </h1>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
           <motion.button
             onClick={copyLessonPrompt}
             whileTap={{ scale: 0.94 }}

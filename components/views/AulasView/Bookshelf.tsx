@@ -288,7 +288,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           <h1 className="text-3xl font-serif italic tracking-tight text-slate-100 mb-2">Estante de Aulas</h1>
           <p className="text-sm text-slate-400">Organize seus cursos, anexe imagens e acompanhe suas aulas e questões.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
           <input
             type="file"
             accept=".json"
@@ -490,15 +490,15 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
             </div>
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6 pb-2 border-b border-slate-800">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-2 border-b border-slate-800 gap-3">
               <h2 className="text-sm font-medium border-b-2 border-[#D4AF37] pb-1 -mb-[9px] text-slate-100">
                 {isFolderView
                   ? folders.find((f) => f.id === currentView?.id)?.name
                   : collections?.find((c) => c.id === currentView?.id)?.name}
               </h2>
               {isFolderView && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                   <button
                     onClick={() => handleCreateFolderClick(currentView?.id)}
                     className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm"
@@ -518,7 +518,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
               {isCollectionView && (
                 <button
                   onClick={() => setCollectionAddBookDialogOpen(true)}
-                  className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-100 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-100 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   Gerenciar Livros
