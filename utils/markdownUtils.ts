@@ -34,8 +34,8 @@ export function htmlToMarkdown(html: string): string {
         // Process the body content
         const result = processNode(doc.body);
 
-        // Clean up excessive whitespace
-        return cleanMarkdown(result);
+        // Clean up excessive whitespace and normalize checklist artifacts
+        return normalizeMarkdownForStorage(cleanMarkdown(result));
     } catch (error) {
         console.error('Error parsing HTML:', error);
         return extractPlainText(html);
@@ -492,7 +492,7 @@ export function markdownToHtml(markdown: string): string {
         return '';
     }
 
-    let html = markdown;
+    let html = normalizeMarkdownForStorage(markdown);
 
     // Escape HTML entities first
     html = html
@@ -587,5 +587,63 @@ export function markdownToHtml(markdown: string): string {
     html = html.replace(/\n\n+/g, '\n');
 
     return html.trim();
+}
+
+export function normalizeMarkdownForStorage(markdown: string): string {
+    return normalizeChecklistMarkdown(markdown).trim();
+}
+
+function normalizeChecklistMarkdown(markdown: string): string {
+    const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+    const normalizedLines: string[] = [];
+    let isInCodeFence = false;
+
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        const isFenceLine = line.trimStart().startsWith('```');
+
+        if (isFenceLine) {
+            normalizedLines.push(line);
+            isInCodeFence = !isInCodeFence;
+            continue;
+        }
+
+        if (isInCodeFence) {
+            normalizedLines.push(line);
+            continue;
+        }
+
+        if (isStrayMarkerBeforeChecklist(line, findNextNonEmptyLine(lines, index + 1))) {
+            continue;
+        }
+
+        normalizedLines.push(normalizeChecklistLine(line));
+    }
+
+    return normalizedLines.join('\n');
+}
+
+function isStrayMarkerBeforeChecklist(line: string, nextLine?: string): boolean {
+    const marker = line.trim();
+    return (marker === '-' || marker === '*') && isChecklistMarkdownLine(nextLine || '');
+}
+
+function normalizeChecklistLine(line: string): string {
+    const match = line.match(/^\s*[\*\-]\s+\[( |x|X)\]\s+(.+)$/);
+    if (!match) return line;
+
+    const checked = match[1].toLowerCase() === 'x' ? 'x' : ' ';
+    return `- [${checked}] ${match[2].trimStart()}`;
+}
+
+function isChecklistMarkdownLine(line: string): boolean {
+    return /^\s*[\*\-]\s+\[( |x|X)\]\s+.+/.test(line);
+}
+
+function findNextNonEmptyLine(lines: string[], startIndex: number): string {
+    for (let index = startIndex; index < lines.length; index++) {
+        if (lines[index].trim()) return lines[index];
+    }
+    return '';
 }
 

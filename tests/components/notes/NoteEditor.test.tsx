@@ -198,6 +198,38 @@ describe('NoteEditor', () => {
             expect(savedNote.title).toBe('New Test Note');
         });
 
+        it('normalizes legacy broken checklist markdown when saving', () => {
+            const brokenChecklistNote: Note = {
+                ...mockExistingNote,
+                content: [
+                    '-',
+                    '- [ ] Melhorar a experiência no **Pomodoro**.',
+                    ' - [ ] No **Pomodoro**, adicionar foco.',
+                    ' - [ ] Integrar melhor o **Pomodoro com o módulo de trabalho**.',
+                ].join('\n'),
+            };
+
+            render(
+                <NoteEditor
+                    note={brokenChecklistNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            const metadataToggle = screen.getByText(/Metadados e Tags/i);
+            fireEvent.click(metadataToggle);
+
+            const saveButton = screen.getByRole('button', { name: /Salvar Nota/i });
+            fireEvent.click(saveButton);
+
+            const savedNote = mockHandlers.onSave.mock.calls[0][0];
+            expect(savedNote.content.match(/- \[ \]/g)).toHaveLength(3);
+            expect(savedNote.content).not.toContain('\n-\n');
+            expect(savedNote.content).not.toContain(' - [ ]');
+            expect(savedNote.content).toContain('**Pomodoro com o módulo de trabalho**');
+        });
+
         it('shows save button when changes are made', () => {
             render(
                 <NoteEditor

@@ -124,6 +124,27 @@ describe('markdownUtils', () => {
                 expect(htmlToMarkdown(html)).toBe('- [ ] Melhorar a experiência no **Pomodoro**.');
             });
 
+            it('should recover checklist markers from editor HTML with paragraph-wrapped checklist text', () => {
+                const html = [
+                    '<p class="text-slate-300 leading-relaxed mb-3">-</p>',
+                    '<ul class="space-y-2 mb-3 pl-0">',
+                    '<li class="flex items-start gap-2 text-slate-300 leading-relaxed list-none" data-checklist-item>',
+                    '<input type="checkbox" />',
+                    '<label>Melhorar a experiência no <strong>Pomodoro</strong>.</label>',
+                    '</li>',
+                    '</ul>',
+                    '<p class="text-slate-300 leading-relaxed mb-3"> - [ ] No <strong>Pomodoro</strong>, adicionar foco.</p>',
+                    '<p class="text-slate-300 leading-relaxed mb-3"> - [ ] Integrar melhor o <strong>Pomodoro com o módulo de trabalho</strong>.</p>',
+                ].join('');
+
+                const markdown = htmlToMarkdown(html);
+
+                expect(markdown.match(/- \[ \]/g)).toHaveLength(3);
+                expect(markdown).not.toContain('\n-\n');
+                expect(markdown).not.toContain(' - [ ]');
+                expect(markdown).toContain('**Pomodoro com o módulo de trabalho**');
+            });
+
             it('should convert ordered list', () => {
                 const html = '<ol><li>Primeiro</li><li>Segundo</li><li>Terceiro</li></ol>';
                 const result = htmlToMarkdown(html);
@@ -300,6 +321,23 @@ describe('markdownUtils', () => {
             expect(savedMarkdown).not.toContain('- * [ ]');
             expect(savedMarkdown).toContain('**Pomodoro**');
             expect(savedMarkdown).toContain('**Pomodoro com o módulo de trabalho**');
+        });
+
+        it('should recover saved checklist lines with leading spaces and a stray bullet marker', () => {
+            const markdown = [
+                '-',
+                '- [ ] Melhorar a experiência no **Pomodoro**.',
+                ' - [ ] No **Pomodoro**, adicionar uma função de foco.',
+                ' - [ ] Integrar melhor o **Pomodoro com o módulo de trabalho**.',
+            ].join('\n');
+
+            const html = markdownToHtml(markdown);
+
+            expect(html.match(/data-checklist-item/g)).toHaveLength(3);
+            expect(html).not.toContain('<p class="text-slate-300 leading-relaxed mb-3">-</p>');
+            expect(html).not.toContain(' - [ ]');
+            expect(html).not.toContain('* [ ]');
+            expect(html).toContain('<strong class="font-bold text-white">Pomodoro com o módulo de trabalho</strong>');
         });
     });
 

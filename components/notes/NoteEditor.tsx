@@ -4,7 +4,7 @@ import { Note, NoteColor, Tag } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { EditableMarkdown } from './EditableMarkdown';
 import { generateUUID } from '../../utils/uuid';
-import { htmlToMarkdown, wrapSelection, insertLink, autoPair, insertAtCursor } from '../../utils/markdownUtils';
+import { htmlToMarkdown, normalizeMarkdownForStorage, wrapSelection, insertLink, autoPair, insertAtCursor } from '../../utils/markdownUtils';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
 import { isValidImageFile, fileToBase64, compressImage, generateImageMarkdown, extractImageFromClipboard } from '../../utils/imageUtils';
@@ -332,7 +332,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
         const savedNote: Note = {
             id: note?.id || generateUUID(),
             title: title.trim() || 'Sem título',
-            content: content.trim(),
+            content: normalizeMarkdownForStorage(content),
             color,
             tags,
             isPinned,
