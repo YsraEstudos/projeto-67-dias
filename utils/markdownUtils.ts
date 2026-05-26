@@ -165,13 +165,10 @@ function processNode(node: Node, context: ProcessContext = {}): string {
             return processListItems(element, context, 'numbered') + '\n';
 
         case 'li': {
-            // Check for GFM checkbox pattern: checkbox input as first child
-            const checkbox = element.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                const isChecked = (checkbox as HTMLInputElement).checked;
-                const label = (element.textContent || '').replace(/^\s*/, '');
-                return isChecked ? `- [x] ${label}` : `- [ ] ${label}`;
-            }
+            // Preserve rendered GFM task-list items when saving rich editor HTML.
+            const checklistItem = processChecklistListItem(element, context);
+            if (checklistItem) return checklistItem;
+
             const content = processChildren(element, context).trim();
             // li elements are handled by processListItems
             return content;
@@ -238,6 +235,13 @@ function processListItems(element: Element, context: ProcessContext, marker: str
     let itemNumber = 1;
 
     for (const item of Array.from(items)) {
+        const checklistItem = processChecklistListItem(item as Element, context);
+        if (checklistItem) {
+            result += `${indent}${checklistItem}\n`;
+            itemNumber++;
+            continue;
+        }
+
         const content = processChildren(item as Element, { ...context, listDepth: depth + 1 }).trim();
         const prefix = marker === 'numbered' ? `${itemNumber}.` : marker;
 
@@ -256,6 +260,26 @@ function processListItems(element: Element, context: ProcessContext, marker: str
     }
 
     return result;
+}
+
+function processChecklistListItem(element: Element, context: ProcessContext): string | null {
+    const checkbox = element.querySelector('input[type="checkbox"]');
+    if (!checkbox) return null;
+
+    const input = checkbox as HTMLInputElement;
+    const isChecked = input.checked || input.hasAttribute('checked');
+    const label = element.querySelector('label');
+    const content = label
+        ? processChildren(label, context).trim()
+        : getChecklistFallbackContent(element, context);
+
+    return `${isChecked ? '- [x]' : '- [ ]'} ${content}`.trimEnd();
+}
+
+function getChecklistFallbackContent(element: Element, context: ProcessContext): string {
+    const clone = element.cloneNode(true) as Element;
+    clone.querySelectorAll('input[type="checkbox"]').forEach(input => input.remove());
+    return processChildren(clone, context).trim();
 }
 
 /**

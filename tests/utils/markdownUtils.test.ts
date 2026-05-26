@@ -111,6 +111,19 @@ describe('markdownUtils', () => {
                 expect(result).toContain('- Item B');
             });
 
+            it('should preserve checklist markers when converting rendered checklist HTML', () => {
+                const html = [
+                    '<ul class="space-y-2 mb-3 pl-0">',
+                    '<li class="flex items-start gap-2 text-slate-300 leading-relaxed list-none" data-checklist-item>',
+                    '<input type="checkbox" class="mt-1 w-4 h-4" />',
+                    '<label>Melhorar a experiência no <strong>Pomodoro</strong>.</label>',
+                    '</li>',
+                    '</ul>',
+                ].join('');
+
+                expect(htmlToMarkdown(html)).toBe('- [ ] Melhorar a experiência no **Pomodoro**.');
+            });
+
             it('should convert ordered list', () => {
                 const html = '<ol><li>Primeiro</li><li>Segundo</li><li>Terceiro</li></ol>';
                 const result = htmlToMarkdown(html);
