@@ -167,3 +167,8 @@ If there is no formatter, agree on one and add it to CI.
 - Clicking the notification FAB toggles a popover containing the list of tasks.
 - Supports direct actions on each task: toggling completion (which marks it complete and archives it, and tracks streak activity), editing (opening native `TaskModal`), and deleting.
 - Resolves layout collision: if `TimerWidget` (Pomodoro timer) is active, the widget automatically shifts from `bottom-6` to `bottom-24` to stack vertically.
+
+## 2026-05-26 Notes checklist paste
+
+- `EditableMarkdown` inserts pasted markdown as rendered HTML directly into the contentEditable area instead of relying on `document.execCommand('insertText')` plus `innerText` reconstruction.
+- Checklist paste regressions should cover the full paste path: markdown text -> rendered editor HTML -> saved markdown -> reopened renderer.

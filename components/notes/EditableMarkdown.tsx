@@ -147,30 +147,18 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
         // list markers) prefer it directly — it carries the raw syntax intact.
         const looksLikeMarkdown = /^\s*[\*\-\d]+[\s\.]|\[[ xX]\]|^#+\s/m.test(text);
 
-        if (looksLikeMarkdown || !html) {
-            // Insert as raw markdown; the `handleInput` → `markdownToHtml` pipeline
-            // will render it correctly on the next input event.
-            document.execCommand('insertText', false, text);
-        } else {
-            // Rich HTML paste (e.g., from a webpage) — convert to markdown first
-            const markdown = htmlToMarkdown(html);
-            document.execCommand('insertText', false, markdown);
-        }
+        const markdown = looksLikeMarkdown || !html ? text : htmlToMarkdown(html);
+        const rendered = markdownToHtml(markdown);
 
-        // Re-render the editor so inserted markdown becomes styled HTML
-        requestAnimationFrame(() => {
-            if (!editorRef.current) return;
-            const rawText = editorRef.current.innerText;
-            const rendered = markdownToHtml(rawText);
-            if (rendered !== editorRef.current.innerHTML) {
-                editorRef.current.innerHTML = rendered;
-                // Fire onChange so the store is updated
-                const markdown = htmlToMarkdown(rendered);
-                isInternalChange.current = true;
-                lastContent.current = markdown;
-                onChange(markdown);
-            }
-        });
+        if (editorRef.current) {
+            insertHtmlAtSelection(editorRef.current, rendered);
+            setIsEmpty(!editorRef.current.textContent?.trim());
+
+            const nextMarkdown = htmlToMarkdown(editorRef.current.innerHTML);
+            isInternalChange.current = true;
+            lastContent.current = nextMarkdown;
+            onChange(nextMarkdown);
+        }
     }, [onChange]);
 
     // Handle format commands from toolbar
@@ -265,3 +253,35 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
 });
 
 EditableMarkdown.displayName = 'EditableMarkdown';
+
+function insertHtmlAtSelection(container: HTMLElement, html: string): void {
+    const selection = window.getSelection();
+
+    if (!selection || !selection.rangeCount || !isSelectionInside(container, selection)) {
+        container.insertAdjacentHTML('beforeend', html);
+        return;
+    }
+
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    const fragment = template.content;
+    const lastNode = fragment.lastChild;
+    range.insertNode(fragment);
+
+    if (!lastNode) return;
+
+    range.setStartAfter(lastNode);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function isSelectionInside(container: HTMLElement, selection: Selection): boolean {
+    const anchorNode = selection.anchorNode;
+    if (!anchorNode) return false;
+    return container === anchorNode || container.contains(anchorNode);
+}

@@ -260,6 +260,47 @@ describe('markdownUtils', () => {
             expect(html).not.toContain('list-disc');
             expect(html).toContain('<strong class="font-bold text-white">Pomodoro</strong>');
         });
+
+        it('should render every pasted asterisk checklist line as a checkbox', () => {
+            const markdown = [
+                '* [ ] Melhorar a experiência de uso do sistema, principalmente no **Pomodoro**, no **módulo de trabalho** e na **Estante de Aulas**.',
+                '',
+                '* [ ] No **Pomodoro**, adicionar uma função para o usuário definir o que pretende fazer nas próximas horas.',
+                '',
+                '* [ ] Integrar melhor o **Pomodoro com o módulo de trabalho**, permitindo visualizar tarefas.',
+                '',
+                '* [ ] Criar um botão no topo do Pomodoro para abrir essa área integrada.',
+            ].join('\n');
+
+            const html = markdownToHtml(markdown);
+
+            expect(html.match(/data-checklist-item/g)).toHaveLength(4);
+            expect(html.match(/type="checkbox"/g)).toHaveLength(4);
+            expect(html).not.toContain('* [ ]');
+            expect(html).not.toContain('list-disc');
+            expect(html).toContain('<strong class="font-bold text-white">Pomodoro</strong>');
+            expect(html).toContain('<strong class="font-bold text-white">Pomodoro com o módulo de trabalho</strong>');
+        });
+
+        it('should keep every pasted checklist item through the rich-editor save roundtrip', () => {
+            const markdown = [
+                '* [ ] Melhorar a experiência de uso do sistema, principalmente no **Pomodoro**, no **módulo de trabalho** e na **Estante de Aulas**.',
+                '',
+                '* [ ] No **Pomodoro**, adicionar uma função para o usuário definir o que pretende fazer nas próximas horas.',
+                '',
+                '* [ ] Integrar melhor o **Pomodoro com o módulo de trabalho**, permitindo visualizar tarefas.',
+                '',
+                '* [ ] Criar um botão no topo do Pomodoro para abrir essa área integrada.',
+            ].join('\n');
+
+            const savedMarkdown = htmlToMarkdown(markdownToHtml(markdown));
+
+            expect(savedMarkdown.match(/- \[ \]/g)).toHaveLength(4);
+            expect(savedMarkdown).not.toContain('* [ ]');
+            expect(savedMarkdown).not.toContain('- * [ ]');
+            expect(savedMarkdown).toContain('**Pomodoro**');
+            expect(savedMarkdown).toContain('**Pomodoro com o módulo de trabalho**');
+        });
     });
 
     describe('wrapSelection', () => {
