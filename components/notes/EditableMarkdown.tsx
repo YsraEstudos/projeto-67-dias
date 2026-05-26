@@ -94,22 +94,84 @@ export const EditableMarkdown: React.FC<EditableMarkdownProps> = React.memo(({
         }
     }, [onChange]);
 
-    // Handle paste - convert to plain text to avoid HTML pollution
+    // Save checkbox state when user clicks a checklist checkbox.
+    // contentEditable doesn't fire `input` for checkbox changes,
+    // so we use a click listener on the container instead.
+    useEffect(() => {
+        const container = editorRef.current;
+        if (!container) return;
+
+        const handleClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName !== 'INPUT' || (target as HTMLInputElement).type !== 'checkbox') return;
+
+            const checkbox = target as HTMLInputElement;
+            const label = checkbox.parentElement?.querySelector('label');
+
+            // Update label styling immediately
+            if (label) {
+                if (checkbox.checked) {
+                    label.classList.add('line-through', 'text-slate-500');
+                    label.classList.remove('text-slate-300');
+                } else {
+                    label.classList.remove('line-through', 'text-slate-500');
+                    label.classList.add('text-slate-300');
+                }
+            }
+
+            // Persist to markdown after the DOM settles
+            requestAnimationFrame(() => {
+                if (!editorRef.current) return;
+                const markdown = htmlToMarkdown(editorRef.current.innerHTML);
+                if (markdown !== lastContent.current) {
+                    isInternalChange.current = true;
+                    lastContent.current = markdown;
+                    onChange(markdown);
+                }
+            });
+        };
+
+        container.addEventListener('click', handleClick);
+        return () => container.removeEventListener('click', handleClick);
+    }, [onChange]);
+
+    // Handle paste - prefer plain text when clipboard looks like markdown
+    // to avoid losing checklist syntax ([ ]) buried in rich HTML.
     const handlePaste = useCallback((e: React.ClipboardEvent) => {
         e.preventDefault();
 
-        // Get HTML if available, otherwise plain text
         const html = e.clipboardData.getData('text/html');
         const text = e.clipboardData.getData('text/plain');
 
-        if (html) {
-            // Convert HTML to markdown then insert as text
+        // If plain text looks like markdown (has checklist syntax, headings, or
+        // list markers) prefer it directly — it carries the raw syntax intact.
+        const looksLikeMarkdown = /^\s*[\*\-\d]+[\s\.]|\[[ xX]\]|^#+\s/m.test(text);
+
+        if (looksLikeMarkdown || !html) {
+            // Insert as raw markdown; the `handleInput` → `markdownToHtml` pipeline
+            // will render it correctly on the next input event.
+            document.execCommand('insertText', false, text);
+        } else {
+            // Rich HTML paste (e.g., from a webpage) — convert to markdown first
             const markdown = htmlToMarkdown(html);
             document.execCommand('insertText', false, markdown);
-        } else {
-            document.execCommand('insertText', false, text);
         }
-    }, []);
+
+        // Re-render the editor so inserted markdown becomes styled HTML
+        requestAnimationFrame(() => {
+            if (!editorRef.current) return;
+            const rawText = editorRef.current.innerText;
+            const rendered = markdownToHtml(rawText);
+            if (rendered !== editorRef.current.innerHTML) {
+                editorRef.current.innerHTML = rendered;
+                // Fire onChange so the store is updated
+                const markdown = htmlToMarkdown(rendered);
+                isInternalChange.current = true;
+                lastContent.current = markdown;
+                onChange(markdown);
+            }
+        });
+    }, [onChange]);
 
     // Handle format commands from toolbar
     const handleFormat = useCallback((command: string, value?: string) => {

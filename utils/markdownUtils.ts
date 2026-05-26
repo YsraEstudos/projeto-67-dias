@@ -165,6 +165,13 @@ function processNode(node: Node, context: ProcessContext = {}): string {
             return processListItems(element, context, 'numbered') + '\n';
 
         case 'li': {
+            // Check for GFM checkbox pattern: checkbox input as first child
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                const isChecked = (checkbox as HTMLInputElement).checked;
+                const label = (element.textContent || '').replace(/^\s*/, '');
+                return isChecked ? `- [x] ${label}` : `- [ ] ${label}`;
+            }
             const content = processChildren(element, context).trim();
             // li elements are handled by processListItems
             return content;
@@ -506,9 +513,38 @@ export function markdownToHtml(markdown: string): string {
     // Images
     html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded-lg my-3 border border-slate-700" />');
 
+    // Checklist items — must come BEFORE generic unordered list processing.
+    // Supports: - [ ] unchecked, - [x] checked, * [ ] unchecked, * [x] checked
+    html = html.replace(
+        /^[\*\-] \[( |x|X)\] (.+)$/gm,
+        (_, checked, label) => {
+            const isChecked = checked.toLowerCase() === 'x';
+            const id = `chk-${Math.random().toString(36).slice(2, 8)}`;
+            return (
+                `<li class="flex items-start gap-2 text-slate-300 leading-relaxed list-none" data-checklist-item>` +
+                `<input type="checkbox" id="${id}"` +
+                (isChecked ? ' checked' : '') +
+                ` class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-800 accent-purple-500 cursor-pointer shrink-0" />` +
+                `<label for="${id}" class="cursor-pointer ${isChecked ? 'line-through text-slate-500' : 'text-slate-300'}">${label}</label>` +
+                `</li>`
+            );
+        }
+    );
+    // Wrap consecutive checklist <li> items into a <ul>
+    html = html.replace(
+        /(<li[^>]*data-checklist-item[^>]*>[\s\S]*?<\/li>\n?)+/g,
+        (match) => `<ul class="space-y-2 mb-3 pl-0">${match}</ul>`
+    );
+
     // Unordered lists
     html = html.replace(/^- (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
-    html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc list-inside space-y-1 mb-3 text-slate-300 ml-2">$&</ul>');
+    html = html.replace(/^\* (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
+    // Wrap non-checklist li items in a ul
+    html = html.replace(
+        /(<li(?![^>]*data-checklist-item)[^>]*>[\s\S]*?<\/li>\n?)+/g,
+        (match) => `<ul class="list-disc list-inside space-y-1 mb-3 text-slate-300 ml-2">${match}</ul>`
+    );
+
 
     // Ordered lists
     html = html.replace(/^\d+\. (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
