@@ -28,4 +28,18 @@ Pesquisas oficiais/decisoes da Receita, quando houver`}
         expect(container.firstElementChild).toHaveClass('min-w-0');
         expect(container.firstElementChild).toHaveClass('max-w-full');
     });
+
+    it('renders GFM checklist items without regular bullet points', () => {
+        render(<MarkdownRenderer content="* [ ] Melhorar o **Pomodoro**" />);
+
+        const checkbox = screen.getByRole('checkbox');
+        const listItem = checkbox.closest('li');
+        const list = checkbox.closest('ul');
+
+        expect(checkbox).toBeInTheDocument();
+        expect(listItem).toHaveClass('list-none');
+        expect(list).toHaveClass('list-none');
+        expect(list).not.toHaveClass('list-disc');
+        expect(screen.getByText('Pomodoro')).toHaveClass('font-bold');
+    });
 });

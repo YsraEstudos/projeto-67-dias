@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     htmlToMarkdown,
+    markdownToHtml,
     wrapSelection,
     insertAtCursor,
     insertLink,
@@ -234,6 +235,17 @@ describe('markdownUtils', () => {
                 expect(result).toContain('- Análise de texto');
                 expect(result).toContain('```python');
             });
+        });
+    });
+
+    describe('markdownToHtml', () => {
+        it('should render asterisk checklist items with bold text as checkboxes', () => {
+            const html = markdownToHtml('* [ ] Melhorar a experiência no **Pomodoro**.');
+
+            expect(html).toContain('data-checklist-item');
+            expect(html).toContain('type="checkbox"');
+            expect(html).not.toContain('list-disc');
+            expect(html).toContain('<strong class="font-bold text-white">Pomodoro</strong>');
         });
     });
 

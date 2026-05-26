@@ -52,21 +52,27 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
                 {children}
             </a>
         ),
-        ul: ({ children }: any) => (
-            <ul className="list-disc list-inside space-y-1 mb-3 text-slate-300 ml-2">
-                {children}
-            </ul>
-        ),
+        ul: ({ className: listClassName, children }: any) => {
+            const isTaskList = String(listClassName || '').includes('contains-task-list');
+            return (
+                <ul className={`${isTaskList ? 'list-none pl-0 ml-0' : 'list-disc list-inside ml-2'} space-y-1 mb-3 text-slate-300`}>
+                    {children}
+                </ul>
+            );
+        },
         ol: ({ children }: any) => (
             <ol className="list-decimal list-inside space-y-1 mb-3 text-slate-300 ml-2">
                 {children}
             </ol>
         ),
-        li: ({ children }: any) => (
-            <li className="text-slate-300 leading-relaxed wrap-anywhere">
-                {children}
-            </li>
-        ),
+        li: ({ className: itemClassName, children }: any) => {
+            const isTaskItem = String(itemClassName || '').includes('task-list-item');
+            return (
+                <li className={`${isTaskItem ? 'list-none flex items-start gap-2' : ''} text-slate-300 leading-relaxed wrap-anywhere`}>
+                    {children}
+                </li>
+            );
+        },
         code: ({ className: codeClassName, children, ...props }: any) => {
             const isInline = !codeClassName;
             if (isInline) {
@@ -137,7 +143,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
                         type="checkbox"
                         checked={checked}
                         readOnly
-                        className="mr-2 accent-purple-500"
+                        className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-purple-500"
                         {...props}
                     />
                 );
