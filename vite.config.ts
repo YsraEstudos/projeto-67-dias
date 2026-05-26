@@ -81,7 +81,7 @@ export default defineConfig(({ mode, command }) => {
       // PWA requer HTTPS válido (produção) ou localhost (dev)
       VitePWA({
         injectRegister: 'auto',
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         devOptions: {
           enabled: enableDevPwa, // Evita conflitos do SW com a subrota /concurso/ durante o desenvolvimento local
         },
@@ -118,11 +118,27 @@ export default defineConfig(({ mode, command }) => {
           ]
         },
         workbox: {
+          // Clean up assets from old SW versions so stale hashed filenames
+          // are evicted whenever a new SW activates.
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           globIgnores: ['concurso/**/*'],
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/concurso(?:\/|$)/],
           runtimeCaching: [
+            {
+              // Navigation requests (HTML) — always try the network first so
+              // the browser loads the latest index.html after a new deploy,
+              // preventing the "old index.html → deleted assets" reload loop.
+              urlPattern: ({ request }) => request.mode === 'navigate',
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'navigation-cache',
+                networkTimeoutSeconds: 5,
+              }
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com/,
               handler: 'StaleWhileRevalidate',
