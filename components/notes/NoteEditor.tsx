@@ -53,10 +53,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
     const [pinnedToTags, setPinnedToTags] = useState<string[]>(note?.pinnedToTags || []);
 
     // View mode: 'formatted' (WYSIWYG) or 'source' (raw markdown)
-    // Mobile defaults to source mode for better compatibility
-    const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window);
+    // Existing notes open formatted so checklist items can be read and toggled first.
     const [viewMode, setViewMode] = useState<'formatted' | 'source'>(
-        !note ? 'source' : (isMobile ? 'source' : 'formatted')
+        !note ? 'source' : 'formatted'
     );
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);

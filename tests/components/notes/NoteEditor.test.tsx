@@ -144,6 +144,29 @@ describe('NoteEditor', () => {
             // Button title should change
             expect(screen.getByTitle(/Ver código fonte/)).toBeInTheDocument();
         });
+
+        it('opens existing notes in formatted mode on mobile-sized viewports', () => {
+            Object.defineProperty(window, 'innerWidth', {
+                configurable: true,
+                writable: true,
+                value: 375,
+            });
+            Object.defineProperty(window, 'ontouchstart', {
+                configurable: true,
+                value: null,
+            });
+
+            render(
+                <NoteEditor
+                    note={mockExistingNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            expect(screen.getByTitle(/Ver código fonte/)).toBeInTheDocument();
+            expect(screen.queryByPlaceholderText(/Comece a escrever/)).not.toBeInTheDocument();
+        });
     });
 
     describe('Save functionality', () => {
