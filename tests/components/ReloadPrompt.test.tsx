@@ -25,12 +25,10 @@ describe('ReloadPrompt', () => {
     expect(pwaRegisterReactMock.registrationUpdate).toHaveBeenCalledTimes(2);
   });
 
-  it('shows an accessible update button when a new service worker is waiting', () => {
+  it('does not render an update button as updates are automatically applied', () => {
     pwaRegisterReactMock.needRefresh = true;
-    render(<ReloadPrompt />);
-
-    fireEvent.click(screen.getByRole('button', { name: /atualizar aplicativo/i }));
-
-    expect(pwaRegisterReactMock.updateServiceWorker).toHaveBeenCalledWith(true);
+    const { container } = render(<ReloadPrompt />);
+    expect(container.firstChild).toBeNull();
   });
 });
+

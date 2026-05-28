@@ -1,4 +1,4 @@
-import React, { useState, Suspense, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, Suspense, useMemo, useCallback } from 'react';
 import {
   Briefcase,
   Library,
@@ -19,14 +19,13 @@ import {
   Trophy,
   BookOpen
 } from 'lucide-react';
-import { ViewState, DashboardCardProps, OrganizeTask, type User } from './types';
+import { ViewState, DashboardCardProps, type User } from './types';
 import { Card } from './components/Card';
 import { LoadingSimple } from './components/shared/Loading';
 import { DropdownMenu } from './components/shared/DropdownMenu';
 import { ConfirmModal } from './components/shared/ConfirmModal';
-// Zustand stores
-import { useUIStore, useConfigStore, useWorkStore, useHabitsStore, useStreakStore, useSkillsStore, useReadingStore, useJournalStore, useNotesStore, useAulasStore, useSundayStore, useGamesStore, useLinksStore, useRestStore, usePromptsStore, useReviewStore, useWaterStore, useTimerStore, useSiteCategoriesStore, useSitesStore, useSiteFoldersStore, useSundayTimerStore, useGoalsStore, useCompetitionStore, useDailyPlannerStore, usePomodoroStore, clearAllStores } from './stores';
-import { subscribeToDocument, subscribeToSubcollection, flushPendingWrites } from './stores/firestoreSync';
+// Zustand stores (only what WorkspaceApp itself needs)
+import { useUIStore, useConfigStore, useWorkStore, useHabitsStore } from './stores';
 import { StreakBadge } from './components/shared/StreakBadge';
 import { SyncStatusIndicator } from './components/shared/SyncStatusIndicator';
 import { ConflictModal } from './components/modals/ConflictModal';
@@ -35,25 +34,17 @@ import { useTabStore } from './stores/tabStore';
 import { useNavigationHistory } from './hooks/useNavigationHistory';
 import { useCompetitionTracker } from './hooks/useCompetitionTracker';
 import { warmConcursoEntryPoint } from './utils/concursoPrefetch';
-
+// Extracted hooks
+import { useHydrationOrchestrator } from './hooks/useHydrationOrchestrator';
+import { useAppBootstrap } from './hooks/useAppBootstrap';
+import { useDashboardStats } from './hooks/useDashboardStats';
 // Services
 import { calculateCurrentDay, getDaysUntilStart } from './services/weeklySnapshot';
-
-// Data Migration
-import { setupDataMigration } from './utils/dataMigration';
-import { setupFirestoreMigration } from './utils/legacyToFirestoreMigration';
-
 
 // --- Constants ---
 const PROJECT_DURATION_DAYS = 67;
 
-
 // --- Interfaces ---
-interface WorkViewData {
-  currentCount?: number;
-  goal?: number;
-}
-
 interface WorkspaceAppProps {
   user: User;
   onLogout: () => Promise<void>;
@@ -75,352 +66,47 @@ const GamesView = React.lazy(() => import('./components/views/GamesView'));
 const PomodoroView = React.lazy(() => import('./components/views/PomodoroView'));
 const AulasView = React.lazy(() => import('./components/views/AulasView'));
 
-// --- Floating Timer Widget (lazy loaded) ---
+// --- Floating widgets (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
-
-// --- Floating Sunday Timer Widget (lazy loaded, global) ---
 const SundayTimerWidget = React.lazy(() => import('./components/SundayTimerWidget').then(m => ({ default: m.SundayTimerWidget })));
-
-// --- Floating Task Expiration Notification Widget (lazy loaded) ---
 const TaskNotificationWidget = React.lazy(() => import('./components/TaskNotificationWidget').then(m => ({ default: m.TaskNotificationWidget })));
 
 const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
-  // --- APP STATE (Zustand) ---
+  // --- Orchestration hooks ---
+  const isDataReady = useHydrationOrchestrator(user?.id);
+  useAppBootstrap({ user, isDataReady });
+  const { readingStats, aulasStats } = useDashboardStats();
+
+  // --- UI state (Zustand) ---
   const activeView = useUIStore((state) => state.activeView);
   const setActiveView = useUIStore((state) => state.setActiveView);
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const setMenuOpen = useUIStore((state) => state.setMenuOpen);
 
-  // --- TAB STATE (Multi-tab navigation) ---
-  const { tabs, activeTabId, addTab, setActiveTab, updateTabState, closeTab } = useTabStore();
+  // --- Tab state (multi-tab navigation) ---
+  const { tabs, activeTabId, addTab, setActiveTab, updateTabState } = useTabStore();
   const { pushNavigation } = useNavigationHistory();
+
+  // --- Concurso prefetch ---
   const warmConcurso = useCallback(() => {
     void warmConcursoEntryPoint();
   }, []);
 
-  // Track if data has finished syncing from cloud
-  const [isDataReady, setIsDataReady] = useState(false);
-
-  // Read Work Data for Dashboard (Zustand)
+  // --- Work data for dashboard ---
   const workCurrentCount = useWorkStore((state) => state.currentCount);
   const workGoal = useWorkStore((state) => state.getCurrentWeekGoal());
 
-  // Read Reading Data for Dashboard (Zustand)
-  const books = useReadingStore((state) => state.books);
-
-  // Calculate reading stats dynamically
-  const readingStats = useMemo(() => {
-    const totals = books.reduce(
-      (acc, book) => {
-        if (book.status === 'READING') acc.readingCount += 1;
-        if (book.status === 'COMPLETED') acc.completedCount += 1;
-        acc.totalCount += 1;
-        return acc;
-      },
-      { readingCount: 0, completedCount: 0, totalCount: 0 }
-    );
-
-    const progressPercent = totals.totalCount > 0
-      ? Math.round((totals.completedCount / totals.totalCount) * 100)
-      : 0;
-
-    return {
-      ...totals,
-      progressPercent
-    };
-  }, [books]);
-
-  // Read Aulas Data for Dashboard (Zustand)
-  const aulasBooks = useAulasStore((state) => state.books);
-
-  // Calculate aulas stats dynamically
-  const aulasStats = useMemo(() => {
-    const totalBooks = aulasBooks.length;
-    let totalChapters = 0;
-    let readChapters = 0;
-    
-    aulasBooks.forEach(book => {
-      if (book.chapters) {
-        totalChapters += book.chapters.length;
-        book.chapters.forEach(ch => {
-          if (ch.readAt) {
-            readChapters += 1;
-          }
-        });
-      }
-    });
-
-    const progressPercent = totalChapters > 0
-      ? Math.round((readChapters / totalChapters) * 100)
-      : 0;
-
-    return {
-      totalBooks,
-      totalChapters,
-      readChapters,
-      progressPercent
-    };
-  }, [aulasBooks]);
-
-  // --- PROJECT CONFIG (Zustand) ---
+  // --- Config (start date for day counter) ---
   const config = useConfigStore((state) => state.config);
-  const setConfig = useConfigStore((state) => state.setConfig);
 
-  // Update project config when user changes
-  useEffect(() => {
-    if (user && !config.userName && isDataReady) {
-      setConfig({
-        userName: user.name,
-        isGuest: user.isGuest
-      });
-    }
-  }, [user, config.userName, setConfig, isDataReady]);
-
-  // Apply theme class to body element
-  useEffect(() => {
-    // Remove all theme classes
-    document.body.classList.remove('theme-default', 'theme-amoled');
-    // Apply current theme
-    document.body.classList.add(`theme-${config.theme || 'default'}`);
-  }, [config.theme]);
-
-  // FIRESTORE-FIRST: Subscribe to real-time updates for all stores
-  // This replaces the old rehydrateAllStores approach
-  useEffect(() => {
-    if (!user?.id) {
-      setIsDataReady(true); // No user, no sync needed
-      return;
-    }
-
-    setIsDataReady(false);
-    flushPendingWrites(); // Flush pending writes before clearing stores
-    clearAllStores(); // Prevent data leaks between users
-
-    const unsubscribers: (() => void)[] = [];
-    const hydratedStores = new Set<string>();
-    const HYDRATION_TIMEOUT_MS = 12000;
-    const storeSubscriptions = [
-      {
-        key: 'p67_project_config',
-        hydrate: (data: any) => useConfigStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_habits_store',
-        hydrate: (data: any) => useHabitsStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_work_store',
-        hydrate: (data: any) => useWorkStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_notes_store',
-        hydrate: (data: any) => useNotesStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_sunday_store',
-        hydrate: (data: any) => useSundayStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_journal_store',
-        hydrate: (data: any) => useJournalStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_links_store',
-        hydrate: (data: any) => useLinksStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_skills_store',
-        hydrate: (data: any) => useSkillsStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_reading_store',
-        hydrate: (data: any) => useReadingStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_rest_store',
-        hydrate: (data: any) => useRestStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_prompts_store',
-        hydrate: (data: any) => usePromptsStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'games-storage',
-        hydrate: (data: any) => useGamesStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_review_store',
-        hydrate: (data: any) => useReviewStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_water_store',
-        hydrate: (data: any) => useWaterStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_streak_store',
-        hydrate: (data: any) => useStreakStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_tool_timer',
-        hydrate: (data: any) => useTimerStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_site_categories_store',
-        hydrate: (data: any) => useSiteCategoriesStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_sites_store',
-        hydrate: (data: any) => useSitesStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_site_folders_store',
-        hydrate: (data: any) => useSiteFoldersStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_sunday_timer',
-        hydrate: (data: any) => useSundayTimerStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_goals_store',
-        hydrate: (data: any) => useGoalsStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_competition_store',
-        hydrate: (data: any) => useCompetitionStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_daily_planner_store',
-        hydrate: (data: any) => useDailyPlannerStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'pomodoro-storage',
-        hydrate: (data: any) => usePomodoroStore.getState()._hydrateFromFirestore(data)
-      },
-      {
-        key: 'p67_aulas_config',
-        hydrate: (data: any) => useAulasStore.getState()._hydrateFromFirestore(data)
-      }
-    ];
-    const totalStores = storeSubscriptions.length;
-
-    const checkAllHydrated = (storeKey: string) => {
-      // Only count first hydration per store
-      if (hydratedStores.has(storeKey)) return;
-      hydratedStores.add(storeKey);
-
-      if (hydratedStores.size >= totalStores) {
-        setIsDataReady(true);
-        console.log('[App] All stores hydrated, UI ready');
-      }
-    };
-
-    const hydrationTimeout = window.setTimeout(() => {
-      if (hydratedStores.size < totalStores) {
-        const missingStores = storeSubscriptions
-          .map(({ key }) => key)
-          .filter((key) => !hydratedStores.has(key));
-
-        console.warn('[App] Hydration timeout reached. Continuing with partial data.', {
-          hydrated: hydratedStores.size,
-          totalStores,
-          missingStores,
-        });
-
-        setIsDataReady(true);
-      }
-    }, HYDRATION_TIMEOUT_MS);
-
-    // Subscribe to all stores and hydrate with _hydrateFromFirestore
-    storeSubscriptions.forEach(({ key, hydrate }) => {
-      unsubscribers.push(subscribeToDocument(
-        key,
-        (data: any) => {
-          hydrate(data);
-          checkAllHydrated(key);
-        },
-        (error) => {
-          console.error(`[App] Failed to hydrate ${key}, falling back to empty state.`, error);
-          hydrate(null);
-          checkAllHydrated(key);
-        }
-      ));
-    });
-
-    // Special case for subcollection-based stores (like Notes and Aulas)
-    unsubscribers.push(subscribeToSubcollection('p67_notes_store_items', (data: any[]) => {
-      useNotesStore.getState()._hydrateNotesFromSubcollection(data);
-    }));
-    unsubscribers.push(subscribeToSubcollection('p67_aulas_books', (data: any[]) => {
-      useAulasStore.getState()._hydrateBooksFromSubcollection(data);
-    }));
-
-    console.log('[App] Subscribed to', totalStores, 'stores for real-time sync');
-
-    return () => {
-      window.clearTimeout(hydrationTimeout);
-      unsubscribers.forEach(unsub => unsub());
-      console.log('[App] Unsubscribed from all stores');
-    };
-  }, [user?.id]);
-
-  // Run data migration from legacy useStorage to Zustand stores
-  useEffect(() => {
-    const unsubscribe = setupDataMigration();
-    return () => unsubscribe();
-  }, []);
-
-  // Run LocalStorage to Firestore migration for existing users
-  useEffect(() => {
-    if (user?.id) {
-      const unsubscribe = setupFirestoreMigration();
-      return () => unsubscribe();
-    }
-  }, [user?.id]);
-
-  // Check streak status on load
-  // Check streak status ONLY after data is fully synced
-  useEffect(() => {
-    if (isDataReady) {
-      useStreakStore.getState().checkStreak();
-    }
-  }, [isDataReady]);
-
-  // --- AUTOMATIC SUNDAY RESET ---
-  useEffect(() => {
-    if (isDataReady) {
-      const today = new Date();
-      if (today.getDay() === 0) { // Sunday
-        const todayDateStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-        const lastReset = useConfigStore.getState().config.lastSundayResetDate;
-
-        if (lastReset !== todayDateStr) {
-          console.log('[App] Performing automatic Sunday reset...');
-          useRestStore.getState().resetWeekly();
-          usePomodoroStore.getState().resetWeekly();
-          useConfigStore.getState().setConfig({ lastSundayResetDate: todayDateStr });
-        }
-      }
-    }
-  }, [isDataReady]);
-
-  // Calculate current day and days until start
-  const currentDay = useMemo(() => calculateCurrentDay(config.startDate), [config.startDate]);
-  const daysUntilStart = useMemo(() => getDaysUntilStart(config.startDate), [config.startDate]);
-  const hasStarted = currentDay > 0;
-
-  useCompetitionTracker({
-    enabled: Boolean(user?.id) && isDataReady,
-    startDate: config.startDate,
-  });
-
-  // Optimization: Calculate notifications directly in selector to avoid re-renders
+  // --- Notification count (habits with pending reminders) ---
   const notificationCount = useHabitsStore((state) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       return state.tasks.filter((t) => {
         if (t.isCompleted || t.isArchived) return false;
-        if (t.reminderDate && t.reminderDate <= today) return true; // Due today or earlier
-        if (t.dueDate && t.dueDate < today) return true; // Overdue
+        if (t.reminderDate && t.reminderDate <= today) return true;
+        if (t.dueDate && t.dueDate < today) return true;
         return false;
       }).length;
     } catch {
@@ -428,13 +114,12 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
     }
   });
 
-  // Logout confirmation state
+  // --- Logout state ---
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    // Security: Prevent multiple logout attempts
-    if (isLoggingOut) return;
+    if (isLoggingOut) return; // Prevent double-click
     setIsLoggingOut(true);
     try {
       await onLogout();
@@ -445,7 +130,18 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
     }
   };
 
-  // --- VIEW LABEL HELPER ---
+  // --- Competition tracker ---
+  useCompetitionTracker({
+    enabled: Boolean(user?.id) && isDataReady,
+    startDate: config.startDate,
+  });
+
+  // --- Day counter ---
+  const currentDay = useMemo(() => calculateCurrentDay(config.startDate), [config.startDate]);
+  const daysUntilStart = useMemo(() => getDaysUntilStart(config.startDate), [config.startDate]);
+  const hasStarted = currentDay > 0;
+
+  // --- View label helper ---
   const getViewLabel = useCallback((view: ViewState): string => {
     const labels: Record<ViewState, string> = {
       [ViewState.DASHBOARD]: 'Dashboard',
@@ -468,27 +164,23 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
     return labels[view] || view;
   }, []);
 
-  // --- CARD CLICK HANDLERS ---
+  // --- Card click handlers ---
   const handleCardClick = useCallback((view: ViewState) => {
     if (view === ViewState.CONCURSO) {
       window.location.href = window.location.origin + '/concurso/#/';
       return;
     }
 
-    // Find if there's already a tab with this view
-    const existingTab = tabs.find(t => t.view === view);
+    const existingTab = tabs.find((t) => t.view === view);
 
     if (existingTab) {
-      // Tab exists, just activate it
       setActiveTab(existingTab.id);
       setActiveView(view);
       pushNavigation({ view, tabId: existingTab.id });
     } else if (tabs.length === 0) {
-      // No tabs open yet, use simple navigation (without creating tabs)
       setActiveView(view);
       pushNavigation({ view });
     } else {
-      // Has tabs, create a new one
       addTab(view, getViewLabel(view));
       setActiveView(view);
       pushNavigation({ view });
@@ -500,53 +192,40 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       window.open(window.location.origin + '/concurso/#/', '_blank');
       return;
     }
-
-    // Always create a new tab
     addTab(view, getViewLabel(view));
     setActiveView(view);
     pushNavigation({ view });
   }, [addTab, setActiveView, pushNavigation, getViewLabel]);
 
-  // --- Back button handler (contextual) ---
+  // --- Back button handler ---
   const handleBack = useCallback(() => {
-    const activeTab = tabs.find(t => t.id === activeTabId);
+    const activeTab = tabs.find((t) => t.id === activeTabId);
 
     if (activeTab) {
-      // Check if there's internal state (editor open, etc.)
-      const hasInternalState = activeTab.state?.activeNoteId ||
+      const hasInternalState =
+        activeTab.state?.activeNoteId ||
         activeTab.state?.selectedEntryId ||
         activeTab.state?.isCreating;
 
       if (hasInternalState) {
-        // Clear internal state (go back to list view within module)
         updateTabState(activeTabId!, {
           activeNoteId: null,
           selectedEntryId: null,
-          isCreating: false
+          isCreating: false,
         });
-        // Go back in browser history only for internal navigation
         if (history.length > 1) {
           history.back();
         }
       } else {
-        // No internal state: go to Dashboard WITHOUT closing the tab
-        // Tabs only close via explicit X button
-        // DO NOT call history.back() here - just navigate directly
         setActiveView(ViewState.DASHBOARD);
-        setActiveTab(''); // Deactivate tab without closing
+        setActiveTab('');
       }
     } else {
-      // No tabs: just go to dashboard
-      if (activeView !== ViewState.DASHBOARD) {
-        setActiveView(ViewState.DASHBOARD);
-      }
-      // If already on dashboard, don't navigate (prevents closing PWA)
+      setActiveView(ViewState.DASHBOARD);
     }
   }, [tabs, activeTabId, activeView, updateTabState, setActiveView, setActiveTab]);
 
-  // --- Configuration Data ---
-  // Work data is now from Zustand store (already declared above)
-
+  // --- Dashboard cards definition ---
   const dashboardCards: Omit<DashboardCardProps, 'onClick'>[] = useMemo(() => {
     const isSunday = new Date().getDay() === 0;
     return [
@@ -563,7 +242,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         subtitle: isSunday ? 'É hoje! Dedique 2.5h' : 'Domingos • 2h 30m',
         icon: CalendarCheck,
         color: 'text-pink-500',
-        stats: isSunday ? 'HOJE' : undefined
+        stats: isSunday ? 'HOJE' : undefined,
       },
       {
         id: ViewState.LINKS,
@@ -578,9 +257,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         subtitle: `${readingStats.completedCount}/${readingStats.totalCount} livros (${readingStats.progressPercent}%)`,
         icon: Library,
         color: 'text-yellow-500',
-        stats: readingStats.readingCount > 0
-          ? `${readingStats.readingCount} lendo`
-          : undefined,
+        stats: readingStats.readingCount > 0 ? `${readingStats.readingCount} lendo` : undefined,
       },
       {
         id: ViewState.SKILLS,
@@ -633,14 +310,14 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         icon: Gamepad2,
         color: 'text-purple-400',
       },
-        {
-          id: ViewState.CONCURSO,
-          title: 'Concurso Público',
-          subtitle: 'App dedicado',
-          icon: Trophy,
-          color: 'text-purple-400',
-          onWarm: warmConcurso,
-        },
+      {
+        id: ViewState.CONCURSO,
+        title: 'Concurso Público',
+        subtitle: 'App dedicado',
+        icon: Trophy,
+        color: 'text-purple-400',
+        onWarm: warmConcurso,
+      },
       {
         id: ViewState.POMODORO,
         title: 'Pomodoro',
@@ -654,11 +331,12 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         subtitle: `${aulasStats.totalBooks} curso${aulasStats.totalBooks !== 1 ? 's' : ''} • ${aulasStats.readChapters}/${aulasStats.totalChapters} aulas`,
         icon: BookOpen,
         color: 'text-amber-400',
-        stats: aulasStats.progressPercent > 0 ? `${aulasStats.progressPercent}%` : undefined
+        stats: aulasStats.progressPercent > 0 ? `${aulasStats.progressPercent}%` : undefined,
       },
     ];
-  }, [notificationCount, workCurrentCount, workGoal, readingStats, warmConcurso, aulasStats]);
+  }, [notificationCount, workCurrentCount, workGoal, readingStats, aulasStats, warmConcurso]);
 
+  // --- Render view content ---
   const renderContent = () => {
     let content: React.ReactNode;
 
@@ -694,19 +372,16 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       default: content = <div>View not found</div>;
     }
 
-    return (
-      <Suspense fallback={<LoadingSimple />}>
-        {content}
-      </Suspense>
-    );
+    return <Suspense fallback={<LoadingSimple />}>{content}</Suspense>;
   };
 
   const headerTitle = useMemo(() => {
-    if (activeView === ViewState.DASHBOARD) return "Projeto 67 Dias";
-    const card = dashboardCards.find(c => c.id === activeView);
-    return card ? card.title : "Configurações";
+    if (activeView === ViewState.DASHBOARD) return 'Projeto 67 Dias';
+    const card = dashboardCards.find((c) => c.id === activeView);
+    return card ? card.title : 'Configurações';
   }, [activeView, dashboardCards]);
 
+  // --- Render ---
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
 
@@ -714,7 +389,6 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       <header className="sticky top-0 z-50 glass-strong border-b border-slate-800/50 transition-all duration-300">
         {/* Tab Bar (only shown when tabs exist) */}
         <TabBar />
-
 
         <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 sm:h-20 flex items-center justify-between">
 
@@ -751,8 +425,8 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
                       onClick: () => {
                         setActiveView(ViewState.SETTINGS);
                         setMenuOpen(false);
-                      }
-                    }
+                      },
+                    },
                   ]}
                 />
               </div>
@@ -788,7 +462,6 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
           </div>
 
           <div className="w-20 flex justify-end items-center gap-3">
-            {/* User Profile / Logout */}
             {activeView === ViewState.DASHBOARD && (
               <div className="flex items-center gap-3">
                 <SyncStatusIndicator />
@@ -814,21 +487,21 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         {renderContent()}
       </main>
 
-      {/* Floating Timer Bubble (Only on Dashboard) */}
+      {/* Floating Timer Bubble (only on Dashboard) */}
       {activeView === ViewState.DASHBOARD && (
         <Suspense fallback={null}>
           <TimerWidget onClick={() => setActiveView(ViewState.TOOLS)} />
         </Suspense>
       )}
 
-      {/* Floating Task Expiration Notification Widget (Only on Dashboard) */}
+      {/* Floating Task Expiration Notification Widget (only on Dashboard) */}
       {activeView === ViewState.DASHBOARD && (
         <Suspense fallback={null}>
           <TaskNotificationWidget />
         </Suspense>
       )}
 
-      {/* Floating Sunday Timer Widget (Global - appears on any view when active) */}
+      {/* Floating Sunday Timer Widget (global — visible on any view when active) */}
       <Suspense fallback={null}>
         <SundayTimerWidget onClick={() => handleCardClick(ViewState.SUNDAY)} />
       </Suspense>
@@ -848,7 +521,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.11.6
+          versão 1.12.0
         </span>
       </footer>
 

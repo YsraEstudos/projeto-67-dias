@@ -1,4 +1,5 @@
 /**
+/**
  * Markdown Utilities
  * 
  * Funções utilitárias para conversão HTML→Markdown e manipulação de texto.
@@ -7,6 +8,58 @@
 
 // Maximum HTML size to prevent performance issues (100KB)
 const MAX_HTML_SIZE = 100 * 1024;
+
+export interface MarkdownClasses {
+    pre?: string;
+    inlineCode?: string;
+    h1?: string;
+    h2?: string;
+    h3?: string;
+    h4?: string;
+    h5?: string;
+    h6?: string;
+    blockquote?: string;
+    hr?: string;
+    strong?: string;
+    em?: string;
+    del?: string;
+    a?: string;
+    img?: string;
+    checklistUl?: string;
+    checklistLi?: string;
+    checkbox?: string;
+    label?: string;
+    labelChecked?: string;
+    li?: string;
+    ul?: string;
+    p?: string;
+}
+
+export const DEFAULT_MARKDOWN_CLASSES: MarkdownClasses = {
+    pre: 'bg-slate-900 border border-slate-700 rounded-lg p-4 mb-3 overflow-x-auto text-sm font-mono text-slate-300',
+    inlineCode: 'bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm font-mono',
+    h1: 'text-2xl font-bold text-white mb-3 mt-4 border-b border-slate-700 pb-2',
+    h2: 'text-xl font-bold text-white mb-2 mt-4',
+    h3: 'text-lg font-semibold text-white mb-2 mt-3',
+    h4: 'text-base font-semibold text-slate-200 mb-2 mt-2',
+    h5: 'text-sm font-semibold text-slate-200 mb-2',
+    h6: 'text-sm font-semibold text-slate-200 mb-2',
+    blockquote: 'border-l-4 border-purple-500 pl-4 py-1 my-3 bg-purple-500/5 rounded-r-lg italic text-slate-400',
+    hr: 'border-slate-700 my-4',
+    strong: 'font-bold text-white',
+    em: 'italic text-slate-200',
+    del: 'line-through text-slate-500',
+    a: 'text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors',
+    img: 'max-w-full rounded-lg my-3 border border-slate-700',
+    checklistUl: 'space-y-2 mb-3 pl-0',
+    checklistLi: 'flex items-start gap-2 text-slate-300 leading-relaxed list-none',
+    checkbox: 'mt-1 w-4 h-4 rounded border-slate-600 bg-slate-800 accent-purple-500 cursor-pointer shrink-0',
+    label: 'cursor-pointer text-slate-300',
+    labelChecked: 'cursor-pointer line-through text-slate-500',
+    li: 'text-slate-300 leading-relaxed',
+    ul: 'list-disc list-inside space-y-1 mb-3 text-slate-300 ml-2',
+    p: 'text-slate-300 leading-relaxed mb-3',
+};
 
 /**
  * Converts HTML content to Markdown format.
@@ -485,13 +538,15 @@ export function autoPair(
  * Supports: headings, bold, italic, links, lists, code, blockquotes
  * 
  * @param markdown - The Markdown string to convert
+ * @param customClasses - Optional custom CSS classes
  * @returns The converted HTML string
  */
-export function markdownToHtml(markdown: string): string {
+export function markdownToHtml(markdown: string, customClasses?: MarkdownClasses): string {
     if (!markdown || typeof markdown !== 'string') {
         return '';
     }
 
+    const classes = { ...DEFAULT_MARKDOWN_CLASSES, ...customClasses };
     let html = normalizeMarkdownForStorage(markdown);
 
     // Escape HTML entities first
@@ -500,43 +555,61 @@ export function markdownToHtml(markdown: string): string {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
-    // Code blocks (must be before other transformations)
+    // 1. Protect fenced code blocks using placeholders
+    const codeBlocks: string[] = [];
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-        return `<pre class="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-3 overflow-x-auto text-sm font-mono text-slate-300"><code class="language-${lang}">${code.trim()}</code></pre>`;
+        const key = `@@@BLOCKCODE_${codeBlocks.length}@@@`;
+        const cssPre = classes.pre || '';
+        const langClass = lang ? `language-${lang}` : '';
+        codeBlocks.push(`<pre class="${cssPre}"><code class="${langClass}">${code.trim()}</code></pre>`);
+        return key;
     });
 
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-800 text-purple-300 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>');
+    // 2. Protect inline code using placeholders
+    const inlineCodes: string[] = [];
+    html = html.replace(/`([^`]+)`/g, (_, code) => {
+        const key = `@@@INLINECODE_${inlineCodes.length}@@@`;
+        const cssCode = classes.inlineCode || '';
+        inlineCodes.push(`<code class="${cssCode}">${code}</code>`);
+        return key;
+    });
+
+    // 3. Block elements
+    // Blockquotes
+    if (classes.blockquote) {
+        html = html.replace(/^> (.+)$/gm, `<blockquote class="${classes.blockquote}">$1</blockquote>`);
+    } else {
+        html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+    }
 
     // Headings
-    html = html.replace(/^###### (.+)$/gm, '<h6 class="text-sm font-semibold text-slate-200 mb-2">$1</h6>');
-    html = html.replace(/^##### (.+)$/gm, '<h5 class="text-sm font-semibold text-slate-200 mb-2">$1</h5>');
-    html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-semibold text-slate-200 mb-2 mt-2">$1</h4>');
-    html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-white mb-2 mt-3">$1</h3>');
-    html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-white mb-2 mt-4">$1</h2>');
-    html = html.replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-white mb-3 mt-4 border-b border-slate-700 pb-2">$1</h1>');
-
-    // Blockquotes
-    html = html.replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-purple-500 pl-4 py-1 my-3 bg-purple-500/5 rounded-r-lg italic text-slate-400">$1</blockquote>');
+    html = html.replace(/^###### (.+)$/gm, (_, content) => `<h6 class="${classes.h6 || ''}">${content}</h6>`);
+    html = html.replace(/^##### (.+)$/gm, (_, content) => `<h5 class="${classes.h5 || ''}">${content}</h5>`);
+    html = html.replace(/^#### (.+)$/gm, (_, content) => `<h4 class="${classes.h4 || ''}">${content}</h4>`);
+    html = html.replace(/^### (.+)$/gm, (_, content) => `<h3 class="${classes.h3 || ''}">${content}</h3>`);
+    html = html.replace(/^## (.+)$/gm, (_, content) => `<h2 class="${classes.h2 || ''}">${content}</h2>`);
+    html = html.replace(/^# (.+)$/gm, (_, content) => `<h1 class="${classes.h1 || ''}">${content}</h1>`);
 
     // Horizontal rule
-    html = html.replace(/^---$/gm, '<hr class="border-slate-700 my-4" />');
+    html = html.replace(/^---$/gm, `<hr class="${classes.hr || ''}" />`);
 
+    // 4. Inline elements
     // Bold
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-white">$1</strong>');
+    html = html.replace(/\*\*(.+?)\*\*/g, (_, content) => `<strong class="${classes.strong || ''}">${content}</strong>`);
 
     // Italic
-    html = html.replace(/\*(.+?)\*/g, '<em class="italic text-slate-200">$1</em>');
+    html = html.replace(/\*(.+?)\*/g, (_, content) => `<em class="${classes.em || ''}">${content}</em>`);
 
     // Strikethrough
-    html = html.replace(/~~(.+?)~~/g, '<del class="line-through text-slate-500">$1</del>');
-
-    // Links
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors">$1</a>');
+    html = html.replace(/~~(.+?)~~/g, (_, content) => `<del class="${classes.del || ''}">${content}</del>`);
 
     // Images
-    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded-lg my-3 border border-slate-700" />');
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => `<img src="${src}" alt="${alt}" class="${classes.img || ''}" />`);
 
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${classes.a || ''}">${text}</a>`);
+
+    // 5. List items
     // Checklist items — must come BEFORE generic unordered list processing.
     // Supports: - [ ] unchecked, - [x] checked, * [ ] unchecked, * [x] checked
     html = html.replace(
@@ -544,12 +617,15 @@ export function markdownToHtml(markdown: string): string {
         (_, checked, label) => {
             const isChecked = checked.toLowerCase() === 'x';
             const id = `chk-${Math.random().toString(36).slice(2, 8)}`;
+            const cssLi = classes.checklistLi || '';
+            const cssCheckbox = classes.checkbox || '';
+            const cssLabel = isChecked ? (classes.labelChecked || '') : (classes.label || '');
             return (
-                `<li class="flex items-start gap-2 text-slate-300 leading-relaxed list-none" data-checklist-item>` +
+                `<li class="${cssLi}" data-checklist-item>` +
                 `<input type="checkbox" id="${id}"` +
                 (isChecked ? ' checked' : '') +
-                ` class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-800 accent-purple-500 cursor-pointer shrink-0" />` +
-                `<label for="${id}" class="cursor-pointer ${isChecked ? 'line-through text-slate-500' : 'text-slate-300'}">${label}</label>` +
+                ` class="${cssCheckbox}" />` +
+                `<label for="${id}" class="cursor-pointer ${cssLabel}">${label}</label>` +
                 `</li>`
             );
         }
@@ -557,34 +633,43 @@ export function markdownToHtml(markdown: string): string {
     // Wrap consecutive checklist <li> items into a <ul>
     html = html.replace(
         /(<li[^>]*data-checklist-item[^>]*>[\s\S]*?<\/li>\n?)+/g,
-        (match) => `<ul class="space-y-2 mb-3 pl-0">${match}</ul>`
+        (match) => `<ul class="${classes.checklistUl || ''}">${match}</ul>`
     );
 
     // Unordered lists
-    html = html.replace(/^- (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
-    html = html.replace(/^\* (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
+    html = html.replace(/^- (.+)$/gm, (_, content) => `<li class="${classes.li || ''}">${content}</li>`);
+    html = html.replace(/^\* (.+)$/gm, (_, content) => `<li class="${classes.li || ''}">${content}</li>`);
     // Wrap non-checklist li items in a ul
     html = html.replace(
         /(<li(?![^>]*data-checklist-item)[^>]*>[\s\S]*?<\/li>\n?)+/g,
-        (match) => `<ul class="list-disc list-inside space-y-1 mb-3 text-slate-300 ml-2">${match}</ul>`
+        (match) => `<ul class="${classes.ul || ''}">${match}</ul>`
     );
 
-
     // Ordered lists
-    html = html.replace(/^\d+\. (.+)$/gm, '<li class="text-slate-300 leading-relaxed">$1</li>');
+    html = html.replace(/^\d+\. (.+)$/gm, (_, content) => `<li class="${classes.li || ''}">${content}</li>`);
 
-    // Paragraphs (lines that don't start with HTML tags)
+    // Paragraphs (lines that don't start with HTML tags or blockcode placeholders)
     html = html.replace(/^(?!<[a-z])(.+)$/gm, (match, content) => {
         // Skip if it's just whitespace
         if (!content.trim()) return match;
         // Skip if it's already in a tag
         if (content.startsWith('<')) return content;
-        return `<p class="text-slate-300 leading-relaxed mb-3">${content}</p>`;
+        // Skip if it's a code block placeholder
+        if (content.startsWith('@@@BLOCKCODE')) return content;
+        return `<p class="${classes.p || ''}">${content}</p>`;
     });
 
     // Clean up double paragraphs and empty paragraphs
     html = html.replace(/<p[^>]*><\/p>/g, '');
     html = html.replace(/\n\n+/g, '\n');
+
+    // 6. Restore protected code blocks & inline code
+    inlineCodes.forEach((codeHtml, i) => {
+        html = html.replace(`@@@INLINECODE_${i}@@@`, () => codeHtml);
+    });
+    codeBlocks.forEach((codeHtml, i) => {
+        html = html.replace(`@@@BLOCKCODE_${i}@@@`, () => codeHtml);
+    });
 
     return html.trim();
 }

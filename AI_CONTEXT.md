@@ -173,3 +173,9 @@ If there is no formatter, agree on one and add it to CI.
 - `EditableMarkdown` inserts pasted markdown as rendered HTML directly into the contentEditable area instead of relying on `document.execCommand('insertText')` plus `innerText` reconstruction.
 - Checklist paste regressions should cover the full paste path: markdown text -> rendered editor HTML -> saved markdown -> reopened renderer.
 - `markdownUtils.normalizeMarkdownForStorage` repairs legacy checklist artifacts such as a stray `-` before a checklist and paragraph lines like ` - [ ] item`; `NoteEditor` runs this normalization before saving.
+
+## 2026-05-26 Aulas difficult questions
+
+- `AulaChapter.difficultQuestions` stores question numbers that need extra-care review independently from correct/incorrect status.
+- In `ChapterView`, right-clicking a question pill toggles that difficult marker and suppresses the browser context menu.
+- Difficult question pills render with an amber ring/dot so duplicates of the same question in principal, section, or secondary lists are visually marked together.

@@ -339,6 +339,43 @@ describe('markdownUtils', () => {
             expect(html).not.toContain('* [ ]');
             expect(html).toContain('<strong class="font-bold text-white">Pomodoro com o módulo de trabalho</strong>');
         });
+
+        it('should protect markdown syntax inside fenced code blocks', () => {
+            const markdown = [
+                '```javascript',
+                'const x = **not bold**;',
+                'const y = [not link](url);',
+                '```',
+            ].join('\n');
+
+            const html = markdownToHtml(markdown);
+            expect(html).toContain('const x = **not bold**;');
+            expect(html).toContain('const y = [not link](url);');
+            expect(html).not.toContain('<strong');
+            expect(html).not.toContain('<a');
+        });
+
+        it('should protect markdown syntax inside inline code blocks', () => {
+            const markdown = 'This is inline code containing `**not bold**` and `[not link](url)`.';
+            const html = markdownToHtml(markdown);
+
+            expect(html).toContain('**not bold**');
+            expect(html).toContain('[not link](url)');
+            expect(html).not.toContain('<strong');
+            expect(html).not.toContain('<a');
+        });
+
+        it('should support custom CSS class overrides', () => {
+            const markdown = '# Heading\n\nSome text with **bold** content.';
+            const html = markdownToHtml(markdown, {
+                h1: 'custom-h1-class',
+                strong: 'custom-strong-class',
+                p: 'custom-p-class',
+            });
+
+            expect(html).toContain('<h1 class="custom-h1-class">Heading</h1>');
+            expect(html).toContain('<p class="custom-p-class">Some text with <strong class="custom-strong-class">bold</strong> content.</p>');
+        });
     });
 
     describe('wrapSelection', () => {

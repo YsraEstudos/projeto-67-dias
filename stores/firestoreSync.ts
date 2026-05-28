@@ -266,8 +266,12 @@ const performWrite = async (payload: PendingWrite['payload']) => {
 
     if (writeCountLastMinute >= MAX_WRITES_PER_MINUTE) {
         console.warn(`[Firestore] Rate limit reached (${MAX_WRITES_PER_MINUTE}/min). Rescheduling write for ${payload.collectionKey}`);
-        // Reschedule for 5 seconds later
-        setTimeout(() => performWrite(payload), 5000);
+        // Reschedule for 5 seconds later and register it in writeTimeouts so it can be cleared/flushed
+        const timeout = setTimeout(() => {
+            writeTimeouts.delete(writeIdentity);
+            void performWrite(payload);
+        }, 5000);
+        writeTimeouts.set(writeIdentity, { timeout, payload });
         return;
     }
     writeCountLastMinute++;
@@ -441,6 +445,8 @@ export const __resetForTesting = () => {
     lastWrittenData.clear();
     pendingWriteCount = 0;
     pendingWriteListeners.length = 0;
+    writeCountLastMinute = 0;
+    lastWriteResetTime = Date.now();
 };
 
 /**

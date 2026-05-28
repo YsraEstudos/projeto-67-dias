@@ -20,6 +20,8 @@ import {
     createCompetitionDailyRecord,
     migrateCompetitionDailyRecord,
     generateSimulatedRivals,
+    hashSeed,
+    seededUnit,
     type CompetitionSourceState,
 } from '../../utils/competitionEngine';
 import { getTodayISO } from '../../utils/dateUtils';
@@ -591,5 +593,41 @@ describe('competitionEngine', () => {
 
         expect(first).toEqual(second);
         expect(first).toHaveLength(4);
+    });
+
+    describe('hashSeed', () => {
+        it('computes deterministic FNV-1a hashes', () => {
+            const hash1 = hashSeed('test-seed-123');
+            const hash2 = hashSeed('test-seed-123');
+            const hash3 = hashSeed('different-seed');
+
+            expect(hash1).toBe(hash2);
+            expect(hash1).not.toBe(hash3);
+            expect(typeof hash1).toBe('number');
+            // FNV-1a produces 32-bit unsigned integers
+            expect(hash1).toBeGreaterThanOrEqual(0);
+        });
+
+        it('handles empty string input correctly', () => {
+            const hashEmpty = hashSeed('');
+            expect(hashEmpty).toBe(2166136261); // Offset basis for 32-bit FNV-1
+        });
+    });
+
+    describe('seededUnit', () => {
+        it('returns pseudo-random values clamped between [0, 1)', () => {
+            const values = ['seed-a', 'seed-b', 'seed-c', 'another-longer-seed-value-12345'].map(seededUnit);
+            
+            values.forEach((val) => {
+                expect(val).toBeGreaterThanOrEqual(0);
+                expect(val).toBeLessThan(1);
+            });
+        });
+
+        it('is deterministic for the same seed string', () => {
+            const val1 = seededUnit('same-seed');
+            const val2 = seededUnit('same-seed');
+            expect(val1).toBe(val2);
+        });
     });
 });

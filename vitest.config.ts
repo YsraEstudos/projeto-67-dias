@@ -24,5 +24,23 @@ export default defineConfig({
             VITE_FIREBASE_MESSAGING_SENDER_ID: 'test-sender',
             VITE_FIREBASE_APP_ID: 'test-app-id',
         },
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'html'],
+            // Only measure and enforce coverage for the refactored files.
+            // All 4 files must reach 100% on every metric.
+            include: [
+                'WorkspaceApp.tsx',
+                'hooks/useHydrationOrchestrator.ts',
+                'hooks/useAppBootstrap.ts',
+                'hooks/useDashboardStats.ts',
+            ],
+            thresholds: {
+                statements: 100,
+                branches: 100,
+                functions: 100,
+                lines: 100,
+            },
+        },
     },
 });

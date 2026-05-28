@@ -225,6 +225,75 @@ describe('firestoreSync', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
+    // rate limiting
+    // ─────────────────────────────────────────────────────────────────────────
+
+    describe('rate limiting', () => {
+        beforeEach(() => {
+            (auth as any).currentUser = { uid: 'test-user-id' };
+        });
+
+        it('should reschedule write and register it in writeTimeouts when rate limit is hit', async () => {
+            // Trigger 25 writes to unique collections and 0 debounce to exceed rate limit (MAX=24)
+            for (let i = 0; i < 25; i++) {
+                writeToFirestore(`test_limit_${i}`, { val: i }, 0);
+            }
+            
+            // Advance timers by 1ms asynchronously to let performWrite run
+            await vi.advanceTimersByTimeAsync(1);
+            
+            // 24 writes should have executed setDoc, and the 25th one (test_limit_24) should be rescheduled
+            expect(setDoc).toHaveBeenCalledTimes(24);
+            
+            // The 25th write should still be pending
+            expect(getPendingWriteCount()).toBe(1);
+            
+            // Advance timers by 65000ms asynchronously to let the 1-minute rate limit window reset and the rescheduled write run
+            await vi.advanceTimersByTimeAsync(65000);
+            
+            // Now it should have executed setDoc 25 times, and pending count should be 0
+            expect(setDoc).toHaveBeenCalledTimes(25);
+            expect(getPendingWriteCount()).toBe(0);
+        });
+
+        it('should allow rescheduled write to be overwritten by a newer write', async () => {
+            // Trigger 24 writes to unique collections to exhaust the rate limit
+            for (let i = 0; i < 24; i++) {
+                writeToFirestore(`test_limit_${i}`, { val: i }, 0);
+            }
+            await vi.advanceTimersByTimeAsync(1);
+            expect(setDoc).toHaveBeenCalledTimes(24);
+            
+            // Trigger the 25th write (which will be rescheduled) to test_limit_24
+            writeToFirestore('test_limit_24', { val: 'twenty-five' }, 0);
+            await vi.advanceTimersByTimeAsync(1);
+            
+            // It should be rescheduled, so setDoc is still 24, pending count is 1
+            expect(setDoc).toHaveBeenCalledTimes(24);
+            expect(getPendingWriteCount()).toBe(1);
+            
+            // While it is rescheduled (during the 5s window), trigger a 26th write to the same collection 'test_limit_24'
+            writeToFirestore('test_limit_24', { val: 'twenty-six' }, 0);
+            
+            // Pending write count should still be 1 (not double-incremented)
+            expect(getPendingWriteCount()).toBe(1);
+            
+            // Advance timers by 65000ms to let the rate limit reset and the replacement write run
+            await vi.advanceTimersByTimeAsync(65000);
+            
+            // The 25th write was cancelled/replaced, and only the 26th write should run
+            expect(setDoc).toHaveBeenCalledTimes(25);
+            expect(setDoc).toHaveBeenLastCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    value: { val: 'twenty-six' }
+                })
+            );
+            expect(getPendingWriteCount()).toBe(0);
+        });
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
     // subscribeToDocument
     // ─────────────────────────────────────────────────────────────────────────
 

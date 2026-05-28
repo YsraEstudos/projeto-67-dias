@@ -350,6 +350,10 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     return "pending";
   };
 
+  const isQuestionDifficult = (questionNumber: number): boolean => {
+    return (chapter?.difficultQuestions || []).includes(questionNumber);
+  };
+
   const getInitialQuestionStatus = (questionNumber: number): "correct" | "incorrect" | "pending" => {
     if (!chapter) return "pending";
 
@@ -469,6 +473,20 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const handleClearQuestion = (questionNumber: number) => {
     setQuestionStatus(questionNumber, "pending");
     setExpandedQuestion(null);
+  };
+
+  const toggleDifficultQuestion = (questionNumber: number) => {
+    if (!book || !chapter) return;
+
+    const difficultQuestions = chapter.difficultQuestions || [];
+    const isDifficult = difficultQuestions.includes(questionNumber);
+    const nextDifficultQuestions = isDifficult
+      ? difficultQuestions.filter((question) => question !== questionNumber)
+      : [...difficultQuestions, questionNumber].sort((a, b) => a - b);
+
+    updateChapter(book.id, chapter.id, {
+      difficultQuestions: nextDifficultQuestions,
+    });
   };
 
   const copyQuestionPrompt = async () => {
@@ -1043,9 +1061,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                 key={`principal-${questionNumber}`}
                                 number={questionNumber}
                                 status={status}
+                                isDifficult={isQuestionDifficult(questionNumber)}
                                 onMarkCorrect={() => handleMarkCorrect(questionNumber)}
                                 onMarkIncorrect={() => handleMarkIncorrect(questionNumber)}
                                 onClear={() => handleClearQuestion(questionNumber)}
+                                onToggleDifficult={() => toggleDifficultQuestion(questionNumber)}
                                 onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                 isExpanded={expandedQuestion === questionNumber}
                                 onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
@@ -1073,9 +1093,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                     key={`${section.secao}-${questionNumber}`}
                                     number={questionNumber}
                                     status={getQuestionStatus(questionNumber)}
+                                    isDifficult={isQuestionDifficult(questionNumber)}
                                     onMarkCorrect={() => handleMarkCorrect(questionNumber)}
                                     onMarkIncorrect={() => handleMarkIncorrect(questionNumber)}
                                     onClear={() => handleClearQuestion(questionNumber)}
+                                    onToggleDifficult={() => toggleDifficultQuestion(questionNumber)}
                                     onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                     isExpanded={expandedQuestion === questionNumber}
                                     onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
@@ -1102,9 +1124,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                   key={`secundaria-${questionNumber}`}
                                   number={questionNumber}
                                   status={getQuestionStatus(questionNumber)}
+                                  isDifficult={isQuestionDifficult(questionNumber)}
                                   onMarkCorrect={() => handleMarkCorrect(questionNumber)}
                                   onMarkIncorrect={() => handleMarkIncorrect(questionNumber)}
                                   onClear={() => handleClearQuestion(questionNumber)}
+                                  onToggleDifficult={() => toggleDifficultQuestion(questionNumber)}
                                   onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                   isExpanded={expandedQuestion === questionNumber}
                                   onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
@@ -2153,9 +2177,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 interface QuestionPillProps {
   number: number;
   status: "correct" | "incorrect" | "pending";
+  isDifficult: boolean;
   onMarkCorrect: () => void;
   onMarkIncorrect: () => void;
   onClear: () => void;
+  onToggleDifficult: () => void;
   onOpenHistory: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -2165,9 +2191,11 @@ interface QuestionPillProps {
 function QuestionPill({
   number,
   status,
+  isDifficult,
   onMarkCorrect,
   onMarkIncorrect,
   onClear,
+  onToggleDifficult,
   onOpenHistory,
   isExpanded,
   onToggleExpand,
@@ -2206,15 +2234,26 @@ function QuestionPill({
         borderClass,
         bgClass,
         textClass,
-        glowClass
+        glowClass,
+        isDifficult && "ring-2 ring-amber-400/70 ring-offset-1 ring-offset-slate-950 shadow-md shadow-amber-500/15"
       )}
+      title={isDifficult ? "Questão difícil: revisar com mais cuidado" : undefined}
     >
+      {isDifficult && (
+        <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border border-slate-950 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]" />
+      )}
+
       {/* Question Number Button */}
       <button
         type="button"
         onClick={(e) => {
           e.preventDefault();
           onToggleExpand();
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleDifficult();
         }}
         className={cn(
           "h-full w-full flex items-center justify-center transition-colors cursor-pointer shrink-0 font-sans border-0 border-none bg-transparent outline-none focus:outline-none min-h-0 rounded-[inherit]",
@@ -2543,4 +2582,3 @@ const CodeBlock: React.FC<any> = ({ className, children, ...props }) => {
     </div>
   );
 };
-

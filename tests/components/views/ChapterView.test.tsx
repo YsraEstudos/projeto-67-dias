@@ -36,6 +36,7 @@ const mockBooks: any[] = [
         },
         correctQuestions: [3],
         incorrectQuestions: [5],
+        difficultQuestions: [],
         completedPrincipalQuestions: [3, 5],
         questionAttempts: {
           '3': {
@@ -80,6 +81,7 @@ describe('ChapterView - Question Performance Evolution & Pill Styles', () => {
     // Reset test book structure to same-day attempts
     mockBooks[0].chapters[0].correctQuestions = [3];
     mockBooks[0].chapters[0].incorrectQuestions = [5];
+    mockBooks[0].chapters[0].difficultQuestions = [];
     mockBooks[0].chapters[0].completedPrincipalQuestions = [3, 5];
     mockBooks[0].chapters[0].questionAttempts = {
       '3': {
@@ -221,5 +223,16 @@ describe('ChapterView - Question Performance Evolution & Pill Styles', () => {
       expect(questionButton).toHaveClass('outline-none');
       expect(questionButton).toHaveClass('rounded-[inherit]');
     }
+  });
+
+  it('marks an incorrect question as difficult from the question button context menu', () => {
+    render(<ChapterView bookId="book-1" chapterId="chapter-1" onBack={vi.fn()} />);
+
+    const questionButton = screen.getAllByRole('button', { name: '5' })[0];
+    fireEvent.contextMenu(questionButton);
+
+    expect(mockUpdateChapter).toHaveBeenCalledWith('book-1', 'chapter-1', {
+      difficultQuestions: [5],
+    });
   });
 });
