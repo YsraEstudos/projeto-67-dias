@@ -30,7 +30,7 @@ export function TimerWidget() {
   const [isSkillsOpen, setIsSkillsOpen] = useState(false);
   const [skillTaskDrafts, setSkillTaskDrafts] = useState<Record<string, string>>({});
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState<'tasks' | 'skills' | 'breaks'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'breaks'>('tasks');
   
   const {
     activeTaskId,
@@ -386,13 +386,12 @@ export function TimerWidget() {
   };
 
   const renderTabSelector = () => {
+    if (!isBreakMode) return null;
+
     const tabs = [
       { id: 'tasks' as const, label: 'Foco', icon: Brain },
-      { id: 'skills' as const, label: 'Habilidades', icon: GraduationCap },
+      { id: 'breaks' as const, label: 'Descanso', icon: Coffee },
     ];
-    if (isBreakMode) {
-      tabs.push({ id: 'breaks' as const, label: 'Descanso', icon: Coffee });
-    }
 
     return (
       <div className="flex bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 mb-4 gap-1">
@@ -589,7 +588,7 @@ export function TimerWidget() {
               "grid gap-4",
               variant === 'fullscreen' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
             )}>
-              {activeSkills.slice(0, variant === 'fullscreen' ? undefined : 3).map((skill) => {
+              {(isFullscreen ? activeSkills : activeSkills.slice(0, 3)).map((skill) => {
                 const percentage = Math.min(100, Math.round((skill.currentMinutes / (skill.goalMinutes || 1)) * 100));
                 const hours = (skill.currentMinutes / 60).toFixed(1);
                 const goalHours = (skill.goalMinutes / 60).toFixed(0);
@@ -1477,7 +1476,10 @@ export function TimerWidget() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-6xl px-4 sm:px-8 mt-12 items-center flex-1 w-full">
               
               {/* Coluna Esquerda: Timer, Modos, Controles e Instruções de Alerta (7/12 cols) */}
-              <div className="lg:col-span-7 flex flex-col items-center justify-center text-center space-y-8 w-full">
+              <div className={cn(
+                "lg:col-span-7 flex flex-col items-center justify-center text-center space-y-8 w-full",
+                isSkillsOpen && "hidden lg:flex"
+              )}>
                 {/* Mode Selector */}
                 <div className="flex flex-wrap justify-center gap-1.5 bg-white/5 p-1.5 rounded-xl backdrop-blur-sm max-w-full">
                   {modes.map((m) => {
@@ -1500,6 +1502,23 @@ export function TimerWidget() {
                       </button>
                     );
                   })}
+                  
+                  {/* GraduationCap (Skills) Toggle Button in Fullscreen Mode Selector */}
+                  <button
+                    disabled={isAlertCountdown}
+                    onClick={() => setIsSkillsOpen((prev) => !prev)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap border border-transparent",
+                      isSkillsOpen 
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-lg font-semibold" 
+                        : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5",
+                      isAlertCountdown && "opacity-44 cursor-not-allowed"
+                    )}
+                    title="Habilidades de Estudo"
+                  >
+                    <GraduationCap className="w-4 h-4 mr-2" />
+                    Habilidades
+                  </button>
                 </div>
 
                 {/* Countdown Time & Mode Information */}
@@ -1645,43 +1664,54 @@ export function TimerWidget() {
 
               {/* Coluna Direita: Sidebar Tabbed Panel (5/12 cols) */}
               <div className="lg:col-span-5 w-full flex flex-col justify-stretch mt-6 lg:mt-0">
-                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md flex flex-col h-[50vh] lg:h-[58vh] min-h-[380px] max-h-[520px] overflow-hidden shadow-2xl">
-                  {/* Tab Selector inside Sidebar */}
-                  {renderTabSelector()}
+                <div className={cn(
+                  "bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md flex flex-col overflow-hidden shadow-2xl transition-all duration-300",
+                  isSkillsOpen 
+                    ? "h-[75vh] lg:h-[64vh] min-h-[480px] max-h-[720px]" 
+                    : "h-[50vh] lg:h-[58vh] min-h-[380px] max-h-[520px]"
+                )}>
+                  {isSkillsOpen ? (
+                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar text-left">
+                      {renderSkillsPanel('expanded')}
+                    </div>
+                  ) : (
+                    <>
+                      {/* Tab Selector inside Sidebar */}
+                      {renderTabSelector()}
 
-                  {/* Scrollable Tab Content Area */}
-                  <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar text-left">
-                    {activeTab === 'tasks' && (
-                      <div className="space-y-4">
-                        {activeTask ? (
-                          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
-                            <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
-                            <h4 className="text-base font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
-                          </div>
-                        ) : (
-                          <div className="bg-slate-950/20 border border-dashed border-slate-850 rounded-xl p-4 text-center">
-                            <p className="text-xs text-[var(--color-text-muted)]">Foco Livre (Sem tarefa ativa)</p>
+                      {/* Scrollable Tab Content Area */}
+                      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar text-left">
+                        {activeTab === 'tasks' && (
+                          <div className="space-y-4">
+                            {activeTask ? (
+                              <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
+                                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
+                                <h4 className="text-base font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
+                              </div>
+                            ) : (
+                              <div className="bg-slate-950/20 border border-dashed border-slate-850 rounded-xl p-4 text-center">
+                                <p className="text-xs text-[var(--color-text-muted)]">Foco Livre (Sem tarefa ativa)</p>
+                              </div>
+                            )}
+
+                            {!isBreakMode && (
+                              <button
+                                type="button"
+                                onClick={() => setIsTaskPickerOpen(true)}
+                                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                              >
+                                Selecionar ou limpar tarefa
+                              </button>
+                            )}
+
+                            {renderActiveTaskSubtasks('expanded')}
                           </div>
                         )}
 
-                        {!isBreakMode && (
-                          <button
-                            type="button"
-                            onClick={() => setIsTaskPickerOpen(true)}
-                            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                          >
-                            Selecionar ou limpar tarefa
-                          </button>
-                        )}
-
-                        {renderActiveTaskSubtasks('expanded')}
+                        {activeTab === 'breaks' && renderBreakPickerSection('expanded')}
                       </div>
-                    )}
-
-                    {activeTab === 'skills' && renderSkillsPanel('expanded')}
-
-                    {activeTab === 'breaks' && renderBreakPickerSection('expanded')}
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1757,6 +1787,22 @@ export function TimerWidget() {
                     </button>
                   );
                 })}
+                
+                {/* GraduationCap (Skills) Button in Expanded View Header */}
+                <button
+                  disabled={isAlertCountdown}
+                  onClick={() => setIsSkillsOpen((prev) => !prev)}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors border border-transparent ml-1",
+                    isSkillsOpen 
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-lg font-semibold" 
+                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] hover:text-white",
+                    isAlertCountdown && "opacity-40 cursor-not-allowed"
+                  )}
+                  title="Habilidades de Estudo"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                </button>
               </div>
               <div className="flex space-x-2">
                 <button 
@@ -1846,13 +1892,17 @@ export function TimerWidget() {
                       Levante-se, faça polichinelos e desligue o telefone!
                     </p>
                     <button
-                      onClick={handleCompleteAlertSteps}
+                                onClick={handleCompleteAlertSteps}
                       className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold uppercase tracking-wider shadow-md shadow-amber-500/10 hover:scale-[1.01] active:scale-[0.99] transition-all"
                     >
                       Já Fiz os Passos!
                     </button>
                   </div>
                 )}
+              </div>
+            ) : isSkillsOpen ? (
+              <div className="max-h-[380px] overflow-y-auto pr-1 mb-6 custom-scrollbar text-left">
+                {renderSkillsPanel('expanded')}
               </div>
             ) : (
               <>
@@ -1894,8 +1944,6 @@ export function TimerWidget() {
                       {renderActiveTaskSubtasks('expanded')}
                     </div>
                   )}
-
-                  {activeTab === 'skills' && renderSkillsPanel('expanded')}
 
                   {activeTab === 'breaks' && renderBreakPickerSection('expanded')}
                 </div>
