@@ -30,6 +30,7 @@ export function TimerWidget() {
   const [isSkillsOpen, setIsSkillsOpen] = useState(false);
   const [skillTaskDrafts, setSkillTaskDrafts] = useState<Record<string, string>>({});
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'tasks' | 'skills' | 'breaks'>('tasks');
   
   const {
     activeTaskId,
@@ -194,6 +195,14 @@ export function TimerWidget() {
   };
 
   const isBreakMode = mode === 'shortBreak' || mode === 'longBreak';
+
+  useEffect(() => {
+    if (isBreakMode) {
+      setActiveTab('breaks');
+    } else {
+      setActiveTab('tasks');
+    }
+  }, [isBreakMode]);
   const currentBreakMode = mode === 'shortBreak' || mode === 'longBreak' ? mode : null;
   const activeBreakSelection = mode === 'shortBreak'
     ? shortBreakSelection
@@ -376,8 +385,43 @@ export function TimerWidget() {
     return 'Outro dia';
   };
 
+  const renderTabSelector = () => {
+    const tabs = [
+      { id: 'tasks' as const, label: 'Foco', icon: Brain },
+      { id: 'skills' as const, label: 'Habilidades', icon: GraduationCap },
+    ];
+    if (isBreakMode) {
+      tabs.push({ id: 'breaks' as const, label: 'Descanso', icon: Coffee });
+    }
+
+    return (
+      <div className="flex bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 mb-4 gap-1">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all duration-200",
+                isActive
+                  ? "bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/10"
+                  : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5"
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderActiveTaskSubtasks = (variant: 'expanded' | 'fullscreen') => {
-    if (!isBreakMode || !activeTask || !activeTask.subtasks || activeTask.subtasks.length === 0) return null;
+    if (!activeTask || !activeTask.subtasks || activeTask.subtasks.length === 0) return null;
     
     return (
       <div className={cn("w-full mx-auto text-left relative", variant === 'fullscreen' ? "max-w-2xl mb-12" : "mb-6")}>
@@ -457,8 +501,6 @@ export function TimerWidget() {
   };
 
   const renderSkillsPanel = (variant: 'expanded' | 'fullscreen') => {
-    if (!isSkillsOpen) return null;
-
     const activeSkills = skills.filter(s => !s.isCompleted);
 
     const getFirstUncompletedRoadmapItem = (items: SkillRoadmapItem[]): SkillRoadmapItem | null => {
@@ -856,12 +898,6 @@ export function TimerWidget() {
                 );
               })}
             </div>
-          )}
-
-          {!isFullscreen && activeSkills.length > 3 && (
-            <p className="text-[10px] text-slate-500 text-center mt-3 uppercase tracking-wider">
-              Mostrando 3 de {activeSkills.length} habilidades ativa(s)
-            </p>
           )}
         </div>
       </div>
@@ -1400,7 +1436,7 @@ export function TimerWidget() {
             : cn(
                 "bottom-8 left-1/2 -translate-x-1/2 bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)]",
                 isExpanded 
-                  ? "w-[calc(100%-2rem)] sm:w-80 p-4 sm:p-6 max-h-[85vh] overflow-y-auto scrollbar-thin" 
+                  ? "w-[calc(100%-2rem)] sm:w-[380px] p-4 sm:p-6 max-h-[85vh] overflow-y-auto scrollbar-thin" 
                   : "w-auto px-4 py-3 flex items-center space-x-4 overflow-hidden",
                 isDragOver && "ring-2 ring-[var(--color-primary)] scale-105"
               )
@@ -1413,9 +1449,9 @@ export function TimerWidget() {
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center w-full h-full relative px-4 sm:px-8"
+            className="flex flex-col items-center justify-center w-full h-full relative px-4 sm:px-8 py-8 overflow-y-auto scrollbar-thin"
           >
-            <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex space-x-2 sm:space-x-4">
+            <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex space-x-2 sm:space-x-4 z-50">
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
@@ -1437,204 +1473,218 @@ export function TimerWidget() {
               </button>
             </div>
 
-            {/* Mode Selector */}
-            <div className="flex flex-wrap sm:flex-nowrap justify-center gap-1.5 sm:space-x-2 mb-8 md:mb-12 bg-white/5 p-1.5 rounded-xl backdrop-blur-sm max-w-[calc(100%-2rem)]">
-              {modes.map((m) => {
-                const Icon = m.icon;
-                return (
+            {/* Layout Side-by-Side (Duas Colunas) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-6xl px-4 sm:px-8 mt-12 items-center flex-1 w-full">
+              
+              {/* Coluna Esquerda: Timer, Modos, Controles e Instruções de Alerta (7/12 cols) */}
+              <div className="lg:col-span-7 flex flex-col items-center justify-center text-center space-y-8 w-full">
+                {/* Mode Selector */}
+                <div className="flex flex-wrap justify-center gap-1.5 bg-white/5 p-1.5 rounded-xl backdrop-blur-sm max-w-full">
+                  {modes.map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <button
+                        key={m.id}
+                        disabled={isAlertCountdown}
+                        onClick={() => setMode(m.id)}
+                        className={cn(
+                          "px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap",
+                          mode === m.id 
+                            ? "bg-[var(--color-primary)] text-white shadow-lg" 
+                            : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5",
+                          isAlertCountdown && "opacity-44 cursor-not-allowed"
+                        )}
+                      >
+                        <Icon className="w-4 h-4 mr-2" />
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Countdown Time & Mode Information */}
+                <div className="flex flex-col items-center justify-center">
+                  <div className="text-[6rem] sm:text-[8rem] md:text-[10rem] font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)]">
+                    {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                  </div>
+                  
+                  <div className="mt-4 max-w-md">
+                    {mode === 'alert' ? (
+                      alertStep === 'breathing' ? (
+                        <p className="text-lg text-emerald-400 font-bold tracking-widest uppercase animate-pulse">Respiração</p>
+                      ) : (
+                        <p className="text-lg text-amber-400 font-bold tracking-widest uppercase animate-pulse">Modo Alerta Ativo</p>
+                      )
+                    ) : isBreakMode ? (
+                      <div className="space-y-1">
+                        <p className="text-sm text-[var(--color-text-muted)] uppercase tracking-wider">Pausa em andamento</p>
+                        <p className="text-xl font-medium text-white truncate max-w-xs sm:max-w-md mx-auto">
+                          {selectedBreakLabel || 'Escolha um descanso para esta pausa'}
+                        </p>
+                      </div>
+                    ) : activeTask ? (
+                      <div className="space-y-1">
+                        <p className="text-sm text-[var(--color-text-muted)] uppercase tracking-wider">Trabalhando em</p>
+                        <p className="text-xl font-medium text-white truncate max-w-xs sm:max-w-md mx-auto">{activeTask.title}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-sm text-[var(--color-text-muted)] uppercase tracking-wider">Foco Livre</p>
+                        <p className="text-md text-[var(--color-text-muted)]">Nenhuma tarefa selecionada</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Alert steps Breathing / Checklist UI (Only rendered if mode === 'alert') */}
+                {mode === 'alert' && (
+                  <div className="w-full max-w-md animate-in fade-in duration-300">
+                    {alertStep === 'breathing' ? (
+                      <div className="flex flex-col items-center">
+                        <p className="text-sm text-slate-350 mb-4 max-w-xs">
+                          Siga o ritmo do círculo. Respire fundo e relaxe.
+                        </p>
+                        <div className="relative flex items-center justify-center w-40 h-40">
+                          <motion.div
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] }}
+                            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute inset-0 rounded-full bg-emerald-500/20"
+                          />
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
+                            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                            className="absolute w-28 h-28 rounded-full bg-emerald-500/25"
+                          />
+                          <motion.div
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute w-20 h-20 rounded-full bg-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-500/25"
+                          >
+                            <span className="text-white font-bold text-xs select-none">
+                              {getBreathingInstruction(timeLeft).text}
+                            </span>
+                          </motion.div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-left mb-4 backdrop-blur-sm w-full">
+                          <ul className="space-y-3 text-sm">
+                            <li className="flex items-center gap-2.5 text-slate-200">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">1</span>
+                              <span>Levante-se da cadeira imediatamente</span>
+                            </li>
+                            <li className="flex items-center gap-2.5 text-slate-200">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">2</span>
+                              <span>Faça polichinelos para ativar a circulação</span>
+                            </li>
+                            <li className="flex items-center gap-2.5 text-slate-200">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">3</span>
+                              <span>Desligue ou afaste o seu telefone</span>
+                            </li>
+                          </ul>
+                        </div>
+                        <button
+                          onClick={handleCompleteAlertSteps}
+                          className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold shadow-md shadow-amber-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm uppercase tracking-wider"
+                        >
+                          Já Fiz os Passos!
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Left Column Button for Task Picker */}
+                {!isBreakMode && mode !== 'alert' && (
                   <button
-                    key={m.id}
+                    type="button"
+                    onClick={() => setIsTaskPickerOpen(true)}
+                    className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 px-5 py-2 text-sm font-medium text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                  >
+                    Selecionar ou limpar tarefa
+                  </button>
+                )}
+
+                {/* Left Column Controls */}
+                <div className="flex justify-center items-center space-x-6">
+                  <button 
+                    onClick={resetTimer} 
                     disabled={isAlertCountdown}
-                    onClick={() => setMode(m.id)}
                     className={cn(
-                      "px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap",
-                      mode === m.id 
-                        ? "bg-[var(--color-primary)] text-white shadow-lg" 
-                        : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5",
-                      isAlertCountdown && "opacity-40 cursor-not-allowed"
+                      "w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white",
+                      isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
+                    )}
+                    title="Reiniciar"
+                  >
+                    <Square className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </button>
+                  <button 
+                    onClick={toggleTimer} 
+                    disabled={isAlertCountdown}
+                    className={cn(
+                      "w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center hover:scale-105 transition-transform shadow-2xl shadow-[var(--color-primary)]/30",
+                      isAlertCountdown && "opacity-45 cursor-not-allowed hover:scale-100"
                     )}
                   >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {m.label}
+                    {isActive ? <Pause className="w-8 h-8 sm:w-10 sm:h-10" /> : <Play className="w-8 h-8 sm:w-10 sm:h-10 ml-1.5 sm:ml-2" />}
                   </button>
-                );
-              })}
-              {/* Habilidades button */}
-              <button
-                onClick={() => setIsSkillsOpen(prev => !prev)}
-                className={cn(
-                  "px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap",
-                  isSkillsOpen
-                    ? "bg-emerald-500 text-white shadow-lg"
-                    : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5"
-                )}
-              >
-                <GraduationCap className="w-4 h-4 mr-2" />
-                Habilidades
-              </button>
-            </div>
-
-            {renderSkillsPanel('fullscreen')}
-
-            {renderBreakPickerSection('fullscreen')}
-
-            <div className="flex flex-col lg:flex-row w-full items-center justify-center gap-6 lg:gap-10 mb-8 max-w-6xl px-4 sm:px-12">
-              <div className="flex-1 flex justify-center lg:justify-end order-2 lg:order-1 w-full max-w-md lg:max-w-none">
-                {renderActiveTaskSubtasks('fullscreen')}
-              </div>
-              <div className="text-[6rem] sm:text-[10rem] md:text-[14rem] shrink-0 font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)] order-1 lg:order-2">
-                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-              </div>
-              <div className="flex-1 hidden lg:block order-3" />
-            </div>
-
-            {mode === 'alert' ? (
-              alertStep === 'breathing' ? (
-                <div className="flex flex-col items-center justify-center mb-16 max-w-3xl px-8 text-center">
-                  <p className="text-xl text-emerald-400 uppercase tracking-widest mb-4 font-bold">Modo Alerta: Respiração</p>
-                  <p className="text-3xl md:text-4xl font-medium text-white max-w-2xl">
-                    Siga o ritmo do círculo. Respire fundo e relaxe.
-                  </p>
-                  
-                  {/* Concentric Breathing Circles */}
-                  <div className="relative flex items-center justify-center w-64 h-64 mx-auto my-8">
-                    <motion.div
-                      animate={{
-                        scale: [1, 1.6, 1],
-                        opacity: [0.1, 0.3, 0.1],
-                      }}
-                      transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                      className="absolute inset-0 rounded-full bg-emerald-500/20"
-                    />
-                    <motion.div
-                      animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [0.2, 0.5, 0.2],
-                      }}
-                      transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 1
-                      }}
-                      className="absolute w-48 h-48 rounded-full bg-emerald-500/25"
-                    />
-                    <motion.div
-                      animate={{
-                        scale: [1, 1.1, 1],
-                      }}
-                      transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                      className="absolute w-32 h-32 rounded-full bg-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-500/25"
-                    >
-                      <span className="text-white font-bold text-lg select-none">
-                        {getBreathingInstruction(timeLeft).text}
-                      </span>
-                    </motion.div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center mb-16 max-w-3xl px-8 text-center">
-                  <p className="text-xl text-amber-400 uppercase tracking-widest mb-2 font-bold animate-pulse">Modo Alerta Iniciado</p>
-                  <p className="text-2xl md:text-3xl font-semibold text-white mb-6">
-                    Você tem 1 minuto para realizar os passos abaixo!
-                  </p>
-                  
-                  {/* Checklist */}
-                  <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-6 text-left mb-8 backdrop-blur-sm">
-                    <ul className="space-y-4">
-                      <li className="flex items-center gap-3 text-slate-200">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">1</span>
-                        <span>Levante-se da cadeira imediatamente</span>
-                      </li>
-                      <li className="flex items-center gap-3 text-slate-200">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">2</span>
-                        <span>Faça polichinelos para ativar a circulação</span>
-                      </li>
-                      <li className="flex items-center gap-3 text-slate-200">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs">3</span>
-                        <span>Desligue ou afaste o seu telefone</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <button
-                    onClick={handleCompleteAlertSteps}
-                    className="px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-lg uppercase tracking-wider"
+                  <button 
+                    onClick={skipPhase} 
+                    disabled={isAlertCountdown}
+                    className={cn(
+                      "w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white",
+                      isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
+                    )}
+                    title="Pular fase"
                   >
-                    Já Fiz os Passos!
+                    <SkipForward className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
-              )
-            ) : isBreakMode ? (
-              <div className="text-center mb-16 max-w-3xl px-8">
-                <p className="text-xl text-[var(--color-text-muted)] uppercase tracking-widest mb-4">Pausa em andamento</p>
-                <p className="text-4xl md:text-5xl font-medium text-white">
-                  {selectedBreakLabel || 'Escolha um descanso para esta pausa'}
-                </p>
               </div>
-            ) : activeTask ? (
-              <div className="text-center mb-16 max-w-3xl px-8">
-                <p className="text-xl text-[var(--color-text-muted)] uppercase tracking-widest mb-4">Trabalhando em</p>
-                <p className="text-4xl md:text-5xl font-medium text-white">{activeTask.title}</p>
-              </div>
-            ) : (
-              <div className="text-center mb-16">
-                <p className="text-xl text-[var(--color-text-muted)] uppercase tracking-widest mb-4">Foco Livre</p>
-                <p className="text-2xl text-[var(--color-text-muted)]">Nenhuma tarefa selecionada</p>
-              </div>
-            )}
 
-            {!isBreakMode && mode !== 'alert' && (
-              <button
-                type="button"
-                onClick={() => setIsTaskPickerOpen(true)}
-                className="mb-12 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 px-5 py-2 text-sm font-medium text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-              >
-                Selecionar ou limpar tarefa
-              </button>
-            )}
+              {/* Coluna Direita: Sidebar Tabbed Panel (5/12 cols) */}
+              <div className="lg:col-span-5 w-full flex flex-col justify-stretch mt-6 lg:mt-0">
+                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md flex flex-col h-[50vh] lg:h-[58vh] min-h-[380px] max-h-[520px] overflow-hidden shadow-2xl">
+                  {/* Tab Selector inside Sidebar */}
+                  {renderTabSelector()}
 
-            <div className="flex justify-center items-center space-x-8">
-              <button 
-                onClick={resetTimer} 
-                disabled={isAlertCountdown}
-                className={cn(
-                  "w-16 h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white",
-                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
-                )}
-                title="Reiniciar"
-              >
-                <Square className="w-6 h-6" />
-              </button>
-              <button 
-                onClick={toggleTimer} 
-                disabled={isAlertCountdown}
-                className={cn(
-                  "w-24 h-24 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center hover:scale-105 transition-transform shadow-2xl shadow-[var(--color-primary)]/30",
-                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:scale-100"
-                )}
-              >
-                {isActive ? <Pause className="w-10 h-10" /> : <Play className="w-10 h-10 ml-2" />}
-              </button>
-              <button 
-                onClick={skipPhase} 
-                disabled={isAlertCountdown}
-                className={cn(
-                  "w-16 h-16 rounded-full border-2 border-white/20 hover:bg-white/10 flex items-center justify-center transition-colors text-white",
-                  isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
-                )}
-                title="Pular fase"
-              >
-                <SkipForward className="w-6 h-6" />
-              </button>
+                  {/* Scrollable Tab Content Area */}
+                  <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar text-left">
+                    {activeTab === 'tasks' && (
+                      <div className="space-y-4">
+                        {activeTask ? (
+                          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
+                            <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
+                            <h4 className="text-base font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
+                          </div>
+                        ) : (
+                          <div className="bg-slate-950/20 border border-dashed border-slate-850 rounded-xl p-4 text-center">
+                            <p className="text-xs text-[var(--color-text-muted)]">Foco Livre (Sem tarefa ativa)</p>
+                          </div>
+                        )}
+
+                        {!isBreakMode && (
+                          <button
+                            type="button"
+                            onClick={() => setIsTaskPickerOpen(true)}
+                            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                          >
+                            Selecionar ou limpar tarefa
+                          </button>
+                        )}
+
+                        {renderActiveTaskSubtasks('expanded')}
+                      </div>
+                    )}
+
+                    {activeTab === 'skills' && renderSkillsPanel('expanded')}
+
+                    {activeTab === 'breaks' && renderBreakPickerSection('expanded')}
+                  </div>
+                </div>
+              </div>
+
             </div>
           </motion.div>
         ) : !isExpanded ? (
@@ -1707,19 +1757,6 @@ export function TimerWidget() {
                     </button>
                   );
                 })}
-                {/* Habilidades button */}
-                <button
-                  onClick={() => setIsSkillsOpen(prev => !prev)}
-                  className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    isSkillsOpen
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"
-                  )}
-                  title="Habilidades"
-                >
-                  <GraduationCap className="w-4 h-4" />
-                </button>
               </div>
               <div className="flex space-x-2">
                 <button 
@@ -1764,12 +1801,12 @@ export function TimerWidget() {
               </div>
             </div>
             
-            <div className="flex flex-col items-center justify-center mb-8 text-center">
-              <div className="text-6xl font-light tracking-tight font-mono mb-4">
-                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-              </div>
-              {mode === 'alert' ? (
-                alertStep === 'breathing' ? (
+            {mode === 'alert' ? (
+              <div className="flex flex-col items-center justify-center mb-6 text-center w-full">
+                <div className="text-6xl font-light tracking-tight font-mono mb-4">
+                  {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                </div>
+                {alertStep === 'breathing' ? (
                   <div className="flex flex-col items-center justify-center w-full text-center">
                     <p className="text-xs text-emerald-400 uppercase tracking-widest font-bold mb-2">Respiração</p>
                     <div className="relative flex items-center justify-center w-28 h-28 mx-auto my-2">
@@ -1815,37 +1852,55 @@ export function TimerWidget() {
                       Já Fiz os Passos!
                     </button>
                   </div>
-                )
-              ) : isBreakMode ? (
-                <>
-                  <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Pausa em andamento</p>
-                  <p className="text-sm font-medium text-[var(--color-text)] truncate w-full px-4">
-                    {selectedBreakLabel || 'Escolha um descanso para esta pausa'}
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col items-center justify-center mb-4 text-center">
+                  <div className="text-6xl font-light tracking-tight font-mono mb-2">
+                    {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                  </div>
+                  <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">
+                    {isBreakMode ? (mode === 'shortBreak' ? 'Pausa Curta' : 'Pausa Longa') : 'Foco'}
                   </p>
-                </>
-              ) : activeTask ? (
-                <>
-                  <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Trabalhando em</p>
-                  <p className="text-sm font-medium text-[var(--color-text)] truncate w-full px-4">{activeTask.title}</p>
-                </>
-              ) : (
-                <p className="text-sm text-[var(--color-text-muted)]">Foco Livre (Sem tarefa)</p>
-              )}
+                </div>
 
-              {!isBreakMode && mode !== 'alert' && (
-                <button
-                  type="button"
-                  onClick={() => setIsTaskPickerOpen(true)}
-                  className="mt-3 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-primary)]/50 hover:text-[var(--color-text)]"
-                >
-                  Selecionar ou limpar tarefa
-                </button>
-              )}
-            </div>
+                {renderTabSelector()}
 
-            {renderSkillsPanel('expanded')}
-            {renderBreakPickerSection('expanded')}
-            {renderActiveTaskSubtasks('expanded')}
+                <div className="max-h-[280px] overflow-y-auto pr-1 mb-6 custom-scrollbar text-left">
+                  {activeTab === 'tasks' && (
+                    <div className="space-y-4">
+                      {activeTask ? (
+                        <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 relative overflow-hidden">
+                          <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
+                          <h4 className="text-sm font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-900/20 border border-dashed border-slate-800/50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-[var(--color-text-muted)]">Foco Livre (Sem tarefa)</p>
+                        </div>
+                      )}
+
+                      {!isBreakMode && (
+                        <button
+                          type="button"
+                          onClick={() => setIsTaskPickerOpen(true)}
+                          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/35 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                        >
+                          Selecionar ou limpar tarefa
+                        </button>
+                      )}
+
+                      {renderActiveTaskSubtasks('expanded')}
+                    </div>
+                  )}
+
+                  {activeTab === 'skills' && renderSkillsPanel('expanded')}
+
+                  {activeTab === 'breaks' && renderBreakPickerSection('expanded')}
+                </div>
+              </>
+            )}
 
             <div className="flex justify-center items-center space-x-6">
               <button 
