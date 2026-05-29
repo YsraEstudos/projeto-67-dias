@@ -28,6 +28,7 @@ export function TimerWidget() {
   const [isTaskPickerOpen, setIsTaskPickerOpen] = useState(false);
   const [taskPickerProjectFilter, setTaskPickerProjectFilter] = useState<string>('inbox');
   const [isSkillsOpen, setIsSkillsOpen] = useState(false);
+  const [skillTaskDrafts, setSkillTaskDrafts] = useState<Record<string, string>>({});
   
   const {
     activeTaskId,
@@ -44,6 +45,8 @@ export function TimerWidget() {
     clearBreakSelection,
     setBreakExerciseReps,
     updateTask,
+    toggleTask,
+    addTask,
     timerState,
     setTimerState,
   } = useStore();
@@ -400,16 +403,17 @@ export function TimerWidget() {
     if (!isSkillsOpen) return null;
 
     const activeSkills = skills.filter(s => !s.isCompleted);
+    const activeTask = tasks.find(t => t.id === activeTaskId);
 
     return (
       <div className={cn(
-        "w-full mx-auto",
+        "w-full mx-auto animate-in fade-in duration-300",
         variant === 'fullscreen' ? "max-w-4xl mb-12" : "mb-6"
       )}>
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-900/10 p-4 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-4">
+        <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/40 p-4 sm:p-5 backdrop-blur-md shadow-xl">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-emerald-500/10">
             <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-              <GraduationCap size={16} /> Habilidades
+              <GraduationCap size={18} className="animate-pulse text-emerald-400" /> Habilidades de Estudo
             </h3>
             <button
               onClick={() => setIsSkillsOpen(false)}
@@ -420,70 +424,202 @@ export function TimerWidget() {
           </div>
 
           {activeSkills.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">
+            <p className="text-sm text-slate-500 text-center py-6">
               Nenhuma habilidade ativa. Crie habilidades na aba Habilidades!
             </p>
           ) : (
             <div className={cn(
-              "grid gap-3",
-              variant === 'fullscreen' ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-1"
+              "grid gap-4",
+              variant === 'fullscreen' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
             )}>
-              {activeSkills.slice(0, variant === 'fullscreen' ? undefined : 4).map((skill) => {
+              {activeSkills.slice(0, variant === 'fullscreen' ? undefined : 3).map((skill) => {
                 const percentage = Math.min(100, Math.round((skill.currentMinutes / (skill.goalMinutes || 1)) * 100));
                 const hours = (skill.currentMinutes / 60).toFixed(1);
                 const goalHours = (skill.goalMinutes / 60).toFixed(0);
                 const levelColors: Record<string, string> = {
-                  'Iniciante': 'text-emerald-400',
-                  'Intermediário': 'text-cyan-400',
-                  'Avançado': 'text-purple-400',
+                  'Iniciante': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+                  'Intermediário': 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+                  'Avançado': 'text-purple-400 bg-purple-500/10 border-purple-500/20',
                 };
+                
+                const skillTasks = tasks.filter(t => t.skillId === skill.id && !t.completed);
+                const isSkillInFocus = activeTask?.skillId === skill.id;
 
                 return (
                   <div
                     key={skill.id}
-                    className="group bg-slate-800/80 border border-slate-700/60 hover:border-emerald-500/30 rounded-xl p-4 transition-all hover:-translate-y-0.5 shadow-lg relative overflow-hidden"
+                    className={cn(
+                      "group bg-slate-900/60 border rounded-2xl p-4 transition-all duration-300 shadow-md relative overflow-hidden flex flex-col justify-between",
+                      isSkillInFocus 
+                        ? "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)] bg-slate-900/80" 
+                        : "border-slate-800 hover:border-emerald-500/20 hover:bg-slate-900/70"
+                    )}
                   >
-                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none">
-                      <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12" />
-                    </div>
+                    {/* Glowing effect for active focus */}
+                    {isSkillInFocus && (
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -z-10" />
+                    )}
 
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={cn("text-[10px] font-bold uppercase tracking-wider", levelColors[skill.level] || 'text-emerald-400')}>
-                        {skill.level}
-                      </span>
-                      <span className="text-xs font-mono text-slate-500">{percentage}%</span>
-                    </div>
-
-                    <h4 className="text-sm font-bold text-white mb-2 truncate">{skill.name}</h4>
-
-                    {/* Progress bar */}
-                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden mb-3">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-end justify-between">
-                      <div className="text-[11px] text-slate-500">
-                        <span className="text-white font-mono text-sm font-medium">{hours}</span>
-                        <span className="text-[10px]"> / {goalHours}h</span>
+                    <div>
+                      {/* Skill Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={cn(
+                          "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border", 
+                          levelColors[skill.level] || 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                        )}>
+                          {skill.level}
+                        </span>
+                        
+                        {isSkillInFocus ? (
+                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Em Foco
+                          </span>
+                        ) : (
+                          <span className="text-xs font-mono text-slate-500">{percentage}%</span>
+                        )}
                       </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addLog(skill.id, {
-                            id: crypto.randomUUID(),
-                            date: new Date().toISOString().split('T')[0],
-                            minutes: 30,
-                          });
-                        }}
-                        className="group/btn p-1.5 bg-slate-700 hover:bg-emerald-600 text-white rounded-lg transition-all shadow-lg active:scale-95 flex items-center gap-1 text-[10px] font-medium hover:pr-2.5"
-                      >
-                        <Play size={10} fill="currentColor" />
-                        <span className="max-w-0 overflow-hidden group-hover/btn:max-w-[60px] transition-all duration-300 whitespace-nowrap">+Sessão</span>
-                      </button>
+                      <h4 className="text-sm font-bold text-white mb-2 leading-tight group-hover:text-emerald-300 transition-colors">
+                        {skill.name}
+                      </h4>
+
+                      {/* Progress Bar */}
+                      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+
+                      {/* Linked Tasks List */}
+                      <div className="space-y-1.5 my-3 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
+                        {skillTasks.map(t => (
+                          <div 
+                            key={t.id}
+                            className="flex items-center justify-between p-1.5 rounded-lg bg-slate-950/30 hover:bg-slate-950/60 border border-slate-800/40 hover:border-slate-700/50 transition-colors group/task"
+                          >
+                            <div className="flex items-center min-w-0 flex-1">
+                              <button
+                                onClick={() => toggleTask(t.id)}
+                                className="mr-2 text-slate-500 hover:text-emerald-400 transition-colors shrink-0"
+                                title="Concluir tarefa"
+                              >
+                                <Circle className="w-3.5 h-3.5" />
+                              </button>
+                              <span 
+                                onClick={() => {
+                                  setActiveTaskId(t.id);
+                                  if (!isActive) toggleTimer();
+                                }}
+                                className={cn(
+                                  "text-xs text-slate-300 truncate cursor-pointer hover:text-white transition-colors",
+                                  activeTaskId === t.id && "font-bold text-emerald-400"
+                                )}
+                                title="Focar nesta tarefa"
+                              >
+                                {t.title}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-600 font-mono shrink-0 ml-2">
+                              {t.completedPomodoros}/{t.estimatedPomodoros}🍅
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Quick Add Task Input */}
+                      <div className="mt-2 pt-2 border-t border-slate-800/60">
+                        <div className="flex items-center bg-slate-950/20 hover:bg-slate-950/40 focus-within:bg-slate-950/50 rounded-lg px-2 py-1 border border-slate-800/60 focus-within:border-emerald-500/20 transition-all">
+                          <Plus className="w-3.5 h-3.5 text-emerald-500/70 mr-1.5 shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Criar tarefa..."
+                            value={skillTaskDrafts[skill.id] || ''}
+                            onChange={(e) => setSkillTaskDrafts(prev => ({ ...prev, [skill.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && skillTaskDrafts[skill.id]?.trim()) {
+                                addTask({
+                                  title: skillTaskDrafts[skill.id].trim(),
+                                  completed: false,
+                                  estimatedPomodoros: 1,
+                                  completedPomodoros: 0,
+                                  skillId: skill.id,
+                                  projectId: undefined,
+                                });
+                                setSkillTaskDrafts(prev => ({ ...prev, [skill.id]: '' }));
+                              }
+                            }}
+                            className="w-full bg-transparent border-none text-[11px] placeholder:text-slate-600 focus:outline-none text-slate-200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800/80">
+                      <div className="text-[10px] text-slate-500">
+                        <span className="text-slate-300 font-mono text-xs font-semibold">{hours}</span>
+                        <span> / {goalHours}h</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Manual Log Session */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addLog(skill.id, {
+                              id: crypto.randomUUID(),
+                              date: new Date().toISOString().split('T')[0],
+                              minutes: 30,
+                            });
+                          }}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md text-[10px] font-medium transition-all"
+                          title="Lançar +30 minutos manual"
+                        >
+                          +30m
+                        </button>
+
+                        {/* Focus & Start Pomodoro */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const activeTasksForSkill = tasks.filter(t => t.skillId === skill.id && !t.completed);
+                            let targetTaskId = activeTasksForSkill[0]?.id;
+                            
+                            if (!targetTaskId) {
+                              addTask({
+                                title: `Estudar ${skill.name}`,
+                                completed: false,
+                                estimatedPomodoros: 1,
+                                completedPomodoros: 0,
+                                skillId: skill.id,
+                                projectId: undefined,
+                              });
+                              const updatedTasks = useStore.getState().tasks;
+                              const newT = updatedTasks.find(t => t.skillId === skill.id && t.title === `Estudar ${skill.name}` && !t.completed);
+                              if (newT) {
+                                setActiveTaskId(newT.id);
+                              }
+                            } else {
+                              setActiveTaskId(targetTaskId);
+                            }
+                            
+                            if (!isActive) {
+                              toggleTimer();
+                            }
+                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all flex items-center gap-1 active:scale-95 shadow-md",
+                            isSkillInFocus 
+                              ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20" 
+                              : "bg-slate-700 hover:bg-emerald-600 text-white"
+                          )}
+                        >
+                          <Play size={10} fill="currentColor" />
+                          <span>{isSkillInFocus ? 'Timer Ativo' : 'Focar'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -491,9 +627,9 @@ export function TimerWidget() {
             </div>
           )}
 
-          {!isFullscreen && activeSkills.length > 4 && (
-            <p className="text-[11px] text-slate-500 text-center mt-3">
-              Mostrando 4 de {activeSkills.length} habilidades
+          {!isFullscreen && activeSkills.length > 3 && (
+            <p className="text-[10px] text-slate-500 text-center mt-3 uppercase tracking-wider">
+              Mostrando 3 de {activeSkills.length} habilidades ativa(s)
             </p>
           )}
         </div>

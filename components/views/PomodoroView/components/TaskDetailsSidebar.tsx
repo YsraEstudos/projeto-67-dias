@@ -2,8 +2,9 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Flag, Clock, Calendar as CalendarIcon, List, Bell, Repeat, 
-  Plus, Trash2, ChevronRight, Play, Circle, CheckCircle2, Tag
+  Plus, Trash2, ChevronRight, Play, Circle, CheckCircle2, Tag, GraduationCap
 } from 'lucide-react';
+import { useSkillsStore } from '../../../../stores/skillsStore';
 import { useStore, Task, Subtask } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
@@ -13,6 +14,7 @@ export function TaskDetailsSidebar() {
   const { tasks, records, selectedTaskId, setSelectedTaskId, updateTask, deleteTask, projects } = useStore();
   const task = tasks.find(t => t.id === selectedTaskId);
   const todayStr = new Date().toISOString().split('T')[0];
+  const activeSkills = useSkillsStore((state) => state.skills).filter(s => !s.isCompleted);
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [subtaskDescriptionDrafts, setSubtaskDescriptionDrafts] = useState<Record<string, string>>({});
@@ -281,12 +283,38 @@ export function TaskDetailsSidebar() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm group cursor-pointer">
-            <div className="flex items-center text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors">
+          <div className="flex items-center justify-between text-sm group">
+            <div className="flex items-center text-[var(--color-text-muted)]">
               <List className="w-4 h-4 mr-3" />
-              <span>Project</span>
+              <span>Projeto</span>
             </div>
-            <span className="text-[var(--color-text)]">{project ? project.name : 'None'}</span>
+            <select
+              value={task.projectId || ''}
+              onChange={(e) => updateTask(task.id, { projectId: e.target.value || undefined })}
+              className="bg-transparent text-[var(--color-text)] text-xs rounded-md border border-[var(--color-border)] px-2 py-1 focus:ring-1 focus:ring-[var(--color-primary)] outline-none cursor-pointer max-w-[180px] text-right"
+            >
+              <option value="" className="bg-[var(--color-surface)]">Caixa de entrada</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id} className="bg-[var(--color-surface)]">{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between text-sm group">
+            <div className="flex items-center text-[var(--color-text-muted)]">
+              <GraduationCap className="w-4 h-4 mr-3 text-emerald-400" />
+              <span>Habilidade</span>
+            </div>
+            <select
+              value={task.skillId || ''}
+              onChange={(e) => updateTask(task.id, { skillId: e.target.value || undefined })}
+              className="bg-transparent text-[var(--color-text)] text-xs rounded-md border border-[var(--color-border)] px-2 py-1 focus:ring-1 focus:ring-[var(--color-primary)] outline-none cursor-pointer max-w-[180px] text-right"
+            >
+              <option value="" className="bg-[var(--color-surface)]">Nenhuma</option>
+              {activeSkills.map(s => (
+                <option key={s.id} value={s.id} className="bg-[var(--color-surface)]">{s.name}</option>
+              ))}
+            </select>
           </div>
 
           <div 

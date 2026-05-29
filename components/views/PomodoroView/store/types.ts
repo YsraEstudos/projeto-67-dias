@@ -13,6 +13,7 @@ export type Task = {
   estimatedPomodoros: number;
   completedPomodoros: number;
   projectId?: string;
+  skillId?: string;
   createdAt: string;
   priority?: number; // 0: none, 1: low, 2: medium, 3: high
   tags?: string[];

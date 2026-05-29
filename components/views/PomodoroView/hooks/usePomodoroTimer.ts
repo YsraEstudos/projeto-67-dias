@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { playSound, playAlertFailSound } from '../lib/audio';
 import { getLocalISODate, getTaskTodayPomodoros } from '../lib/pomodoroStats';
 import type { PomodoroTimerMode } from '../store/types';
+import { useSkillsStore } from '../../../../stores/skillsStore';
 
 export type TimerMode = PomodoroTimerMode;
 
@@ -181,6 +182,10 @@ export function usePomodoroTimer() {
             completedPomodoros: getTaskTodayPomodoros(task, today) + 1,
             lastCompletedDate: today,
           });
+
+          if (task.skillId) {
+            useSkillsStore.getState().addPomodoro(task.skillId);
+          }
         }
       }
 

@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, Circle, Play, Flag, Clock, Calendar, Tag, Repeat, FolderInput, Infinity as InfinityIcon } from 'lucide-react';
+import { CheckCircle2, Circle, Play, Flag, Clock, Calendar, Tag, Repeat, FolderInput, Infinity as InfinityIcon, GraduationCap } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Task, useStore } from '../store/useStore';
 import { countHistoricalPomodoros, getTaskTodayPomodoros } from '../lib/pomodoroStats';
+import { useSkillsStore } from '../../../../stores/skillsStore';
 
 interface TaskItemProps {
   key?: string | number;
@@ -32,6 +33,9 @@ export function TaskItem({
   const { updateTask, projects, records } = useStore();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
+
+  const skills = useSkillsStore((state) => state.skills);
+  const taskSkill = useMemo(() => skills.find(s => s.id === task.skillId), [skills, task.skillId]);
 
   const historicalPomodoros = useMemo(
     () => countHistoricalPomodoros(records, task.id),
@@ -143,6 +147,12 @@ export function TaskItem({
                   <Clock className="w-3 h-3 fill-current mr-1" />
                   Hoje {todayPomodoros}
                 </span>
+                {taskSkill && (
+                  <span className="flex items-center text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                    <GraduationCap className="w-3 h-3 mr-1" />
+                    {taskSkill.name}
+                  </span>
+                )}
                 <span className="flex items-center text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-hover)] px-2 py-1 rounded-full">
                   Histórico total {historicalPomodoros}
                 </span>

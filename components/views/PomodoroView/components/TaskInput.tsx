@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Clock, X, Flag, Calendar, Tag, FolderInput } from 'lucide-react';
+import { Clock, X, Flag, Calendar, Tag, FolderInput, GraduationCap } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
 import { Popover } from './ui/Popover';
+import { useSkillsStore } from '../../../../stores/skillsStore';
 
 export function TaskInput() {
   const { currentFilter, addTask, projects } = useStore();
@@ -22,6 +23,11 @@ export function TaskInput() {
   const isProjectFilter = projects.some(p => p.id === currentFilter);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(isProjectFilter ? currentFilter : '');
 
+  const skills = useSkillsStore((state) => state.skills);
+  const activeSkills = skills.filter(s => !s.isCompleted);
+  const [selectedSkillId, setSelectedSkillId] = useState<string>('');
+  const [showSkillMenu, setShowSkillMenu] = useState(false);
+
   useEffect(() => {
     setSelectedProjectId(projects.some(p => p.id === currentFilter) ? currentFilter : '');
   }, [currentFilter, projects]);
@@ -34,6 +40,7 @@ export function TaskInput() {
         estimatedPomodoros,
         completedPomodoros: 0,
         projectId: selectedProjectId || undefined,
+        skillId: selectedSkillId || undefined,
         priority: newTaskPriority > 0 ? newTaskPriority : undefined,
         dueDate: newTaskDueDate,
         tags: newTaskTags.length > 0 ? newTaskTags : undefined,
@@ -46,9 +53,11 @@ export function TaskInput() {
       setNewTaskDueDate(null);
       setNewTaskTags([]);
       setNewTaskRecurringDays([]);
+      setSelectedSkillId('');
       setShowScheduleMenu(false);
       setShowTagsMenu(false);
       setShowProjectMenu(false);
+      setShowSkillMenu(false);
     }
   };
 
@@ -168,6 +177,49 @@ export function TaskInput() {
                 >
                   <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: p.color }} />
                   {p.name}
+                </button>
+              ))}
+            </div>
+          </Popover>
+
+          {/* Skill Selector */}
+          <Popover
+            isOpen={showSkillMenu}
+            onClose={() => setShowSkillMenu(false)}
+            trigger={
+              <button 
+                onClick={() => { setShowSkillMenu(!showSkillMenu); setShowProjectMenu(false); setShowScheduleMenu(false); setShowTagsMenu(false); }}
+                className={cn("p-1.5 rounded-md transition-colors", selectedSkillId ? "bg-[var(--color-surface-hover)] text-emerald-400" : "hover:bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]")}
+                title="Vincular a Habilidade"
+              >
+                <GraduationCap className="w-4 h-4" />
+              </button>
+            }
+          >
+            <div className="p-2 w-56 flex flex-col space-y-1">
+              <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 px-2">Habilidade</span>
+              <button
+                type="button"
+                onClick={() => { setSelectedSkillId(''); setShowSkillMenu(false); }}
+                className={cn(
+                  "text-left px-2 py-1.5 text-sm rounded-md transition-colors",
+                  selectedSkillId === '' ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-[var(--color-surface-hover)] text-[var(--color-text)]"
+                )}
+              >
+                🎓 Nenhuma Habilidade
+              </button>
+              {activeSkills.map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => { setSelectedSkillId(s.id); setShowSkillMenu(false); }}
+                  className={cn(
+                    "text-left px-2 py-1.5 text-sm rounded-md transition-colors flex items-center justify-between",
+                    selectedSkillId === s.id ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-[var(--color-surface-hover)] text-[var(--color-text)]"
+                  )}
+                >
+                  <span className="truncate mr-2 text-left">{s.name}</span>
+                  <span className="text-[10px] text-slate-500 shrink-0 font-mono">{(s.currentMinutes / 60).toFixed(1)}h</span>
                 </button>
               ))}
             </div>
