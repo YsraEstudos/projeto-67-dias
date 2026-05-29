@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
 import { usePomodoroTimer, TimerMode } from '../hooks/usePomodoroTimer';
 import { useRestStore } from '../../../../stores';
-import { RestActivity } from '../../../../types';
+import { useSkillsStore } from '../../../../stores/skillsStore';
+import { RestActivity, Skill } from '../../../../types';
 import { getRestActivitySeriesStats } from '../../../../utils/restActivityUtils';
 import {
   getRestActivityIdFromSelection,
@@ -26,6 +27,7 @@ export function TimerWidget() {
   const [breakPickerTab, setBreakPickerTab] = useState<BreakPickerTab>('today');
   const [isTaskPickerOpen, setIsTaskPickerOpen] = useState(false);
   const [taskPickerProjectFilter, setTaskPickerProjectFilter] = useState<string>('inbox');
+  const [isSkillsOpen, setIsSkillsOpen] = useState(false);
   
   const {
     activeTaskId,
@@ -48,6 +50,8 @@ export function TimerWidget() {
 
   const restActivities = useRestStore((state) => state.activities);
   const toggleRestActivityComplete = useRestStore((state) => state.toggleActivityComplete);
+  const skills = useSkillsStore((s) => s.skills);
+  const addLog = useSkillsStore((s) => s.addLog);
   const activeTask = tasks.find(t => t.id === activeTaskId);
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -387,6 +391,111 @@ export function TimerWidget() {
               );
             })}
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSkillsPanel = (variant: 'expanded' | 'fullscreen') => {
+    if (!isSkillsOpen) return null;
+
+    const activeSkills = skills.filter(s => !s.isCompleted);
+
+    return (
+      <div className={cn(
+        "w-full mx-auto",
+        variant === 'fullscreen' ? "max-w-4xl mb-12" : "mb-6"
+      )}>
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-900/10 p-4 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <GraduationCap size={16} /> Habilidades
+            </h3>
+            <button
+              onClick={() => setIsSkillsOpen(false)}
+              className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {activeSkills.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-4">
+              Nenhuma habilidade ativa. Crie habilidades na aba Habilidades!
+            </p>
+          ) : (
+            <div className={cn(
+              "grid gap-3",
+              variant === 'fullscreen' ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-1"
+            )}>
+              {activeSkills.slice(0, variant === 'fullscreen' ? undefined : 4).map((skill) => {
+                const percentage = Math.min(100, Math.round((skill.currentMinutes / (skill.goalMinutes || 1)) * 100));
+                const hours = (skill.currentMinutes / 60).toFixed(1);
+                const goalHours = (skill.goalMinutes / 60).toFixed(0);
+                const levelColors: Record<string, string> = {
+                  'Iniciante': 'text-emerald-400',
+                  'Intermediário': 'text-cyan-400',
+                  'Avançado': 'text-purple-400',
+                };
+
+                return (
+                  <div
+                    key={skill.id}
+                    className="group bg-slate-800/80 border border-slate-700/60 hover:border-emerald-500/30 rounded-xl p-4 transition-all hover:-translate-y-0.5 shadow-lg relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none">
+                      <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12" />
+                    </div>
+
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={cn("text-[10px] font-bold uppercase tracking-wider", levelColors[skill.level] || 'text-emerald-400')}>
+                        {skill.level}
+                      </span>
+                      <span className="text-xs font-mono text-slate-500">{percentage}%</span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-white mb-2 truncate">{skill.name}</h4>
+
+                    {/* Progress bar */}
+                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden mb-3">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-end justify-between">
+                      <div className="text-[11px] text-slate-500">
+                        <span className="text-white font-mono text-sm font-medium">{hours}</span>
+                        <span className="text-[10px]"> / {goalHours}h</span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addLog(skill.id, {
+                            id: crypto.randomUUID(),
+                            date: new Date().toISOString().split('T')[0],
+                            minutes: 30,
+                          });
+                        }}
+                        className="group/btn p-1.5 bg-slate-700 hover:bg-emerald-600 text-white rounded-lg transition-all shadow-lg active:scale-95 flex items-center gap-1 text-[10px] font-medium hover:pr-2.5"
+                      >
+                        <Play size={10} fill="currentColor" />
+                        <span className="max-w-0 overflow-hidden group-hover/btn:max-w-[60px] transition-all duration-300 whitespace-nowrap">+Sessão</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!isFullscreen && activeSkills.length > 4 && (
+            <p className="text-[11px] text-slate-500 text-center mt-3">
+              Mostrando 4 de {activeSkills.length} habilidades
+            </p>
+          )}
         </div>
       </div>
     );
@@ -981,7 +1090,22 @@ export function TimerWidget() {
                   </button>
                 );
               })}
+              {/* Habilidades button */}
+              <button
+                onClick={() => setIsSkillsOpen(prev => !prev)}
+                className={cn(
+                  "px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap",
+                  isSkillsOpen
+                    ? "bg-emerald-500 text-white shadow-lg"
+                    : "text-[var(--color-text-muted)] hover:text-white hover:bg-white/5"
+                )}
+              >
+                <GraduationCap className="w-4 h-4 mr-2" />
+                Habilidades
+              </button>
             </div>
+
+            {renderSkillsPanel('fullscreen')}
 
             {renderBreakPickerSection('fullscreen')}
 
@@ -1214,6 +1338,19 @@ export function TimerWidget() {
                     </button>
                   );
                 })}
+                {/* Habilidades button */}
+                <button
+                  onClick={() => setIsSkillsOpen(prev => !prev)}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    isSkillsOpen
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]"
+                  )}
+                  title="Habilidades"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                </button>
               </div>
               <div className="flex space-x-2">
                 <button 
@@ -1337,6 +1474,7 @@ export function TimerWidget() {
               )}
             </div>
 
+            {renderSkillsPanel('expanded')}
             {renderBreakPickerSection('expanded')}
             {renderActiveTaskSubtasks('expanded')}
 
