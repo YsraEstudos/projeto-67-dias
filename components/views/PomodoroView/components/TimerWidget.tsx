@@ -31,6 +31,7 @@ export function TimerWidget() {
   const [skillTaskDrafts, setSkillTaskDrafts] = useState<Record<string, string>>({});
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'tasks' | 'breaks'>('tasks');
+  const [mobileView, setMobileView] = useState<'timer' | 'panel'>('timer');
   
   const {
     activeTaskId,
@@ -572,7 +573,10 @@ export function TimerWidget() {
               <GraduationCap size={18} className="animate-pulse text-emerald-400" /> Habilidades de Estudo
             </h3>
             <button
-              onClick={() => setIsSkillsOpen(false)}
+              onClick={() => {
+                setIsSkillsOpen(false);
+                setMobileView('timer');
+              }}
               className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
             >
               <X size={16} />
@@ -1472,13 +1476,41 @@ export function TimerWidget() {
               </button>
             </div>
 
+            {/* Mobile View Toggle Segment (Timer vs Painel) */}
+            <div className="flex lg:hidden bg-slate-900/60 p-1 rounded-xl border border-slate-800/80 mb-2 w-60 mx-auto z-40 mt-12">
+              <button
+                type="button"
+                onClick={() => setMobileView('timer')}
+                className={cn(
+                  "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200",
+                  mobileView === 'timer'
+                    ? "bg-[var(--color-primary)] text-white shadow-md"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Timer
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileView('panel')}
+                className={cn(
+                  "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200",
+                  mobileView === 'panel'
+                    ? "bg-[var(--color-primary)] text-white shadow-md"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Painel
+              </button>
+            </div>
+
             {/* Layout Side-by-Side (Duas Colunas) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-6xl px-4 sm:px-8 mt-12 items-center flex-1 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-6xl px-4 sm:px-8 mt-4 lg:mt-12 items-center flex-1 w-full">
               
               {/* Coluna Esquerda: Timer, Modos, Controles e Instruções de Alerta (7/12 cols) */}
               <div className={cn(
                 "lg:col-span-7 flex flex-col items-center justify-center text-center space-y-8 w-full",
-                isSkillsOpen && "hidden lg:flex"
+                mobileView !== 'timer' && "hidden lg:flex"
               )}>
                 {/* Mode Selector */}
                 <div className="flex flex-wrap justify-center gap-1.5 bg-white/5 p-1.5 rounded-xl backdrop-blur-sm max-w-full">
@@ -1506,7 +1538,15 @@ export function TimerWidget() {
                   {/* GraduationCap (Skills) Toggle Button in Fullscreen Mode Selector */}
                   <button
                     disabled={isAlertCountdown}
-                    onClick={() => setIsSkillsOpen((prev) => !prev)}
+                    onClick={() => {
+                      setIsSkillsOpen((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          setMobileView('panel');
+                        }
+                        return next;
+                      });
+                    }}
                     className={cn(
                       "px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center whitespace-nowrap border border-transparent",
                       isSkillsOpen 
@@ -1663,7 +1703,10 @@ export function TimerWidget() {
               </div>
 
               {/* Coluna Direita: Sidebar Tabbed Panel (5/12 cols) */}
-              <div className="lg:col-span-5 w-full flex flex-col justify-stretch mt-6 lg:mt-0">
+              <div className={cn(
+                "lg:col-span-5 w-full flex flex-col justify-stretch mt-6 lg:mt-0",
+                mobileView !== 'panel' && "hidden lg:flex"
+              )}>
                 <div className={cn(
                   "bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md flex flex-col overflow-hidden shadow-2xl transition-all duration-300",
                   isSkillsOpen 
@@ -1765,8 +1808,8 @@ export function TimerWidget() {
         ) : (
           <>
             {/* Expanded View */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex space-x-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 {modes.map((m) => {
                   const Icon = m.icon;
                   return (
@@ -1775,7 +1818,7 @@ export function TimerWidget() {
                       disabled={isAlertCountdown}
                       onClick={() => setMode(m.id)}
                       className={cn(
-                        "p-1.5 rounded-md transition-colors",
+                        "p-1 sm:p-1.5 rounded-md transition-colors",
                         mode === m.id 
                           ? "bg-[var(--color-primary)]/20 text-[var(--color-primary)]" 
                           : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]",
@@ -1783,7 +1826,7 @@ export function TimerWidget() {
                       )}
                       title={m.label}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                   );
                 })}
@@ -1793,7 +1836,7 @@ export function TimerWidget() {
                   disabled={isAlertCountdown}
                   onClick={() => setIsSkillsOpen((prev) => !prev)}
                   className={cn(
-                    "p-1.5 rounded-md transition-colors border border-transparent ml-1",
+                    "p-1 sm:p-1.5 rounded-md transition-colors border border-transparent sm:ml-1",
                     isSkillsOpen 
                       ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-lg font-semibold" 
                       : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] hover:text-white",
@@ -1801,10 +1844,10 @@ export function TimerWidget() {
                   )}
                   title="Habilidades de Estudo"
                 >
-                  <GraduationCap className="w-4 h-4" />
+                  <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button 
                   onClick={() => {
                     if (settings.volume > 0) {
@@ -1816,7 +1859,7 @@ export function TimerWidget() {
                   className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                   title={settings.volume > 0 ? "Mute" : "Unmute"}
                 >
-                  {settings.volume > 0 ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  {settings.volume > 0 ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                 </button>
                 <button 
                   type="button"
@@ -1828,21 +1871,21 @@ export function TimerWidget() {
                   className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                   title="Configurações"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
                 <button 
                   onClick={() => setIsFullscreen(true)}
                   className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                   title="Tela Cheia"
                 >
-                  <Maximize className="w-4 h-4" />
+                  <Maximize className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
                 <button 
                   onClick={() => setIsExpanded(false)}
                   className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1"
                   title="Minimizar"
                 >
-                  <Minimize2 className="w-4 h-4" />
+                  <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             </div>
