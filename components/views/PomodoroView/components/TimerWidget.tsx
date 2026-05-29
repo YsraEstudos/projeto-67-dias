@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle, GraduationCap } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle, GraduationCap, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -29,6 +29,7 @@ export function TimerWidget() {
   const [taskPickerProjectFilter, setTaskPickerProjectFilter] = useState<string>('inbox');
   const [isSkillsOpen, setIsSkillsOpen] = useState(false);
   const [skillTaskDrafts, setSkillTaskDrafts] = useState<Record<string, string>>({});
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   
   const {
     activeTaskId,
