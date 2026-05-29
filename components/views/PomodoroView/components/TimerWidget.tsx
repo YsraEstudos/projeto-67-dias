@@ -59,9 +59,9 @@ export function TimerWidget() {
   const todayStr = new Date().toISOString().split('T')[0];
 
   const taskPickerProjects = useMemo(() => {
-    const inboxCount = tasks.filter((task) => !task.completed && !task.projectId).length;
+    const inboxCount = tasks.filter((task) => !task.completed && !task.projectId && !task.skillId).length;
 
-    return [
+    const projectList = [
       {
         id: 'inbox',
         label: 'Caixa de entrada',
@@ -75,14 +75,29 @@ export function TimerWidget() {
         count: tasks.filter((task) => !task.completed && task.projectId === project.id).length,
       })),
     ];
-  }, [projects, tasks]);
+
+    const activeSkillsWithTasks = skills.filter(s => !s.isCompleted);
+    const skillList = activeSkillsWithTasks.map(skill => ({
+      id: `skill:${skill.id}`,
+      label: `🎓 ${skill.name}`,
+      color: '#10b981',
+      count: tasks.filter((task) => !task.completed && task.skillId === skill.id).length,
+    }));
+
+    return [...projectList, ...skillList];
+  }, [projects, tasks, skills]);
 
   const taskPickerItems = useMemo(() => {
-    const filtered = tasks.filter((task) => (
-      taskPickerProjectFilter === 'inbox'
-        ? !task.projectId
-        : task.projectId === taskPickerProjectFilter
-    ));
+    const isSkillFilter = taskPickerProjectFilter.startsWith('skill:');
+    const filtered = tasks.filter((task) => {
+      if (isSkillFilter) {
+        const skillId = taskPickerProjectFilter.replace('skill:', '');
+        return task.skillId === skillId;
+      }
+      return taskPickerProjectFilter === 'inbox'
+        ? (!task.projectId && !task.skillId)
+        : task.projectId === taskPickerProjectFilter;
+    });
 
     return [...filtered].sort((left, right) => {
       if (left.completed !== right.completed) {
