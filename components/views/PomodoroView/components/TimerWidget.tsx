@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore';
 import { usePomodoroTimer, TimerMode } from '../hooks/usePomodoroTimer';
 import { useRestStore } from '../../../../stores';
 import { useSkillsStore } from '../../../../stores/skillsStore';
-import { RestActivity, Skill } from '../../../../types';
+import { RestActivity, Skill, SkillRoadmapItem } from '../../../../types';
 import { getRestActivitySeriesStats } from '../../../../utils/restActivityUtils';
 import {
   getRestActivityIdFromSelection,
@@ -55,7 +55,48 @@ export function TimerWidget() {
   const toggleRestActivityComplete = useRestStore((state) => state.toggleActivityComplete);
   const skills = useSkillsStore((s) => s.skills);
   const addLog = useSkillsStore((s) => s.addLog);
-  const activeTask = tasks.find(t => t.id === activeTaskId);
+  const activeTask = useMemo(() => {
+    if (!activeTaskId) return null;
+    
+    if (activeTaskId.startsWith('skill-focus:')) {
+      const skillId = activeTaskId.replace('skill-focus:', '');
+      const skill = skills.find(s => s.id === skillId);
+      return {
+        id: activeTaskId,
+        title: skill ? `Estudar ${skill.name}` : 'Estudar Habilidade',
+        completed: false,
+        skillId,
+        subtasks: []
+      };
+    }
+    
+    const standardTask = tasks.find(t => t.id === activeTaskId);
+    if (standardTask) return standardTask;
+    
+    for (const skill of skills) {
+      const findInRoadmap = (items: any[]): any => {
+        for (const item of items) {
+          if (item.id === activeTaskId) {
+            return {
+              id: item.id,
+              title: item.title,
+              completed: item.isCompleted,
+              skillId: skill.id,
+              subtasks: []
+            };
+          }
+          if (item.subTasks) {
+            const found = findInRoadmap(item.subTasks);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const found = findInRoadmap(skill.roadmap);
+      if (found) return found;
+    }
+    return null;
+  }, [activeTaskId, tasks, skills]);
   const todayStr = new Date().toISOString().split('T')[0];
 
   const taskPickerProjects = useMemo(() => {
@@ -418,7 +459,19 @@ export function TimerWidget() {
     if (!isSkillsOpen) return null;
 
     const activeSkills = skills.filter(s => !s.isCompleted);
-    const activeTask = tasks.find(t => t.id === activeTaskId);
+
+    const getFirstUncompletedRoadmapItem = (items: SkillRoadmapItem[]): SkillRoadmapItem | null => {
+      for (const item of items) {
+        if (item.type !== 'SECTION' && !item.isCompleted) {
+          return item;
+        }
+        if (item.subTasks) {
+          const found = getFirstUncompletedRoadmapItem(item.subTasks);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
 
     return (
       <div className={cn(
@@ -457,7 +510,6 @@ export function TimerWidget() {
                   'Avançado': 'text-purple-400 bg-purple-500/10 border-purple-500/20',
                 };
                 
-                const skillTasks = tasks.filter(t => t.skillId === skill.id && !t.completed);
                 const isSkillInFocus = activeTask?.skillId === skill.id;
 
                 return (
@@ -507,67 +559,150 @@ export function TimerWidget() {
                         />
                       </div>
 
-                      {/* Linked Tasks List */}
-                      <div className="space-y-1.5 my-3 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
-                        {skillTasks.map(t => (
-                          <div 
-                            key={t.id}
-                            className="flex items-center justify-between p-1.5 rounded-lg bg-slate-950/30 hover:bg-slate-950/60 border border-slate-800/40 hover:border-slate-700/50 transition-colors group/task"
-                          >
-                            <div className="flex items-center min-w-0 flex-1">
-                              <button
-                                onClick={() => toggleTask(t.id)}
-                                className="mr-2 text-slate-500 hover:text-emerald-400 transition-colors shrink-0"
-                                title="Concluir tarefa"
-                              >
-                                <Circle className="w-3.5 h-3.5" />
-                              </button>
-                              <span 
-                                onClick={() => {
-                                  setActiveTaskId(t.id);
-                                  if (!isActive) toggleTimer();
-                                }}
-                                className={cn(
-                                  "text-xs text-slate-300 truncate cursor-pointer hover:text-white transition-colors",
-                                  activeTaskId === t.id && "font-bold text-emerald-400"
-                                )}
-                                title="Focar nesta tarefa"
-                              >
-                                {t.title}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-slate-600 font-mono shrink-0 ml-2">
-                              {t.completedPomodoros}/{t.estimatedPomodoros}🍅
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      {/* Linked Tasks List (from Roadmap) */}
+                      <div className="space-y-2 my-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin text-left">
+                        {skill.roadmap && skill.roadmap.length > 0 ? (
+                          skill.roadmap.map((item) => {
+                            if (item.type === 'SECTION') {
+                              return (
+                                <div key={item.id} className="pt-2 pb-1 first:pt-0 border-b border-slate-800/40 mb-1">
+                                  <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
+                                    {item.title}
+                                  </span>
+                                </div>
+                              );
+                            }
 
-                      {/* Quick Add Task Input */}
-                      <div className="mt-2 pt-2 border-t border-slate-800/60">
-                        <div className="flex items-center bg-slate-950/20 hover:bg-slate-950/40 focus-within:bg-slate-950/50 rounded-lg px-2 py-1 border border-slate-800/60 focus-within:border-emerald-500/20 transition-all">
-                          <Plus className="w-3.5 h-3.5 text-emerald-500/70 mr-1.5 shrink-0" />
-                          <input
-                            type="text"
-                            placeholder="Criar tarefa..."
-                            value={skillTaskDrafts[skill.id] || ''}
-                            onChange={(e) => setSkillTaskDrafts(prev => ({ ...prev, [skill.id]: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && skillTaskDrafts[skill.id]?.trim()) {
-                                addTask({
-                                  title: skillTaskDrafts[skill.id].trim(),
-                                  completed: false,
-                                  estimatedPomodoros: 1,
-                                  completedPomodoros: 0,
-                                  skillId: skill.id,
-                                  projectId: undefined,
-                                });
-                                setSkillTaskDrafts(prev => ({ ...prev, [skill.id]: '' }));
-                              }
-                            }}
-                            className="w-full bg-transparent border-none text-[11px] placeholder:text-slate-600 focus:outline-none text-slate-200"
-                          />
-                        </div>
+                            const isItemFocused = activeTaskId === item.id;
+                            const isItemCompleted = item.isCompleted;
+
+                            return (
+                              <div key={item.id} className="space-y-1">
+                                {/* Task Item */}
+                                <div 
+                                  className={cn(
+                                    "flex items-center justify-between p-1.5 rounded-lg transition-colors group/task border",
+                                    isItemFocused 
+                                      ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.1)]" 
+                                      : "bg-slate-950/30 hover:bg-slate-950/60 border-slate-800/40 hover:border-slate-700/50"
+                                  )}
+                                >
+                                  <div className="flex items-center min-w-0 flex-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        useSkillsStore.getState().toggleRoadmapItem(skill.id, item.id);
+                                      }}
+                                      className={cn(
+                                        "mr-2 transition-colors shrink-0",
+                                        isItemCompleted ? "text-emerald-400" : "text-slate-500 hover:text-emerald-400"
+                                      )}
+                                      title={isItemCompleted ? "Desmarcar tarefa" : "Concluir tarefa"}
+                                    >
+                                      {isItemCompleted ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <Circle className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                    <span 
+                                      onClick={() => {
+                                        if (isItemFocused) {
+                                          toggleTimer();
+                                        } else {
+                                          setActiveTaskId(item.id);
+                                          if (!isActive) toggleTimer();
+                                        }
+                                      }}
+                                      className={cn(
+                                        "text-xs truncate cursor-pointer transition-colors",
+                                        isItemCompleted ? "text-slate-500 line-through" : "text-slate-300 hover:text-white",
+                                        isItemFocused && "font-bold text-emerald-400"
+                                      )}
+                                      title="Focar nesta tarefa"
+                                    >
+                                      {item.title}
+                                    </span>
+                                  </div>
+                                  {isItemFocused && (
+                                    <span className="text-[10px] text-emerald-400 font-mono shrink-0 ml-2 animate-pulse">
+                                      🍅
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Nested Subtasks */}
+                                {item.subTasks && item.subTasks.length > 0 && (
+                                  <div className="pl-3 border-l border-slate-800/60 space-y-1 ml-2">
+                                    {item.subTasks.map((sub) => {
+                                      const isSubFocused = activeTaskId === sub.id;
+                                      const isSubCompleted = sub.isCompleted;
+
+                                      return (
+                                        <div 
+                                          key={sub.id}
+                                          className={cn(
+                                            "flex items-center justify-between p-1 rounded-md transition-colors group/subtask border border-transparent",
+                                            isSubFocused 
+                                              ? "bg-emerald-500/5 border-emerald-500/20" 
+                                              : "bg-slate-950/15 hover:bg-slate-950/40 hover:border-slate-800/30"
+                                          )}
+                                        >
+                                          <div className="flex items-center min-w-0 flex-1">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                useSkillsStore.getState().toggleRoadmapItem(skill.id, sub.id);
+                                              }}
+                                              className={cn(
+                                                "mr-1.5 transition-colors shrink-0",
+                                                isSubCompleted ? "text-emerald-400" : "text-slate-600 hover:text-emerald-400"
+                                              )}
+                                              title={isSubCompleted ? "Desmarcar subtarefa" : "Concluir subtarefa"}
+                                            >
+                                              {isSubCompleted ? (
+                                                <CheckCircle2 className="w-3 h-3" />
+                                              ) : (
+                                                <Circle className="w-3 h-3" />
+                                              )}
+                                            </button>
+                                            <span 
+                                              onClick={() => {
+                                                if (isSubFocused) {
+                                                  toggleTimer();
+                                                } else {
+                                                  setActiveTaskId(sub.id);
+                                                  if (!isActive) toggleTimer();
+                                                }
+                                              }}
+                                              className={cn(
+                                                "text-[11px] truncate cursor-pointer transition-colors",
+                                                isSubCompleted ? "text-slate-500 line-through" : "text-slate-400 hover:text-white",
+                                                isSubFocused && "font-bold text-emerald-400"
+                                              )}
+                                              title="Focar nesta subtarefa"
+                                            >
+                                              {sub.title}
+                                            </span>
+                                          </div>
+                                          {isSubFocused && (
+                                            <span className="text-[9px] text-emerald-400 font-mono shrink-0 ml-1.5 animate-pulse">
+                                              🍅
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[11px] text-slate-500 text-center py-4">
+                            Nenhuma tarefa no roadmap desta habilidade.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -599,25 +734,12 @@ export function TimerWidget() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const activeTasksForSkill = tasks.filter(t => t.skillId === skill.id && !t.completed);
-                            let targetTaskId = activeTasksForSkill[0]?.id;
                             
-                            if (!targetTaskId) {
-                              addTask({
-                                title: `Estudar ${skill.name}`,
-                                completed: false,
-                                estimatedPomodoros: 1,
-                                completedPomodoros: 0,
-                                skillId: skill.id,
-                                projectId: undefined,
-                              });
-                              const updatedTasks = useStore.getState().tasks;
-                              const newT = updatedTasks.find(t => t.skillId === skill.id && t.title === `Estudar ${skill.name}` && !t.completed);
-                              if (newT) {
-                                setActiveTaskId(newT.id);
-                              }
+                            const firstUncompletedItem = getFirstUncompletedRoadmapItem(skill.roadmap);
+                            if (firstUncompletedItem) {
+                              setActiveTaskId(firstUncompletedItem.id);
                             } else {
-                              setActiveTaskId(targetTaskId);
+                              setActiveTaskId(`skill-focus:${skill.id}`);
                             }
                             
                             if (!isActive) {

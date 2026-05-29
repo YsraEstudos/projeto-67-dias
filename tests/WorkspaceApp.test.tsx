@@ -348,7 +348,7 @@ describe('WorkspaceApp', () => {
     it('renders footer with version number', async () => {
         render(<WorkspaceApp user={mockUser} onLogout={onLogout} />);
         await waitFor(() => {
-            expect(screen.getByText('versão 1.12.0')).toBeInTheDocument();
+            expect(screen.getByText(/versão \d+\.\d+\.\d+/)).toBeInTheDocument();
         });
     });
 

@@ -186,6 +186,30 @@ export function usePomodoroTimer() {
           if (task.skillId) {
             useSkillsStore.getState().addPomodoro(task.skillId);
           }
+        } else {
+          // If the task is a Skill Roadmap task/subtask (not in Pomodoro tasks)
+          let foundSkillId: string | null = null;
+          if (activeTaskId.startsWith('skill-focus:')) {
+            foundSkillId = activeTaskId.replace('skill-focus:', '');
+          } else {
+            const activeSkills = useSkillsStore.getState().skills;
+            const hasItem = (items: any[]): boolean => {
+              for (const item of items) {
+                if (item.id === activeTaskId) return true;
+                if (item.subTasks && hasItem(item.subTasks)) return true;
+              }
+              return false;
+            };
+            for (const s of activeSkills) {
+              if (hasItem(s.roadmap)) {
+                foundSkillId = s.id;
+                break;
+              }
+            }
+          }
+          if (foundSkillId) {
+            useSkillsStore.getState().addPomodoro(foundSkillId);
+          }
         }
       }
 
