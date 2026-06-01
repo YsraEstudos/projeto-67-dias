@@ -22,6 +22,7 @@ export interface TrackingSlice {
     // Daily work tracking
     currentCount: number;
     goal: number;
+    dailyGoalOverride: number | null;
     preBreakCount: number;
 
     // Date tracking for auto-reset
@@ -41,6 +42,7 @@ export interface TrackingSlice {
     // Work tracking actions
     setCurrentCount: (count: number) => void;
     setGoal: (goal: number) => void;
+    setDailyGoalOverride: (goal: number | null) => void;
     setPreBreakCount: (count: number) => void;
     incrementCount: () => void;
     decrementCount: () => void;
@@ -74,6 +76,7 @@ export const createTrackingSlice: StateCreator<
 > = (set, get) => ({
     currentCount: 0,
     goal: 300,
+    dailyGoalOverride: null,
     preBreakCount: 0,
     lastActiveDate: null,
     startTime: '08:00',
@@ -88,6 +91,10 @@ export const createTrackingSlice: StateCreator<
         set(() => ({ currentCount: count, lastActiveDate: getTodayDate() }));
     },
     setGoal: (goal) => set(() => ({ goal })),
+    setDailyGoalOverride: (goal) => set(() => ({
+        dailyGoalOverride: goal === null ? null : Math.max(1, Math.round(goal)),
+        lastActiveDate: getTodayDate(),
+    })),
     setPreBreakCount: (count) => {
         get()._checkAndResetForNewDay();
         set(() => ({ preBreakCount: count, lastActiveDate: getTodayDate() }));
@@ -134,6 +141,7 @@ export const createTrackingSlice: StateCreator<
             // Day changed - reset daily counters
             set(() => ({
                 currentCount: 0,
+                dailyGoalOverride: null,
                 preBreakCount: 0,
                 lastActiveDate: today,
             }));

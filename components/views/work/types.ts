@@ -84,6 +84,7 @@ export interface WorkData {
 export interface WeeklyGoalEntry {
     weekKey: string;       // ISO week: "2024-W52"
     goal: number;          // Meta (itens/dia)
+    workDays?: number;     // Dias trabalhados na semana
     createdAt: number;     // Timestamp de criação
     updatedAt: number;     // Timestamp de última alteração
 }

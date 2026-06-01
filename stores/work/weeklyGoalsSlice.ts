@@ -9,7 +9,8 @@ import { StateCreator } from 'zustand';
 import type { WeeklyGoalEntry } from '../../components/views/work/types';
 import { getISOWeekKey, getPreviousWeekKey } from '../../components/views/work/utils/weekUtils';
 
-export const DEFAULT_WEEKLY_GOAL = 300; // Meta padrão (itens por dia)
+export const DEFAULT_WEEKLY_GOAL = 300; // Meta padrão semanal
+export const DEFAULT_WEEKLY_WORK_DAYS = 7;
 const MAX_WEEKS_LOOKBACK = 52; // Máximo de semanas para buscar herança
 
 export interface WeeklyGoalsSlice {
@@ -17,8 +18,11 @@ export interface WeeklyGoalsSlice {
 
     // Actions
     setWeeklyGoal: (weekKey: string, goal: number) => void;
+    setWeeklyWorkDays: (weekKey: string, workDays: number) => void;
     getWeeklyGoal: (weekKey?: string) => number;
+    getWeeklyWorkDays: (weekKey?: string) => number;
     getCurrentWeekGoal: () => number;
+    getCurrentWeekWorkDays: () => number;
 }
 
 export const createWeeklyGoalsSlice: StateCreator<
@@ -31,13 +35,32 @@ export const createWeeklyGoalsSlice: StateCreator<
 
     setWeeklyGoal: (weekKey, goal) => {
         const now = Date.now();
+        const currentEntry = get().weeklyGoals[weekKey];
         set((state) => ({
             weeklyGoals: {
                 ...state.weeklyGoals,
                 [weekKey]: {
                     weekKey,
                     goal,
-                    createdAt: state.weeklyGoals[weekKey]?.createdAt || now,
+                    workDays: currentEntry?.workDays,
+                    createdAt: currentEntry?.createdAt || now,
+                    updatedAt: now,
+                },
+            },
+        }));
+    },
+
+    setWeeklyWorkDays: (weekKey, workDays) => {
+        const now = Date.now();
+        const currentEntry = get().weeklyGoals[weekKey];
+        set((state) => ({
+            weeklyGoals: {
+                ...state.weeklyGoals,
+                [weekKey]: {
+                    weekKey,
+                    goal: currentEntry?.goal ?? get().getWeeklyGoal(weekKey),
+                    workDays: Math.max(1, Math.min(7, Math.round(workDays))),
+                    createdAt: currentEntry?.createdAt || now,
                     updatedAt: now,
                 },
             },
@@ -69,8 +92,34 @@ export const createWeeklyGoalsSlice: StateCreator<
         return DEFAULT_WEEKLY_GOAL;
     },
 
+    getWeeklyWorkDays: (weekKey?: string) => {
+        const key = weekKey || getISOWeekKey();
+        const { weeklyGoals } = get();
+
+        if (weeklyGoals[key]?.workDays) {
+            return weeklyGoals[key].workDays;
+        }
+
+        let prevKey = getPreviousWeekKey(key);
+        let iterations = 0;
+
+        while (iterations < MAX_WEEKS_LOOKBACK) {
+            if (weeklyGoals[prevKey]?.workDays) {
+                return weeklyGoals[prevKey].workDays;
+            }
+            prevKey = getPreviousWeekKey(prevKey);
+            iterations++;
+        }
+
+        return DEFAULT_WEEKLY_WORK_DAYS;
+    },
+
     getCurrentWeekGoal: () => {
         return get().getWeeklyGoal(getISOWeekKey());
+    },
+
+    getCurrentWeekWorkDays: () => {
+        return get().getWeeklyWorkDays(getISOWeekKey());
     },
 });
 

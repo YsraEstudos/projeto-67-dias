@@ -120,6 +120,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         // Tracking slice - wrap mutating actions
         currentCount: trackingSlice.currentCount,
         goal: trackingSlice.goal,
+        dailyGoalOverride: trackingSlice.dailyGoalOverride,
         preBreakCount: trackingSlice.preBreakCount,
         lastActiveDate: trackingSlice.lastActiveDate,
         startTime: trackingSlice.startTime,
@@ -129,6 +130,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         isLoading: trackingSlice.isLoading,
         setCurrentCount: withSync(trackingSlice.setCurrentCount),
         setGoal: withSync(trackingSlice.setGoal),
+        setDailyGoalOverride: withSync(trackingSlice.setDailyGoalOverride),
         setPreBreakCount: withSync(trackingSlice.setPreBreakCount),
         incrementCount: withSync(trackingSlice.incrementCount),
         decrementCount: withSync(trackingSlice.decrementCount),
@@ -144,8 +146,11 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
         // Weekly Goals slice - wrap mutating actions
         weeklyGoals: weeklyGoalsSlice.weeklyGoals,
         setWeeklyGoal: withSync(weeklyGoalsSlice.setWeeklyGoal),
+        setWeeklyWorkDays: withSync(weeklyGoalsSlice.setWeeklyWorkDays),
         getWeeklyGoal: weeklyGoalsSlice.getWeeklyGoal, // Read-only, no sync needed
+        getWeeklyWorkDays: weeklyGoalsSlice.getWeeklyWorkDays, // Read-only, no sync needed
         getCurrentWeekGoal: weeklyGoalsSlice.getCurrentWeekGoal, // Read-only, no sync needed
+        getCurrentWeekWorkDays: weeklyGoalsSlice.getCurrentWeekWorkDays, // Read-only, no sync needed
 
         // Idle Tasks slice - wrap mutating actions (Metas Extras)
         selectedIdleTasks: idleTasksSlice.selectedIdleTasks,
@@ -199,6 +204,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 // Tracking (persisted parts)
                 currentCount: state.currentCount,
                 goal: state.goal,
+                dailyGoalOverride: state.dailyGoalOverride,
                 preBreakCount: state.preBreakCount,
                 startTime: state.startTime,
                 endTime: state.endTime,
@@ -237,6 +243,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                     // Reset counters if new day, otherwise use saved values
                     currentCount: isNewDay ? 0 : (data.currentCount !== undefined ? data.currentCount : 0),
                     goal: data.goal !== undefined ? data.goal : trackingSlice.goal,
+                    dailyGoalOverride: isNewDay ? null : (data.dailyGoalOverride !== undefined ? data.dailyGoalOverride : null),
                     preBreakCount: isNewDay ? 0 : (data.preBreakCount !== undefined ? data.preBreakCount : 0),
                     lastActiveDate: today, // Always update to today
                     startTime: data.startTime !== undefined ? data.startTime : trackingSlice.startTime,
@@ -273,6 +280,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
                 studySchedules: [],
                 currentCount: 0,
                 goal: trackingSlice.goal,
+                dailyGoalOverride: null,
                 preBreakCount: 0,
                 lastActiveDate: null,
                 startTime: trackingSlice.startTime,

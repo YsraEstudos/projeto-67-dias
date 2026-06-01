@@ -5,6 +5,8 @@ import { WorkStatus } from '../types';
 interface ConfigurationHeaderProps {
     goal: number;
     setGoal: (v: number) => void;
+    workDays: number;
+    setWorkDays: (v: number) => void;
     startTime: string;
     setStartTime: (v: string) => void;
     endTime: string;
@@ -16,7 +18,7 @@ interface ConfigurationHeaderProps {
 }
 
 export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.memo(({
-    goal, setGoal, startTime, setStartTime, endTime, setEndTime, breakTime, setBreakTime, status, weekLabel
+    goal, setGoal, workDays, setWorkDays, startTime, setStartTime, endTime, setEndTime, breakTime, setBreakTime, status, weekLabel
 }) => (
     <div className="space-y-2">
         {/* Week indicator (if provided) */}
@@ -25,11 +27,11 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
                 <Calendar size={12} />
                 <span>{weekLabel}</span>
                 <span className="text-slate-600">•</span>
-                <span className="text-orange-500/70">Meta semanal aplicada a cada dia</span>
+                <span className="text-orange-500/70">Meta semanal dividida pelos dias de trabalho</span>
             </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700 backdrop-blur-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700 backdrop-blur-sm">
             <div className="flex flex-col gap-1">
                 <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Meta Semanal</label>
                 <div className="flex items-center gap-2">
@@ -40,6 +42,20 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
                         onChange={(e) => setGoal(Number(e.target.value))}
                         className="bg-transparent text-xl font-bold text-slate-200 focus:outline-none w-full"
                         min={0}
+                    />
+                </div>
+            </div>
+            <div className="flex flex-col gap-1">
+                <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Dias na Semana</label>
+                <div className="flex items-center gap-2">
+                    <Calendar className="text-emerald-500" size={18} />
+                    <input
+                        type="number"
+                        value={workDays}
+                        onChange={(e) => setWorkDays(Number(e.target.value))}
+                        className="bg-transparent text-xl font-bold text-slate-200 focus:outline-none w-full"
+                        min={1}
+                        max={7}
                     />
                 </div>
             </div>

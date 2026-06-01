@@ -8,13 +8,14 @@ interface MainTrackerProps {
     goal: number;
     progressPercent: number;
     onUpdate: (newCount: number) => void;
+    onGoalUpdate: (newGoal: number) => void;
     status: WorkStatus;
     minutesRemaining: number;
     onMetTargetClick: () => void;
 }
 
 export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
-    currentCount, goal, progressPercent, onUpdate, status, minutesRemaining, onMetTargetClick
+    currentCount, goal, progressPercent, onUpdate, onGoalUpdate, status, minutesRemaining, onMetTargetClick
 }) => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Tracker */}
@@ -41,7 +42,15 @@ export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
                     </div>
                     <div className="flex items-baseline gap-1 mb-4">
                         <span className="text-4xl sm:text-6xl font-bold text-white tracking-tight">{currentCount}</span>
-                        <span className="text-lg sm:text-xl text-slate-500">/ {goal}</span>
+                        <span className="text-lg sm:text-xl text-slate-500">/</span>
+                        <input
+                            type="number"
+                            value={goal}
+                            onChange={(e) => onGoalUpdate(Number(e.target.value))}
+                            className="bg-transparent text-lg sm:text-xl text-slate-500 focus:text-slate-200 focus:outline-none focus:border-b focus:border-orange-500 w-20"
+                            min={1}
+                            aria-label="Meta de itens do dia"
+                        />
                     </div>
 
                     {/* Quick Add Controls */}

@@ -62,10 +62,11 @@ const WorkViewSkeleton: React.FC = () => (
 
 const WorkView: React.FC = () => {
   // Weekly goal hook (replaces individual goal)
-  const { currentGoal, weekLabel, updateCurrentWeekGoal } = useWeeklyGoal();
+  const { currentGoal, currentWorkDays, weekLabel, updateCurrentWeekGoal, updateCurrentWeekWorkDays } = useWeeklyGoal();
 
   // Atomic selectors for primitives (don't cause re-render on other changes)
   const currentCount = useWorkStore((s) => s.currentCount);
+  const dailyGoalOverride = useWorkStore((s) => s.dailyGoalOverride);
   const preBreakCount = useWorkStore((s) => s.preBreakCount);
   const isLoading = useWorkStore((s) => s.isLoading);
 
@@ -89,6 +90,7 @@ const WorkView: React.FC = () => {
 
   // Actions are stable references - they don't cause re-renders
   const setCurrentCount = useWorkStore((s) => s.setCurrentCount);
+  const setDailyGoalOverride = useWorkStore((s) => s.setDailyGoalOverride);
   const setPreBreakCount = useWorkStore((s) => s.setPreBreakCount);
   const setStartTime = useWorkStore((s) => s.setStartTime);
   const setEndTime = useWorkStore((s) => s.setEndTime);
@@ -109,7 +111,11 @@ const WorkView: React.FC = () => {
   const [isMetTargetModalOpen, setIsMetTargetModalOpen] = useState(false);
 
   // Calculate daily quota from weekly goal to fix pacing bugs and UI progress tracking
-  const dailyGoal = useMemo(() => Math.max(1, Math.round(currentGoal / 7)), [currentGoal]);
+  const weeklyDailyGoal = useMemo(
+    () => Math.max(1, Math.round(currentGoal / Math.max(1, currentWorkDays))),
+    [currentGoal, currentWorkDays]
+  );
+  const dailyGoal = dailyGoalOverride ?? weeklyDailyGoal;
 
   const stats = useWorkMetrics({
     goal: dailyGoal,
@@ -159,6 +165,7 @@ const WorkView: React.FC = () => {
 
       <ConfigurationHeader
         goal={currentGoal} setGoal={updateCurrentWeekGoal}
+        workDays={currentWorkDays} setWorkDays={updateCurrentWeekWorkDays}
         startTime={timeConfig.startTime} setStartTime={setStartTime}
         endTime={timeConfig.endTime} setEndTime={setEndTime}
         breakTime={timeConfig.breakTime} setBreakTime={setBreakTime}
@@ -171,6 +178,7 @@ const WorkView: React.FC = () => {
         goal={dailyGoal}
         progressPercent={stats.progressPercent}
         onUpdate={setCurrentCount}
+        onGoalUpdate={setDailyGoalOverride}
         status={stats.status}
         minutesRemaining={stats.minutesRemaining}
         onMetTargetClick={handleOpenModal}

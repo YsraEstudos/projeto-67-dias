@@ -15,13 +15,16 @@ import { getISOWeekKey, formatWeekLabel } from '../utils/weekUtils';
 export function useWeeklyGoal() {
     const weeklyGoals = useWorkStore((s) => s.weeklyGoals);
     const getCurrentWeekGoal = useWorkStore((s) => s.getCurrentWeekGoal);
+    const getCurrentWeekWorkDays = useWorkStore((s) => s.getCurrentWeekWorkDays);
     const setWeeklyGoal = useWorkStore((s) => s.setWeeklyGoal);
+    const setWeeklyWorkDays = useWorkStore((s) => s.setWeeklyWorkDays);
 
     // Memoizar week key (só muda se o dia mudar para outra semana)
     const currentWeekKey = useMemo(() => getISOWeekKey(), []);
 
     // Meta atual (com herança)
     const currentGoal = getCurrentWeekGoal();
+    const currentWorkDays = getCurrentWeekWorkDays();
 
     // Label amigável
     const weekLabel = useMemo(() => formatWeekLabel(currentWeekKey), [currentWeekKey]);
@@ -31,11 +34,17 @@ export function useWeeklyGoal() {
         setWeeklyGoal(currentWeekKey, newGoal);
     }, [currentWeekKey, setWeeklyGoal]);
 
+    const updateCurrentWeekWorkDays = useCallback((newWorkDays: number) => {
+        setWeeklyWorkDays(currentWeekKey, newWorkDays);
+    }, [currentWeekKey, setWeeklyWorkDays]);
+
     return {
         currentWeekKey,
         currentGoal,
+        currentWorkDays,
         weekLabel,
         updateCurrentWeekGoal,
+        updateCurrentWeekWorkDays,
         weeklyGoals,
     };
 }
