@@ -219,11 +219,11 @@ const PromptsTab: React.FC = () => {
     setEditingPrompt(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Remover este prompt?')) {
+  const handleDelete = useCallback((id: string) => {
+    if (window.confirm('Remover este prompt?')) {
       deletePrompt(id);
     }
-  };
+  }, [deletePrompt]);
 
   const handleAddCategory = (name: string, color: string, icon: string) => {
     const newCategory: PromptCategory = {
@@ -424,13 +424,19 @@ const PromptsTab: React.FC = () => {
                     </span>
                     <div className="flex gap-2">
                       <button
+                        type="button"
                         onClick={() => { setEditingPrompt(p); setIsModalOpen(true); }}
                         className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg flex items-center gap-1.5 transition-colors"
                       >
                         <Edit2 size={12} /> Editar
                       </button>
                       <button
-                        onClick={() => handleDelete(p.id)}
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          handleDelete(p.id);
+                        }}
                         className="px-3 py-1.5 text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center gap-1.5 transition-colors"
                       >
                         <Trash2 size={12} /> Excluir
