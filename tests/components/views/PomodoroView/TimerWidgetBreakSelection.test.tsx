@@ -142,6 +142,6 @@ describe('TimerWidget break selection', () => {
     fireEvent.click(screen.getByRole('button', { name: /limpar seleção atual/i }));
 
     expect(usePomodoroStore.getState().activeTaskId).toBeNull();
-    expect(screen.getByText(/Foco Livre/i)).toBeInTheDocument();
+    expect(screen.getByText(/Desafios Diários Aleatórios/i)).toBeInTheDocument();
   });
 });

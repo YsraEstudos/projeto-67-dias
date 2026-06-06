@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle, GraduationCap, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2, Maximize, Minimize, SkipForward, Brain, Coffee, Settings, Volume2, VolumeX, CheckCircle2, Circle, Dumbbell, Minus, Plus, FolderOpen, X, AlertTriangle, GraduationCap, ChevronDown, ChevronRight, Sparkles, Shuffle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -18,6 +18,23 @@ import {
 } from '../lib/breakOptions';
 
 type BreakPickerTab = 'today' | 'otherDays' | 'quick';
+
+const DAILY_RANDOM_TASKS_POOL = [
+  "Estudar um tópico complexo por 25min",
+  "Revisar flashcards ou anotações recentes",
+  "Resolver 10 questões de fixação",
+  "Criar um mapa mental do último assunto estudado",
+  "Explicar um conceito em voz alta (Técnica Feynman)",
+  "Anotar 5 dúvidas para pesquisar depois",
+  "Organizar e limpar o ambiente de estudos",
+  "Revisar os erros da última lista de exercícios",
+  "Ler 5 páginas de um livro ou artigo técnico",
+  "Escrever um resumo de 3 parágrafos sobre a aula de hoje",
+  "Configurar e rodar um exemplo prático de código",
+  "Planejar o cronograma de estudos da semana",
+  "Resolver 1 desafio de código ou lógica",
+  "Fazer uma autoavaliação rápida do progresso diário"
+];
 
 export function TimerWidget() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -53,6 +70,18 @@ export function TimerWidget() {
     timerState,
     setTimerState,
   } = useStore();
+
+  const handleGenerateRandomTasks = () => {
+    const shuffled = [...DAILY_RANDOM_TASKS_POOL].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 3);
+    selected.forEach(taskTitle => {
+      addTask({
+        title: taskTitle,
+        completed: false,
+        estimatedPomodoros: 1
+      });
+    });
+  };
 
   const restActivities = useRestStore((state) => state.activities);
   const toggleRestActivityComplete = useRestStore((state) => state.toggleActivityComplete);
@@ -1727,24 +1756,53 @@ export function TimerWidget() {
                         {activeTab === 'tasks' && (
                           <div className="space-y-4">
                             {activeTask ? (
-                              <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
-                                <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
-                                <h4 className="text-base font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
-                              </div>
+                              <>
+                                <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
+                                  <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
+                                  <h4 className="text-base font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
+                                </div>
+                                {!isBreakMode && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsTaskPickerOpen(true)}
+                                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                                  >
+                                    Selecionar ou limpar tarefa
+                                  </button>
+                                )}
+                              </>
                             ) : (
-                              <div className="bg-slate-950/20 border border-dashed border-slate-850 rounded-xl p-4 text-center">
-                                <p className="text-xs text-[var(--color-text-muted)]">Foco Livre (Sem tarefa ativa)</p>
+                              <div className="relative overflow-hidden rounded-xl border border-slate-800/80 bg-gradient-to-br from-slate-950/40 to-slate-900/20 p-5 text-center backdrop-blur-sm group transition-all duration-300 hover:border-slate-700/60">
+                                <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-indigo-500/10 blur-xl group-hover:bg-indigo-500/20 transition-all duration-500" />
+                                <div className="absolute -left-8 -bottom-8 w-24 h-24 rounded-full bg-emerald-500/5 blur-xl group-hover:bg-emerald-500/10 transition-all duration-500" />
+                                
+                                <Sparkles className="w-5 h-5 mx-auto mb-2 text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                                <h4 className="text-xs font-semibold text-slate-200 mb-1">Desafios Diários Aleatórios</h4>
+                                <p className="text-[10px] text-slate-400 max-w-[220px] mx-auto mb-4 leading-relaxed">
+                                  Sem foco ativo? Gere tarefas de estudo aleatórias para turbinar sua rotina hoje.
+                                </p>
+                                
+                                <div className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleGenerateRandomTasks}
+                                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-600 hover:to-violet-700 active:scale-[0.98] transition-all"
+                                  >
+                                    <Shuffle className="w-3.5 h-3.5" />
+                                    Gerar Tarefas Aleatórias
+                                  </button>
+                                  
+                                  {!isBreakMode && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsTaskPickerOpen(true)}
+                                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                                    >
+                                      Selecionar ou limpar tarefa
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            )}
-
-                            {!isBreakMode && (
-                              <button
-                                type="button"
-                                onClick={() => setIsTaskPickerOpen(true)}
-                                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                              >
-                                Selecionar ou limpar tarefa
-                              </button>
                             )}
 
                             {renderActiveTaskSubtasks('expanded')}
@@ -1964,24 +2022,52 @@ export function TimerWidget() {
                   {activeTab === 'tasks' && (
                     <div className="space-y-4">
                       {activeTask ? (
-                        <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 relative overflow-hidden">
-                          <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
-                          <h4 className="text-sm font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
-                        </div>
+                        <>
+                          <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 relative overflow-hidden">
+                            <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
+                            <h4 className="text-sm font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
+                          </div>
+                          {!isBreakMode && (
+                            <button
+                              type="button"
+                              onClick={() => setIsTaskPickerOpen(true)}
+                              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/35 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                            >
+                              Selecionar ou limpar tarefa
+                            </button>
+                          )}
+                        </>
                       ) : (
-                        <div className="bg-slate-900/20 border border-dashed border-slate-800/50 rounded-xl p-4 text-center">
-                          <p className="text-xs text-[var(--color-text-muted)]">Foco Livre (Sem tarefa)</p>
+                        <div className="relative overflow-hidden rounded-xl border border-slate-800/50 bg-gradient-to-br from-slate-950/40 to-slate-900/20 p-4 text-center backdrop-blur-sm group transition-all duration-300 hover:border-slate-700/50">
+                          <div className="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-indigo-500/5 blur-xl group-hover:bg-indigo-500/10 transition-all duration-500" />
+                          
+                          <Sparkles className="w-4 h-4 mx-auto mb-1 text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+                          <h4 className="text-[11px] font-semibold text-slate-200 mb-0.5">Desafios Diários Aleatórios</h4>
+                          <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto mb-3 leading-normal">
+                            Gere tarefas de estudo aleatórias para turbinar sua rotina hoje.
+                          </p>
+                          
+                          <div className="space-y-1.5">
+                            <button
+                              type="button"
+                              onClick={handleGenerateRandomTasks}
+                              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-md shadow-indigo-500/10 hover:from-indigo-600 hover:to-violet-700 active:scale-[0.98] transition-all"
+                            >
+                              <Shuffle className="w-3 h-3" />
+                              Gerar Tarefas Aleatórias
+                            </button>
+                            
+                            {!isBreakMode && (
+                              <button
+                                type="button"
+                                onClick={() => setIsTaskPickerOpen(true)}
+                                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/35 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
+                              >
+                                Selecionar ou limpar tarefa
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      )}
-
-                      {!isBreakMode && (
-                        <button
-                          type="button"
-                          onClick={() => setIsTaskPickerOpen(true)}
-                          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/35 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                        >
-                          Selecionar ou limpar tarefa
-                        </button>
                       )}
 
                       {renderActiveTaskSubtasks('expanded')}
