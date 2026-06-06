@@ -45,11 +45,6 @@ interface RestState {
     updateLink: (activityId: string, linkId: string, updates: Partial<RestActivityLink>) => void;
     deleteLink: (activityId: string, linkId: string) => void;
 
-
-    addLink: (activityId: string, link: RestActivityLink) => void;
-    updateLink: (activityId: string, linkId: string, updates: Partial<RestActivityLink>) => void;
-    deleteLink: (activityId: string, linkId: string) => void;
-
     setNextTwoHoursIds: (ids: string[]) => void;
     addToNextTwoHours: (id: string) => void;
     removeFromNextTwoHours: (id: string) => void;

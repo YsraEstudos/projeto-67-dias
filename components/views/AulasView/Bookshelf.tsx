@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
-import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder } from "lucide-react";
+import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
+import { RecentlyStudiedItem } from "../../../types";
 import {
   DndContext,
   closestCenter,
@@ -20,7 +21,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AulaBook } from "../../../types";
+import { AulaBook, AulaChapter } from "../../../types";
 import { motion, AnimatePresence } from "motion/react";
 
 interface BookshelfProps {
@@ -137,6 +138,181 @@ const SortableBookCard = React.memo(function SortableBookCard({
   );
 }, (prevProps, nextProps) => prevProps.book === nextProps.book && prevProps.isSortingDisabled === nextProps.isSortingDisabled);
 
+interface BookSpineProps {
+  book: AulaBook;
+  height: number;
+  width: number;
+  colorClasses: string;
+  onSelectBook?: (bookId: string) => void;
+  onOpenMoveModal?: (book: AulaBook) => void;
+  isDragging?: boolean;
+  isPlaceholder?: boolean;
+  isSortingDisabled?: boolean;
+}
+
+const BookSpine = React.memo(function BookSpine({
+  book,
+  height,
+  width,
+  colorClasses,
+  onSelectBook,
+  onOpenMoveModal,
+  isDragging = false,
+  isPlaceholder = false,
+  isSortingDisabled = false,
+}: BookSpineProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  const handleSpineClick = (e: React.MouseEvent) => {
+    if (isDragging || isPlaceholder) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    onSelectBook?.(book.id);
+  };
+
+  return (
+    <div
+      onClick={handleSpineClick}
+      onMouseEnter={() => !isDragging && !isPlaceholder && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      style={{ height: `${height}px`, width: `${width}px` }}
+      className={`relative select-none flex flex-col items-center justify-between py-4 rounded-sm border-x border-t shadow-lg bg-gradient-to-b ${colorClasses} ${
+        isDragging
+          ? "cursor-grabbing ring-2 ring-[#D4AF37] opacity-90 scale-105"
+          : isPlaceholder
+          ? "opacity-25"
+          : "cursor-grab active:cursor-grabbing hover:-translate-y-4 hover:shadow-[0_15px_25px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out"
+      }`}
+    >
+      {/* 3D Curved Grooves shading overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/45 pointer-events-none rounded-sm" />
+      
+      {/* Left-edge ridge (simulated spine fold) */}
+      <div className="absolute top-0 bottom-0 left-[3px] w-[2px] bg-white/10 shadow-[1px_0_0_rgba(0,0,0,0.5)] pointer-events-none" />
+      <div className="absolute top-0 bottom-0 right-[3px] w-[2px] bg-black/20 pointer-events-none" />
+
+      {/* Top Gold Foil Stripe */}
+      <div className="w-full h-1.5 bg-gradient-to-r from-[#B59410] via-[#FCE068] to-[#B59410] border-y border-yellow-800 shadow-[0_1px_2px_rgba(0,0,0,0.3)] relative z-10 shrink-0" />
+
+      {/* Book Title (Vertical Text) */}
+      <div className="flex-1 flex items-center justify-center py-2 relative z-10 overflow-hidden w-full px-1">
+        <span 
+          style={{ writingMode: "vertical-rl" }} 
+          className="text-[10px] sm:text-xs font-serif font-bold text-[#FCE57F] tracking-widest text-center truncate max-h-[80%] uppercase select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+        >
+          {book.title}
+        </span>
+      </div>
+
+      {/* Spine Details & Bottom Stripe */}
+      <div className="w-full flex flex-col items-center gap-1.5 relative z-10 shrink-0">
+        <span className="text-[8px] font-mono font-semibold text-white/50 tracking-wider">
+          {book.chapters?.length || 0}
+        </span>
+        
+        {/* Bottom Gold Foil Stripe */}
+        <div className="w-full h-1.5 bg-gradient-to-r from-[#B59410] via-[#FCE068] to-[#B59410] border-y border-yellow-800 shadow-[0_-1px_2px_rgba(0,0,0,0.3)]" />
+      </div>
+
+      {/* Hover Info Tooltip (Premium Popover) */}
+      <AnimatePresence>
+        {showTooltip && !isDragging && !isPlaceholder && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 5, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-slate-950/95 border border-[#D4AF37]/50 backdrop-blur-md rounded-lg p-3 text-xs w-48 shadow-2xl text-slate-100 z-30 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r border-b border-[#D4AF37]/50 rotate-45" />
+            <h4 className="font-serif text-sm text-slate-100 mb-1 leading-snug truncate">{book.title}</h4>
+            <div className="text-[10px] text-slate-400 mb-2.5 flex items-center justify-between">
+              <span>{book.chapters?.length || 0} Aulas</span>
+              {book.targetDate ? (
+                <span className="text-[#D4AF37] font-bold">
+                  Meta: {new Date(book.targetDate + "T00:00:00").toLocaleDateString('pt-BR', { month: '2-digit', day: '2-digit' })}
+                </span>
+              ) : (
+                <span className="italic text-slate-500">Sem meta</span>
+              )}
+            </div>
+            <div className="flex gap-1.5 mt-2">
+              <button
+                onClick={() => onSelectBook?.(book.id)}
+                className="flex-1 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 py-1.5 px-2 rounded text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <BookOpen className="w-3 h-3" />
+                Abrir
+              </button>
+              {onOpenMoveModal && (
+                <button
+                  onClick={() => onOpenMoveModal(book)}
+                  className="bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 p-1.5 rounded transition-colors cursor-pointer"
+                  title="Mover curso"
+                >
+                  <FolderSymlink className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}, (prevProps, nextProps) => 
+  prevProps.book === nextProps.book && 
+  prevProps.height === nextProps.height && 
+  prevProps.width === nextProps.width && 
+  prevProps.colorClasses === nextProps.colorClasses && 
+  prevProps.isDragging === nextProps.isDragging && 
+  prevProps.isPlaceholder === nextProps.isPlaceholder
+);
+
+const SortableBookSpine = React.memo(function SortableBookSpine({
+  book,
+  height,
+  width,
+  colorClasses,
+  onSelectBook,
+  onOpenMoveModal,
+}: {
+  book: AulaBook;
+  height: number;
+  width: number;
+  colorClasses: string;
+  onSelectBook: (bookId: string) => void;
+  onOpenMoveModal: (book: AulaBook) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: book.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <BookSpine 
+        book={book} 
+        height={height}
+        width={width}
+        colorClasses={colorClasses}
+        onSelectBook={onSelectBook}
+        onOpenMoveModal={onOpenMoveModal}
+        isPlaceholder={isDragging}
+      />
+    </div>
+  );
+}, (prevProps, nextProps) => 
+  prevProps.book === nextProps.book && 
+  prevProps.height === nextProps.height && 
+  prevProps.width === nextProps.width && 
+  prevProps.colorClasses === nextProps.colorClasses
+);
+
 const DroppableFolder = React.memo(function DroppableFolder({
   id,
   children,
@@ -170,6 +346,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     folders,
     books,
     collections,
+    recentlyStudied,
     isLoading,
     addFolder,
     updateFolder,
@@ -201,6 +378,139 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [moveBookTarget, setMoveBookTarget] = useState<AulaBook | null>(null);
   const [showMoveSuccess, setShowMoveSuccess] = useState<string | null>(null);
+
+  // Shelf view mode: "grid" | "shelf3d"
+  const [shelfViewMode, setShelfViewMode] = useState<"grid" | "shelf3d">("grid");
+  // Global search state
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+
+  const getBookColor = (id: string) => {
+    const colors = [
+      "from-rose-800 to-rose-950 border-rose-700 text-rose-100",
+      "from-emerald-850 to-emerald-950 border-emerald-800 text-emerald-100",
+      "from-cyan-850 to-cyan-950 border-cyan-800 text-cyan-100",
+      "from-amber-900 to-amber-980 border-amber-800 text-amber-100",
+      "from-violet-900 to-violet-980 border-violet-850 text-violet-100",
+      "from-slate-800 to-slate-950 border-slate-750 text-slate-100",
+      "from-amber-950 to-orange-950 border-amber-900 text-amber-100",
+    ];
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  const getBookDimensions = (id: string) => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const height = 180 + (Math.abs(hash) % 40); // 180px to 220px
+    const width = 45 + (Math.abs(hash + 1) % 20); // 45px to 65px
+    return { height, width };
+  };
+
+  const getGlobalSearchResults = () => {
+    if (!globalSearchQuery.trim()) return { chapters: [], comments: [], questions: [] };
+
+    const query = globalSearchQuery.toLowerCase().trim();
+    const chaptersResult: { book: AulaBook; chapter: AulaChapter }[] = [];
+    const commentsResult: { book: AulaBook; chapter: AulaChapter; comment: any }[] = [];
+    const questionsResult: { book: AulaBook; chapter: AulaChapter; questionNumber: number; category: string }[] = [];
+
+    books.forEach((book) => {
+      (book.chapters || []).forEach((chapter) => {
+        // 1. Search in chapter theory content / title
+        if (
+          chapter.title.toLowerCase().includes(query) ||
+          (chapter.content && chapter.content.toLowerCase().includes(query))
+        ) {
+          chaptersResult.push({ book, chapter });
+        }
+
+        // 2. Search in chapter comments
+        (chapter.comments || []).forEach((comment) => {
+          if (comment.body.toLowerCase().includes(query) || comment.selectedText.toLowerCase().includes(query)) {
+            commentsResult.push({ book, chapter, comment });
+          }
+        });
+
+        // 3. Search in chapter questions
+        if (chapter.relatedQuestions) {
+          const rq = chapter.relatedQuestions;
+          if (rq.observacao && rq.observacao.toLowerCase().includes(query)) {
+            questionsResult.push({ book, chapter, questionNumber: 0, category: "Observação: " + rq.observacao });
+          }
+          const num = parseInt(query);
+          if (!isNaN(num)) {
+            if (rq.questoes_principais?.includes(num)) {
+              questionsResult.push({ book, chapter, questionNumber: num, category: "Questão Principal" });
+            }
+            if (rq.questoes_secundarias_que_misturam_com_aulas_futuras?.includes(num)) {
+              questionsResult.push({ book, chapter, questionNumber: num, category: "Questão Secundária" });
+            }
+            rq.por_secao?.forEach(sec => {
+              if (sec.questoes?.includes(num)) {
+                questionsResult.push({ book, chapter, questionNumber: num, category: `Seção: ${sec.secao}` });
+              }
+            });
+          }
+        }
+      });
+    });
+
+    return {
+      chapters: chaptersResult.slice(0, 15),
+      comments: commentsResult.slice(0, 15),
+      questions: questionsResult.slice(0, 15),
+    };
+  };
+
+  const globalSearchResults = getGlobalSearchResults();
+
+  // Render shelves view
+  const renderShelves = () => {
+    const shelfSize = 6;
+    const shelvesCount = Math.ceil(currentBooks.length / shelfSize);
+    const shelves = [];
+    for (let i = 0; i < shelvesCount; i++) {
+      shelves.push(currentBooks.slice(i * shelfSize, (i + 1) * shelfSize));
+    }
+
+    return (
+      <div className="space-y-16 py-8">
+        {shelves.map((shelfBooks, shelfIdx) => (
+          <div key={shelfIdx} className="relative pb-6 border-b-8 border-amber-950 shadow-[0_12px_16px_rgba(0,0,0,0.5)]">
+            {/* Shelf Wood Plank Visual (Glow/3D Effect) */}
+            <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-r from-amber-900 via-amber-950 to-amber-900 border-t border-[#8B5A2B]/40 shadow-inner z-10 animate-in fade-in duration-300" />
+            
+            {/* Books container */}
+            <div className="flex items-end gap-3 px-6 h-60 relative z-0">
+              {shelfBooks.map((book) => {
+                const { height, width } = getBookDimensions(book.id);
+                const colorClasses = getBookColor(book.id);
+                
+                return (
+                  <div key={book.id} className="relative group/spine">
+                    <SortableBookSpine 
+                      book={book} 
+                      height={height}
+                      width={width}
+                      colorClasses={colorClasses}
+                      onSelectBook={onSelectBook}
+                      onOpenMoveModal={setMoveBookTarget}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -382,6 +692,27 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
             <Upload className="w-4 h-4" />
           </label>
           <button
+            onClick={() => setGlobalSearchOpen(true)}
+            className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-[#D4AF37] hover:text-[#e5c158] px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider mr-2"
+            title="Busca Global Indexada"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          <input
+            type="file"
+            accept=".json"
+            className="hidden"
+            id="aulas-backup-upload"
+            onChange={handleImportBackup}
+          />
+          <label
+            htmlFor="aulas-backup-upload"
+            className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider cursor-pointer"
+            title="Importar Backup JSON"
+          >
+            <Upload className="w-4 h-4" />
+          </label>
+          <button
             onClick={handleExportBackup}
             className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider mr-2"
             title="Exportar Backup JSON"
@@ -398,6 +729,54 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           </button>
         </div>
       </header>
+
+      {/* Continuar Estudando Carrossel */}
+      {recentlyStudied && recentlyStudied.length > 0 && (
+        <section className="mb-10 bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-lg animate-in fade-in duration-300">
+          <h2 className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest mb-4 flex items-center gap-2">
+            <span>Continuar Estudando</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {recentlyStudied.map((item) => {
+              const book = books.find(b => b.id === item.bookId);
+              const chapter = book?.chapters.find(c => c.id === item.chapterId);
+              
+              return (
+                <div
+                  key={`${item.bookId}-${item.chapterId}`}
+                  onClick={() => onSelectBook(item.bookId)}
+                  className="bg-slate-950/50 border border-slate-850 hover:border-[#D4AF37]/55 rounded-lg p-3.5 cursor-pointer hover:scale-[1.02] hover:bg-slate-950 transition-all flex flex-col justify-between h-32 group"
+                >
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                      {item.bookTitle}
+                    </span>
+                    <h3 className="text-xs font-semibold text-slate-200 mt-1 line-clamp-2 group-hover:text-[#D4AF37] transition-colors leading-snug">
+                      {item.chapterTitle}
+                    </h3>
+                  </div>
+                  
+                  <div className="mt-4 shrink-0">
+                    <div className="flex items-center justify-between text-[9px] text-slate-500 mb-1">
+                      <span>Status</span>
+                      <span className={chapter?.readAt ? "text-emerald-400 font-bold" : "text-slate-400"}>
+                        {chapter?.readAt ? "Lido" : "Pendente"}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-900 rounded-full h-1 overflow-hidden">
+                      <div 
+                        className={`h-1 rounded-full ${chapter?.readAt ? "bg-emerald-500" : "bg-[#D4AF37]"}`}
+                        style={{ width: chapter?.readAt ? "100%" : "30%" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {folders.length === 0 ? (
         <div className="text-center py-20 bg-slate-900 rounded-lg border-2 border-slate-800 border-dashed">
@@ -570,11 +949,40 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-2 border-b border-slate-800 gap-3">
-              <h2 className="text-sm font-medium border-b-2 border-[#D4AF37] pb-1 -mb-[9px] text-slate-100">
-                {isFolderView
-                  ? folders.find((f) => f.id === currentView?.id)?.name
-                  : collections?.find((c) => c.id === currentView?.id)?.name}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-medium border-b-2 border-[#D4AF37] pb-1 -mb-[9px] text-slate-100">
+                  {isFolderView
+                    ? folders.find((f) => f.id === currentView?.id)?.name
+                    : collections?.find((c) => c.id === currentView?.id)?.name}
+                </h2>
+                {/* View Mode Toggle */}
+                {currentBooks.length > 0 && (
+                  <div className="flex items-center bg-slate-950 border border-slate-850 p-0.5 rounded ml-2">
+                    <button
+                      onClick={() => setShelfViewMode("grid")}
+                      className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
+                        shelfViewMode === "grid"
+                          ? "bg-[#D4AF37] text-slate-950"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      title="Exibição em Grade"
+                    >
+                      <Grid className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setShelfViewMode("shelf3d")}
+                      className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
+                        shelfViewMode === "shelf3d"
+                          ? "bg-[#D4AF37] text-slate-950"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      title="Exibição em Prateleira 3D"
+                    >
+                      <Layout className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
               {isFolderView && (
                 <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                   <button
@@ -619,36 +1027,216 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                 onDragCancel={() => setActiveDragId(null)}
               >
                 <SortableContext items={currentBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <AnimatePresence mode="popLayout">
-                      {currentBooks.map((book) => (
-                        <motion.div
-                          key={book.id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9, y: 15 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <SortableBookCard
-                            book={book}
-                            onSelectBook={onSelectBook}
-                            onOpenMoveModal={setMoveBookTarget}
-                            isSortingDisabled={isCollectionView}
-                          />
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
+                  {shelfViewMode === "shelf3d" ? (
+                    renderShelves()
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      <AnimatePresence mode="popLayout">
+                        {currentBooks.map((book) => (
+                          <motion.div
+                            key={book.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <SortableBookCard
+                              book={book}
+                              onSelectBook={onSelectBook}
+                              onOpenMoveModal={setMoveBookTarget}
+                              isSortingDisabled={isCollectionView}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </SortableContext>
                 <DragOverlay dropAnimation={null}>
                   {activeDragId ? (
                     <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">
-                      <BookCard book={books.find((b) => b.id === activeDragId)!} isDragging />
+                      {shelfViewMode === "shelf3d" ? (
+                        <div style={{ height: "200px", width: "60px" }}>
+                          <BookSpine 
+                            book={books.find((b) => b.id === activeDragId)!} 
+                            height={200}
+                            width={60}
+                            colorClasses={getBookColor(activeDragId)}
+                            isDragging
+                          />
+                        </div>
+                      ) : (
+                        <BookCard book={books.find((b) => b.id === activeDragId)!} isDragging />
+                      )}
                     </div>
                   ) : null}
                 </DragOverlay>
               </DndContext>
             )}
+          </div>
+        </div>
+      )}
+
+      {globalSearchOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[70vh] relative">
+            <button
+              onClick={() => {
+                setGlobalSearchOpen(false);
+                setGlobalSearchQuery("");
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1 transition-colors cursor-pointer"
+              title="Fechar busca"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-serif italic text-slate-100 mb-2 flex items-center gap-2">
+              <Search className="w-5 h-5 text-[#D4AF37]" />
+              Busca Global Indexada
+            </h3>
+            <p className="text-slate-400 text-xs mb-4">
+              Pesquise termos em teorias, comentários e questões de todos os seus cursos.
+            </p>
+
+            <div className="relative group w-full mb-6 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-[#D4AF37] transition-colors" />
+              <input
+                type="text"
+                placeholder="Digite o termo de busca..."
+                value={globalSearchQuery}
+                onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-10 py-2.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-sm text-slate-100 font-sans w-full transition-all"
+                autoFocus
+              />
+              {globalSearchQuery && (
+                <button
+                  onClick={() => setGlobalSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
+              {globalSearchQuery.trim() ? (
+                <>
+                  {/* Category: Aulas / Teoria */}
+                  {globalSearchResults.chapters.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] border-b border-slate-800 pb-1.5">
+                        Teoria e Aulas ({globalSearchResults.chapters.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {globalSearchResults.chapters.map(({ book, chapter }) => (
+                          <div
+                            key={chapter.id}
+                            onClick={() => {
+                              setGlobalSearchOpen(false);
+                              onSelectBook(book.id);
+                            }}
+                            className="bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">{book.title}</span>
+                              <span className="text-[9px] font-bold text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded">Aula</span>
+                            </div>
+                            <strong className="text-xs text-slate-200 block">{chapter.title}</strong>
+                            {chapter.content && (
+                              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2 italic font-serif">
+                                {chapter.content.replace(/[#*`_]/g, "").substring(0, 150)}...
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category: Comentários */}
+                  {globalSearchResults.comments.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-blue-450 border-b border-slate-800 pb-1.5">
+                        Anotações e Comentários ({globalSearchResults.comments.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {globalSearchResults.comments.map(({ book, chapter, comment }) => (
+                          <div
+                            key={comment.id}
+                            onClick={() => {
+                              setGlobalSearchOpen(false);
+                              onSelectBook(book.id);
+                            }}
+                            className="bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">
+                                {book.title} | {chapter.title}
+                              </span>
+                              <span className="text-[9px] font-bold text-blue-450 bg-blue-500/10 px-1.5 py-0.5 rounded">Comentário</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 border-l-2 border-blue-500 pl-2 mb-2 italic">
+                              "{comment.selectedText}"
+                            </p>
+                            <strong className="text-xs text-slate-200 block font-sans font-normal">
+                              {comment.body}
+                            </strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category: Questões */}
+                  {globalSearchResults.questions.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-450 border-b border-slate-800 pb-1.5">
+                        Questões e Observações ({globalSearchResults.questions.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {globalSearchResults.questions.map(({ book, chapter, questionNumber, category }) => (
+                          <div
+                            key={`${chapter.id}-q-${questionNumber}`}
+                            onClick={() => {
+                              setGlobalSearchOpen(false);
+                              onSelectBook(book.id);
+                            }}
+                            className="bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">
+                                {book.title} | {chapter.title}
+                              </span>
+                              <span className="text-[9px] font-bold text-emerald-450 bg-emerald-500/10 px-1.5 py-0.5 rounded">Questão</span>
+                            </div>
+                            <strong className="text-xs text-slate-200 block">
+                              {questionNumber > 0 ? `Questão #${questionNumber}` : "Observação Geral"}
+                            </strong>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              Grupo/Vínculo: {category}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {globalSearchResults.chapters.length === 0 &&
+                    globalSearchResults.comments.length === 0 &&
+                    globalSearchResults.questions.length === 0 && (
+                      <div className="text-center py-12 border border-dashed border-slate-800 rounded-lg">
+                        <p className="text-slate-500 text-xs">Nenhum resultado encontrado para "{globalSearchQuery}"</p>
+                      </div>
+                    )}
+                </>
+              ) : (
+                <div className="text-center py-12 text-slate-500 text-xs italic">
+                  Comece a digitar para pesquisar em toda a sua estante de estudos.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

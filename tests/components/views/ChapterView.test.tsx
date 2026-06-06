@@ -71,6 +71,9 @@ vi.mock('../../../stores/aulasStore', () => ({
   useAulasStore: () => ({
     books: mockBooks,
     updateChapter: mockUpdateChapter,
+    addRecentlyStudied: vi.fn(),
+    setChapterConfidence: vi.fn(),
+    updateChapterStudyTime: vi.fn(),
   })
 }));
 

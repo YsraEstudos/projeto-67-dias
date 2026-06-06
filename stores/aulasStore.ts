@@ -3,7 +3,7 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { AulaBook, AulaChapter, AulaFolder, AulaCollection } from '../types';
+import { AulaBook, AulaChapter, AulaFolder, AulaCollection, RecentlyStudiedItem } from '../types';
 import { writeToFirestore, getCurrentUserId, writeItemToSubcollection, deleteItemFromSubcollection } from './firestoreSync';
 import { readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
 import { generateUUID } from '../utils/uuid';
@@ -81,6 +81,7 @@ interface AulasState {
     folders: AulaFolder[];
     books: AulaBook[];
     collections: AulaCollection[];
+    recentlyStudied: RecentlyStudiedItem[];
     isLoading: boolean;
     _initialized: boolean;
 
@@ -106,13 +107,17 @@ interface AulasState {
     reorderChapters: (bookId: string, oldIndex: number, newIndex: number) => void;
     moveChapter: (sourceBookId: string, targetBookId: string, chapterId: string, newPosition?: number) => void;
 
-    importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[] }) => void;
+    addRecentlyStudied: (bookId: string, chapterId: string) => void;
+    setChapterConfidence: (bookId: string, chapterId: string, confidence: 'easy' | 'medium' | 'hard') => void;
+    updateChapterStudyTime: (bookId: string, chapterId: string, seconds: number) => void;
+
+    importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[]; recentlyStudied?: any[] }) => void;
 
     setLoading: (loading: boolean) => void;
 
     // Internal Sync
     _syncToFirestore: () => void;
-    _hydrateFromFirestore: (data: { folders: AulaFolder[]; collections: AulaCollection[] } | null) => void;
+    _hydrateFromFirestore: (data: { folders: AulaFolder[]; collections: AulaCollection[]; books?: AulaBook[]; recentlyStudied?: RecentlyStudiedItem[] } | null) => void;
     _hydrateBooksFromSubcollection: (books: AulaBook[]) => void;
     _reset: () => void;
 }
@@ -151,6 +156,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
     folders: [],
     books: [],
     collections: [],
+    recentlyStudied: [],
     isLoading: true,
     _initialized: false,
 
@@ -426,10 +432,78 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         get()._syncToFirestore();
     },
 
+    addRecentlyStudied: (bookId, chapterId) => {
+        set((state) => {
+            const book = state.books.find(b => b.id === bookId);
+            const chapter = book?.chapters.find(c => c.id === chapterId);
+            if (!book || !chapter) return;
+
+            // Remove if already exists to move to top
+            state.recentlyStudied = state.recentlyStudied.filter(
+                item => !(item.bookId === bookId && item.chapterId === chapterId)
+            );
+
+            // Add at the beginning
+            state.recentlyStudied.unshift({
+                bookId,
+                chapterId,
+                bookTitle: book.title,
+                chapterTitle: chapter.title,
+                accessedAt: new Date().toISOString()
+            });
+
+            // Keep only latest 5
+            if (state.recentlyStudied.length > 5) {
+                state.recentlyStudied = state.recentlyStudied.slice(0, 5);
+            }
+        });
+        get()._syncToFirestore();
+    },
+
+    setChapterConfidence: (bookId, chapterId, confidence) => {
+        const daysMap = {
+            easy: 7,
+            medium: 3,
+            hard: 1
+        };
+
+        const days = daysMap[confidence];
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + days);
+        const nextReviewDate = nextDate.toISOString().split('T')[0];
+
+        set((state) => {
+            const book = state.books.find(b => b.id === bookId);
+            const ch = book?.chapters.find(c => c.id === chapterId);
+            if (ch) {
+                ch.confidence = confidence;
+                ch.nextReviewDate = nextReviewDate;
+            }
+        });
+
+        const updated = get().books.find(b => b.id === bookId);
+        if (updated) syncBookToSubcollection(updated);
+        get()._syncToFirestore();
+    },
+
+    updateChapterStudyTime: (bookId, chapterId, seconds) => {
+        set((state) => {
+            const book = state.books.find(b => b.id === bookId);
+            const ch = book?.chapters.find(c => c.id === chapterId);
+            if (ch) {
+                ch.studyTimeSeconds = (ch.studyTimeSeconds || 0) + seconds;
+            }
+        });
+
+        const updated = get().books.find(b => b.id === bookId);
+        if (updated) syncBookToSubcollection(updated);
+        get()._syncToFirestore();
+    },
+
     importBackupData: (backupData) => {
         const newBookIds: string[] = [];
         set((state) => {
-            const { folders: incomingFolders, books: incomingBooks, collections: incomingCollections } = backupData;
+            const { folders: incomingFolders, books: incomingBooks, collections: incomingCollections, recentlyStudied: incomingRecentlyStudied } = backupData as any;
             
             if (!Array.isArray(incomingFolders)) return;
 
@@ -501,6 +575,22 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
                     });
                 });
             }
+            if (Array.isArray(incomingRecentlyStudied)) {
+                state.recentlyStudied = incomingRecentlyStudied.map((item: any) => {
+                    const mappedBookId = bookIdMap.get(item.bookId);
+                    if (!mappedBookId) return null;
+                    const book = state.books.find(b => b.id === mappedBookId);
+                    const chapter = book?.chapters.find(c => c.title === item.chapterTitle);
+                    if (!book || !chapter) return null;
+                    return {
+                        bookId: mappedBookId,
+                        chapterId: chapter.id,
+                        bookTitle: book.title,
+                        chapterTitle: chapter.title,
+                        accessedAt: item.accessedAt
+                    };
+                }).filter(Boolean) as RecentlyStudiedItem[];
+            }
         });
 
         // Sync new books to Firestore subcollection
@@ -519,12 +609,12 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
     setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
-        const { folders, collections, books, _initialized } = get();
+        const { folders, collections, books, recentlyStudied, _initialized } = get();
         const userId = getCurrentUserId();
-        const payload = { folders, collections };
+        const payload = { folders, collections, recentlyStudied };
 
         // Keep local backup (folders, collections + offline cache of books)
-        writeLocalBackup({ folders, collections, books });
+        writeLocalBackup({ folders, collections, books, recentlyStudied } as any);
 
         if (!userId) return;
 
@@ -540,6 +630,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         if (!fallback) {
             set((state) => {
                 state.folders = DEFAULT_FOLDERS;
+                state.recentlyStudied = [];
                 state.isLoading = false;
                 state._initialized = true;
             });
@@ -551,12 +642,16 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             set((state) => {
                 state.folders = deduplicateById(fallback.folders || []);
                 state.collections = deduplicateById(fallback.collections || []);
+                if (fallback && 'recentlyStudied' in fallback) {
+                    state.recentlyStudied = (fallback as any).recentlyStudied || [];
+                }
                 state.isLoading = false;
             });
         } else {
             set((state) => {
                 state.folders = deduplicateById(fallback.folders || DEFAULT_FOLDERS);
                 state.collections = deduplicateById(fallback.collections || []);
+                state.recentlyStudied = (fallback as any).recentlyStudied || [];
                 if (fallback.books && state.books.length === 0) {
                     state.books = deduplicateById(fallback.books || []);
                 }
@@ -583,6 +678,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             state.folders = [];
             state.books = [];
             state.collections = [];
+            state.recentlyStudied = [];
             state.isLoading = true;
             state._initialized = false;
         });

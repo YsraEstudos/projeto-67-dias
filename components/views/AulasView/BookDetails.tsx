@@ -108,12 +108,26 @@ const SortableChapterItem = React.memo(function SortableChapterItem({
       </div>
 
       {/* Title & Info */}
-      <div onClick={onSelect} className="flex-1 cursor-pointer min-w-0 pr-2">
+      <div onClick={() => onSelect(chapter.id)} className="flex-1 cursor-pointer min-w-0 pr-2">
         <h3 className="text-sm font-medium text-slate-200 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2 truncate">
           {chapter.title}
           {chapter.readAt && (
             <span title="Lida">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            </span>
+          )}
+          {chapter.confidence && (
+            <span 
+              className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase tracking-wider font-sans border shrink-0 ${
+                chapter.confidence === 'easy'
+                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                  : chapter.confidence === 'medium'
+                  ? "bg-blue-500/15 text-blue-400 border-blue-500/25"
+                  : "bg-amber-500/15 text-amber-400 border-amber-500/25"
+              }`}
+              title={`Confiança: ${chapter.confidence === 'easy' ? 'Fácil' : chapter.confidence === 'medium' ? 'Média' : 'Difícil'}`}
+            >
+              {chapter.confidence === 'easy' ? 'Fácil' : chapter.confidence === 'medium' ? 'Médio' : 'Difícil'}
             </span>
           )}
         </h3>

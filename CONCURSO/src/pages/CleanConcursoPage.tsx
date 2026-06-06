@@ -220,6 +220,7 @@ const RestDayNoteArea = ({ date, initialNote, onSave }: RestDayNoteAreaProps) =>
   const [localNote, setLocalNote] = useState(initialNote);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalNote(initialNote);
   }, [date, initialNote]);
 

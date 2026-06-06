@@ -21,7 +21,7 @@ export interface AulaStorageAsset {
 }
 
 export interface AulaAttachmentMap {
-  [headingSlug: string]: AulaStorageAsset;
+  [headingSlug: string]: string;
 }
 
 export interface AulaChapterComment {
@@ -71,15 +71,27 @@ export interface AulaChapter {
   correctQuestions?: number[];
   incorrectQuestions?: number[];
   difficultQuestions?: number[];
+  confidence?: 'easy' | 'medium' | 'hard';
+  nextReviewDate?: string;
+  studyTimeSeconds?: number;
+  timerSeconds?: number;
   comments?: AulaChapterComment[];
   questionAttempts?: Record<string, QuestionStats>;
+}
+
+export interface RecentlyStudiedItem {
+  bookId: string;
+  chapterId: string;
+  bookTitle: string;
+  chapterTitle: string;
+  accessedAt: string;
 }
 
 export interface AulaBook {
   id: string;
   folderId: string;
   title: string;
-  coverImage: AulaStorageAsset | null;
+  coverImage: string | null;
   targetDate: string | null; // Data ISO
   position: number;
   chapters: AulaChapter[];

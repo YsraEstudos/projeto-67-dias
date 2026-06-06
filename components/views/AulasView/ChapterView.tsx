@@ -1,12 +1,17 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ImagePlus, X, Edit, Eye, Save, Trash2, Bookmark, Highlighter, CheckCircle, CheckCircle2, ClipboardCopy, FileJson, MessageSquare, Check, RotateCcw, Sparkles, ChevronDown, BookOpen, Menu, History, TrendingUp, LineChart } from "lucide-react";
 import { extractTextFromReactNode, generateSlug, fileToBase64, cn } from "./utils";
 import { AulaRelatedQuestions, QuestionAttempt, QuestionStats } from "../../../types";
+import CodeTerminal from "./CodeTerminal";
+import Scratchpad from "./Scratchpad";
 
 interface ChapterViewProps {
   bookId: string;
@@ -15,11 +20,23 @@ interface ChapterViewProps {
 }
 
 export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewProps) {
-  const { books, updateChapter } = useAulasStore();
+  const { books, updateChapter, addRecentlyStudied, setChapterConfidence, updateChapterStudyTime } = useAulasStore();
 
   const [editMode, setEditMode] = useState(false);
   const [markdownInput, setMarkdownInput] = useState("");
   const [isEditingContent, setIsEditingContent] = useState(false);
+
+  // Focus Timer state
+  const [timerDuration, setTimerDuration] = useState(15);
+  const [timerRemaining, setTimerRemaining] = useState(900);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerEnded, setTimerEnded] = useState(false);
+  const [showTimerSettings, setShowTimerSettings] = useState(false);
+  const [completedBeforeTimer, setCompletedBeforeTimer] = useState(false);
+
+  // Confidence & Scratchpad state
+  const [showConfidenceDialog, setShowConfidenceDialog] = useState(false);
+  const [showScratchpad, setShowScratchpad] = useState(false);
   const [questionsJsonDialogOpen, setQuestionsJsonDialogOpen] = useState(false);
   const [questionsJsonText, setQuestionsJsonText] = useState("");
   const [questionPromptCopied, setQuestionPromptCopied] = useState(false);
@@ -48,6 +65,59 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
   const book = books.find((b) => b.id === bookId);
   const chapter = book?.chapters.find((c) => c.id === chapterId);
+
+  // Study time tracker
+  const studySecondsRef = useRef(0);
+
+  useEffect(() => {
+    if (bookId && chapterId) {
+      addRecentlyStudied(bookId, chapterId);
+    }
+    studySecondsRef.current = 0;
+
+    const timer = setInterval(() => {
+      studySecondsRef.current += 1;
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      const seconds = studySecondsRef.current;
+      if (seconds > 5 && bookId && chapterId) {
+        updateChapterStudyTime(bookId, chapterId, seconds);
+      }
+    };
+  }, [bookId, chapterId, addRecentlyStudied, updateChapterStudyTime]);
+
+  // Sync Timer duration with chapter config
+  useEffect(() => {
+    if (chapter) {
+      const secs = chapter.timerSeconds || 900;
+      setTimerDuration(Math.floor(secs / 60));
+      setTimerRemaining(secs);
+      setTimerActive(false);
+      setTimerEnded(false);
+      setCompletedBeforeTimer(false);
+    }
+  }, [chapterId, chapter?.timerSeconds]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!timerActive || timerRemaining <= 0) return;
+
+    const interval = setInterval(() => {
+      setTimerRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setTimerActive(false);
+          setTimerEnded(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerActive, timerRemaining]);
 
   // Extract headings for Table of Contents
   const headings = React.useMemo(() => {
@@ -351,9 +421,25 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
   const toggleReadStatus = () => {
     if (chapter) {
+      const isMarkingRead = !chapter.readAt;
       updateChapter(book.id, chapter.id, {
         readAt: chapter.readAt ? undefined : new Date().toISOString(),
       });
+
+      if (isMarkingRead) {
+        if (timerActive || (timerRemaining > 0 && !timerEnded)) {
+          setCompletedBeforeTimer(true);
+          setTimerActive(false);
+          import("canvas-confetti").then((confetti) => {
+            confetti.default({
+              particleCount: 120,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+          });
+        }
+        setShowConfidenceDialog(true);
+      }
     }
   };
 
@@ -831,6 +917,81 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
             )}
           </div>
 
+          {/* Focus Timer Widget */}
+          {!isEditingContent && (
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2 py-1 rounded text-xs select-none relative">
+              <span 
+                className={cn(
+                  "font-mono cursor-pointer hover:text-[#D4AF37] select-none text-[11px]",
+                  timerActive && "text-yellow-400 animate-pulse font-semibold",
+                  timerEnded && "text-red-400 font-bold"
+                )}
+                onClick={() => setShowTimerSettings(!showTimerSettings)}
+                title="Configurar timer"
+              >
+                ⏱️ {Math.floor(timerRemaining / 60)}:{(timerRemaining % 60).toString().padStart(2, "0")}
+              </span>
+              
+              {timerActive ? (
+                <button 
+                  onClick={() => setTimerActive(false)}
+                  className="px-1 hover:text-[#D4AF37] text-slate-400 text-[9px] font-bold uppercase cursor-pointer bg-transparent border-0 outline-none"
+                >
+                  Pausar
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {
+                    if (timerRemaining <= 0) setTimerRemaining(timerDuration * 60);
+                    setTimerActive(true);
+                    setTimerEnded(false);
+                  }}
+                  className="px-1 hover:text-[#D4AF37] text-slate-400 text-[9px] font-bold uppercase cursor-pointer bg-transparent border-0 outline-none"
+                  disabled={completedBeforeTimer}
+                >
+                  Iniciar
+                </button>
+              )}
+              
+              {showTimerSettings && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowTimerSettings(false)} />
+                  <div className="absolute top-12 right-0 bg-slate-900 border border-slate-800 rounded-lg p-3 shadow-2xl z-50 w-44">
+                    <label className="block text-[9px] uppercase font-bold text-slate-400 mb-1.5 font-sans">
+                      Duração (minutos)
+                    </label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="number"
+                        min="1"
+                        max="120"
+                        value={timerDuration}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value) || 15);
+                          setTimerDuration(val);
+                        }}
+                        className="bg-slate-950 border border-slate-800 text-slate-100 px-2 py-1 rounded text-xs w-full focus:outline-none focus:border-[#D4AF37]"
+                      />
+                      <button
+                        onClick={() => {
+                          const secs = timerDuration * 60;
+                          setTimerRemaining(secs);
+                          setTimerEnded(false);
+                          setCompletedBeforeTimer(false);
+                          setShowTimerSettings(false);
+                          updateChapter(book.id, chapter.id, { timerSeconds: secs });
+                        }}
+                        className="bg-[#D4AF37] text-slate-950 px-2 py-1 rounded text-xs font-bold font-sans"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Mark read button */}
           <button
             onClick={toggleReadStatus}
@@ -881,6 +1042,22 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
             >
               {editMode ? <Eye className="w-4 h-4" /> : <ImagePlus className="w-4 h-4" />}
               <span className="hidden sm:inline">{editMode ? "Leitura" : "Anexos"}</span>
+            </button>
+          )}
+
+          {/* Scratchpad toggle */}
+          {!isEditingContent && (
+            <button
+              onClick={() => setShowScratchpad(!showScratchpad)}
+              className={cn(
+                "text-[9px] font-bold uppercase tracking-widest rounded flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer",
+                "px-2 py-2 sm:px-2.5 sm:py-1.5",
+                showScratchpad ? "bg-[#D4AF37] text-slate-950 border border-[#D4AF37]" : "bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-200"
+              )}
+              title={showScratchpad ? "Fechar Lousa" : "Abrir Lousa / Rascunho"}
+            >
+              <Highlighter className="w-4 h-4" />
+              <span className="hidden sm:inline">Lousa</span>
             </button>
           )}
         </div>
@@ -1180,8 +1357,8 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 </div>
               ) : (
                 <Markdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeRaw, rehypeKatex]}
                   components={markdownComponents}
                 >
                   {chapter.content}
@@ -1358,6 +1535,12 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
             </div>
           </aside>
         )}
+
+        {showScratchpad && !isEditingContent && !selectedImage && (
+          <aside className="w-80 border-l border-slate-900 bg-slate-950 flex flex-col shrink-0 sticky top-[120px] sm:top-[136px] h-[calc(100vh-120px)] sm:h-[calc(100vh-136px)]">
+            <Scratchpad onClose={() => setShowScratchpad(false)} />
+          </aside>
+        )}
       </main>
 
       {selectedHistoryQuestion !== null && (
@@ -1525,6 +1708,64 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {showConfidenceDialog && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-sm shadow-2xl relative text-center">
+            <button
+              onClick={() => setShowConfidenceDialog(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-serif italic text-slate-100 mb-2">
+              Aula Concluída!
+            </h3>
+            {completedBeforeTimer && (
+              <p className="text-xs text-emerald-400 font-semibold mb-4 animate-bounce">
+                🏆 Parabéns! Você concluiu a aula antes do tempo acabar!
+              </p>
+            )}
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              Como você avalia seu domínio e compreensão desse conteúdo?
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setChapterConfidence(book.id, chapter.id, "easy");
+                  setShowConfidenceDialog(false);
+                }}
+                className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                😊 Fácil (Revisar em 7 dias)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setChapterConfidence(book.id, chapter.id, "medium");
+                  setShowConfidenceDialog(false);
+                }}
+                className="w-full bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                😐 Médio (Revisar em 3 dias)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setChapterConfidence(book.id, chapter.id, "hard");
+                  setShowConfidenceDialog(false);
+                }}
+                className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                😰 Difícil (Revisar amanhã)
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2557,6 +2798,7 @@ const CodeBlock: React.FC<any> = ({ className, children, ...props }) => {
   const language = match ? match[1] : "";
   const codeString = String(children).replace(/\n$/, "");
   const [copied, setCopied] = React.useState(false);
+  const [showTerminal, setShowTerminal] = React.useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(codeString);
@@ -2574,6 +2816,7 @@ const CodeBlock: React.FC<any> = ({ className, children, ...props }) => {
     );
   }
 
+  const isRunnable = language === "js" || language === "javascript" || language === "html" || language === "css";
   const langLabel = language.toUpperCase();
 
   return (
@@ -2582,28 +2825,50 @@ const CodeBlock: React.FC<any> = ({ className, children, ...props }) => {
         <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] font-sans">
           {langLabel || "código"}
         </span>
-        <button
-          onClick={handleCopy}
-          className="text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider font-sans cursor-pointer focus:outline-none"
-        >
-          {copied ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-400">Copiado!</span>
-            </>
-          ) : (
-            <>
-              <ClipboardCopy className="w-3.5 h-3.5" />
-              <span>Copiar</span>
-            </>
+        <div className="flex items-center gap-3">
+          {isRunnable && (
+            <button
+              onClick={() => setShowTerminal(!showTerminal)}
+              className={cn(
+                "transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider font-sans cursor-pointer focus:outline-none",
+                showTerminal ? "text-[#D4AF37]" : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>{showTerminal ? "Fechar Sandbox" : "Executar Sandbox"}</span>
+            </button>
           )}
-        </button>
+          <button
+            onClick={handleCopy}
+            className="text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider font-sans cursor-pointer focus:outline-none"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400">Copiado!</span>
+              </>
+            ) : (
+              <>
+                <ClipboardCopy className="w-3.5 h-3.5" />
+                <span>Copiar</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
       <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono bg-slate-950 text-slate-100 select-text">
         <code className="block select-text">
           <HighlightedCode code={codeString} language={language} />
         </code>
       </pre>
+      {showTerminal && (
+        <div className="border-t border-slate-800 bg-slate-950">
+          <CodeTerminal 
+            language={language === "javascript" ? "js" : (language as any)} 
+            initialCode={codeString} 
+          />
+        </div>
+      )}
     </div>
   );
 };

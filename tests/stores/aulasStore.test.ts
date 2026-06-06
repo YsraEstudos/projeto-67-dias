@@ -97,6 +97,7 @@ describe('aulasStore', () => {
         expect(writeToFirestoreMock).toHaveBeenCalledWith('p67_aulas_config', {
             folders: state.folders,
             collections: state.collections,
+            recentlyStudied: state.recentlyStudied,
         });
     });
 
