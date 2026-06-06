@@ -281,25 +281,24 @@ export const buildCleanCalendarEvents = (
         topicIds: [],
         submatterId: null,
       });
-      return events;
-    }
-
-    (plan?.manualBlocks ?? []).filter(isStudyPlanBlock).forEach((block) => {
-      const eventId = `${date}-${block.id}`;
-      events.push({
-        id: eventId,
-        date,
-        title: block.title,
-        subtitle: getManualBlockSubjectLabel(block),
-        tone: 'study',
-        kind: 'study',
-        status: getProgressStatus(calendarEventProgress, eventId),
-        blockId: block.id,
-        block,
-        topicIds: getBlockTopicIds(block),
-        submatterId: null,
+    } else {
+      (plan?.manualBlocks ?? []).filter(isStudyPlanBlock).forEach((block) => {
+        const eventId = `${date}-${block.id}`;
+        events.push({
+          id: eventId,
+          date,
+          title: block.title,
+          subtitle: getManualBlockSubjectLabel(block),
+          tone: 'study',
+          kind: 'study',
+          status: getProgressStatus(calendarEventProgress, eventId),
+          blockId: block.id,
+          block,
+          topicIds: getBlockTopicIds(block),
+          submatterId: null,
+        });
       });
-    });
+    }
 
     if (plan?.hasSimulado) {
       const eventId = `${date}-simulado`;
@@ -337,17 +336,19 @@ export const buildCleanCalendarEvents = (
 
     (failuresByDate.get(date) ?? []).forEach((reschedule) => {
       const eventId = `${date}-${reschedule.blockId}`;
+      const block = reschedule.block ?? null;
+      const topicIds = block ? getBlockTopicIds(block) : [];
       events.push({
         id: `${eventId}-failed`,
         date,
-        title: reschedule.title ?? 'Bloco falhou e foi realocado',
-        subtitle: reschedule.subtitle ?? 'Falha registrada no calendário',
+        title: reschedule.title ?? (block?.title ? `${block.area}: ${block.title}` : 'Bloco falhou e foi realocado'),
+        subtitle: reschedule.subtitle ?? (block ? getManualBlockSubjectLabel(block) : 'Falha registrada no calendário'),
         tone: 'failed',
         kind: 'failed',
         status: 'failed',
         blockId: reschedule.blockId,
-        block: null,
-        topicIds: [],
+        block,
+        topicIds,
         submatterId: null,
       });
     });

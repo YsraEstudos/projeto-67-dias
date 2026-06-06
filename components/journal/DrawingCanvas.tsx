@@ -98,24 +98,48 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         return () => window.removeEventListener('resize', updateSize);
     }, []);
 
-    // Redraw canvas when strokes change
+    const initializedRef = useRef(false);
+    const bgImageRef = useRef<HTMLImageElement | null>(null);
+    const [bgImageLoaded, setBgImageLoaded] = useState(false);
+
+    // Preload background image
+    useEffect(() => {
+        const src = currentPage?.imageDataUrl;
+        if (!src) {
+            bgImageRef.current = null;
+            setBgImageLoaded(false);
+            return;
+        }
+        setBgImageLoaded(false);
+        const img = new Image();
+        img.onload = () => {
+            if (currentPage?.imageDataUrl === src) {
+                bgImageRef.current = img;
+                setBgImageLoaded(true);
+            }
+        };
+        img.src = src;
+    }, [currentPage?.imageDataUrl, currentPage?.id]);
+
+    // Redraw canvas when strokes or background image load status changes
     useEffect(() => {
         redrawCanvas();
-    }, [strokes, currentPageIndex]);
+    }, [strokes, currentPageIndex, bgImageLoaded]);
 
-    // Load existing pages
+    // Load existing pages only once on mount
     useEffect(() => {
-        if (existingPages.length > 0) {
+        if (!initializedRef.current && existingPages.length > 0) {
             const loadedPages: PageData[] = existingPages.map(p => ({
                 id: p.id,
                 strokes: [],
                 imageDataUrl: p.storageUrl
             }));
             setPages(loadedPages);
+            initializedRef.current = true;
         }
     }, [existingPages]);
 
-    // PERF: Memoized redraw function
+    // PERF: Memoized redraw function (fully synchronous)
     const redrawCanvas = useCallback(() => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
@@ -127,18 +151,12 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
-        // Load existing image if available
-        if (currentPage?.imageDataUrl) {
-            const img = new Image();
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0, canvas.width / dpr, canvas.height / dpr);
-                drawStrokes(ctx, strokes);
-            };
-            img.src = currentPage.imageDataUrl;
-        } else {
-            drawStrokes(ctx, strokes);
+        // Draw background image if loaded
+        if (bgImageRef.current && bgImageLoaded) {
+            ctx.drawImage(bgImageRef.current, 0, 0, canvas.width / dpr, canvas.height / dpr);
         }
-    }, [strokes, currentPage]);
+        drawStrokes(ctx, strokes);
+    }, [strokes, bgImageLoaded, drawStrokes]);
 
     // PERF: Extracted stroke drawing for reuse
     const drawStrokes = useCallback((ctx: CanvasRenderingContext2D, strokeList: Stroke[]) => {

@@ -39,6 +39,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
   const [selectedText, setSelectedText] = useState("");
+  const [selectedContext, setSelectedContext] = useState("");
   const [clickedMarkRect, setClickedMarkRect] = useState<DOMRect | null>(null);
   const [clickedMarkText, setClickedMarkText] = useState("");
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
@@ -70,6 +71,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       if (editMode || isEditingContent) {
         setSelectionRect(null);
         setSelectedText("");
+        setSelectedContext("");
         setClickedMarkRect(null);
         setClickedMarkText("");
         return;
@@ -80,8 +82,17 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
         const text = selection.toString().trim();
         if (text.length > 0) {
           const range = selection.getRangeAt(0);
+          
+          let node: Node | null = range.startContainer;
+          if (node.nodeType !== Node.ELEMENT_NODE) {
+            node = node.parentNode;
+          }
+          const container = (node as HTMLElement)?.closest("p, li, h1, h2, h3, h4, h5, h6, pre");
+          const context = container?.textContent?.trim() || "";
+
           setSelectionRect(range.getBoundingClientRect());
           setSelectedText(text);
+          setSelectedContext(context);
           setClickedMarkRect(null);
           setClickedMarkText("");
           return;
@@ -89,6 +100,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       }
       setSelectionRect(null);
       setSelectedText("");
+      setSelectedContext("");
     };
 
     document.addEventListener("selectionchange", handleSelectionChange);
@@ -97,37 +109,33 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
   React.useEffect(() => {
     if (isEditingContent || headings.length === 0) return;
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
 
-    const handleScroll = () => {
-      const headingElements = headings
-        .map((h) => document.getElementById(h.slug))
-        .filter((el): el is HTMLElement => el !== null);
-
-      const scrollBuffer = 150;
-      let currentActive: string | null = null;
-
-      for (const el of headingElements) {
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= scrollBuffer) {
-          currentActive = el.id;
-        } else {
-          break;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length > 0) {
+          setActiveScrollSlug(visible[0].target.id);
         }
+      },
+      {
+        rootMargin: "-150px 0px -70% 0px",
       }
+    );
 
-      if (!currentActive && headingElements.length > 0) {
-        currentActive = headingElements[0].id;
+    const elementsToObserve: HTMLElement[] = [];
+    headings.forEach((h) => {
+      const el = document.getElementById(h.slug);
+      if (el) {
+        observer.observe(el);
+        elementsToObserve.push(el);
       }
+    });
 
-      if (currentActive) {
-        setActiveScrollSlug(currentActive);
-      }
+    return () => {
+      elementsToObserve.forEach((el) => observer.unobserve(el));
+      observer.disconnect();
     };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-
-    return () => window.removeEventListener("scroll", handleScroll);
   }, [headings, isEditingContent]);
 
   React.useEffect(() => {
@@ -152,29 +160,61 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
   if (!book || !chapter) return <div className="p-12 text-center text-slate-100">Curso ou Aula não encontrados.</div>;
 
+  const replaceSelectedTextInContent = (replacement: string) => {
+    if (!selectedText || !chapter) return null;
+
+    const content = chapter.content;
+
+    // Use context text to find the correct paragraph to avoid overwriting duplicate first-occurrences
+    if (selectedContext) {
+      const paragraphs = content.split(/\n\n+/);
+      let matchedIndex = -1;
+      let maxScore = 0;
+
+      paragraphs.forEach((p, idx) => {
+        if (p.includes(selectedText)) {
+          const pWords = new Set(p.split(/\s+/));
+          const score = selectedContext.split(/\s+/).filter(w => pWords.has(w)).length;
+          if (score > maxScore) {
+            maxScore = score;
+            matchedIndex = idx;
+          }
+        }
+      });
+
+      if (matchedIndex !== -1) {
+        paragraphs[matchedIndex] = paragraphs[matchedIndex].replace(selectedText, replacement);
+        return paragraphs.join("\n\n");
+      }
+    }
+
+    if (content.includes(selectedText)) {
+      return content.replace(selectedText, replacement);
+    }
+
+    const escapedText = selectedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const flexibleRegex = new RegExp(escapedText.replace(/\\n|\s+/g, "[\\s\\n*_#`]+"), "i");
+    const match = content.match(flexibleRegex);
+
+    if (!match) return null;
+
+    return content.replace(match[0], replacement.replace(selectedText, match[0]));
+  };
+
   const handleHighlight = () => {
     if (!selectedText || !chapter) return;
 
-    let newContent = chapter.content;
+    const newContent = replaceSelectedTextInContent(`<mark>${selectedText}</mark>`);
 
-    if (newContent.includes(selectedText)) {
-      newContent = newContent.replace(selectedText, `<mark>${selectedText}</mark>`);
-    } else {
-      const escapedText = selectedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const flexibleRegex = new RegExp(escapedText.replace(/\\n|\s+/g, "[\\s\\n*_#`]+"), "i");
-      const match = newContent.match(flexibleRegex);
-
-      if (match) {
-        newContent = newContent.replace(match[0], `<mark>${match[0]}</mark>`);
-      } else {
-        alert(
-          "Não foi possível grifar. O texto selecionado pode conter espaços invisíveis ou formatação muito complexa (tente selecionar um trecho menor)."
-        );
-        window.getSelection()?.removeAllRanges();
-        setSelectionRect(null);
-        setSelectedText("");
-        return;
-      }
+    if (!newContent) {
+      alert(
+        "Não foi possível grifar. O texto selecionado pode conter espaços invisíveis ou formatação muito complexa (tente selecionar um trecho menor)."
+      );
+      window.getSelection()?.removeAllRanges();
+      setSelectionRect(null);
+      setSelectedText("");
+      setSelectedContext("");
+      return;
     }
 
     updateChapter(book.id, chapter.id, { content: newContent });
@@ -182,22 +222,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     window.getSelection()?.removeAllRanges();
     setSelectionRect(null);
     setSelectedText("");
-  };
-
-  const replaceSelectedTextInContent = (replacement: string) => {
-    if (!selectedText || !chapter) return null;
-
-    if (chapter.content.includes(selectedText)) {
-      return chapter.content.replace(selectedText, replacement);
-    }
-
-    const escapedText = selectedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const flexibleRegex = new RegExp(escapedText.replace(/\\n|\s+/g, "[\\s\\n*_#`]+"), "i");
-    const match = chapter.content.match(flexibleRegex);
-
-    if (!match) return null;
-
-    return chapter.content.replace(match[0], replacement.replace(selectedText, match[0]));
+    setSelectedContext("");
   };
 
   const openCommentDialog = () => {
@@ -2188,7 +2213,7 @@ interface QuestionPillProps {
   size?: "sm" | "md";
 }
 
-function QuestionPill({
+const QuestionPill = React.memo(function QuestionPill({
   number,
   status,
   isDifficult,
@@ -2365,7 +2390,7 @@ function QuestionPill({
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 interface Token {
   type: string;

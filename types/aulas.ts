@@ -13,8 +13,15 @@ export interface AulaCollection {
   bookIds: string[];
 }
 
+export interface AulaStorageAsset {
+  storageUrl: string;
+  storagePath: string;
+  width: number;
+  height: number;
+}
+
 export interface AulaAttachmentMap {
-  [headingSlug: string]: string; // URL base64 da imagem
+  [headingSlug: string]: AulaStorageAsset;
 }
 
 export interface AulaChapterComment {
@@ -72,7 +79,7 @@ export interface AulaBook {
   id: string;
   folderId: string;
   title: string;
-  coverImage: string | null; // URL base64 da imagem
+  coverImage: AulaStorageAsset | null;
   targetDate: string | null; // Data ISO
   position: number;
   chapters: AulaChapter[];

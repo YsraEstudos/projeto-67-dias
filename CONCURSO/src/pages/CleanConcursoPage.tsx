@@ -19,7 +19,7 @@ import {
   Trophy,
   XCircle,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppContext } from '../app/AppContext';
 import {
   END_DATE,
@@ -121,10 +121,9 @@ const pickPlanItemGrade = (
 
 const hasPlanItemReviewNow = (
   topicIds: string[],
-  reviewQueue: ReturnType<typeof buildReviewQueue>,
+  topicsNeedingReviewSet: Set<string>,
 ): boolean => {
-  const targetIds = new Set(topicIds);
-  return reviewQueue.some((item) => targetIds.has(item.topicId) && item.needsReview);
+  return topicIds.some((id) => topicsNeedingReviewSet.has(id));
 };
 
 const createInitialStudyProgress = (questionGoal = 30): StudyProgressDraft => ({
@@ -211,6 +210,34 @@ const weekdayOptions = [
   { value: 6, label: 'Sábado' },
 ] as const;
 
+interface RestDayNoteAreaProps {
+  date: string;
+  initialNote: string;
+  onSave: (date: string, value: string) => void;
+}
+
+const RestDayNoteArea = ({ date, initialNote, onSave }: RestDayNoteAreaProps) => {
+  const [localNote, setLocalNote] = useState(initialNote);
+
+  useEffect(() => {
+    setLocalNote(initialNote);
+  }, [date, initialNote]);
+
+  return (
+    <textarea
+      value={localNote}
+      onChange={(event) => setLocalNote(event.target.value)}
+      onBlur={() => {
+        if (localNote !== initialNote) {
+          onSave(date, localNote);
+        }
+      }}
+      placeholder="Ex.: revisar Português na próxima semana, separar questões de RLM..."
+      rows={4}
+    />
+  );
+};
+
 export const CleanConcursoPage = () => {
   const {
     state,
@@ -251,6 +278,15 @@ export const CleanConcursoPage = () => {
     () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate),
     [state.topicSubmattersByTopic, state.selectedDate, topics],
   );
+  const topicsNeedingReview = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of reviewQueue) {
+      if (item.needsReview) {
+        set.add(item.topicId);
+      }
+    }
+    return set;
+  }, [reviewQueue]);
   const rollups = useMemo(
     () => buildTopicRollups(state.topicSubmattersByTopic, topics, state.selectedDate),
     [state.topicSubmattersByTopic, state.selectedDate, topics],
@@ -344,7 +380,7 @@ export const CleanConcursoPage = () => {
         return false;
       }
 
-      if (contentFilter === 'review' && !hasPlanItemReviewNow(item.topicIds, reviewQueue)) {
+      if (contentFilter === 'review' && !hasPlanItemReviewNow(item.topicIds, topicsNeedingReview)) {
         return false;
       }
 
@@ -360,7 +396,7 @@ export const CleanConcursoPage = () => {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [contentFilter, planContentItems, reviewQueue, rollups, search, subjectFilter]);
+  }, [contentFilter, planContentItems, topicsNeedingReview, rollups, search, subjectFilter]);
 
   const dashboardStats = useMemo(() => {
     const reviewNow = pendingReviewQueue.length;
@@ -469,11 +505,10 @@ export const CleanConcursoPage = () => {
   const renderRestDayPlanner = (date: string, note: string) => (
     <label className="clean-rest-planner">
       <span>Matéria ou revisão futura</span>
-      <textarea
-        value={note}
-        onChange={(event) => setDailyNote(date, event.target.value)}
-        placeholder="Ex.: revisar Português na próxima semana, separar questões de RLM..."
-        rows={4}
+      <RestDayNoteArea
+        date={date}
+        initialNote={note}
+        onSave={setDailyNote}
       />
       <small>Use este espaço para reservar uma matéria leve ou uma revisão futura sem tirar o dia do descanso fixo.</small>
     </label>

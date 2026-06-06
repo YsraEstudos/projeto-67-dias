@@ -93,10 +93,13 @@ const buildDashboardStudyItems = (
 };
 
 export const DashboardPage = () => {
-  const { state, dayPlans, dayPlansByDate, monthlyTargets, failManualBlock, updateChecklistItem } = useAppContext();
+  const { state, dayPlans, dayPlansByDate, monthlyTargets, failCalendarManualBlock, updateChecklistItem } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
   const selectedMonthKey = useMemo(() => state.selectedDate.slice(0, 7), [state.selectedDate]);
+
+  const restDayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  const restDayLabel = restDayNames[state.planSettings.restWeekday] ?? 'Domingo';
 
   const examProgress = useMemo(
     () => buildExamProgressSummary(state.dailyRecords, monthlyTargets),
@@ -179,7 +182,7 @@ export const DashboardPage = () => {
           kicker="Hoje"
           title="Progresso do dia"
           value={`${progress}%`}
-          subtitle={plan?.isRestDay ? 'Domingo de descanso' : formatIsoDatePtBr(state.selectedDate)}
+          subtitle={plan?.isRestDay ? `${restDayLabel} de descanso` : formatIsoDatePtBr(state.selectedDate)}
           emphasis="green"
         />
         <MetricCard
@@ -213,7 +216,7 @@ export const DashboardPage = () => {
             aside={<span className="eyebrow-badge">{plan?.hasSimulado || plan?.hasRedacao ? 'Evento especial' : 'Fluxo normal'}</span>}
           >
             {plan?.isRestDay ? (
-              <p>Domingo reservado para descanso e recuperação de energia.</p>
+              <p>{restDayLabel} reservado para descanso e recuperação de energia.</p>
             ) : plan?.planMode === 'manual' ? (
               <>
                 <p>
@@ -419,7 +422,7 @@ export const DashboardPage = () => {
                         <button
                           type="button"
                           className="dashboard-plan-task-fail"
-                          onClick={() => failManualBlock(state.selectedDate, manualBlock.id)}
+                          onClick={() => failCalendarManualBlock(state.selectedDate, manualBlock)}
                         >
                           Falhei
                         </button>

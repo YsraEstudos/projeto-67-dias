@@ -274,7 +274,6 @@ type Action =
   | { type: 'set-plan-start-date'; startDate: string }
   | { type: 'set-rest-weekday'; restWeekday: number }
   | { type: 'set-default-question-goal'; subject: SubjectKey; questionGoal: number }
-  | { type: 'fail-manual-block'; date: string; blockId: string; at: string }
   | { type: 'set-calendar-event-status'; eventId: string; status: CalendarEventStatus; at: string }
   | {
       type: 'save-calendar-event-draft';
@@ -504,27 +503,7 @@ export const appReducer = (state: AppState, action: Action): AppState => {
         },
       });
     }
-    case 'fail-manual-block': {
-      const hasSameFailure = state.manualBlockReschedules.some(
-        (item) => item.failedAt === action.date && item.blockId === action.blockId,
-      );
-      if (hasSameFailure) {
-        return state;
-      }
-
-      return markChanged({
-        ...state,
-        manualBlockReschedules: [
-          ...state.manualBlockReschedules,
-          {
-            id: createId(),
-            failedAt: action.date,
-            blockId: action.blockId,
-            createdAt: action.at,
-          },
-        ],
-      });
-    }
+    // Removed fail-manual-block case (use fail-calendar-manual-block)
     case 'set-calendar-event-status': {
       return markChanged(setCalendarEventProgress(state, action.eventId, action.status, action.at));
     }
@@ -592,6 +571,7 @@ export const appReducer = (state: AppState, action: Action): AppState => {
             subtitle: action.block.detail,
             subject: inferManualBlockSubject(action.block),
             previousProgress,
+            block: action.block,
             createdAt: action.at,
           },
         ],
@@ -973,7 +953,6 @@ interface AppContextValue {
   setPlanStartDate: (date: string) => void;
   setRestWeekday: (weekday: number) => void;
   setDefaultQuestionGoal: (subject: SubjectKey, questionGoal: number) => void;
-  failManualBlock: (date: string, blockId: string) => void;
   setCalendarEventStatus: (eventId: string, status: CalendarEventStatus) => void;
   saveCalendarEventDraft: (
     eventId: string,
@@ -1517,8 +1496,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setRestWeekday: (weekday) => dispatch({ type: 'set-rest-weekday', restWeekday: weekday }),
       setDefaultQuestionGoal: (subject, questionGoal) =>
         dispatch({ type: 'set-default-question-goal', subject, questionGoal }),
-      failManualBlock: (date, blockId) =>
-        dispatch({ type: 'fail-manual-block', date, blockId, at: nowIso() }),
       setCalendarEventStatus: (eventId, status) =>
         dispatch({ type: 'set-calendar-event-status', eventId, status, at: nowIso() }),
       saveCalendarEventDraft: (eventId, draft) =>

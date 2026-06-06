@@ -57,9 +57,9 @@ const SortableChapterItem = React.memo(function SortableChapterItem({
 }: {
   chapter: AulaChapter;
   originalIndex: number;
-  onSelect: () => void;
+  onSelect: (id: string) => void;
   otherBooks: any[];
-  onMoveChapter: (targetBookId: string) => void;
+  onMoveChapter: (chapterId: string, targetBookId: string) => void;
   isSortingDisabled: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -101,7 +101,7 @@ const SortableChapterItem = React.memo(function SortableChapterItem({
 
       {/* Index Badge */}
       <div
-        onClick={onSelect}
+        onClick={() => onSelect(chapter.id)}
         className="w-8 h-8 shrink-0 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-400 mr-4 group-hover:bg-[#D4AF37] group-hover:text-slate-950 group-hover:border-[#D4AF37] transition-colors cursor-pointer"
       >
         {String(originalIndex + 1).padStart(2, "0")}
@@ -153,7 +153,7 @@ const SortableChapterItem = React.memo(function SortableChapterItem({
                       key={ob.id}
                       type="button"
                       onClick={() => {
-                        onMoveChapter(ob.id);
+                        onMoveChapter(chapter.id, ob.id);
                         setShowOptions(false);
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-900 transition-colors truncate"
@@ -168,7 +168,7 @@ const SortableChapterItem = React.memo(function SortableChapterItem({
         )}
 
         <button
-          onClick={onSelect}
+          onClick={() => onSelect(chapter.id)}
           className="flex items-center gap-1 text-slate-400 hover:text-slate-200 text-[10px] font-semibold uppercase tracking-widest px-2 py-1.5 hover:bg-slate-850 rounded border border-transparent hover:border-slate-850 transition-colors cursor-pointer"
         >
           Ler
@@ -231,7 +231,15 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
   
   // Drag & drop state
   const [showTransferPanel, setShowTransferPanel] = useState(false);
@@ -333,15 +341,29 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
     }
   };
 
-  const filteredChapters = (book.chapters || [])
-    .map((c, i) => ({ ...c, originalIndex: i }))
-    .filter((chapter) => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        chapter.title.toLowerCase().includes(searchLower) ||
-        (chapter.content && chapter.content.toLowerCase().includes(searchLower))
-      );
-    });
+  const filteredChapters = React.useMemo(() => {
+    const searchLower = debouncedSearchTerm.toLowerCase().trim();
+    if (!searchLower) {
+      return (book.chapters || []).map((c, i) => ({ ...c, originalIndex: i }));
+    }
+    return (book.chapters || [])
+      .map((c, i) => ({ ...c, originalIndex: i }))
+      .filter((chapter) => {
+        return (
+          chapter.title.toLowerCase().includes(searchLower) ||
+          (chapter.content && chapter.content.toLowerCase().includes(searchLower))
+        );
+      });
+  }, [book.chapters, debouncedSearchTerm]);
+
+  const handleSelectChapter = React.useCallback((chapterId: string) => {
+    onSelectChapter(chapterId);
+  }, [onSelectChapter]);
+
+  const handleMoveChapter = React.useCallback((chapterId: string, targetBookId: string) => {
+    moveChapter(book.id, targetBookId, chapterId);
+    alert(`Aula transferida com sucesso!`);
+  }, [book.id, moveChapter]);
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
@@ -601,12 +623,9 @@ Regras:
                       key={chapter.id}
                       chapter={chapter}
                       originalIndex={chapter.originalIndex}
-                      onSelect={() => onSelectChapter(chapter.id)}
+                      onSelect={handleSelectChapter}
                       otherBooks={otherBooks}
-                      onMoveChapter={(targetBookId) => {
-                        moveChapter(book.id, targetBookId, chapter.id);
-                        alert(`Aula "${chapter.title}" transferida com sucesso!`);
-                      }}
+                      onMoveChapter={handleMoveChapter}
                       isSortingDisabled={!!searchTerm}
                     />
                   ))}

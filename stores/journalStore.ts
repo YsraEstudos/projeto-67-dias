@@ -92,9 +92,13 @@ export const useJournalStore = create<JournalState>()((set, get) => ({
             entries: state.entries.map(e => {
                 if (e.id !== entryId) return e;
                 const pages = e.drawingPages || [];
+                const exists = pages.some(p => p.id === page.id);
+                const nextPages = exists
+                    ? pages.map(p => p.id === page.id ? page : p)
+                    : [...pages, page];
                 return {
                     ...e,
-                    drawingPages: [...pages, page],
+                    drawingPages: nextPages,
                     updatedAt: Date.now()
                 };
             })

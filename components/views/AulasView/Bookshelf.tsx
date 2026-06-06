@@ -33,6 +33,7 @@ interface BookCardProps {
   onOpenMoveModal?: (book: AulaBook) => void;
   isDragging?: boolean;
   isPlaceholder?: boolean;
+  isSortingDisabled?: boolean;
 }
 
 const BookCard = React.memo(function BookCard({
@@ -41,6 +42,7 @@ const BookCard = React.memo(function BookCard({
   onOpenMoveModal,
   isDragging = false,
   isPlaceholder = false,
+  isSortingDisabled = false,
 }: BookCardProps) {
   return (
     <div
@@ -48,6 +50,8 @@ const BookCard = React.memo(function BookCard({
       className={`bg-slate-900 rounded-lg shadow-xl border-[4px] border-slate-800 overflow-hidden flex flex-col group h-72 relative ${
         isDragging
           ? "cursor-grabbing border-[#D4AF37]"
+          : isSortingDisabled
+          ? "cursor-pointer hover:scale-[1.02] transition-transform"
           : "cursor-grab active:cursor-grabbing hover:scale-[1.02] transition-transform"
       } ${isPlaceholder ? "opacity-25" : ""}`}
     >
@@ -103,12 +107,17 @@ const SortableBookCard = React.memo(function SortableBookCard({
   book,
   onSelectBook,
   onOpenMoveModal,
+  isSortingDisabled,
 }: {
   book: AulaBook;
   onSelectBook: (bookId: string) => void;
   onOpenMoveModal: (book: AulaBook) => void;
+  isSortingDisabled: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: book.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: book.id,
+    disabled: isSortingDisabled,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -122,10 +131,11 @@ const SortableBookCard = React.memo(function SortableBookCard({
         onSelectBook={onSelectBook} 
         onOpenMoveModal={onOpenMoveModal} 
         isPlaceholder={isDragging} 
+        isSortingDisabled={isSortingDisabled}
       />
     </div>
   );
-}, (prevProps, nextProps) => prevProps.book === nextProps.book);
+}, (prevProps, nextProps) => prevProps.book === nextProps.book && prevProps.isSortingDisabled === nextProps.isSortingDisabled);
 
 const DroppableFolder = React.memo(function DroppableFolder({
   id,
@@ -623,6 +633,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                             book={book}
                             onSelectBook={onSelectBook}
                             onOpenMoveModal={setMoveBookTarget}
+                            isSortingDisabled={isCollectionView}
                           />
                         </motion.div>
                       ))}

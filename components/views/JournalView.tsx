@@ -16,6 +16,29 @@ import {
 } from './journal/journalFormatting';
 
 import { Mood, MOOD_CONFIG } from '../../types';
+import { deleteAllDrawingsForEntry } from '../../services/storageService';
+
+// Timezone-safe local date generator
+const getLocalISODate = () => {
+    const tzOffset = new Date().getTimezoneOffset() * 60000;
+    return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
+};
+
+const MOOD_RING_CLASSES: Record<Mood, string> = {
+    great: 'ring-green-500/50',
+    good: 'ring-yellow-500/50',
+    neutral: 'ring-blue-500/50',
+    bad: 'ring-orange-500/50',
+    terrible: 'ring-red-500/50',
+};
+
+const MOOD_BG_CLASSES: Record<Mood, string> = {
+    great: 'bg-green-400',
+    good: 'bg-yellow-400',
+    neutral: 'bg-blue-400',
+    bad: 'bg-orange-400',
+    terrible: 'bg-red-400',
+};
 
 // Lazy load components
 const GoalsTab = React.lazy(() => import('../journal/GoalsTab'));
@@ -29,7 +52,7 @@ type UIJournalEntry = JournalEntry;
 const INITIAL_ENTRIES: UIJournalEntry[] = [
     {
         id: `initial_${Date.now()}`,
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalISODate(),
         content: "Hoje foi um dia produtivo. Consegui finalizar o módulo de trabalho do projeto. Me sinto um pouco cansado, mas satisfeito com o progresso.",
         isSaved: false,
         mood: 'great', // Matches Mood type
@@ -96,7 +119,7 @@ const MoodSelector: React.FC<{ current: Mood; onSelect: (m: Mood) => void }> = (
                         onClick={() => onSelect(key)}
                         title={config.label}
                         className={`p-2.5 rounded-xl transition-all duration-300 relative group ${isSelected
-                            ? `bg-slate-800 ${config.color} ring-2 ring-offset-2 ring-offset-slate-900 ring-${config.color.split('-')[1]}-500/50 scale-110 shadow-lg`
+                            ? `bg-slate-800 ${config.color} ring-2 ring-offset-2 ring-offset-slate-900 ${MOOD_RING_CLASSES[key]} scale-110 shadow-lg`
                             : 'bg-slate-800/50 text-slate-500 hover:bg-slate-800 hover:scale-105 hover:text-slate-300'
                             }`}
                     >
@@ -136,6 +159,47 @@ const JournalView: React.FC = () => {
     // Resolved Selected ID
     const selectedId = activeTabId ? tabSelectedId || null : localSelectedId;
 
+    // Derived State
+    const activeEntry = useMemo(() =>
+        entries.find(e => e.id === selectedId) as UIJournalEntry | null,
+        [entries, selectedId]);
+
+    // Editor local content and debounced update references to prevent typing lag
+    const [localContent, setLocalContent] = useState('');
+    const debouncedUpdateRef = useRef<((id: string, content: string) => void) | null>(null);
+    const activeEntryIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (activeEntry && activeEntry.entryType !== 'drawing') {
+            const isSaved = isJournalEntrySaved(activeEntry);
+            const hasIdChanged = activeEntry.id !== activeEntryIdRef.current;
+            if (isSaved || hasIdChanged) {
+                setLocalContent(activeEntry.content || '');
+            }
+            activeEntryIdRef.current = activeEntry.id;
+        } else {
+            setLocalContent('');
+            activeEntryIdRef.current = null;
+        }
+    }, [activeEntry?.id, activeEntry?.content]);
+
+    useEffect(() => {
+        let timeoutId: NodeJS.Timeout;
+        debouncedUpdateRef.current = (id: string, content: string) => {
+            if (process.env.NODE_ENV === 'test') {
+                handleUpdateEntry(id, { content });
+                return;
+            }
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                handleUpdateEntry(id, { content });
+            }, 300);
+        };
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [storeUpdateEntry]);
+
     // Main tab state (journal vs goals)
     const [activeMainTab, setActiveMainTab] = useState<'journal' | 'goals'>('journal');
 
@@ -149,6 +213,10 @@ const JournalView: React.FC = () => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const setSelectedId = (id: string | null) => {
+        // Flush any pending local editor updates before switching entries
+        if (activeEntry && activeEntry.entryType !== 'drawing') {
+            handleUpdateEntry(activeEntry.id, { content: localContent });
+        }
         if (activeTabId) {
             updateTabState(activeTabId, { selectedEntryId: id });
             // Push to browser history when selecting entry
@@ -182,16 +250,11 @@ const JournalView: React.FC = () => {
         }
     }, [isLoading, entries.length, addEntry]);
 
-    // Derived State
-    const activeEntry = useMemo(() =>
-        entries.find(e => e.id === selectedId) as UIJournalEntry | null,
-        [entries, selectedId]);
-
     // Handlers
     const handleCreateTextEntry = () => {
         const newEntry: UIJournalEntry = {
             id: Date.now().toString(),
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalISODate(),
             content: '',
             isSaved: false,
             mood: 'neutral',
@@ -207,7 +270,7 @@ const JournalView: React.FC = () => {
     const handleCreateDrawingEntry = () => {
         const newEntry: UIJournalEntry = {
             id: Date.now().toString(),
-            date: new Date().toISOString().split('T')[0],
+            date: getLocalISODate(),
             content: '',
             isSaved: false,
             entryType: 'drawing',
@@ -235,6 +298,9 @@ const JournalView: React.FC = () => {
 
     const handleToggleSaved = () => {
         if (!activeEntry) return;
+
+        // Flush any pending updates immediately before toggling save state
+        handleUpdateEntry(activeEntry.id, { content: localContent });
 
         handleUpdateEntry(activeEntry.id, {
             isSaved: !isJournalEntrySaved(activeEntry)
@@ -275,8 +341,19 @@ const JournalView: React.FC = () => {
         });
     }, [activeEntry, handleUpdateEntry]);
 
-    const handleDeleteEntry = (id: string) => {
+    const handleDeleteEntry = async (id: string) => {
+        const entry = entries.find(e => e.id === id);
+        if (!entry) return;
+
         if (confirm("Excluir esta entrada?")) {
+            if (entry.entryType === 'drawing' && entry.drawingPages && entry.drawingPages.length > 0) {
+                const paths = entry.drawingPages.map(p => p.storagePath).filter(Boolean) as string[];
+                try {
+                    await deleteAllDrawingsForEntry(id, paths);
+                } catch (err) {
+                    console.error("Failed to delete storage drawings:", err);
+                }
+            }
             storeDeleteEntry(id);
             if (selectedId === id) setSelectedId(null);
         }
@@ -358,7 +435,7 @@ const JournalView: React.FC = () => {
                                     </div>
 
                                     {/* Mood Indicator Dot */}
-                                    <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full shadow-sm ${entry.mood ? MOOD_CONFIG[entry.mood]?.color.replace('text-', 'bg-') : 'bg-slate-600'
+                                    <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full shadow-sm ${entry.mood ? MOOD_BG_CLASSES[entry.mood] : 'bg-slate-600'
                                         }`}></div>
                                 </button>
                             ))}
@@ -424,8 +501,14 @@ const JournalView: React.FC = () => {
                                     </div>
                                     <textarea
                                         ref={textareaRef}
-                                        value={activeEntry.content}
-                                        onChange={(e) => handleUpdateEntry(activeEntry.id, { content: e.target.value })}
+                                        value={localContent}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setLocalContent(val);
+                                            if (activeEntry) {
+                                                debouncedUpdateRef.current?.(activeEntry.id, val);
+                                            }
+                                        }}
                                         placeholder="Como você está se sentindo hoje? O que você aprendeu? No que você progrediu?"
                                         className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 text-slate-200 resize-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 text-lg leading-relaxed scrollbar-thin placeholder:text-slate-600"
                                     />

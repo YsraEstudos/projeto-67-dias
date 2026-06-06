@@ -266,6 +266,7 @@ export interface ManualBlockReschedule {
   subtitle?: string;
   subject?: SubjectKey | null;
   previousProgress?: TopicProgressSnapshot[];
+  block?: ManualBlock;
   createdAt: string;
 }
 
