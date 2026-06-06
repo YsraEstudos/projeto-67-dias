@@ -123,7 +123,7 @@ describe('TimerWidget break selection', () => {
     render(<TimerWidget />);
 
     fireEvent.click(screen.getByTitle('Expandir timer'));
-    fireEvent.click(screen.getByRole('button', { name: /selecionar ou limpar tarefa/i }));
+    fireEvent.click(screen.getByRole('button', { name: /selecionar do cronograma/i }));
 
     expect(screen.getByText(/selecionar tarefa de foco/i)).toBeInTheDocument();
 
@@ -138,10 +138,10 @@ describe('TimerWidget break selection', () => {
     render(<TimerWidget />);
 
     fireEvent.click(screen.getByTitle('Expandir timer'));
-    fireEvent.click(screen.getByRole('button', { name: /selecionar ou limpar tarefa/i }));
+    fireEvent.click(screen.getByRole('button', { name: /selecionar do cronograma/i }));
     fireEvent.click(screen.getByRole('button', { name: /limpar seleção atual/i }));
 
     expect(usePomodoroStore.getState().activeTaskId).toBeNull();
-    expect(screen.getByText(/Desafios Diários Aleatórios/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma tarefa diária adicionada/i)).toBeInTheDocument();
   });
 });

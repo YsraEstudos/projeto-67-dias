@@ -26,6 +26,7 @@ export type Task = {
   isInfinite?: boolean;
   completedAt?: string | null;
   lastCompletedDate?: string | null;
+  isDailyQuickTask?: boolean;
 };
 
 export type Project = {

@@ -25,6 +25,7 @@ export default function App() {
     selectedTaskId,
     tasks,
     updateTask,
+    deleteTask,
     settings,
     activeTaskId,
     activeTaskSelectionDate,
@@ -59,6 +60,15 @@ export default function App() {
   useEffect(() => {
     const syncDailyState = () => {
       const todayStr = getLocalISODate();
+
+      const expiredDailyTaskIds = tasks
+        .filter((task) => task.isDailyQuickTask && task.createdAt?.split('T')[0] !== todayStr)
+        .map((task) => task.id);
+
+      if (expiredDailyTaskIds.length > 0) {
+        expiredDailyTaskIds.forEach((id) => deleteTask(id));
+        return;
+      }
 
       if (activeTaskId && activeTaskSelectionDate !== todayStr) {
         setActiveTaskId(null);
@@ -95,7 +105,7 @@ export default function App() {
     syncDailyState();
     const interval = globalThis.setInterval(syncDailyState, 60_000);
     return () => globalThis.clearInterval(interval);
-  }, [activeTaskId, activeTaskSelectionDate, setActiveTaskId, tasks, updateTask]);
+  }, [activeTaskId, activeTaskSelectionDate, setActiveTaskId, tasks, updateTask, deleteTask]);
 
   // Apply accent color to CSS variables.
   // During rest mode, we temporarily shift the primary color to purple so the timer feels distinct.

@@ -19,23 +19,6 @@ import {
 
 type BreakPickerTab = 'today' | 'otherDays' | 'quick';
 
-const DAILY_RANDOM_TASKS_POOL = [
-  "Estudar um tópico complexo por 25min",
-  "Revisar flashcards ou anotações recentes",
-  "Resolver 10 questões de fixação",
-  "Criar um mapa mental do último assunto estudado",
-  "Explicar um conceito em voz alta (Técnica Feynman)",
-  "Anotar 5 dúvidas para pesquisar depois",
-  "Organizar e limpar o ambiente de estudos",
-  "Revisar os erros da última lista de exercícios",
-  "Ler 5 páginas de um livro ou artigo técnico",
-  "Escrever um resumo de 3 parágrafos sobre a aula de hoje",
-  "Configurar e rodar um exemplo prático de código",
-  "Planejar o cronograma de estudos da semana",
-  "Resolver 1 desafio de código ou lógica",
-  "Fazer uma autoavaliação rápida do progresso diário"
-];
-
 export function TimerWidget() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -67,20 +50,158 @@ export function TimerWidget() {
     updateTask,
     toggleTask,
     addTask,
+    deleteTask,
     timerState,
     setTimerState,
   } = useStore();
 
-  const handleGenerateRandomTasks = () => {
-    const shuffled = [...DAILY_RANDOM_TASKS_POOL].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 3);
-    selected.forEach(taskTitle => {
-      addTask({
-        title: taskTitle,
-        completed: false,
-        estimatedPomodoros: 1
-      });
+  const [newDailyTaskTitle, setNewDailyTaskTitle] = useState('');
+
+  const handleCreateDailyQuickTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDailyTaskTitle.trim()) return;
+
+    addTask({
+      title: newDailyTaskTitle.trim(),
+      completed: false,
+      estimatedPomodoros: 1,
+      isDailyQuickTask: true,
     });
+    setNewDailyTaskTitle('');
+  };
+
+  const renderDailyTasksSection = (variant: 'expanded' | 'compact') => {
+    const dailyQuickTasks = tasks.filter(t => t.isDailyQuickTask);
+
+    return (
+      <div className="space-y-4">
+        {/* Form to Add Daily Task */}
+        <form onSubmit={handleCreateDailyQuickTask} className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Nova tarefa diária (ex: comer comida)..."
+            value={newDailyTaskTitle}
+            onChange={(e) => setNewDailyTaskTitle(e.target.value)}
+            className="flex-1 bg-slate-950/40 border border-slate-800/85 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[var(--color-primary)]/50 transition-colors"
+          />
+          <button
+            type="submit"
+            className="rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/80 text-white px-3 py-2 text-xs font-semibold transition-colors"
+          >
+            Adicionar
+          </button>
+        </form>
+
+        {/* Current Active Task Card */}
+        {activeTask && (
+          <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 relative overflow-hidden">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
+                <h4 className="text-xs font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTaskId(null)}
+                className="rounded-lg bg-slate-900/60 border border-slate-800 px-2 py-1 text-[9px] font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+              >
+                Limpar Foco
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Daily Tasks List */}
+        <div className={cn(
+          "space-y-2 overflow-y-auto pr-1 custom-scrollbar",
+          variant === 'compact' ? "max-h-[140px]" : "max-h-[220px]"
+        )}>
+          {dailyQuickTasks.length === 0 ? (
+            <div className="text-center py-6 border border-dashed border-slate-800/60 rounded-xl bg-slate-950/10">
+              <p className="text-[11px] text-[var(--color-text-muted)]">Nenhuma tarefa diária adicionada.</p>
+            </div>
+          ) : (
+            dailyQuickTasks.map((task) => {
+              const isActive = task.id === activeTaskId;
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => {
+                    if (isActive) {
+                      setActiveTaskId(null);
+                    } else {
+                      setActiveTaskId(task.id);
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center justify-between gap-3 p-2.5 rounded-xl border transition-all duration-200 cursor-pointer",
+                    isActive
+                      ? "border-[var(--color-primary)]/50 bg-[var(--color-primary)]/10"
+                      : "border-slate-800/60 bg-slate-900/20 hover:border-slate-700/60 hover:bg-slate-900/40"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTask(task.id);
+                      }}
+                      className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                    >
+                      {task.completed ? (
+                        <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400" />
+                      ) : (
+                        <Circle className="w-4.5 h-4.5" />
+                      )}
+                    </button>
+                    <span
+                      className={cn(
+                        "text-xs font-medium truncate",
+                        task.completed ? "line-through text-slate-500" : "text-slate-200",
+                        isActive && "font-semibold text-white"
+                      )}
+                    >
+                      {task.title}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isActive && (
+                      <span className="text-[9px] uppercase tracking-wider bg-[var(--color-primary)]/20 text-[var(--color-primary)] px-1.5 py-0.5 rounded font-semibold">
+                        Ativa
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteTask(task.id);
+                      }}
+                      className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors"
+                      title="Excluir tarefa"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Picker Button */}
+        <div className="pt-2 border-t border-slate-800/60">
+          <button
+            type="button"
+            onClick={() => setIsTaskPickerOpen(true)}
+            className="w-full rounded-xl border border-slate-800 bg-slate-900/40 hover:bg-slate-900/80 py-2 px-3 text-xs font-semibold text-slate-300 transition-colors"
+          >
+            Selecionar do Cronograma/Projetos
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const restActivities = useRestStore((state) => state.activities);
@@ -1755,56 +1876,7 @@ export function TimerWidget() {
                       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar text-left">
                         {activeTab === 'tasks' && (
                           <div className="space-y-4">
-                            {activeTask ? (
-                              <>
-                                <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
-                                  <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
-                                  <h4 className="text-base font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
-                                </div>
-                                {!isBreakMode && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setIsTaskPickerOpen(true)}
-                                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                                  >
-                                    Selecionar ou limpar tarefa
-                                  </button>
-                                )}
-                              </>
-                            ) : (
-                              <div className="relative overflow-hidden rounded-xl border border-slate-800/80 bg-gradient-to-br from-slate-950/40 to-slate-900/20 p-5 text-center backdrop-blur-sm group transition-all duration-300 hover:border-slate-700/60">
-                                <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-indigo-500/10 blur-xl group-hover:bg-indigo-500/20 transition-all duration-500" />
-                                <div className="absolute -left-8 -bottom-8 w-24 h-24 rounded-full bg-emerald-500/5 blur-xl group-hover:bg-emerald-500/10 transition-all duration-500" />
-                                
-                                <Sparkles className="w-5 h-5 mx-auto mb-2 text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
-                                <h4 className="text-xs font-semibold text-slate-200 mb-1">Desafios Diários Aleatórios</h4>
-                                <p className="text-[10px] text-slate-400 max-w-[220px] mx-auto mb-4 leading-relaxed">
-                                  Sem foco ativo? Gere tarefas de estudo aleatórias para turbinar sua rotina hoje.
-                                </p>
-                                
-                                <div className="space-y-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleGenerateRandomTasks}
-                                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-600 hover:to-violet-700 active:scale-[0.98] transition-all"
-                                  >
-                                    <Shuffle className="w-3.5 h-3.5" />
-                                    Gerar Tarefas Aleatórias
-                                  </button>
-                                  
-                                  {!isBreakMode && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setIsTaskPickerOpen(true)}
-                                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/30 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                                    >
-                                      Selecionar ou limpar tarefa
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
+                            {renderDailyTasksSection('expanded')}
                             {renderActiveTaskSubtasks('expanded')}
                           </div>
                         )}
@@ -2021,55 +2093,7 @@ export function TimerWidget() {
                 <div className="max-h-[280px] overflow-y-auto pr-1 mb-6 custom-scrollbar text-left">
                   {activeTab === 'tasks' && (
                     <div className="space-y-4">
-                      {activeTask ? (
-                        <>
-                          <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 relative overflow-hidden">
-                            <p className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] mb-1">Trabalhando em</p>
-                            <h4 className="text-sm font-semibold text-white leading-tight truncate">{activeTask.title}</h4>
-                          </div>
-                          {!isBreakMode && (
-                            <button
-                              type="button"
-                              onClick={() => setIsTaskPickerOpen(true)}
-                              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/35 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                            >
-                              Selecionar ou limpar tarefa
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <div className="relative overflow-hidden rounded-xl border border-slate-800/50 bg-gradient-to-br from-slate-950/40 to-slate-900/20 p-4 text-center backdrop-blur-sm group transition-all duration-300 hover:border-slate-700/50">
-                          <div className="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-indigo-500/5 blur-xl group-hover:bg-indigo-500/10 transition-all duration-500" />
-                          
-                          <Sparkles className="w-4 h-4 mx-auto mb-1 text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
-                          <h4 className="text-[11px] font-semibold text-slate-200 mb-0.5">Desafios Diários Aleatórios</h4>
-                          <p className="text-[9px] text-slate-400 max-w-[200px] mx-auto mb-3 leading-normal">
-                            Gere tarefas de estudo aleatórias para turbinar sua rotina hoje.
-                          </p>
-                          
-                          <div className="space-y-1.5">
-                            <button
-                              type="button"
-                              onClick={handleGenerateRandomTasks}
-                              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-md shadow-indigo-500/10 hover:from-indigo-600 hover:to-violet-700 active:scale-[0.98] transition-all"
-                            >
-                              <Shuffle className="w-3 h-3" />
-                              Gerar Tarefas Aleatórias
-                            </button>
-                            
-                            {!isBreakMode && (
-                              <button
-                                type="button"
-                                onClick={() => setIsTaskPickerOpen(true)}
-                                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-hover)]/35 py-2 px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/10"
-                              >
-                                Selecionar ou limpar tarefa
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
+                      {renderDailyTasksSection('compact')}
                       {renderActiveTaskSubtasks('expanded')}
                     </div>
                   )}
