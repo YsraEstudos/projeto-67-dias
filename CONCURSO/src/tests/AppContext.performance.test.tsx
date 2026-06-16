@@ -1,6 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppProvider, LOCAL_SNAPSHOT_DEBOUNCE_MS, useAppContext } from '../app/AppContext';
+import {
+  AppProvider,
+  LOCAL_SNAPSHOT_DEBOUNCE_MS,
+  useAppActionsContext,
+  useAppContext,
+} from '../app/AppContext';
 import * as storage from '../app/storage';
 
 const dateState = vi.hoisted(() => ({
@@ -50,6 +56,21 @@ const BatchProbe = () => {
         segunda mudanca
       </button>
       <p data-testid="batch-date">{state.selectedDate}</p>
+    </>
+  );
+};
+
+const ActionsOnlyProbe = () => {
+  const renders = useRef(0);
+  const { setDailyNote } = useAppActionsContext();
+  renders.current += 1;
+
+  return (
+    <>
+      <button type="button" onClick={() => setDailyNote('2026-03-15', 'nota rapida')}>
+        salvar nota
+      </button>
+      <p data-testid="actions-only-renders">{renders.current}</p>
     </>
   );
 };
@@ -112,6 +133,24 @@ describe('AppContext performance safeguards', () => {
 
     expect(storage.saveStateSnapshot).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('batch-date')).toHaveTextContent('2026-03-16');
+  });
+
+  it('mantem consumidores apenas de acoes fora de rerenders de estado', async () => {
+    render(
+      <AppProvider>
+        <ActionsOnlyProbe />
+      </AppProvider>,
+    );
+
+    expect(screen.getByTestId('actions-only-renders')).toHaveTextContent('1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'salvar nota' }));
+
+    await waitFor(() => {
+      expect(storage.saveStateSnapshot).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId('actions-only-renders')).toHaveTextContent('1');
   });
 
   it('sincroniza a data ativa ao cruzar a meia-noite e persiste a troca', async () => {

@@ -1058,7 +1058,25 @@ interface AppContextValue {
   syncToCloudNow: () => Promise<void>;
 }
 
+type AppStateContextValue = Pick<AppContextValue, 'state'>;
+type AppPlanContextValue = Pick<
+  AppContextValue,
+  'dayPlans' | 'dayPlansByDate' | 'topics' | 'leafTopics' | 'coverageMatrix' | 'monthlyTargets'
+>;
+type AppSyncContextValue = Pick<
+  AppContextValue,
+  'cloudSync' | 'connectGoogleCloud' | 'syncToCloudNow'
+>;
+type AppActionsContextValue = Omit<
+  AppContextValue,
+  keyof AppStateContextValue | keyof AppPlanContextValue | keyof AppSyncContextValue
+>;
+
 const AppContext = createContext<AppContextValue | null>(null);
+const AppStateContext = createContext<AppStateContextValue | null>(null);
+const AppPlanContext = createContext<AppPlanContextValue | null>(null);
+const AppActionsContext = createContext<AppActionsContextValue | null>(null);
+const AppSyncContext = createContext<AppSyncContextValue | null>(null);
 
 const createId = (): string => {
   if ('randomUUID' in crypto) {
@@ -1210,7 +1228,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const persistSnapshot = useCallback(
     async (mode: 'manual' | 'auto'): Promise<void> => {
-      const snapshot = buildSnapshot(state);
+      const sourceState = stateRef.current;
+      const snapshot = buildSnapshot(sourceState);
       const backupTime = nowIso();
 
       try {
@@ -1221,7 +1240,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             at: backupTime,
             mode: 'file',
             error: null,
-            fallbackAt: state.meta.backup.lastFallbackSnapshotAt,
+            fallbackAt: sourceState.meta.backup.lastFallbackSnapshotAt,
           });
         } else if (mode === 'manual') {
           downloadSnapshot(snapshot, `concurso-backup-${snapshot.exportedAt.slice(0, 10)}.json`);
@@ -1230,7 +1249,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             at: backupTime,
             mode: 'snapshot',
             error: null,
-            fallbackAt: state.meta.backup.lastFallbackSnapshotAt,
+            fallbackAt: sourceState.meta.backup.lastFallbackSnapshotAt,
           });
         } else {
           saveFallbackSnapshot(snapshot);
@@ -1249,12 +1268,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           at: backupTime,
           mode: backupHandleRef.current ? 'file' : 'snapshot',
           error: message,
-          fallbackAt: state.meta.backup.lastFallbackSnapshotAt,
+          fallbackAt: sourceState.meta.backup.lastFallbackSnapshotAt,
         });
         throw error;
       }
     },
-    [state],
+    [],
   );
 
   const syncSnapshotToCloud = useCallback(async (sourceState: AppState): Promise<void> => {
@@ -1478,15 +1497,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [state.meta.changeToken, syncSnapshotToCloud]);
 
-  const value = useMemo<AppContextValue>(
+  const appStateValue = useMemo<AppStateContextValue>(() => ({ state }), [state]);
+
+  const planValue = useMemo<AppPlanContextValue>(
     () => ({
-      state,
       dayPlans: planRuntime.dayPlans,
       dayPlansByDate: planRuntime.dayPlansByDate,
       topics: TOPICS,
       leafTopics: LEAF_TOPICS,
       coverageMatrix: COVERAGE_MATRIX,
       monthlyTargets: planRuntime.monthlyTargets,
+    }),
+    [planRuntime],
+  );
+
+  const actionsValue = useMemo<AppActionsContextValue>(
+    () => ({
       setMobilePinnedNav: (paths) => dispatch({ type: 'set-mobile-pinned-nav', paths }),
       pinMobileNavItem: (path, targetIndex) => dispatch({ type: 'pin-mobile-nav-item', path, targetIndex }),
       removeMobileNavItem: (path) => dispatch({ type: 'remove-mobile-nav-item', path }),
@@ -1686,7 +1712,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateProject: (id, patch) => dispatch({ type: 'update-project', id, patch }),
       removeProject: (id) => dispatch({ type: 'remove-project', id }),
       duplicateProject: (id) => {
-        const source = state.projects.find((project) => project.id === id);
+        const source = stateRef.current.projects.find((project) => project.id === id);
         if (!source) {
           return;
         }
@@ -1728,7 +1754,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }),
       runManualBackup: async () => {
         await persistSnapshot('manual');
-        lastBackedTokenRef.current = state.meta.changeToken;
+        lastBackedTokenRef.current = stateRef.current.meta.changeToken;
         lastAutoBackupTickRef.current = Date.now();
       },
       connectBackupFile: async () => {
@@ -1742,9 +1768,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         lastAutoBackupTickRef.current = Date.now();
       },
       exportSnapshot: () => {
-        const snapshot = buildSnapshot(state);
+        const snapshot = buildSnapshot(stateRef.current);
         downloadSnapshot(snapshot, `concurso-export-${snapshot.exportedAt.slice(0, 10)}.json`);
       },
+    }),
+    [persistSnapshot],
+  );
+
+  const syncValue = useMemo<AppSyncContextValue>(
+    () => ({
       cloudSync,
       connectGoogleCloud: async () => {
         setCloudSync({
@@ -1773,10 +1805,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
       },
     }),
-    [cloudSync, persistSnapshot, planRuntime, state, syncSnapshotToCloud],
+    [cloudSync, syncSnapshotToCloud],
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  const value = useMemo<AppContextValue>(
+    () => ({
+      ...appStateValue,
+      ...planValue,
+      ...actionsValue,
+      ...syncValue,
+    }),
+    [actionsValue, appStateValue, planValue, syncValue],
+  );
+
+  return (
+    <AppStateContext.Provider value={appStateValue}>
+      <AppPlanContext.Provider value={planValue}>
+        <AppActionsContext.Provider value={actionsValue}>
+          <AppSyncContext.Provider value={syncValue}>
+            <AppContext.Provider value={value}>{children}</AppContext.Provider>
+          </AppSyncContext.Provider>
+        </AppActionsContext.Provider>
+      </AppPlanContext.Provider>
+    </AppStateContext.Provider>
+  );
 };
 
 export const useAppContext = (): AppContextValue => {
@@ -1788,3 +1840,38 @@ export const useAppContext = (): AppContextValue => {
   return context;
 };
 
+export const useAppStateContext = (): AppStateContextValue => {
+  const context = useContext(AppStateContext);
+  if (!context) {
+    throw new Error('useAppStateContext precisa ser usado dentro de AppProvider.');
+  }
+
+  return context;
+};
+
+export const useAppPlanContext = (): AppPlanContextValue => {
+  const context = useContext(AppPlanContext);
+  if (!context) {
+    throw new Error('useAppPlanContext precisa ser usado dentro de AppProvider.');
+  }
+
+  return context;
+};
+
+export const useAppActionsContext = (): AppActionsContextValue => {
+  const context = useContext(AppActionsContext);
+  if (!context) {
+    throw new Error('useAppActionsContext precisa ser usado dentro de AppProvider.');
+  }
+
+  return context;
+};
+
+export const useAppSyncContext = (): AppSyncContextValue => {
+  const context = useContext(AppSyncContext);
+  if (!context) {
+    throw new Error('useAppSyncContext precisa ser usado dentro de AppProvider.');
+  }
+
+  return context;
+};

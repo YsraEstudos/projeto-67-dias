@@ -19,8 +19,8 @@ import {
   Trophy,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { useAppContext } from '../app/AppContext';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useAppActionsContext, useAppPlanContext, useAppStateContext } from '../app/AppContext';
 import {
   END_DATE,
   START_DATE,
@@ -70,6 +70,7 @@ type CalendarMonthDay<TEvent> = {
 };
 
 const gradeFilters: ContentFilter[] = ['all', 'review', 'A', 'B', 'C', 'D', 'E'];
+const EMPTY_CALENDAR_EVENTS: ReturnType<typeof buildCleanCalendarEvents> = [];
 
 const gradeLabel = (filter: ContentFilter): string => {
   if (filter === 'all') return 'Tudo';
@@ -109,6 +110,34 @@ const groupPlanItemsBySubject = (
       especificos: 0,
     },
   );
+
+const buildCalendarEventsByDate = <TEvent extends { date: string }>(
+  calendarEvents: TEvent[],
+): Map<string, TEvent[]> =>
+  calendarEvents.reduce<Map<string, TEvent[]>>((accumulator, event) => {
+    const dayEvents = accumulator.get(event.date);
+    if (dayEvents) {
+      dayEvents.push(event);
+    } else {
+      accumulator.set(event.date, [event]);
+    }
+    return accumulator;
+  }, new Map());
+
+const countCalendarStatuses = (events: Array<{ status: string }>) =>
+  events.reduce(
+    (accumulator, event) => {
+      if (event.status === 'done') {
+        accumulator.done += 1;
+      } else if (event.status === 'failed') {
+        accumulator.failed += 1;
+      }
+      return accumulator;
+    },
+    { done: 0, failed: 0 },
+  );
+
+const normalizePlanSearch = (query: string): string => query.trim().toLowerCase();
 
 const pickPlanItemGrade = (
   topicIds: string[],
@@ -240,11 +269,9 @@ const RestDayNoteArea = ({ date, initialNote, onSave }: RestDayNoteAreaProps) =>
 };
 
 export const CleanConcursoPage = () => {
+  const { state } = useAppStateContext();
+  const { topics, dayPlans, dayPlansByDate } = useAppPlanContext();
   const {
-    state,
-    topics,
-    dayPlans,
-    dayPlansByDate,
     setSelectedDate,
     completeCalendarEvent,
     failCalendarManualBlock,
@@ -257,11 +284,12 @@ export const CleanConcursoPage = () => {
     setPlanStartDate,
     setRestWeekday,
     setDefaultQuestionGoal,
-  } = useAppContext();
+  } = useAppActionsContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [subjectFilter, setSubjectFilter] = useState<'all' | SubjectKey>('all');
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [mappedTopicId, setMappedTopicId] = useState<string | null>(null);
   const [activeStudySession, setActiveStudySession] = useState<StudySession | null>(null);
   const [studyProgressBySession, setStudyProgressBySession] = useState<Record<string, StudyProgressDraft>>({});
@@ -329,23 +357,24 @@ export const CleanConcursoPage = () => {
   );
   const mappedSubmatters = mappedTopic ? state.topicSubmattersByTopic[mappedTopic.id] ?? [] : [];
   const calendarEventsByDate = useMemo(
-    () =>
-      calendarEvents.reduce<Map<string, typeof calendarEvents>>((accumulator, event) => {
-        const dayEvents = accumulator.get(event.date) ?? [];
-        dayEvents.push(event);
-        accumulator.set(event.date, dayEvents);
-        return accumulator;
-      }, new Map()),
+    () => buildCalendarEventsByDate(calendarEvents),
     [calendarEvents],
   );
   const calendarMonthDays = useMemo(
     () => buildCalendarMonthDays(calendarMonth, calendarEventsByDate),
     [calendarEventsByDate, calendarMonth],
   );
-  const selectedCalendarEvents = calendarEventsByDate.get(selectedCalendarDate) ?? [];
+  const selectedCalendarEvents = useMemo(
+    () => calendarEventsByDate.get(selectedCalendarDate) ?? EMPTY_CALENDAR_EVENTS,
+    [calendarEventsByDate, selectedCalendarDate],
+  );
   const selectedCalendarNote = state.dailyRecords[selectedCalendarDate]?.notes ?? '';
-  const selectedDoneEvents = selectedCalendarEvents.filter((event) => event.status === 'done').length;
-  const selectedFailedEvents = selectedCalendarEvents.filter((event) => event.status === 'failed').length;
+  const selectedCalendarStatusCounts = useMemo(
+    () => countCalendarStatuses(selectedCalendarEvents),
+    [selectedCalendarEvents],
+  );
+  const selectedDoneEvents = selectedCalendarStatusCounts.done;
+  const selectedFailedEvents = selectedCalendarStatusCounts.failed;
   const defaultQuestionGoals = state.planSettings.defaultQuestionGoals;
   const activeStudyProgress = activeStudySession
     ? studyProgressBySession[activeStudySession.id]
@@ -368,10 +397,9 @@ export const CleanConcursoPage = () => {
     () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, today, defaultQuestionGoals),
     [dayPlans, defaultQuestionGoals, state.calendarEventProgress, today],
   );
+  const normalizedDeferredSearch = useMemo(() => normalizePlanSearch(deferredSearch), [deferredSearch]);
 
   const filteredPlanItems = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-
     return planContentItems.filter((item) => {
       if (subjectFilter !== 'all' && item.subject !== subjectFilter) return false;
 
@@ -385,7 +413,7 @@ export const CleanConcursoPage = () => {
         return false;
       }
 
-      if (!normalizedSearch) return true;
+      if (!normalizedDeferredSearch) return true;
       return [
         item.block.title,
         item.block.detail,
@@ -395,9 +423,9 @@ export const CleanConcursoPage = () => {
       ]
         .join(' ')
         .toLowerCase()
-        .includes(normalizedSearch);
+        .includes(normalizedDeferredSearch);
     });
-  }, [contentFilter, planContentItems, topicsNeedingReview, rollups, search, subjectFilter]);
+  }, [contentFilter, normalizedDeferredSearch, planContentItems, topicsNeedingReview, rollups, subjectFilter]);
 
   const dashboardStats = useMemo(() => {
     const reviewNow = pendingReviewQueue.length;

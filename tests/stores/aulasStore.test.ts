@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAulasStore } from '../../stores/aulasStore';
 
 const {
@@ -28,6 +28,10 @@ describe('aulasStore', () => {
         useAulasStore.getState()._reset();
         useAulasStore.getState()._hydrateFromFirestore({ folders: [], collections: [] });
         vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('correctly maps folder and book IDs during importBackupData and updates hierarchy', () => {
@@ -163,5 +167,33 @@ describe('aulasStore', () => {
 
         expect(updatedTarget.chapters.map(c => c.title)).toEqual(['Chapter X', 'Chapter 2']);
         expect(updatedTarget.chapters.map(c => c.position)).toEqual([0, 1]);
+    });
+
+    it('debounces book subcollection writes when updating chapters', () => {
+        vi.useFakeTimers();
+
+        const store = useAulasStore.getState();
+        store.addFolder('Folder 1');
+        const folder = useAulasStore.getState().folders.find(f => f.name === 'Folder 1')!;
+
+        store.addBook(folder.id, 'Book 1');
+        const book = useAulasStore.getState().books.find(b => b.title === 'Book 1')!;
+
+        store.addChaptersJson(book.id, [{ title: 'Chapter A', content: 'Initial' }]);
+        const chapter = useAulasStore.getState().books.find(b => b.id === book.id)!.chapters[0];
+        writeItemToSubcollectionMock.mockClear();
+
+        store.updateChapter(book.id, chapter.id, { content: 'Draft 1' });
+        store.updateChapter(book.id, chapter.id, { content: 'Draft 2' });
+
+        expect(writeItemToSubcollectionMock).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(900);
+
+        const updatedBook = useAulasStore.getState().books.find(b => b.id === book.id)!;
+        expect(writeItemToSubcollectionMock).toHaveBeenCalledTimes(1);
+        expect(writeItemToSubcollectionMock).toHaveBeenCalledWith('p67_aulas_books', book.id, updatedBook);
+        expect(updatedBook.chapters[0].content).toBe('Draft 2');
+
     });
 });

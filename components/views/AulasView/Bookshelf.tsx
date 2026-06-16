@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
+import { useDebounce } from "../../../hooks/useDebounce";
 import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
 import { RecentlyStudiedItem } from "../../../types";
 import {
@@ -27,6 +28,163 @@ import { motion, AnimatePresence } from "motion/react";
 interface BookshelfProps {
   onSelectBook: (bookId: string) => void;
 }
+
+export type BookshelfSearchResults = {
+  chapters: { book: AulaBook; chapter: AulaChapter }[];
+  comments: { book: AulaBook; chapter: AulaChapter; comment: any }[];
+  questions: { book: AulaBook; chapter: AulaChapter; questionNumber: number; category: string }[];
+};
+
+type BookshelfChapterSearchEntry = {
+  book: AulaBook;
+  chapter: AulaChapter;
+  text: string;
+};
+
+type BookshelfCommentSearchEntry = {
+  book: AulaBook;
+  chapter: AulaChapter;
+  comment: any;
+  text: string;
+};
+
+type BookshelfQuestionSearchEntry = {
+  book: AulaBook;
+  chapter: AulaChapter;
+  questionNumber: number;
+  category: string;
+  text: string;
+};
+
+export type BookshelfSearchIndex = {
+  chapters: BookshelfChapterSearchEntry[];
+  comments: BookshelfCommentSearchEntry[];
+  questions: BookshelfQuestionSearchEntry[];
+};
+
+const EMPTY_SEARCH_RESULTS: BookshelfSearchResults = {
+  chapters: [],
+  comments: [],
+  questions: [],
+};
+
+const EMPTY_SEARCH_INDEX: BookshelfSearchIndex = {
+  chapters: [],
+  comments: [],
+  questions: [],
+};
+
+const INITIAL_RENDERED_BOOKS = 24;
+const RENDERED_BOOKS_INCREMENT = 24;
+const LARGE_LIBRARY_THRESHOLD = 48;
+
+const normalizeSearchText = (...parts: Array<string | number | null | undefined>): string =>
+  parts
+    .filter((part) => part !== null && part !== undefined)
+    .map((part) => String(part).toLowerCase())
+    .join(' ');
+
+export const buildBookshelfSearchIndex = (books: AulaBook[]): BookshelfSearchIndex => {
+  if (books.length === 0) return EMPTY_SEARCH_INDEX;
+
+  const chapters: BookshelfSearchIndex['chapters'] = [];
+  const comments: BookshelfSearchIndex['comments'] = [];
+  const questions: BookshelfSearchIndex['questions'] = [];
+
+  books.forEach((book) => {
+    (book.chapters || []).forEach((chapter) => {
+      chapters.push({
+        book,
+        chapter,
+        text: normalizeSearchText(chapter.title, chapter.content),
+      });
+
+      (chapter.comments || []).forEach((comment) => {
+        comments.push({
+          book,
+          chapter,
+          comment,
+          text: normalizeSearchText(comment.body, comment.selectedText),
+        });
+      });
+
+      const relatedQuestions = chapter.relatedQuestions;
+      if (!relatedQuestions) return;
+
+      if (relatedQuestions.observacao) {
+        questions.push({
+          book,
+          chapter,
+          questionNumber: 0,
+          category: `Observacao: ${relatedQuestions.observacao}`,
+          text: normalizeSearchText(relatedQuestions.observacao),
+        });
+      }
+
+      relatedQuestions.questoes_principais?.forEach((questionNumber) => {
+        questions.push({
+          book,
+          chapter,
+          questionNumber,
+          category: 'Questao Principal',
+          text: normalizeSearchText(questionNumber, 'questao principal'),
+        });
+      });
+
+      relatedQuestions.questoes_secundarias_que_misturam_com_aulas_futuras?.forEach((questionNumber) => {
+        questions.push({
+          book,
+          chapter,
+          questionNumber,
+          category: 'Questao Secundaria',
+          text: normalizeSearchText(questionNumber, 'questao secundaria'),
+        });
+      });
+
+      relatedQuestions.por_secao?.forEach((section) => {
+        section.questoes?.forEach((questionNumber) => {
+          questions.push({
+            book,
+            chapter,
+            questionNumber,
+            category: `Secao: ${section.secao}`,
+            text: normalizeSearchText(questionNumber, section.secao),
+          });
+        });
+      });
+    });
+  });
+
+  return { chapters, comments, questions };
+};
+
+export const searchBookshelfIndex = (
+  index: BookshelfSearchIndex,
+  rawQuery: string,
+): BookshelfSearchResults => {
+  const query = rawQuery.toLowerCase().trim();
+  if (!query) return EMPTY_SEARCH_RESULTS;
+
+  return {
+    chapters: index.chapters
+      .filter((entry) => entry.text.includes(query))
+      .slice(0, 15)
+      .map(({ book, chapter }) => ({ book, chapter })),
+    comments: index.comments
+      .filter((entry) => entry.text.includes(query))
+      .slice(0, 15)
+      .map(({ book, chapter, comment }) => ({ book, chapter, comment })),
+    questions: index.questions
+      .filter((entry) => entry.text.includes(query))
+      .slice(0, 15)
+      .map(({ book, chapter, questionNumber, category }) => ({ book, chapter, questionNumber, category })),
+  };
+};
+
+export const buildBookshelfSearchResults = (
+  books: AulaBook[],
+  rawQuery: string,
+): BookshelfSearchResults => searchBookshelfIndex(buildBookshelfSearchIndex(books), rawQuery);
 
 interface BookCardProps {
   book: AulaBook;
@@ -381,9 +539,12 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
   // Shelf view mode: "grid" | "shelf3d"
   const [shelfViewMode, setShelfViewMode] = useState<"grid" | "shelf3d">("grid");
+  const [renderedBookLimit, setRenderedBookLimit] = useState(INITIAL_RENDERED_BOOKS);
   // Global search state
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const debouncedGlobalSearchQuery = useDebounce(globalSearchQuery, 250);
+  const globalSearchIndex = useMemo(() => buildBookshelfSearchIndex(books), [books]);
 
   const getBookColor = (id: string) => {
     const colors = [
@@ -412,71 +573,20 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     return { height, width };
   };
 
-  const getGlobalSearchResults = () => {
-    if (!globalSearchQuery.trim()) return { chapters: [], comments: [], questions: [] };
-
-    const query = globalSearchQuery.toLowerCase().trim();
-    const chaptersResult: { book: AulaBook; chapter: AulaChapter }[] = [];
-    const commentsResult: { book: AulaBook; chapter: AulaChapter; comment: any }[] = [];
-    const questionsResult: { book: AulaBook; chapter: AulaChapter; questionNumber: number; category: string }[] = [];
-
-    books.forEach((book) => {
-      (book.chapters || []).forEach((chapter) => {
-        // 1. Search in chapter theory content / title
-        if (
-          chapter.title.toLowerCase().includes(query) ||
-          (chapter.content && chapter.content.toLowerCase().includes(query))
-        ) {
-          chaptersResult.push({ book, chapter });
-        }
-
-        // 2. Search in chapter comments
-        (chapter.comments || []).forEach((comment) => {
-          if (comment.body.toLowerCase().includes(query) || comment.selectedText.toLowerCase().includes(query)) {
-            commentsResult.push({ book, chapter, comment });
-          }
-        });
-
-        // 3. Search in chapter questions
-        if (chapter.relatedQuestions) {
-          const rq = chapter.relatedQuestions;
-          if (rq.observacao && rq.observacao.toLowerCase().includes(query)) {
-            questionsResult.push({ book, chapter, questionNumber: 0, category: "Observação: " + rq.observacao });
-          }
-          const num = parseInt(query);
-          if (!isNaN(num)) {
-            if (rq.questoes_principais?.includes(num)) {
-              questionsResult.push({ book, chapter, questionNumber: num, category: "Questão Principal" });
-            }
-            if (rq.questoes_secundarias_que_misturam_com_aulas_futuras?.includes(num)) {
-              questionsResult.push({ book, chapter, questionNumber: num, category: "Questão Secundária" });
-            }
-            rq.por_secao?.forEach(sec => {
-              if (sec.questoes?.includes(num)) {
-                questionsResult.push({ book, chapter, questionNumber: num, category: `Seção: ${sec.secao}` });
-              }
-            });
-          }
-        }
-      });
-    });
-
-    return {
-      chapters: chaptersResult.slice(0, 15),
-      comments: commentsResult.slice(0, 15),
-      questions: questionsResult.slice(0, 15),
-    };
-  };
-
-  const globalSearchResults = getGlobalSearchResults();
+  const globalSearchResults = useMemo(
+    () => globalSearchOpen
+      ? searchBookshelfIndex(globalSearchIndex, debouncedGlobalSearchQuery)
+      : EMPTY_SEARCH_RESULTS,
+    [debouncedGlobalSearchQuery, globalSearchIndex, globalSearchOpen],
+  );
 
   // Render shelves view
   const renderShelves = () => {
     const shelfSize = 6;
-    const shelvesCount = Math.ceil(currentBooks.length / shelfSize);
+    const shelvesCount = Math.ceil(visibleBooks.length / shelfSize);
     const shelves = [];
     for (let i = 0; i < shelvesCount; i++) {
-      shelves.push(currentBooks.slice(i * shelfSize, (i + 1) * shelfSize));
+      shelves.push(visibleBooks.slice(i * shelfSize, (i + 1) * shelfSize));
     }
 
     return (
@@ -539,6 +649,17 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     : isCollectionView
     ? books.filter((b) => collections?.find((c) => c.id === currentView.id)?.bookIds.includes(b.id))
     : [];
+  const visibleBooks = currentBooks.slice(0, renderedBookLimit);
+  const hasMoreBooks = visibleBooks.length < currentBooks.length;
+  const isLargeLibraryView = currentBooks.length > LARGE_LIBRARY_THRESHOLD;
+
+  const resetRenderedBookLimit = () => {
+    setRenderedBookLimit(INITIAL_RENDERED_BOOKS);
+  };
+
+  const loadMoreBooks = () => {
+    setRenderedBookLimit((limit) => Math.min(limit + RENDERED_BOOKS_INCREMENT, currentBooks.length));
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(event.active.id as string);
@@ -813,6 +934,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                       <button
                         onClick={() => {
                           setActiveView({ type: "folder", id: folder.id });
+                          resetRenderedBookLimit();
                           toggleFolderExpand(folder.id);
                         }}
                         className={`flex-1 flex items-center gap-1.5 text-left px-3 py-2 text-sm rounded transition-colors ${
@@ -865,7 +987,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                         {subfolders.map((subf) => (
                           <DroppableFolder id={subf.id} key={subf.id} className="flex items-center group">
                             <button
-                              onClick={() => setActiveView({ type: "folder", id: subf.id })}
+                              onClick={() => {
+                                setActiveView({ type: "folder", id: subf.id });
+                                resetRenderedBookLimit();
+                              }}
                               className={`flex-1 text-left px-3 py-1.5 text-xs rounded transition-colors ${
                                 currentView?.type === "folder" && currentView.id === subf.id
                                   ? "border-l-2 border-[#D4AF37] bg-slate-850 text-[#D4AF37] font-medium"
@@ -917,7 +1042,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                 collections.map((col) => (
                   <div key={col.id} className="flex items-center group">
                     <button
-                      onClick={() => setActiveView({ type: "collection", id: col.id })}
+                      onClick={() => {
+                        setActiveView({ type: "collection", id: col.id });
+                        resetRenderedBookLimit();
+                      }}
                       className={`flex-1 text-left px-3 py-2 text-sm rounded transition-colors ${
                         currentView?.type === "collection" && currentView.id === col.id
                           ? "border-l-2 border-[#D4AF37] bg-slate-850 text-[#D4AF37] font-medium"
@@ -959,7 +1087,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                 {currentBooks.length > 0 && (
                   <div className="flex items-center bg-slate-950 border border-slate-850 p-0.5 rounded ml-2">
                     <button
-                      onClick={() => setShelfViewMode("grid")}
+                      onClick={() => {
+                        setShelfViewMode("grid");
+                        resetRenderedBookLimit();
+                      }}
                       className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
                         shelfViewMode === "grid"
                           ? "bg-[#D4AF37] text-slate-950"
@@ -970,7 +1101,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                       <Grid className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => setShelfViewMode("shelf3d")}
+                      onClick={() => {
+                        setShelfViewMode("shelf3d");
+                        resetRenderedBookLimit();
+                      }}
                       className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
                         shelfViewMode === "shelf3d"
                           ? "bg-[#D4AF37] text-slate-950"
@@ -1026,32 +1160,51 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                 onDragEnd={handleDragEnd}
                 onDragCancel={() => setActiveDragId(null)}
               >
-                <SortableContext items={currentBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
+                <SortableContext items={visibleBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
                   {shelfViewMode === "shelf3d" ? (
                     renderShelves()
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       <AnimatePresence mode="popLayout">
-                        {currentBooks.map((book) => (
-                          <motion.div
-                            key={book.id}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 15 }}
-                            transition={{ duration: 0.2 }}
-                          >
+                        {visibleBooks.map((book) => {
+                          const card = (
                             <SortableBookCard
                               book={book}
                               onSelectBook={onSelectBook}
                               onOpenMoveModal={setMoveBookTarget}
                               isSortingDisabled={isCollectionView}
                             />
-                          </motion.div>
-                        ))}
+                          );
+
+                          return isLargeLibraryView ? (
+                            <div key={book.id}>{card}</div>
+                          ) : (
+                            <motion.div
+                              key={book.id}
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              {card}
+                            </motion.div>
+                          );
+                        })}
                       </AnimatePresence>
                     </div>
                   )}
                 </SortableContext>
+                {hasMoreBooks && (
+                  <div className="flex justify-center pt-8">
+                    <button
+                      type="button"
+                      onClick={loadMoreBooks}
+                      className="rounded border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 transition-colors hover:border-[#D4AF37]/60 hover:text-[#D4AF37]"
+                    >
+                      Carregar mais {Math.min(RENDERED_BOOKS_INCREMENT, currentBooks.length - visibleBooks.length)} cursos
+                    </button>
+                  </div>
+                )}
                 <DragOverlay dropAnimation={null}>
                   {activeDragId ? (
                     <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">

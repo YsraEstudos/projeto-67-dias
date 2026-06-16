@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { playSound, playAlertFailSound } from '../lib/audio';
 import { getLocalISODate, getTaskTodayPomodoros } from '../lib/pomodoroStats';
+import { getSkillRoadmapIndex } from '../lib/skillRoadmapIndex';
 import type { PomodoroTimerMode } from '../store/types';
 import { useSkillsStore } from '../../../../stores/skillsStore';
 
@@ -54,7 +55,7 @@ export function usePomodoroTimer() {
       return timerState.timeLeft;
     }
 
-    return Math.max(0, Math.round((timerState.endTime - Date.now()) / 1000));
+    return Math.max(0, Math.ceil((timerState.endTime - Date.now()) / 1000));
   }, [timerState.endTime, timerState.status, timerState.timeLeft]);
 
   const [timeLeft, setTimeLeft] = useState(() => getRemainingTime());
@@ -187,26 +188,11 @@ export function usePomodoroTimer() {
             useSkillsStore.getState().addPomodoro(task.skillId);
           }
         } else {
-          // If the task is a Skill Roadmap task/subtask (not in Pomodoro tasks)
-          let foundSkillId: string | null = null;
-          if (activeTaskId.startsWith('skill-focus:')) {
-            foundSkillId = activeTaskId.replace('skill-focus:', '');
-          } else {
-            const activeSkills = useSkillsStore.getState().skills;
-            const hasItem = (items: any[]): boolean => {
-              for (const item of items) {
-                if (item.id === activeTaskId) return true;
-                if (item.subTasks && hasItem(item.subTasks)) return true;
-              }
-              return false;
-            };
-            for (const s of activeSkills) {
-              if (hasItem(s.roadmap)) {
-                foundSkillId = s.id;
-                break;
-              }
-            }
-          }
+          const activeSkills = useSkillsStore.getState().skills;
+          const foundSkillId = activeTaskId.startsWith('skill-focus:')
+            ? activeTaskId.replace('skill-focus:', '')
+            : getSkillRoadmapIndex(activeSkills).get(activeTaskId)?.skillId ?? null;
+
           if (foundSkillId) {
             useSkillsStore.getState().addPomodoro(foundSkillId);
           }
@@ -259,10 +245,14 @@ export function usePomodoroTimer() {
   useEffect(() => {
     if (timerState.status !== 'RUNNING') return;
 
+    let timeout: ReturnType<typeof globalThis.setTimeout> | null = null;
+
     const syncRemaining = () => {
-      if (useStore.getState().timerState.status !== 'RUNNING') {
+      const currentTimerState = useStore.getState().timerState;
+      if (currentTimerState.status !== 'RUNNING') {
         return;
       }
+
       const remaining = getRemainingTime();
       if (remaining <= 0) {
         handleComplete();
@@ -270,14 +260,25 @@ export function usePomodoroTimer() {
       }
 
       setTimeLeft(remaining);
+
+      if (!currentTimerState.endTime) {
+        return;
+      }
+
+      const remainingMs = Math.max(0, currentTimerState.endTime - Date.now());
+      const msUntilNextSecond = remainingMs % 1000 || 1000;
+      timeout = globalThis.setTimeout(syncRemaining, msUntilNextSecond);
     };
 
     syncRemaining();
-    const interval = globalThis.setInterval(syncRemaining, 100);
-    return () => clearInterval(interval);
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
   }, [getRemainingTime, handleComplete, timerState.status]);
 
-  const toggleTimer = () => {
+  const toggleTimer = useCallback(() => {
     if (timerState.status === 'RUNNING') {
       const remaining = getRemainingTime();
       const nextState = createTimerState(timerState.mode, 'PAUSED', timerState.sessionCount, remaining);
@@ -294,15 +295,24 @@ export function usePomodoroTimer() {
     );
     setPersistedTimerState(nextState);
     setTimeLeft(nextState.timeLeft);
-  };
+  }, [
+    createTimerState,
+    getDuration,
+    getRemainingTime,
+    setPersistedTimerState,
+    timerState.mode,
+    timerState.sessionCount,
+    timerState.status,
+    timerState.timeLeft,
+  ]);
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     const nextState = createTimerState(timerState.mode, 'IDLE', timerState.sessionCount);
     setPersistedTimerState(nextState);
     setTimeLeft(nextState.timeLeft);
-  };
+  }, [createTimerState, setPersistedTimerState, timerState.mode, timerState.sessionCount]);
 
-  const setMode = (mode: TimerMode) => {
+  const setMode = useCallback((mode: TimerMode) => {
     if (mode === 'alert') {
       if (typeof window !== 'undefined') {
         localStorage.setItem('alert-timer-step', 'countdown');
@@ -322,11 +332,11 @@ export function usePomodoroTimer() {
     const nextState = createTimerState(mode, 'IDLE', timerState.sessionCount);
     setPersistedTimerState(nextState);
     setTimeLeft(nextState.timeLeft);
-  };
+  }, [createTimerState, setPersistedTimerState, timerState.sessionCount]);
 
-  const skipPhase = () => {
+  const skipPhase = useCallback(() => {
     handleComplete();
-  };
+  }, [handleComplete]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

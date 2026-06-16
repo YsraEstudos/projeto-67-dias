@@ -39,6 +39,31 @@ describe('usePomodoroTimer', () => {
     expect(result.current.seconds).toBe(21);
   });
 
+  it('does not poll the running timer every 100ms', () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    const now = Date.now();
+    usePomodoroStore.getState().setTimerState({
+      mode: 'pomodoro',
+      status: 'RUNNING',
+      timeLeft: 1500,
+      endTime: now + 25 * 60 * 1000,
+      sessionCount: 0,
+    });
+
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    expect(result.current.timeLeft).toBe(1500);
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(result.current.timeLeft).toBe(1500);
+    expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 100);
+
+    setIntervalSpy.mockRestore();
+  });
+
   it('persists pause state with remaining time', () => {
     const now = Date.now();
     usePomodoroStore.getState().setTimerState({
@@ -212,15 +237,11 @@ describe('usePomodoroTimer', () => {
         sessionCount: 0,
       });
 
-      console.log('BEFORE MOUNT:', localStorage.getItem('alert-timer-step'));
       const { result } = renderHook(() => usePomodoroTimer());
-      console.log('AFTER MOUNT:', localStorage.getItem('alert-timer-step'), 'mode:', result.current.mode, 'timeLeft:', result.current.timeLeft);
 
       act(() => {
         vi.advanceTimersByTime(300 * 1000);
       });
-
-      console.log('AFTER TIME ADVANCE:', localStorage.getItem('alert-timer-step'), 'mode:', result.current.mode, 'timeLeft:', result.current.timeLeft);
 
       expect(localStorage.getItem('alert-timer-step')).toBe('countdown');
       expect(result.current.mode).toBe('pomodoro');

@@ -11,6 +11,11 @@ import { generateUUID } from '../utils/uuid';
 const STORE_KEY = 'p67_aulas_config';
 const BOOKS_SUBCOLLECTION_KEY = 'p67_aulas_books';
 const LOCAL_BACKUP_KEY = `${STORE_KEY}::backup`;
+const BOOK_SYNC_DEBOUNCE_MS = 900;
+const LOCAL_BACKUP_DEBOUNCE_MS = 1200;
+
+const pendingBookSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let pendingLocalBackupTimer: ReturnType<typeof setTimeout> | null = null;
 
 const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();
@@ -35,6 +40,22 @@ const mergeBooksByRecency = (baseBooks: AulaBook[], incomingBooks: AulaBook[]): 
 const syncBookToSubcollection = (book?: AulaBook) => {
     if (!book) return;
     void writeItemToSubcollection(BOOKS_SUBCOLLECTION_KEY, book.id, book);
+};
+
+const syncBookToSubcollectionDebounced = (book?: AulaBook) => {
+    if (!book) return;
+
+    const existingTimer = pendingBookSyncTimers.get(book.id);
+    if (existingTimer) {
+        clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(() => {
+        pendingBookSyncTimers.delete(book.id);
+        syncBookToSubcollection(book);
+    }, BOOK_SYNC_DEBOUNCE_MS);
+
+    pendingBookSyncTimers.set(book.id, timer);
 };
 
 const deleteBookFromSubcollection = (bookId: string) => {
@@ -144,6 +165,17 @@ const writeLocalBackup = (data: { folders: AulaFolder[]; collections: AulaCollec
     } catch {
         // ignore
     }
+};
+
+const writeLocalBackupDebounced = (data: { folders: AulaFolder[]; collections: AulaCollection[]; books?: AulaBook[] }) => {
+    if (pendingLocalBackupTimer) {
+        clearTimeout(pendingLocalBackupTimer);
+    }
+
+    pendingLocalBackupTimer = setTimeout(() => {
+        pendingLocalBackupTimer = null;
+        writeLocalBackup(data);
+    }, LOCAL_BACKUP_DEBOUNCE_MS);
 };
 
 const DEFAULT_FOLDERS: AulaFolder[] = [
@@ -366,9 +398,10 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         });
 
         const updated = get().books.find(b => b.id === bookId);
-        if (updated) syncBookToSubcollection(updated);
+        if (updated) syncBookToSubcollectionDebounced(updated);
 
-        get()._syncToFirestore();
+        const { folders, collections, books, recentlyStudied } = get();
+        writeLocalBackupDebounced({ folders, collections, books, recentlyStudied } as any);
     },
 
     reorderChapters: (bookId, oldIndex, newIndex) => {
@@ -482,8 +515,10 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         });
 
         const updated = get().books.find(b => b.id === bookId);
-        if (updated) syncBookToSubcollection(updated);
-        get()._syncToFirestore();
+        if (updated) syncBookToSubcollectionDebounced(updated);
+
+        const { folders, collections, books, recentlyStudied } = get();
+        writeLocalBackupDebounced({ folders, collections, books, recentlyStudied } as any);
     },
 
     updateChapterStudyTime: (bookId, chapterId, seconds) => {
@@ -496,8 +531,10 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         });
 
         const updated = get().books.find(b => b.id === bookId);
-        if (updated) syncBookToSubcollection(updated);
-        get()._syncToFirestore();
+        if (updated) syncBookToSubcollectionDebounced(updated);
+
+        const { folders, collections, books, recentlyStudied } = get();
+        writeLocalBackupDebounced({ folders, collections, books, recentlyStudied } as any);
     },
 
     importBackupData: (backupData) => {
