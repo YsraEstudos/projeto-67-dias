@@ -3,6 +3,7 @@ import { useAulasStore } from "../../../stores/aulasStore";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
 import { RecentlyStudiedItem } from "../../../types";
+import RandomQuestionsModal from "./RandomQuestionsModal";
 import {
   DndContext,
   closestCenter,
@@ -526,6 +527,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const [collectionAddBookDialogOpen, setCollectionAddBookDialogOpen] = useState(false);
   const [parentFolderIdForNew, setParentFolderIdForNew] = useState<string | undefined>(undefined);
   const [bookDialogOpen, setBookDialogOpen] = useState(false);
+  const [randomQuestionsOpen, setRandomQuestionsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "folder" | "collection";
@@ -818,6 +820,14 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
             title="Busca Global Indexada"
           >
             <Search className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setRandomQuestionsOpen(true)}
+            className="flex items-center justify-center gap-2 bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-3 py-2 rounded transition-colors text-xs font-bold uppercase tracking-wider shadow-sm whitespace-nowrap"
+            title="Sortear 15 questoes aleatorias"
+          >
+            <Sparkles className="w-4 h-4" />
+            Questões aleatórias
           </button>
           <input
             type="file"
@@ -1423,6 +1433,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
             </div>
           </form>
         </div>
+      )}
+
+      {randomQuestionsOpen && (
+        <RandomQuestionsModal books={books} onClose={() => setRandomQuestionsOpen(false)} />
       )}
 
       {editFolderDialogOpen && (
