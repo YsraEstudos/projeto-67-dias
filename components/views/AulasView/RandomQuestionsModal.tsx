@@ -14,9 +14,11 @@ interface RandomQuestionsModalProps {
 export default function RandomQuestionsModal({ books, onClose, onSetQuestionStatus }: RandomQuestionsModalProps) {
   const totalQuestions = React.useMemo(() => buildRandomQuestionPool(books).length, [books]);
   const [questions, setQuestions] = React.useState<RandomQuestionItem[]>(() => drawRandomQuestions(books));
+  const [sessionStatuses, setSessionStatuses] = React.useState<Record<string, QuestionStatus>>({});
 
   const redrawQuestions = React.useCallback(() => {
     setQuestions(drawRandomQuestions(books));
+    setSessionStatuses({});
   }, [books]);
 
   React.useEffect(() => {
@@ -24,20 +26,32 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
   }, [redrawQuestions]);
 
   const getQuestionStatus = (question: RandomQuestionItem): QuestionStatus => {
+    if (Object.prototype.hasOwnProperty.call(sessionStatuses, question.id)) {
+      return sessionStatuses[question.id];
+    }
+
     const chapter = books
       .find((book) => book.id === question.bookId)
       ?.chapters?.find((item) => item.id === question.chapterId);
 
     if (!chapter) return "pending";
-    if ((chapter.correctQuestions || []).includes(question.questionNumber)) return "correct";
-    if ((chapter.incorrectQuestions || []).includes(question.questionNumber)) return "incorrect";
 
-    const hasCurrentStatus = (chapter.correctQuestions || []).length > 0 || (chapter.incorrectQuestions || []).length > 0;
-    if (!hasCurrentStatus && (chapter.completedPrincipalQuestions || []).includes(question.questionNumber)) {
-      return "correct";
-    }
+    const latestAttempt = chapter.questionAttempts?.[question.questionNumber.toString()]?.history?.[0];
+    if (!latestAttempt) return "pending";
 
-    return "pending";
+    const attemptDate = new Date(latestAttempt.timestamp);
+    const today = new Date();
+    const wasAnsweredToday =
+      attemptDate.getFullYear() === today.getFullYear() &&
+      attemptDate.getMonth() === today.getMonth() &&
+      attemptDate.getDate() === today.getDate();
+
+    return wasAnsweredToday ? latestAttempt.status : "pending";
+  };
+
+  const setQuestionStatus = (question: RandomQuestionItem, status: QuestionStatus) => {
+    setSessionStatuses((current) => ({ ...current, [question.id]: status }));
+    onSetQuestionStatus(question, status);
   };
 
   return (
@@ -119,7 +133,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
-                        onClick={() => onSetQuestionStatus(question, status === "correct" ? "pending" : "correct")}
+                        onClick={() => setQuestionStatus(question, status === "correct" ? "pending" : "correct")}
                         className={`w-9 h-9 rounded border flex items-center justify-center transition-colors ${
                           status === "correct"
                             ? "bg-emerald-500 border-emerald-400 text-slate-950"
@@ -132,7 +146,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                       </button>
                       <button
                         type="button"
-                        onClick={() => onSetQuestionStatus(question, status === "incorrect" ? "pending" : "incorrect")}
+                        onClick={() => setQuestionStatus(question, status === "incorrect" ? "pending" : "incorrect")}
                         className={`w-9 h-9 rounded border flex items-center justify-center transition-colors ${
                           status === "incorrect"
                             ? "bg-rose-500 border-rose-400 text-slate-950"
