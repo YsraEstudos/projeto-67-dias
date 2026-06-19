@@ -2,8 +2,9 @@ import React, { useMemo, useState } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
-import { RecentlyStudiedItem } from "../../../types";
+import { QuestionAttempt, RecentlyStudiedItem } from "../../../types";
 import RandomQuestionsModal from "./RandomQuestionsModal";
+import { RandomQuestionItem } from "./randomQuestions";
 import {
   DndContext,
   closestCenter,
@@ -515,6 +516,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     updateCollectionBooks,
     addBook,
     updateBook,
+    updateChapter,
     reorderBooks,
     importBackupData,
   } = useAulasStore();
@@ -547,6 +549,53 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const debouncedGlobalSearchQuery = useDebounce(globalSearchQuery, 250);
   const globalSearchIndex = useMemo(() => buildBookshelfSearchIndex(books), [books]);
+
+  const setRandomQuestionStatus = (
+    question: RandomQuestionItem,
+    status: "correct" | "incorrect" | "pending",
+  ) => {
+    const chapter = books
+      .find((book) => book.id === question.bookId)
+      ?.chapters?.find((item) => item.id === question.chapterId);
+    if (!chapter) return;
+
+    const correctQuestions = chapter.correctQuestions || [];
+    const incorrectQuestions = chapter.incorrectQuestions || [];
+    const legacyCompleted = chapter.completedPrincipalQuestions || [];
+    const activeCorrect =
+      correctQuestions.length === 0 && incorrectQuestions.length === 0 && legacyCompleted.length > 0
+        ? [...legacyCompleted]
+        : [...correctQuestions];
+
+    let nextCorrect = activeCorrect.filter((number) => number !== question.questionNumber);
+    let nextIncorrect = incorrectQuestions.filter((number) => number !== question.questionNumber);
+    const nextAttempts = { ...(chapter.questionAttempts || {}) };
+
+    if (status === "correct" || status === "incorrect") {
+      if (status === "correct") {
+        nextCorrect = [...nextCorrect, question.questionNumber].sort((a, b) => a - b);
+      } else {
+        nextIncorrect = [...nextIncorrect, question.questionNumber].sort((a, b) => a - b);
+      }
+
+      const key = question.questionNumber.toString();
+      const currentStats = nextAttempts[key] || { total: 0, correct: 0, incorrect: 0, history: [] };
+      const attempt: QuestionAttempt = { timestamp: new Date().toISOString(), status };
+      nextAttempts[key] = {
+        total: currentStats.total + 1,
+        correct: currentStats.correct + (status === "correct" ? 1 : 0),
+        incorrect: currentStats.incorrect + (status === "incorrect" ? 1 : 0),
+        history: [attempt, ...currentStats.history],
+      };
+    }
+
+    updateChapter(question.bookId, question.chapterId, {
+      correctQuestions: nextCorrect,
+      incorrectQuestions: nextIncorrect,
+      completedPrincipalQuestions: [...nextCorrect, ...nextIncorrect].sort((a, b) => a - b),
+      questionAttempts: nextAttempts,
+    });
+  };
 
   const getBookColor = (id: string) => {
     const colors = [
@@ -1436,7 +1485,11 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
       )}
 
       {randomQuestionsOpen && (
-        <RandomQuestionsModal books={books} onClose={() => setRandomQuestionsOpen(false)} />
+        <RandomQuestionsModal
+          books={books}
+          onClose={() => setRandomQuestionsOpen(false)}
+          onSetQuestionStatus={setRandomQuestionStatus}
+        />
       )}
 
       {editFolderDialogOpen && (

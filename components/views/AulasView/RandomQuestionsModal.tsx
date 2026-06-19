@@ -1,14 +1,17 @@
 import React from "react";
-import { RefreshCw, Sparkles, X } from "lucide-react";
+import { Check, RefreshCw, Sparkles, X } from "lucide-react";
 import { AulaBook } from "../../../types";
 import { buildRandomQuestionPool, drawRandomQuestions, RandomQuestionItem } from "./randomQuestions";
+
+type QuestionStatus = "correct" | "incorrect" | "pending";
 
 interface RandomQuestionsModalProps {
   books: AulaBook[];
   onClose: () => void;
+  onSetQuestionStatus: (question: RandomQuestionItem, status: QuestionStatus) => void;
 }
 
-export default function RandomQuestionsModal({ books, onClose }: RandomQuestionsModalProps) {
+export default function RandomQuestionsModal({ books, onClose, onSetQuestionStatus }: RandomQuestionsModalProps) {
   const totalQuestions = React.useMemo(() => buildRandomQuestionPool(books).length, [books]);
   const [questions, setQuestions] = React.useState<RandomQuestionItem[]>(() => drawRandomQuestions(books));
 
@@ -19,6 +22,23 @@ export default function RandomQuestionsModal({ books, onClose }: RandomQuestions
   React.useEffect(() => {
     redrawQuestions();
   }, [redrawQuestions]);
+
+  const getQuestionStatus = (question: RandomQuestionItem): QuestionStatus => {
+    const chapter = books
+      .find((book) => book.id === question.bookId)
+      ?.chapters?.find((item) => item.id === question.chapterId);
+
+    if (!chapter) return "pending";
+    if ((chapter.correctQuestions || []).includes(question.questionNumber)) return "correct";
+    if ((chapter.incorrectQuestions || []).includes(question.questionNumber)) return "incorrect";
+
+    const hasCurrentStatus = (chapter.correctQuestions || []).length > 0 || (chapter.incorrectQuestions || []).length > 0;
+    if (!hasCurrentStatus && (chapter.completedPrincipalQuestions || []).includes(question.questionNumber)) {
+      return "correct";
+    }
+
+    return "pending";
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-950/85 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
@@ -71,11 +91,20 @@ export default function RandomQuestionsModal({ books, onClose }: RandomQuestions
               </div>
 
               <div className="space-y-2 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                {questions.map((question, index) => (
-                  <div
-                    key={question.id}
-                    className="flex items-start gap-3 bg-slate-950/40 border border-slate-800 hover:border-slate-700 rounded p-3 transition-colors"
-                  >
+                {questions.map((question, index) => {
+                  const status = getQuestionStatus(question);
+
+                  return (
+                    <div
+                      key={question.id}
+                      className={`flex items-start gap-3 border rounded p-3 transition-colors ${
+                        status === "correct"
+                          ? "bg-emerald-950/20 border-emerald-800/60"
+                          : status === "incorrect"
+                            ? "bg-rose-950/20 border-rose-800/60"
+                            : "bg-slate-950/40 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
                     <div className="w-8 h-8 shrink-0 rounded bg-[#D4AF37] text-slate-950 flex items-center justify-center text-[10px] font-black">
                       {String(index + 1).padStart(2, "0")}
                     </div>
@@ -87,8 +116,37 @@ export default function RandomQuestionsModal({ books, onClose }: RandomQuestions
                         {question.bookTitle}
                       </p>
                     </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onSetQuestionStatus(question, status === "correct" ? "pending" : "correct")}
+                        className={`w-9 h-9 rounded border flex items-center justify-center transition-colors ${
+                          status === "correct"
+                            ? "bg-emerald-500 border-emerald-400 text-slate-950"
+                            : "bg-slate-900 border-slate-700 text-slate-400 hover:text-emerald-400 hover:border-emerald-700"
+                        }`}
+                        title={status === "correct" ? "Remover acerto" : "Marcar como acertada"}
+                        aria-label={status === "correct" ? "Remover acerto" : "Marcar como acertada"}
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSetQuestionStatus(question, status === "incorrect" ? "pending" : "incorrect")}
+                        className={`w-9 h-9 rounded border flex items-center justify-center transition-colors ${
+                          status === "incorrect"
+                            ? "bg-rose-500 border-rose-400 text-slate-950"
+                            : "bg-slate-900 border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-700"
+                        }`}
+                        title={status === "incorrect" ? "Remover erro" : "Marcar como errada"}
+                        aria-label={status === "incorrect" ? "Remover erro" : "Marcar como errada"}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
@@ -112,4 +170,3 @@ export default function RandomQuestionsModal({ books, onClose }: RandomQuestions
     </div>
   );
 }
-
