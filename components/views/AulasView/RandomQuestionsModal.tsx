@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, RefreshCw, Sparkles, X } from "lucide-react";
+import { BookCheck, Check, RefreshCw, Sparkles, X } from "lucide-react";
 import { AulaBook } from "../../../types";
 import { buildRandomQuestionPool, drawRandomQuestions, RandomQuestionItem } from "./randomQuestions";
 
@@ -12,14 +12,19 @@ interface RandomQuestionsModalProps {
 }
 
 export default function RandomQuestionsModal({ books, onClose, onSetQuestionStatus }: RandomQuestionsModalProps) {
-  const totalQuestions = React.useMemo(() => buildRandomQuestionPool(books).length, [books]);
+  const [onlyReadContent, setOnlyReadContent] = React.useState(false);
+  const allQuestionsCount = React.useMemo(() => buildRandomQuestionPool(books).length, [books]);
+  const totalQuestions = React.useMemo(
+    () => buildRandomQuestionPool(books, onlyReadContent).length,
+    [books, onlyReadContent],
+  );
   const [questions, setQuestions] = React.useState<RandomQuestionItem[]>(() => drawRandomQuestions(books));
   const [sessionStatuses, setSessionStatuses] = React.useState<Record<string, QuestionStatus>>({});
 
   const redrawQuestions = React.useCallback(() => {
-    setQuestions(drawRandomQuestions(books));
+    setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent));
     setSessionStatuses({});
-  }, [books]);
+  }, [books, onlyReadContent]);
 
   React.useEffect(() => {
     redrawQuestions();
@@ -79,7 +84,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
         </div>
 
         <div className="p-5">
-          {totalQuestions === 0 ? (
+          {allQuestionsCount === 0 ? (
             <div className="text-center py-14 border border-dashed border-slate-800 rounded-lg bg-slate-950/30">
               <Sparkles className="w-8 h-8 text-slate-650 mx-auto mb-3" />
               <p className="text-sm text-slate-300 font-medium">Nenhuma questão encontrada na estante.</p>
@@ -98,14 +103,38 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                   <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Disponiveis</span>
                   <strong className="block text-xl text-slate-100 mt-1">{totalQuestions}</strong>
                 </div>
-                <div className="bg-slate-950/50 border border-slate-800 rounded p-3">
-                  <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Limite por conteudo</span>
-                  <strong className="block text-xl text-slate-100 mt-1">3</strong>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setOnlyReadContent((current) => !current)}
+                  className={`p-3 rounded border text-left transition-colors ${
+                    onlyReadContent
+                      ? "bg-emerald-950/40 border-emerald-700 text-emerald-300"
+                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                  }`}
+                  aria-pressed={onlyReadContent}
+                  title="Sortear somente questões de aulas marcadas como lidas"
+                >
+                  <span className="flex items-center gap-2 text-[9px] uppercase tracking-widest font-bold">
+                    <BookCheck className="w-4 h-4" />
+                    Apenas conteúdos lidos
+                  </span>
+                  <strong className="block text-sm mt-2">
+                    {onlyReadContent ? "Filtro ativado" : "Ativar filtro"}
+                  </strong>
+                </button>
               </div>
 
-              <div className="space-y-2 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                {questions.map((question, index) => {
+              {questions.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-slate-800 rounded bg-slate-950/30">
+                  <BookCheck className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm text-slate-300 font-medium">Nenhuma questão em conteúdos lidos.</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Marque aulas como lidas ou desative o filtro para sortear novamente.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                  {questions.map((question, index) => {
                   const status = getQuestionStatus(question);
 
                   return (
@@ -160,8 +189,9 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                     </div>
                   </div>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>

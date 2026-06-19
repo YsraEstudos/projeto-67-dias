@@ -44,28 +44,34 @@ const collectChapterQuestionNumbers = (chapter: AulaChapter): number[] => {
   return Array.from(numbers);
 };
 
-export const buildRandomQuestionPool = (books: AulaBook[]): RandomQuestionItem[] =>
+export const buildRandomQuestionPool = (
+  books: AulaBook[],
+  onlyReadContent = false,
+): RandomQuestionItem[] =>
   books.flatMap((book) =>
-    (book.chapters || []).flatMap((chapter) =>
-      collectChapterQuestionNumbers(chapter).map((questionNumber) => ({
-        id: `${book.id}:${chapter.id}:${questionNumber}`,
-        bookId: book.id,
-        bookTitle: book.title,
-        chapterId: chapter.id,
-        chapterTitle: chapter.title,
-        questionNumber,
-      })),
-    ),
+    (book.chapters || []).flatMap((chapter) => {
+      if (onlyReadContent && !chapter.readAt) return [];
+
+      return collectChapterQuestionNumbers(chapter).map((questionNumber) => ({
+          id: `${book.id}:${chapter.id}:${questionNumber}`,
+          bookId: book.id,
+          bookTitle: book.title,
+          chapterId: chapter.id,
+          chapterTitle: chapter.title,
+          questionNumber,
+        }));
+    }),
   );
 
 export const drawRandomQuestions = (
   books: AulaBook[],
   limit = QUESTION_LIMIT,
   maxPerContent = MAX_PER_CONTENT,
+  onlyReadContent = false,
 ): RandomQuestionItem[] => {
   const contentCounts = new Map<string, number>();
 
-  return shuffle(buildRandomQuestionPool(books)).filter((item) => {
+  return shuffle(buildRandomQuestionPool(books, onlyReadContent)).filter((item) => {
     if (contentCounts.size === 0 && limit <= 0) return false;
 
     const currentCount = contentCounts.get(item.bookId) || 0;
@@ -75,4 +81,3 @@ export const drawRandomQuestions = (
     return true;
   }).slice(0, limit);
 };
-
