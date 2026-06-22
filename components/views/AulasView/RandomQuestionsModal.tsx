@@ -26,9 +26,12 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
     setSessionStatuses({});
   }, [books, onlyReadContent]);
 
-  React.useEffect(() => {
-    redrawQuestions();
-  }, [redrawQuestions]);
+  const toggleOnlyReadContent = () => {
+    const nextOnlyReadContent = !onlyReadContent;
+    setOnlyReadContent(nextOnlyReadContent);
+    setQuestions(drawRandomQuestions(books, 15, 3, nextOnlyReadContent));
+    setSessionStatuses({});
+  };
 
   const getQuestionStatus = (question: RandomQuestionItem): QuestionStatus => {
     if (Object.prototype.hasOwnProperty.call(sessionStatuses, question.id)) {
@@ -105,7 +108,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                 </div>
                 <button
                   type="button"
-                  onClick={() => setOnlyReadContent((current) => !current)}
+                  onClick={toggleOnlyReadContent}
                   className={`p-3 rounded border text-left transition-colors ${
                     onlyReadContent
                       ? "bg-emerald-950/40 border-emerald-700 text-emerald-300"
