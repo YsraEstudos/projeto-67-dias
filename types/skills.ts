@@ -43,6 +43,7 @@ export interface SkillRoadmapItem {
   completedAt?: number;
   type?: 'TASK' | 'SECTION';
   subTasks?: SkillRoadmapItem[];
+  progressTarget?: number;
 }
 
 export interface RoadmapBackup {
@@ -127,6 +128,7 @@ export interface Skill {
   pomodorosCompleted?: number;
   goalPomodoros?: number;
   microAchievements?: MicroAchievement[];
+  roadmapProgressTarget?: number;
 
   // Next Day Content
   nextDayContents?: NextDayContent[];

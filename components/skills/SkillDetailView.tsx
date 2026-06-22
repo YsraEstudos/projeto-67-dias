@@ -89,7 +89,7 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                 {/* LEFT COLUMN: Micro-Achievements, Stats & Resources */}
                 <div className="space-y-6">
                     {/* Micro-Achievements - ADHD-friendly quick wins */}
-                    <MicroAchievementsTab skill={skill} />
+                    <MicroAchievementsTab skill={skill} onUpdate={onUpdate} />
 
                     <ProgressStats
                         skill={skill}
@@ -138,6 +138,7 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
                     onDeleteBackup={handleDeleteBackup}
                     // Rename items (tasks & subtasks)
                     onRenameItem={(itemId, newTitle) => renameRoadmapItem(skill.id, itemId, newTitle)}
+                    defaultProgressTarget={skill.roadmapProgressTarget ?? 100}
                 />
             </div>
         </div>

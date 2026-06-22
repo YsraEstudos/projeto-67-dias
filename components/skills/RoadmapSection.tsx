@@ -36,6 +36,7 @@ interface RoadmapSectionProps {
     onDeleteBackup?: (backupId: string) => void;
     // Item rename (tasks & subtasks)
     onRenameItem?: (itemId: string, newTitle: string) => void;
+    defaultProgressTarget?: number;
 }
 
 /**
@@ -62,7 +63,8 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     onRollbackToBackup,
     onDeleteBackup,
     // Rename
-    onRenameItem
+    onRenameItem,
+    defaultProgressTarget = 100
 }) => {
 
     const [isFullEditorOpen, setIsFullEditorOpen] = useState(false);
@@ -137,6 +139,23 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     const completedTasks = allTasks.filter(i => i.isCompleted).length;
     const totalTasks = allTasks.length;
     const roadmapProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    const getSectionProgress = (sectionId: string) => {
+        const sectionIndex = roadmap.findIndex(item => item.id === sectionId);
+        const followingItems = roadmap.slice(sectionIndex + 1);
+        const nextSectionIndex = followingItems.findIndex(item => item.type === 'SECTION');
+        const sectionItems = nextSectionIndex === -1 ? followingItems : followingItems.slice(0, nextSectionIndex);
+        const tasks = flattenTasks(sectionItems);
+        const completed = tasks.filter(item => item.isCompleted).length;
+        return tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+    };
+
+    const updateSectionTarget = (sectionId: string, value: string) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return;
+        const progressTarget = Math.max(0, Math.min(100, Math.round(parsed)));
+        onUpdate(roadmap.map(item => item.id === sectionId ? { ...item, progressTarget } : item));
+    };
 
     // Item Handlers
     const toggleRoadmapItem = (itemId: string) => {
@@ -407,6 +426,8 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
 
                             if (item.type === 'SECTION') {
                                 const isUnlocked = unlockedSections.includes(item.id);
+                                const sectionProgress = getSectionProgress(item.id);
+                                const sectionTarget = item.progressTarget ?? defaultProgressTarget;
                                 return (
                                     <div
                                         key={item.id}
@@ -432,6 +453,29 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                             {!isVisible && <Lock size={12} className="text-amber-500/70" />}
                                             {item.title}
                                         </span>
+                                        <div
+                                            className="relative h-11 w-11 flex-shrink-0"
+                                            title={`${sectionProgress}% concluído · meta ${sectionTarget}%`}
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            <svg className="-rotate-90 h-11 w-11" viewBox="0 0 44 44" aria-hidden="true">
+                                                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="4" className="text-slate-700" />
+                                                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"
+                                                    strokeDasharray={2 * Math.PI * 18}
+                                                    strokeDashoffset={(2 * Math.PI * 18) * (1 - sectionProgress / 100)}
+                                                    className={sectionProgress >= sectionTarget ? 'text-emerald-400' : variants.text}
+                                                />
+                                            </svg>
+                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">{sectionProgress}%</span>
+                                        </div>
+                                        <label className="flex items-center gap-1 text-[10px] text-slate-500" title="Meta desta divisória" onClick={(event) => event.stopPropagation()}>
+                                            meta
+                                            <input type="number" min="0" max="100" value={sectionTarget}
+                                                onChange={(event) => updateSectionTarget(item.id, event.target.value)}
+                                                className="w-12 rounded-md border border-slate-700 bg-slate-900 px-1 py-1 text-center text-xs text-slate-200 outline-none focus:border-emerald-500"
+                                            />
+                                            %
+                                        </label>
                                         <div className={`h-px flex-1 relative ${isVisible ? 'bg-slate-700' : 'bg-slate-800'}`}>
                                             {isVisible && (
                                                 <button

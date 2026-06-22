@@ -16,7 +16,7 @@ const sanitizeItem = (item: unknown, depth: number): SkillRoadmapItem | null => 
     if (depth > MAX_DEPTH) return null;
     if (!isPlainObject(item)) return null;
 
-    const { id, title, isCompleted, type, subTasks } = item as Record<string, unknown>;
+    const { id, title, isCompleted, type, subTasks, progressTarget } = item as Record<string, unknown>;
     if (typeof id !== 'string' || isPoisonKey(id)) return null;
     if (typeof title !== 'string') return null;
 
@@ -26,6 +26,10 @@ const sanitizeItem = (item: unknown, depth: number): SkillRoadmapItem | null => 
         isCompleted: Boolean(isCompleted),
         type: type === 'SECTION' ? 'SECTION' : 'TASK'
     };
+
+    if (type === 'SECTION' && typeof progressTarget === 'number' && Number.isFinite(progressTarget)) {
+        cleaned.progressTarget = Math.max(0, Math.min(100, Math.round(progressTarget)));
+    }
 
     if (Array.isArray(subTasks)) {
         const cleanedSubs = subTasks
