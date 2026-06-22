@@ -1,5 +1,5 @@
 import React from "react";
-import { BookCheck, Check, History, RefreshCw, Sparkles, X, Zap } from "lucide-react";
+import { BookCheck, Check, History, Pin, PinOff, RefreshCw, RotateCcw, Sparkles, X, Zap } from "lucide-react";
 import { AulaBook } from "../../../types";
 import {
   buildRandomQuestionPool,
@@ -10,6 +10,27 @@ import {
 
 type QuestionStatus = "correct" | "incorrect" | "pending";
 
+interface PinnedRandomQuestionsSession {
+  questions: RandomQuestionItem[];
+  statuses: Record<string, QuestionStatus>;
+  onlyReadContent: boolean;
+  historyFilter: QuestionHistoryFilter;
+}
+
+const PINNED_SESSION_KEY = "p67_pinned_random_questions";
+
+const loadPinnedSession = (): PinnedRandomQuestionsSession | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const stored = window.localStorage.getItem(PINNED_SESSION_KEY);
+    return stored ? JSON.parse(stored) as PinnedRandomQuestionsSession : null;
+  } catch {
+    window.localStorage.removeItem(PINNED_SESSION_KEY);
+    return null;
+  }
+};
+
 interface RandomQuestionsModalProps {
   books: AulaBook[];
   onClose: () => void;
@@ -17,22 +38,48 @@ interface RandomQuestionsModalProps {
 }
 
 export default function RandomQuestionsModal({ books, onClose, onSetQuestionStatus }: RandomQuestionsModalProps) {
-  const [onlyReadContent, setOnlyReadContent] = React.useState(false);
-  const [historyFilter, setHistoryFilter] = React.useState<QuestionHistoryFilter>("all");
+  const initialPinnedSession = React.useRef(loadPinnedSession());
+  const [onlyReadContent, setOnlyReadContent] = React.useState(
+    initialPinnedSession.current?.onlyReadContent || false,
+  );
+  const [historyFilter, setHistoryFilter] = React.useState<QuestionHistoryFilter>(
+    initialPinnedSession.current?.historyFilter || "all",
+  );
+  const [isPinned, setIsPinned] = React.useState(Boolean(initialPinnedSession.current));
   const allQuestionsCount = React.useMemo(() => buildRandomQuestionPool(books).length, [books]);
   const totalQuestions = React.useMemo(
     () => buildRandomQuestionPool(books, onlyReadContent, historyFilter).length,
     [books, onlyReadContent, historyFilter],
   );
-  const [questions, setQuestions] = React.useState<RandomQuestionItem[]>(() => drawRandomQuestions(books));
-  const [sessionStatuses, setSessionStatuses] = React.useState<Record<string, QuestionStatus>>({});
+  const [questions, setQuestions] = React.useState<RandomQuestionItem[]>(
+    () => initialPinnedSession.current?.questions || drawRandomQuestions(books),
+  );
+  const [sessionStatuses, setSessionStatuses] = React.useState<Record<string, QuestionStatus>>(
+    () => initialPinnedSession.current?.statuses || {},
+  );
+
+  const persistPinnedSession = React.useCallback((
+    nextQuestions: RandomQuestionItem[],
+    nextStatuses: Record<string, QuestionStatus>,
+    nextOnlyReadContent = onlyReadContent,
+    nextHistoryFilter = historyFilter,
+  ) => {
+    window.localStorage.setItem(PINNED_SESSION_KEY, JSON.stringify({
+      questions: nextQuestions,
+      statuses: nextStatuses,
+      onlyReadContent: nextOnlyReadContent,
+      historyFilter: nextHistoryFilter,
+    } satisfies PinnedRandomQuestionsSession));
+  }, [historyFilter, onlyReadContent]);
 
   const redrawQuestions = React.useCallback(() => {
+    if (isPinned) return;
     setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent, historyFilter));
     setSessionStatuses({});
-  }, [books, onlyReadContent, historyFilter]);
+  }, [books, historyFilter, isPinned, onlyReadContent]);
 
   const toggleOnlyReadContent = () => {
+    if (isPinned) return;
     const nextOnlyReadContent = !onlyReadContent;
     setOnlyReadContent(nextOnlyReadContent);
     setQuestions(drawRandomQuestions(books, 15, 3, nextOnlyReadContent, historyFilter));
@@ -40,6 +87,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
   };
 
   const toggleHistoryFilter = (filter: Exclude<QuestionHistoryFilter, "all">) => {
+    if (isPinned) return;
     const nextHistoryFilter = historyFilter === filter ? "all" : filter;
     setHistoryFilter(nextHistoryFilter);
     setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent, nextHistoryFilter));
@@ -71,8 +119,42 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
   };
 
   const setQuestionStatus = (question: RandomQuestionItem, status: QuestionStatus) => {
-    setSessionStatuses((current) => ({ ...current, [question.id]: status }));
+    setSessionStatuses((current) => {
+      const nextStatuses = { ...current, [question.id]: status };
+      const completedAll = questions.length > 0 && questions.every(
+        (item) => (nextStatuses[item.id] || "pending") !== "pending",
+      );
+
+      if (isPinned) {
+        if (completedAll) {
+          window.localStorage.removeItem(PINNED_SESSION_KEY);
+          setIsPinned(false);
+        } else {
+          persistPinnedSession(questions, nextStatuses);
+        }
+      }
+
+      return nextStatuses;
+    });
     onSetQuestionStatus(question, status);
+  };
+
+  const togglePinnedSession = () => {
+    if (isPinned) {
+      window.localStorage.removeItem(PINNED_SESSION_KEY);
+      setIsPinned(false);
+      return;
+    }
+
+    persistPinnedSession(questions, sessionStatuses);
+    setIsPinned(true);
+  };
+
+  const restartQuestions = () => {
+    window.localStorage.removeItem(PINNED_SESSION_KEY);
+    setIsPinned(false);
+    setSessionStatuses({});
+    setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent, historyFilter));
   };
 
   return (
@@ -121,10 +203,39 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                 </div>
               </div>
 
+              <button
+                type="button"
+                onClick={togglePinnedSession}
+                className={`group relative w-full overflow-hidden mb-3 px-4 py-3 rounded-lg border flex items-center justify-between gap-3 transition-all duration-300 ${
+                  isPinned
+                    ? "bg-amber-950/50 border-amber-500/80 text-amber-200 shadow-lg shadow-amber-950/40"
+                    : "bg-slate-950/50 border-slate-800 text-slate-300 hover:border-[#D4AF37]/70 hover:text-[#D4AF37]"
+                }`}
+                aria-pressed={isPinned}
+                title={isPinned ? "Desafixar esta sessão" : "Manter estas questões mesmo ao sair ou recarregar o site"}
+              >
+                <span className="absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-[500%]" />
+                <span className="relative flex items-center gap-3">
+                  {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4 group-hover:-rotate-12 transition-transform" />}
+                  <span className="text-left">
+                    <strong className="block text-xs uppercase tracking-widest">
+                      {isPinned ? "Questões fixadas" : "Fixar estas questões"}
+                    </strong>
+                    <span className="block text-[10px] opacity-70 mt-0.5">
+                      {isPinned ? "A lista ficará salva até você terminar ou reiniciar." : "Preserva a lista ao navegar ou recarregar o site."}
+                    </span>
+                  </span>
+                </span>
+                <span className={`relative w-10 h-5 rounded-full p-0.5 transition-colors ${isPinned ? "bg-amber-500" : "bg-slate-700"}`}>
+                  <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${isPinned ? "translate-x-5" : "translate-x-0"}`} />
+                </span>
+              </button>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 <button
                   type="button"
                   onClick={toggleOnlyReadContent}
+                  disabled={isPinned}
                   className={`group relative overflow-hidden p-3 rounded-lg border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
                     onlyReadContent
                       ? "bg-emerald-950/50 border-emerald-500/80 text-emerald-300 shadow-emerald-950/60"
@@ -145,6 +256,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                 <button
                   type="button"
                   onClick={() => toggleHistoryFilter("unanswered")}
+                  disabled={isPinned}
                   className={`group relative overflow-hidden p-3 rounded-lg border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
                     historyFilter === "unanswered"
                       ? "bg-sky-950/50 border-sky-500/80 text-sky-300 shadow-sky-950/60"
@@ -165,6 +277,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                 <button
                   type="button"
                   onClick={() => toggleHistoryFilter("answered")}
+                  disabled={isPinned}
                   className={`group relative overflow-hidden p-3 rounded-lg border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
                     historyFilter === "answered"
                       ? "bg-violet-950/50 border-violet-500/80 text-violet-300 shadow-violet-950/60"
@@ -260,15 +373,26 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
           <span className="text-[10px] text-slate-500 uppercase tracking-wider">
             Mostrando apenas numero da questao e titulo geral da aula.
           </span>
-          <button
-            type="button"
-            onClick={redrawQuestions}
-            disabled={totalQuestions === 0}
-            className="inline-flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-950 px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Sortear de novo
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={restartQuestions}
+              className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-rose-950/50 border border-slate-700 hover:border-rose-700 text-slate-300 hover:text-rose-300 px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reiniciar questões
+            </button>
+            <button
+              type="button"
+              onClick={redrawQuestions}
+              disabled={totalQuestions === 0 || isPinned}
+              className="inline-flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-950 px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors"
+              title={isPinned ? "Reinicie ou desafixe as questões para sortear novamente" : "Sortear uma nova lista"}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Sortear de novo
+            </button>
+          </div>
         </div>
       </div>
     </div>
