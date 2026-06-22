@@ -9,6 +9,8 @@ export interface RandomQuestionItem {
   questionNumber: number;
 }
 
+export type QuestionHistoryFilter = "all" | "unanswered" | "answered";
+
 const QUESTION_LIMIT = 15;
 const MAX_PER_CONTENT = 3;
 
@@ -47,19 +49,26 @@ const collectChapterQuestionNumbers = (chapter: AulaChapter): number[] => {
 export const buildRandomQuestionPool = (
   books: AulaBook[],
   onlyReadContent = false,
+  historyFilter: QuestionHistoryFilter = "all",
 ): RandomQuestionItem[] =>
   books.flatMap((book) =>
     (book.chapters || []).flatMap((chapter) => {
       if (onlyReadContent && !chapter.readAt) return [];
 
-      return collectChapterQuestionNumbers(chapter).map((questionNumber) => ({
+      return collectChapterQuestionNumbers(chapter).flatMap((questionNumber) => {
+        const hasAttempt = (chapter.questionAttempts?.[questionNumber.toString()]?.history?.length || 0) > 0;
+        if (historyFilter === "unanswered" && hasAttempt) return [];
+        if (historyFilter === "answered" && !hasAttempt) return [];
+
+        return [{
           id: `${book.id}:${chapter.id}:${questionNumber}`,
           bookId: book.id,
           bookTitle: book.title,
           chapterId: chapter.id,
           chapterTitle: chapter.title,
           questionNumber,
-        }));
+        }];
+      });
     }),
   );
 
@@ -68,10 +77,11 @@ export const drawRandomQuestions = (
   limit = QUESTION_LIMIT,
   maxPerContent = MAX_PER_CONTENT,
   onlyReadContent = false,
+  historyFilter: QuestionHistoryFilter = "all",
 ): RandomQuestionItem[] => {
   const contentCounts = new Map<string, number>();
 
-  return shuffle(buildRandomQuestionPool(books, onlyReadContent)).filter((item) => {
+  return shuffle(buildRandomQuestionPool(books, onlyReadContent, historyFilter)).filter((item) => {
     if (contentCounts.size === 0 && limit <= 0) return false;
 
     const currentCount = contentCounts.get(item.bookId) || 0;

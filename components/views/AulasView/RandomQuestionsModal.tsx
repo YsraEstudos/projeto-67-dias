@@ -1,7 +1,12 @@
 import React from "react";
-import { BookCheck, Check, RefreshCw, Sparkles, X } from "lucide-react";
+import { BookCheck, Check, History, RefreshCw, Sparkles, X, Zap } from "lucide-react";
 import { AulaBook } from "../../../types";
-import { buildRandomQuestionPool, drawRandomQuestions, RandomQuestionItem } from "./randomQuestions";
+import {
+  buildRandomQuestionPool,
+  drawRandomQuestions,
+  QuestionHistoryFilter,
+  RandomQuestionItem,
+} from "./randomQuestions";
 
 type QuestionStatus = "correct" | "incorrect" | "pending";
 
@@ -13,23 +18,31 @@ interface RandomQuestionsModalProps {
 
 export default function RandomQuestionsModal({ books, onClose, onSetQuestionStatus }: RandomQuestionsModalProps) {
   const [onlyReadContent, setOnlyReadContent] = React.useState(false);
+  const [historyFilter, setHistoryFilter] = React.useState<QuestionHistoryFilter>("all");
   const allQuestionsCount = React.useMemo(() => buildRandomQuestionPool(books).length, [books]);
   const totalQuestions = React.useMemo(
-    () => buildRandomQuestionPool(books, onlyReadContent).length,
-    [books, onlyReadContent],
+    () => buildRandomQuestionPool(books, onlyReadContent, historyFilter).length,
+    [books, onlyReadContent, historyFilter],
   );
   const [questions, setQuestions] = React.useState<RandomQuestionItem[]>(() => drawRandomQuestions(books));
   const [sessionStatuses, setSessionStatuses] = React.useState<Record<string, QuestionStatus>>({});
 
   const redrawQuestions = React.useCallback(() => {
-    setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent));
+    setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent, historyFilter));
     setSessionStatuses({});
-  }, [books, onlyReadContent]);
+  }, [books, onlyReadContent, historyFilter]);
 
   const toggleOnlyReadContent = () => {
     const nextOnlyReadContent = !onlyReadContent;
     setOnlyReadContent(nextOnlyReadContent);
-    setQuestions(drawRandomQuestions(books, 15, 3, nextOnlyReadContent));
+    setQuestions(drawRandomQuestions(books, 15, 3, nextOnlyReadContent, historyFilter));
+    setSessionStatuses({});
+  };
+
+  const toggleHistoryFilter = (filter: Exclude<QuestionHistoryFilter, "all">) => {
+    const nextHistoryFilter = historyFilter === filter ? "all" : filter;
+    setHistoryFilter(nextHistoryFilter);
+    setQuestions(drawRandomQuestions(books, 15, 3, onlyReadContent, nextHistoryFilter));
     setSessionStatuses({});
   };
 
@@ -97,7 +110,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="bg-slate-950/50 border border-slate-800 rounded p-3">
                   <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Selecionadas</span>
                   <strong className="block text-xl text-slate-100 mt-1">{questions.length}</strong>
@@ -106,23 +119,67 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                   <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Disponiveis</span>
                   <strong className="block text-xl text-slate-100 mt-1">{totalQuestions}</strong>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 <button
                   type="button"
                   onClick={toggleOnlyReadContent}
-                  className={`p-3 rounded border text-left transition-colors ${
+                  className={`group relative overflow-hidden p-3 rounded-lg border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
                     onlyReadContent
-                      ? "bg-emerald-950/40 border-emerald-700 text-emerald-300"
+                      ? "bg-emerald-950/50 border-emerald-500/80 text-emerald-300 shadow-emerald-950/60"
                       : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
                   }`}
                   aria-pressed={onlyReadContent}
                   title="Sortear somente questões de aulas marcadas como lidas"
                 >
+                  <span className="absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-[500%]" />
                   <span className="flex items-center gap-2 text-[9px] uppercase tracking-widest font-bold">
-                    <BookCheck className="w-4 h-4" />
+                    <BookCheck className={`w-4 h-4 transition-transform duration-300 ${onlyReadContent ? "scale-110 -rotate-6" : "group-hover:scale-110"}`} />
                     Apenas conteúdos lidos
                   </span>
                   <strong className="block text-sm mt-2">
                     {onlyReadContent ? "Filtro ativado" : "Ativar filtro"}
+                  </strong>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleHistoryFilter("unanswered")}
+                  className={`group relative overflow-hidden p-3 rounded-lg border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
+                    historyFilter === "unanswered"
+                      ? "bg-sky-950/50 border-sky-500/80 text-sky-300 shadow-sky-950/60"
+                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-sky-800 hover:text-sky-300"
+                  }`}
+                  aria-pressed={historyFilter === "unanswered"}
+                  title="Sortear somente questões nunca respondidas"
+                >
+                  <span className="absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-[500%]" />
+                  <span className="flex items-center gap-2 text-[9px] uppercase tracking-widest font-bold">
+                    <Zap className={`w-4 h-4 transition-transform duration-300 ${historyFilter === "unanswered" ? "scale-110 -rotate-6" : "group-hover:scale-110"}`} />
+                    Nunca respondidas
+                  </span>
+                  <strong className="block text-sm mt-2">
+                    {historyFilter === "unanswered" ? "Filtro ativado" : "Ativar filtro"}
+                  </strong>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleHistoryFilter("answered")}
+                  className={`group relative overflow-hidden p-3 rounded-lg border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
+                    historyFilter === "answered"
+                      ? "bg-violet-950/50 border-violet-500/80 text-violet-300 shadow-violet-950/60"
+                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-violet-800 hover:text-violet-300"
+                  }`}
+                  aria-pressed={historyFilter === "answered"}
+                  title="Sortear somente questões já respondidas"
+                >
+                  <span className="absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-[500%]" />
+                  <span className="flex items-center gap-2 text-[9px] uppercase tracking-widest font-bold">
+                    <History className={`w-4 h-4 transition-transform duration-300 ${historyFilter === "answered" ? "scale-110 -rotate-12" : "group-hover:-rotate-12"}`} />
+                    Já respondidas
+                  </span>
+                  <strong className="block text-sm mt-2">
+                    {historyFilter === "answered" ? "Filtro ativado" : "Ativar filtro"}
                   </strong>
                 </button>
               </div>
