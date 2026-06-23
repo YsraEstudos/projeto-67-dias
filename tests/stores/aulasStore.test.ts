@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAulasStore } from '../../stores/aulasStore';
+import { SmartReviewSession } from '../../types';
 
 const {
     writeToFirestoreMock,
@@ -102,6 +103,8 @@ describe('aulasStore', () => {
             folders: state.folders,
             collections: state.collections,
             recentlyStudied: state.recentlyStudied,
+            activeReviewSession: null,
+            reviewSessions: [],
         });
     });
 
@@ -195,5 +198,56 @@ describe('aulasStore', () => {
         expect(writeItemToSubcollectionMock).toHaveBeenCalledWith('p67_aulas_books', book.id, updatedBook);
         expect(updatedBook.chapters[0].content).toBe('Draft 2');
 
+    });
+
+    it('records a completed smart review only once per question and session', () => {
+        useAulasStore.getState()._hydrateBooksFromSubcollection([{
+            id: 'book-review',
+            folderId: 'f-1',
+            title: 'Matemática',
+            coverImage: null,
+            targetDate: null,
+            position: 0,
+            chapters: [{
+                id: 'chapter-review',
+                title: 'Razão e proporção',
+                content: '',
+                attachments: {},
+                position: 0,
+            }],
+        }]);
+
+        const session: SmartReviewSession = {
+            id: 'session-1',
+            status: 'completed',
+            requestedCount: 1,
+            startedAt: '2026-06-23T10:00:00.000Z',
+            updatedAt: '2026-06-23T11:00:00.000Z',
+            completedAt: '2026-06-23T11:00:00.000Z',
+            answers: { 'book-review:chapter-review:7': 'correct' },
+            questions: [{
+                id: 'book-review:chapter-review:7',
+                bookId: 'book-review',
+                bookTitle: 'Matemática',
+                chapterId: 'chapter-review',
+                subject: 'Razão e proporção',
+                questionNumber: 7,
+                submatters: ['Divisão diretamente proporcional'],
+                bucket: 'new',
+                priority: 20,
+                reasons: ['Questão inédita'],
+                previousAttempts: [],
+                difficult: false,
+                reviewOverdue: false,
+            }],
+        };
+
+        useAulasStore.getState().completeReviewSession(session);
+        useAulasStore.getState().completeReviewSession(session);
+
+        const stats = useAulasStore.getState().books[0].chapters[0].questionAttempts?.['7'];
+        expect(stats?.total).toBe(1);
+        expect(stats?.history[0].sessionId).toBe('session-1');
+        expect(useAulasStore.getState().reviewSessions).toHaveLength(1);
     });
 });

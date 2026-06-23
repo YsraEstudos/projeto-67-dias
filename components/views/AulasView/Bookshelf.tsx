@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
 import { useDebounce } from "../../../hooks/useDebounce";
-import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
-import { QuestionAttempt, RecentlyStudiedItem } from "../../../types";
+import { Plus, BookOpen, FolderPlus, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
+import { RecentlyStudiedItem } from "../../../types";
 import RandomQuestionsModal from "./RandomQuestionsModal";
-import { RandomQuestionItem } from "./randomQuestions";
 import {
   DndContext,
   closestCenter,
@@ -518,7 +517,6 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     updateBook,
     updateChapter,
     reorderBooks,
-    importBackupData,
   } = useAulasStore();
 
   const [activeView, setActiveView] = useState<{ type: "folder" | "collection"; id: string } | null>(null);
@@ -549,53 +547,6 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const debouncedGlobalSearchQuery = useDebounce(globalSearchQuery, 250);
   const globalSearchIndex = useMemo(() => buildBookshelfSearchIndex(books), [books]);
-
-  const setRandomQuestionStatus = (
-    question: RandomQuestionItem,
-    status: "correct" | "incorrect" | "pending",
-  ) => {
-    const chapter = books
-      .find((book) => book.id === question.bookId)
-      ?.chapters?.find((item) => item.id === question.chapterId);
-    if (!chapter) return;
-
-    const correctQuestions = chapter.correctQuestions || [];
-    const incorrectQuestions = chapter.incorrectQuestions || [];
-    const legacyCompleted = chapter.completedPrincipalQuestions || [];
-    const activeCorrect =
-      correctQuestions.length === 0 && incorrectQuestions.length === 0 && legacyCompleted.length > 0
-        ? [...legacyCompleted]
-        : [...correctQuestions];
-
-    let nextCorrect = activeCorrect.filter((number) => number !== question.questionNumber);
-    let nextIncorrect = incorrectQuestions.filter((number) => number !== question.questionNumber);
-    const nextAttempts = { ...(chapter.questionAttempts || {}) };
-
-    if (status === "correct" || status === "incorrect") {
-      if (status === "correct") {
-        nextCorrect = [...nextCorrect, question.questionNumber].sort((a, b) => a - b);
-      } else {
-        nextIncorrect = [...nextIncorrect, question.questionNumber].sort((a, b) => a - b);
-      }
-
-      const key = question.questionNumber.toString();
-      const currentStats = nextAttempts[key] || { total: 0, correct: 0, incorrect: 0, history: [] };
-      const attempt: QuestionAttempt = { timestamp: new Date().toISOString(), status };
-      nextAttempts[key] = {
-        total: currentStats.total + 1,
-        correct: currentStats.correct + (status === "correct" ? 1 : 0),
-        incorrect: currentStats.incorrect + (status === "incorrect" ? 1 : 0),
-        history: [attempt, ...currentStats.history],
-      };
-    }
-
-    updateChapter(question.bookId, question.chapterId, {
-      correctQuestions: nextCorrect,
-      incorrectQuestions: nextIncorrect,
-      completedPrincipalQuestions: [...nextCorrect, ...nextIncorrect].sort((a, b) => a - b),
-      questionAttempts: nextAttempts,
-    });
-  };
 
   const getBookColor = (id: string) => {
     const colors = [
@@ -807,40 +758,6 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     );
   };
 
-  // Support exporting/importing JSON for simple data migration (no auto backup dependencies)
-  const handleExportBackup = () => {
-    const backupData = { folders, collections, books };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
-    const downloadAnchorNode = document.createElement("a");
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "estante_aulas_backup.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
-        if (parsed && Array.isArray(parsed.folders)) {
-          importBackupData(parsed);
-          alert("Backup importado com sucesso! (Os dados serão sincronizados com o Firestore)");
-        } else {
-          alert("Arquivo de backup inválido.");
-        }
-      } catch (err) {
-        alert("Erro ao ler backup: " + (err as Error).message);
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
       <header className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between border-b border-slate-800 pb-6 gap-4">
@@ -849,20 +766,6 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           <p className="text-sm text-slate-400">Organize seus cursos, anexe imagens e acompanhe suas aulas e questões.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-          <input
-            type="file"
-            accept=".json"
-            className="hidden"
-            id="aulas-backup-upload"
-            onChange={handleImportBackup}
-          />
-          <label
-            htmlFor="aulas-backup-upload"
-            className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider cursor-pointer"
-            title="Importar Backup JSON"
-          >
-            <Upload className="w-4 h-4" />
-          </label>
           <button
             onClick={() => setGlobalSearchOpen(true)}
             className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-[#D4AF37] hover:text-[#e5c158] px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider mr-2"
@@ -873,31 +776,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           <button
             onClick={() => setRandomQuestionsOpen(true)}
             className="flex items-center justify-center gap-2 bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-3 py-2 rounded transition-colors text-xs font-bold uppercase tracking-wider shadow-sm whitespace-nowrap"
-            title="Sortear 15 questoes aleatorias"
+            title="Abrir sistema inteligente de revisões"
           >
             <Sparkles className="w-4 h-4" />
-            Questões aleatórias
-          </button>
-          <input
-            type="file"
-            accept=".json"
-            className="hidden"
-            id="aulas-backup-upload"
-            onChange={handleImportBackup}
-          />
-          <label
-            htmlFor="aulas-backup-upload"
-            className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider cursor-pointer"
-            title="Importar Backup JSON"
-          >
-            <Upload className="w-4 h-4" />
-          </label>
-          <button
-            onClick={handleExportBackup}
-            className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-2 rounded transition-colors text-xs uppercase tracking-wider mr-2"
-            title="Exportar Backup JSON"
-          >
-            <Download className="w-4 h-4" />
+            Revisão inteligente
           </button>
 
           <button
@@ -1488,7 +1370,6 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
         <RandomQuestionsModal
           books={books}
           onClose={() => setRandomQuestionsOpen(false)}
-          onSetQuestionStatus={setRandomQuestionStatus}
         />
       )}
 

@@ -49,6 +49,9 @@ export interface AulaRelatedQuestions {
 export interface QuestionAttempt {
   timestamp: string;
   status: 'correct' | 'incorrect';
+  sessionId?: string;
+  source?: 'chapter' | 'smart-review';
+  submatters?: string[];
 }
 
 export interface QuestionStats {
@@ -100,4 +103,61 @@ export interface AulaBook {
 export interface AulaAppState {
   folders: AulaFolder[];
   collections: AulaCollection[];
+}
+
+export type SmartReviewAnswer = 'correct' | 'incorrect' | 'pending';
+export type SmartReviewBucket = 'recovery' | 'maintenance' | 'new';
+
+export interface SmartReviewQuestion {
+  id: string;
+  bookId: string;
+  bookTitle: string;
+  chapterId: string;
+  subject: string;
+  questionNumber: number;
+  submatters: string[];
+  bucket: SmartReviewBucket;
+  priority: number;
+  reasons: string[];
+  previousStatus?: 'correct' | 'incorrect';
+  previousAttemptAt?: string;
+  previousAttempts: QuestionAttempt[];
+  difficult: boolean;
+  reviewOverdue: boolean;
+}
+
+export interface SmartReviewPerformanceRow {
+  key: string;
+  label: string;
+  parentLabel?: string;
+  total: number;
+  correct: number;
+  incorrect: number;
+  percentage: number;
+}
+
+export interface SmartReviewSummary {
+  total: number;
+  correct: number;
+  incorrect: number;
+  percentage: number;
+  recovered: number;
+  regressed: number;
+  baseline: number;
+  deltaFromPrevious: number | null;
+  subjects: SmartReviewPerformanceRow[];
+  submatters: SmartReviewPerformanceRow[];
+  recommendations: string[];
+}
+
+export interface SmartReviewSession {
+  id: string;
+  status: 'active' | 'completed';
+  requestedCount: number;
+  questions: SmartReviewQuestion[];
+  answers: Record<string, SmartReviewAnswer>;
+  startedAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  summary?: SmartReviewSummary;
 }

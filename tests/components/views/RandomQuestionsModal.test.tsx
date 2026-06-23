@@ -12,7 +12,7 @@ describe('RandomQuestionsModal layout', () => {
             />,
         );
 
-        const dialog = screen.getByRole('dialog', { name: 'Questões aleatórias' });
+        const dialog = screen.getByRole('dialog', { name: 'Central de revisão' });
         expect(dialog).toHaveClass('max-h-[calc(100dvh-2rem)]', 'flex', 'flex-col');
 
         const content = screen.getByTestId('random-questions-content');

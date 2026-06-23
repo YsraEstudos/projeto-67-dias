@@ -3,7 +3,15 @@
  */
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { AulaBook, AulaChapter, AulaFolder, AulaCollection, RecentlyStudiedItem } from '../types';
+import {
+    AulaBook,
+    AulaChapter,
+    AulaFolder,
+    AulaCollection,
+    RecentlyStudiedItem,
+    SmartReviewAnswer,
+    SmartReviewSession,
+} from '../types';
 import { writeToFirestore, getCurrentUserId, writeItemToSubcollection, deleteItemFromSubcollection } from './firestoreSync';
 import { readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
 import { generateUUID } from '../utils/uuid';
@@ -103,6 +111,8 @@ interface AulasState {
     books: AulaBook[];
     collections: AulaCollection[];
     recentlyStudied: RecentlyStudiedItem[];
+    activeReviewSession: SmartReviewSession | null;
+    reviewSessions: SmartReviewSession[];
     isLoading: boolean;
     _initialized: boolean;
 
@@ -131,6 +141,9 @@ interface AulasState {
     addRecentlyStudied: (bookId: string, chapterId: string) => void;
     setChapterConfidence: (bookId: string, chapterId: string, confidence: 'easy' | 'medium' | 'hard') => void;
     updateChapterStudyTime: (bookId: string, chapterId: string, seconds: number) => void;
+    saveActiveReviewSession: (session: SmartReviewSession | null) => void;
+    setReviewAnswer: (questionId: string, answer: SmartReviewAnswer) => void;
+    completeReviewSession: (session: SmartReviewSession) => void;
 
     importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[]; recentlyStudied?: any[] }) => void;
 
@@ -138,12 +151,26 @@ interface AulasState {
 
     // Internal Sync
     _syncToFirestore: () => void;
-    _hydrateFromFirestore: (data: { folders: AulaFolder[]; collections: AulaCollection[]; books?: AulaBook[]; recentlyStudied?: RecentlyStudiedItem[] } | null) => void;
+    _hydrateFromFirestore: (data: {
+        folders: AulaFolder[];
+        collections: AulaCollection[];
+        books?: AulaBook[];
+        recentlyStudied?: RecentlyStudiedItem[];
+        activeReviewSession?: SmartReviewSession | null;
+        reviewSessions?: SmartReviewSession[];
+    } | null) => void;
     _hydrateBooksFromSubcollection: (books: AulaBook[]) => void;
     _reset: () => void;
 }
 
-const readLocalBackup = (): { folders: AulaFolder[]; collections: AulaCollection[]; books?: AulaBook[] } | null => {
+const readLocalBackup = (): {
+    folders: AulaFolder[];
+    collections: AulaCollection[];
+    books?: AulaBook[];
+    recentlyStudied?: RecentlyStudiedItem[];
+    activeReviewSession?: SmartReviewSession | null;
+    reviewSessions?: SmartReviewSession[];
+} | null => {
     const userId = getCurrentUserId();
     const raw = readNamespacedStorage(LOCAL_BACKUP_KEY, userId);
     if (!raw) return null;
@@ -158,16 +185,32 @@ const readLocalBackup = (): { folders: AulaFolder[]; collections: AulaCollection
     return null;
 };
 
-const writeLocalBackup = (data: { folders: AulaFolder[]; collections: AulaCollection[]; books?: AulaBook[] }) => {
+const writeLocalBackup = (data: {
+    folders: AulaFolder[];
+    collections: AulaCollection[];
+    books?: AulaBook[];
+    recentlyStudied?: RecentlyStudiedItem[];
+    activeReviewSession?: SmartReviewSession | null;
+    reviewSessions?: SmartReviewSession[];
+}) => {
     const userId = getCurrentUserId();
     try {
-        writeNamespacedStorage(LOCAL_BACKUP_KEY, JSON.stringify({ ...data, updatedAt: Date.now() }), userId);
+        const existingRaw = readNamespacedStorage(LOCAL_BACKUP_KEY, userId);
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        writeNamespacedStorage(LOCAL_BACKUP_KEY, JSON.stringify({ ...existing, ...data, updatedAt: Date.now() }), userId);
     } catch {
         // ignore
     }
 };
 
-const writeLocalBackupDebounced = (data: { folders: AulaFolder[]; collections: AulaCollection[]; books?: AulaBook[] }) => {
+const writeLocalBackupDebounced = (data: {
+    folders: AulaFolder[];
+    collections: AulaCollection[];
+    books?: AulaBook[];
+    recentlyStudied?: RecentlyStudiedItem[];
+    activeReviewSession?: SmartReviewSession | null;
+    reviewSessions?: SmartReviewSession[];
+}) => {
     if (pendingLocalBackupTimer) {
         clearTimeout(pendingLocalBackupTimer);
     }
@@ -189,6 +232,8 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
     books: [],
     collections: [],
     recentlyStudied: [],
+    activeReviewSession: null,
+    reviewSessions: [],
     isLoading: true,
     _initialized: false,
 
@@ -537,6 +582,87 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         writeLocalBackupDebounced({ folders, collections, books, recentlyStudied } as any);
     },
 
+    saveActiveReviewSession: (session) => {
+        set((state) => {
+            state.activeReviewSession = session;
+        });
+        get()._syncToFirestore();
+    },
+
+    setReviewAnswer: (questionId, answer) => {
+        set((state) => {
+            if (!state.activeReviewSession) return;
+            state.activeReviewSession.answers[questionId] = answer;
+            state.activeReviewSession.updatedAt = new Date().toISOString();
+        });
+        get()._syncToFirestore();
+    },
+
+    completeReviewSession: (session) => {
+        const completedAt = session.completedAt || new Date().toISOString();
+        const affectedBookIds = new Set<string>();
+
+        set((state) => {
+            session.questions.forEach((question) => {
+                const answer = session.answers[question.id];
+                if (answer !== 'correct' && answer !== 'incorrect') return;
+
+                const book = state.books.find((item) => item.id === question.bookId);
+                const chapter = book?.chapters.find((item) => item.id === question.chapterId);
+                if (!book || !chapter) return;
+
+                affectedBookIds.add(book.id);
+                const key = String(question.questionNumber);
+                const attempts = chapter.questionAttempts || {};
+                const currentStats = attempts[key] || { total: 0, correct: 0, incorrect: 0, history: [] };
+                const alreadyRecorded = currentStats.history.some((attempt) => attempt.sessionId === session.id);
+                if (alreadyRecorded) return;
+
+                const nextHistory = [{
+                    timestamp: completedAt,
+                    status: answer,
+                    sessionId: session.id,
+                    source: 'smart-review' as const,
+                    submatters: question.submatters,
+                }, ...currentStats.history];
+
+                chapter.questionAttempts = {
+                    ...attempts,
+                    [key]: {
+                        total: currentStats.total + 1,
+                        correct: currentStats.correct + (answer === 'correct' ? 1 : 0),
+                        incorrect: currentStats.incorrect + (answer === 'incorrect' ? 1 : 0),
+                        history: nextHistory,
+                    },
+                };
+
+                const correctQuestions = (chapter.correctQuestions || []).filter((number) => number !== question.questionNumber);
+                const incorrectQuestions = (chapter.incorrectQuestions || []).filter((number) => number !== question.questionNumber);
+                if (answer === 'correct') correctQuestions.push(question.questionNumber);
+                if (answer === 'incorrect') incorrectQuestions.push(question.questionNumber);
+                chapter.correctQuestions = correctQuestions.sort((a, b) => a - b);
+                chapter.incorrectQuestions = incorrectQuestions.sort((a, b) => a - b);
+                chapter.completedPrincipalQuestions = [...chapter.correctQuestions, ...chapter.incorrectQuestions].sort((a, b) => a - b);
+            });
+
+            const completedSession: SmartReviewSession = {
+                ...session,
+                status: 'completed',
+                completedAt,
+                updatedAt: completedAt,
+            };
+            state.reviewSessions = [
+                completedSession,
+                ...state.reviewSessions.filter((item) => item.id !== session.id),
+            ].slice(0, 100);
+            state.activeReviewSession = null;
+        });
+
+        const books = get().books;
+        affectedBookIds.forEach((bookId) => syncBookToSubcollection(books.find((book) => book.id === bookId)));
+        get()._syncToFirestore();
+    },
+
     importBackupData: (backupData) => {
         const newBookIds: string[] = [];
         set((state) => {
@@ -646,12 +772,20 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
     setLoading: (loading) => set((state) => { state.isLoading = loading; }),
 
     _syncToFirestore: () => {
-        const { folders, collections, books, recentlyStudied, _initialized } = get();
+        const {
+            folders,
+            collections,
+            books,
+            recentlyStudied,
+            activeReviewSession,
+            reviewSessions,
+            _initialized,
+        } = get();
         const userId = getCurrentUserId();
-        const payload = { folders, collections, recentlyStudied };
+        const payload = { folders, collections, recentlyStudied, activeReviewSession, reviewSessions };
 
         // Keep local backup (folders, collections + offline cache of books)
-        writeLocalBackup({ folders, collections, books, recentlyStudied } as any);
+        writeLocalBackup({ folders, collections, books, recentlyStudied, activeReviewSession, reviewSessions });
 
         if (!userId) return;
 
@@ -682,6 +816,8 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
                 if (fallback && 'recentlyStudied' in fallback) {
                     state.recentlyStudied = (fallback as any).recentlyStudied || [];
                 }
+                state.activeReviewSession = fallback.activeReviewSession || null;
+                state.reviewSessions = fallback.reviewSessions || [];
                 state.isLoading = false;
             });
         } else {
@@ -689,6 +825,8 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
                 state.folders = deduplicateById(fallback.folders || DEFAULT_FOLDERS);
                 state.collections = deduplicateById(fallback.collections || []);
                 state.recentlyStudied = (fallback as any).recentlyStudied || [];
+                state.activeReviewSession = fallback.activeReviewSession || null;
+                state.reviewSessions = fallback.reviewSessions || [];
                 if (fallback.books && state.books.length === 0) {
                     state.books = deduplicateById(fallback.books || []);
                 }
@@ -716,6 +854,8 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             state.books = [];
             state.collections = [];
             state.recentlyStudied = [];
+            state.activeReviewSession = null;
+            state.reviewSessions = [];
             state.isLoading = true;
             state._initialized = false;
         });
