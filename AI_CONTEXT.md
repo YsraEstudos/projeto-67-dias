@@ -179,3 +179,8 @@ If there is no formatter, agree on one and add it to CI.
 - `AulaChapter.difficultQuestions` stores question numbers that need extra-care review independently from correct/incorrect status.
 - In `ChapterView`, right-clicking a question pill toggles that difficult marker and suppresses the browser context menu.
 - Difficult question pills render with an amber ring/dot so duplicates of the same question in principal, section, or secondary lists are visually marked together.
+
+## 2026-06-22 Aulas mathematical formulas
+
+- `utils/aulasMarkdown.normalizeAulasMathMarkdown` converts legacy AI-generated display formulas delimited by standalone `[` and `]` lines into `$$` blocks before `remark-math` processes chapter content.
+- The normalization is render-only, preserving saved lesson markdown and ordinary Markdown links or bracketed prose.

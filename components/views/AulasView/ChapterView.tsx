@@ -12,6 +12,7 @@ import { extractTextFromReactNode, generateSlug, fileToBase64, cn } from "./util
 import { AulaRelatedQuestions, QuestionAttempt, QuestionStats } from "../../../types";
 import CodeTerminal from "./CodeTerminal";
 import Scratchpad from "./Scratchpad";
+import { normalizeAulasMathMarkdown } from "../../../utils/aulasMarkdown";
 
 interface ChapterViewProps {
   bookId: string;
@@ -1361,7 +1362,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                   rehypePlugins={[rehypeRaw, rehypeKatex]}
                   components={markdownComponents}
                 >
-                  {chapter.content}
+                  {normalizeAulasMathMarkdown(chapter.content)}
                 </Markdown>
               )}
 
