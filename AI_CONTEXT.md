@@ -184,3 +184,9 @@ If there is no formatter, agree on one and add it to CI.
 
 - `utils/aulasMarkdown.normalizeAulasMathMarkdown` converts legacy AI-generated display formulas delimited by standalone `[` and `]` lines into `$$` blocks before `remark-math` processes chapter content.
 - The normalization is render-only, preserving saved lesson markdown and ordinary Markdown links or bracketed prose.
+
+
+## 2026-06-22 Aulas random questions modal layout
+
+- `RandomQuestionsModal` is capped to the dynamic viewport height and uses a flex-column shell.
+- Its header and footer remain visible while the central content owns vertical scrolling, preventing filters or actions from falling outside shorter screens.

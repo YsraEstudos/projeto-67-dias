@@ -159,14 +159,19 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
 
   return (
     <div className="fixed inset-0 bg-slate-950/85 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-3xl shadow-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800 bg-slate-950/40 flex items-start justify-between gap-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="random-questions-title"
+        className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-3xl max-h-[calc(100dvh-2rem)] shadow-2xl overflow-hidden flex flex-col"
+      >
+        <div className="px-5 py-4 border-b border-slate-800 bg-slate-950/40 flex items-start justify-between gap-4 shrink-0">
           <div>
             <div className="flex items-center gap-2 text-[#D4AF37] mb-1">
               <Sparkles className="w-4 h-4" />
               <span className="text-[10px] font-bold uppercase tracking-widest">Treino rapido</span>
             </div>
-            <h2 className="text-2xl font-serif italic text-slate-100">Questões aleatórias</h2>
+            <h2 id="random-questions-title" className="text-2xl font-serif italic text-slate-100">Questões aleatórias</h2>
             <p className="text-xs text-slate-400 mt-1">
               15 questões sorteadas de conteúdos variados, com no máximo 3 do mesmo conteúdo.
             </p>
@@ -181,7 +186,10 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
           </button>
         </div>
 
-        <div className="p-5">
+        <div
+          data-testid="random-questions-content"
+          className="p-5 min-h-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
+        >
           {allQuestionsCount === 0 ? (
             <div className="text-center py-14 border border-dashed border-slate-800 rounded-lg bg-slate-950/30">
               <Sparkles className="w-8 h-8 text-slate-650 mx-auto mb-3" />
@@ -306,7 +314,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                <div className="space-y-2 pr-1">
                   {questions.map((question, index) => {
                   const status = getQuestionStatus(question);
 
@@ -369,7 +377,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-slate-800 bg-slate-950/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="px-5 py-4 border-t border-slate-800 bg-slate-950/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
           <span className="text-[10px] text-slate-500 uppercase tracking-wider">
             Mostrando apenas numero da questao e titulo geral da aula.
           </span>
