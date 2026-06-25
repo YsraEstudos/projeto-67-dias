@@ -8,12 +8,11 @@ describe('RandomQuestionsModal layout', () => {
             <RandomQuestionsModal
                 books={[]}
                 onClose={vi.fn()}
-                onSetQuestionStatus={vi.fn()}
             />,
         );
 
         const dialog = screen.getByRole('dialog', { name: 'Central de revisão' });
-        expect(dialog).toHaveClass('max-h-[calc(100dvh-2rem)]', 'flex', 'flex-col');
+        expect(dialog).toHaveClass('max-w-[96rem]', 'max-h-[calc(100dvh-1rem)]', 'flex', 'flex-col');
 
         const content = screen.getByTestId('random-questions-content');
         expect(content).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');

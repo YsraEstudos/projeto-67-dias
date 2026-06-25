@@ -21,9 +21,11 @@ const BOOKS_SUBCOLLECTION_KEY = 'p67_aulas_books';
 const LOCAL_BACKUP_KEY = `${STORE_KEY}::backup`;
 const BOOK_SYNC_DEBOUNCE_MS = 900;
 const LOCAL_BACKUP_DEBOUNCE_MS = 1200;
+const REVIEW_SESSION_SYNC_DEBOUNCE_MS = 1200;
 
 const pendingBookSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let pendingLocalBackupTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingReviewSessionSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     const seen = new Set<string>();
@@ -68,6 +70,28 @@ const syncBookToSubcollectionDebounced = (book?: AulaBook) => {
 
 const deleteBookFromSubcollection = (bookId: string) => {
     void deleteItemFromSubcollection(BOOKS_SUBCOLLECTION_KEY, bookId);
+};
+
+const writeRootStateDebounced = (
+    payload: {
+        folders: AulaFolder[];
+        collections: AulaCollection[];
+        recentlyStudied: RecentlyStudiedItem[];
+        activeReviewSession: SmartReviewSession | null;
+        reviewSessions: SmartReviewSession[];
+    },
+    shouldWriteRemote: boolean,
+) => {
+    if (pendingReviewSessionSyncTimer) {
+        clearTimeout(pendingReviewSessionSyncTimer);
+    }
+
+    pendingReviewSessionSyncTimer = setTimeout(() => {
+        pendingReviewSessionSyncTimer = null;
+        if (shouldWriteRemote) {
+            writeToFirestore(STORE_KEY, payload);
+        }
+    }, REVIEW_SESSION_SYNC_DEBOUNCE_MS);
 };
 
 const flattenChapterJson = (chaptersJson: any[]) => {
@@ -143,6 +167,7 @@ interface AulasState {
     updateChapterStudyTime: (bookId: string, chapterId: string, seconds: number) => void;
     saveActiveReviewSession: (session: SmartReviewSession | null) => void;
     setReviewAnswer: (questionId: string, answer: SmartReviewAnswer) => void;
+    setReviewAnswers: (questionIds: string[], answer: SmartReviewAnswer) => void;
     completeReviewSession: (session: SmartReviewSession) => void;
 
     importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[]; recentlyStudied?: any[] }) => void;
@@ -595,7 +620,24 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             state.activeReviewSession.answers[questionId] = answer;
             state.activeReviewSession.updatedAt = new Date().toISOString();
         });
-        get()._syncToFirestore();
+        const { folders, collections, books, recentlyStudied, activeReviewSession, reviewSessions, _initialized } = get();
+        const payload = { folders, collections, recentlyStudied, activeReviewSession, reviewSessions };
+        writeLocalBackupDebounced({ folders, collections, books, recentlyStudied, activeReviewSession, reviewSessions });
+        writeRootStateDebounced(payload, Boolean(getCurrentUserId() && _initialized));
+    },
+
+    setReviewAnswers: (questionIds, answer) => {
+        set((state) => {
+            if (!state.activeReviewSession) return;
+            questionIds.forEach((questionId) => {
+                state.activeReviewSession!.answers[questionId] = answer;
+            });
+            state.activeReviewSession.updatedAt = new Date().toISOString();
+        });
+        const { folders, collections, books, recentlyStudied, activeReviewSession, reviewSessions, _initialized } = get();
+        const payload = { folders, collections, recentlyStudied, activeReviewSession, reviewSessions };
+        writeLocalBackupDebounced({ folders, collections, books, recentlyStudied, activeReviewSession, reviewSessions });
+        writeRootStateDebounced(payload, Boolean(getCurrentUserId() && _initialized));
     },
 
     completeReviewSession: (session) => {

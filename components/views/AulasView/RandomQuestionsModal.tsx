@@ -131,7 +131,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
   const previewGroups = React.useMemo(() => groupQuestionsBySubject(preview), [preview]);
 
   const markMany = (questionIds: string[], answer: SmartReviewAnswer) => {
-    questionIds.forEach((questionId) => store.setReviewAnswer(questionId, answer));
+    store.setReviewAnswers(questionIds, answer);
   };
 
   const setup = (
@@ -258,17 +258,17 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
 
   const session = active ? (
     <>
-      <div className="grid grid-cols-5 gap-2 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
         {[
           ["Progresso", `${answered}/${active.questions.length}`],
           ["Acertos", correct],
           ["Erros", incorrect],
           ["Pendentes", active.questions.length - answered],
           ["Tempo", `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`],
-        ].map(([label, value]) => <div key={String(label)} className="bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-center"><strong className="text-lg text-slate-100 block">{value}</strong><span className="text-[9px] uppercase text-slate-500">{label}</span></div>)}
+        ].map(([label, value]) => <div key={String(label)} className="bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-center"><strong className="text-base text-slate-100 block">{value}</strong><span className="text-[9px] uppercase text-slate-500">{label}</span></div>)}
       </div>
-      <div className="h-1.5 bg-slate-800 rounded-full mb-5 overflow-hidden"><div className="h-full bg-gradient-to-r from-[#D4AF37] to-emerald-500" style={{ width: `${(answered / active.questions.length) * 100}%` }} /></div>
-      <div className="space-y-4 max-h-[57vh] overflow-y-auto pr-1">
+      <div className="h-1.5 bg-slate-800 rounded-full mb-4 overflow-hidden"><div className="h-full bg-gradient-to-r from-[#D4AF37] to-emerald-500" style={{ width: `${(answered / active.questions.length) * 100}%` }} /></div>
+      <div className="space-y-3">
         {activeGroups.map((group) => {
           const groupAnswers = group.questions.map((question) => active.answers[question.id] || "pending");
           const groupCorrect = groupAnswers.filter((answer) => answer === "correct").length;
@@ -277,8 +277,8 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
           const questionIds = group.questions.map((question) => question.id);
 
           return (
-            <section key={group.key} className="border border-slate-800 bg-slate-950/35 rounded-2xl overflow-hidden">
-              <div className="bg-slate-950/70 border-b border-slate-800 p-4">
+            <section key={group.key} className="border border-slate-800 bg-slate-950/30 rounded-xl overflow-hidden">
+              <div className="bg-slate-950/70 border-b border-slate-800 p-3">
                 <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
                   <div className="min-w-0">
                     <span className="text-[10px] uppercase tracking-[.2em] text-slate-500">{group.bookTitle}</span>
@@ -291,8 +291,8 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                       ))}
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                    <div className="grid grid-cols-3 gap-1 text-center">
+                  <div className="flex flex-col lg:flex-row gap-2 shrink-0">
+                    <div className="grid grid-cols-3 gap-1 text-center min-w-44">
                       <div className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5"><strong className="text-emerald-400 block">{groupCorrect}</strong><span className="text-[8px] uppercase text-slate-500">Acertos</span></div>
                       <div className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5"><strong className="text-rose-400 block">{groupIncorrect}</strong><span className="text-[8px] uppercase text-slate-500">Erros</span></div>
                       <div className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5"><strong className="text-slate-300 block">{groupPending}</strong><span className="text-[8px] uppercase text-slate-500">Pend.</span></div>
@@ -308,12 +308,12 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                   </div>
                 </div>
               </div>
-              <div className="p-3 space-y-3">
+              <div className="p-2 space-y-2">
                 {group.questions.map((question) => {
                   const globalIndex = active.questions.findIndex((item) => item.id === question.id) + 1;
                   const answer = active.answers[question.id] || "pending";
                   return (
-                    <article key={question.id} className={`border rounded-xl p-4 ${answer === "correct" ? "border-emerald-700 bg-emerald-950/20" : answer === "incorrect" ? "border-rose-700 bg-rose-950/20" : "border-slate-800 bg-slate-900/50"}`}>
+                    <article key={question.id} className={`border rounded-xl p-3 ${answer === "correct" ? "border-emerald-700 bg-emerald-950/20" : answer === "incorrect" ? "border-rose-700 bg-rose-950/20" : "border-slate-800 bg-slate-900/50"}`}>
                       <div className="flex flex-col lg:flex-row gap-3 lg:items-start">
                         <div className="flex gap-3 min-w-0 flex-1">
                           <div className="w-10 h-10 rounded-lg bg-slate-800 text-[#D4AF37] grid place-items-center text-xs font-black shrink-0">{String(globalIndex).padStart(2, "0")}</div>
@@ -327,7 +327,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                             <p className="text-xs text-slate-400 mt-3 flex gap-1"><Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />{question.reasons.join(" · ")}</p>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 lg:w-56">
+                        <div className="grid grid-cols-2 gap-2 lg:w-64">
                           <button onClick={() => store.setReviewAnswer(question.id, answer === "correct" ? "pending" : "correct")} className={`rounded-lg border px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 ${answer === "correct" ? "bg-emerald-500 border-emerald-400 text-slate-950" : "bg-slate-950 border-slate-700 text-slate-300 hover:border-emerald-500 hover:text-emerald-300"}`} aria-label={`Marcar questão ${question.questionNumber} como correta`}>
                             <Check className="w-4 h-4" /> Acertei
                           </button>
@@ -393,13 +393,13 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="smart-review-title"
-        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] shadow-2xl overflow-hidden flex flex-col"
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-[96rem] max-h-[calc(100dvh-1rem)] shadow-2xl overflow-hidden flex flex-col"
       >
         <header className="px-5 py-4 border-b border-slate-800 bg-slate-950/50 flex justify-between shrink-0">
           <div className="flex gap-3">{screen !== "setup" && <button onClick={() => setScreen(screen === "report" && store.reviewSessions.length ? "history" : "setup")} className="p-2 border border-slate-800 rounded-lg text-slate-400"><ChevronLeft className="w-4 h-4" /></button>}<div><span className="text-[10px] uppercase tracking-[.28em] text-[#D4AF37] font-bold flex gap-2"><BrainCircuit className="w-4 h-4" /> Revisão adaptativa</span><h2 id="smart-review-title" className="text-2xl font-serif italic text-slate-100">{title}</h2><p className="text-xs text-slate-500">Livro → matéria → submatéria → questão</p></div></div>
           <div className="flex gap-2">{screen === "setup" && <button onClick={() => setScreen("history")} className="p-2 border border-slate-800 rounded-lg text-slate-400" title="Histórico"><History className="w-4 h-4" /></button>}<button onClick={onClose} className="p-2 border border-slate-800 rounded-lg text-slate-400"><X className="w-4 h-4" /></button></div>
         </header>
-        <main data-testid="random-questions-content" className="p-4 md:p-5 min-h-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">{screen === "setup" ? setup : screen === "session" ? session : screen === "report" ? reportView : history}</main>
+        <main data-testid="random-questions-content" className="p-3 md:p-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">{screen === "setup" ? setup : screen === "session" ? session : screen === "report" ? reportView : history}</main>
         {screen === "setup" && (
           <footer className="shrink-0 border-t border-slate-800 bg-slate-950/80 px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
             <p className="text-[11px] text-slate-500">
