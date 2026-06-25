@@ -2,7 +2,7 @@ import React from "react";
 import { AlertTriangle, BarChart3, BrainCircuit, Check, ChevronLeft, History, Play, Sparkles, Target, TrendingDown, TrendingUp, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAulasStore } from "../../../stores/aulasStore";
-import { AulaBook, SmartReviewSession } from "../../../types";
+import { AulaBook, SmartReviewAnswer, SmartReviewQuestion, SmartReviewSession } from "../../../types";
 import { generateUUID } from "../../../utils/uuid";
 import { buildSmartReviewPool, buildSmartReviewSummary, selectSmartReviewQuestions, SMART_REVIEW_MAX } from "./smartReview";
 
@@ -18,6 +18,66 @@ const bucketClass = {
   recovery: "border-rose-700/60 bg-rose-950/30 text-rose-300",
   maintenance: "border-sky-700/60 bg-sky-950/30 text-sky-300",
   new: "border-violet-700/60 bg-violet-950/30 text-violet-300",
+};
+
+type SubjectQuestionGroup = {
+  key: string;
+  bookTitle: string;
+  subject: string;
+  total: number;
+  recovery: number;
+  maintenance: number;
+  new: number;
+  difficult: number;
+  overdue: number;
+  questions: SmartReviewQuestion[];
+  submatters: Array<{ name: string; total: number; questions: number[] }>;
+};
+
+const groupQuestionsBySubject = (questions: SmartReviewQuestion[]): SubjectQuestionGroup[] => {
+  const groups = new Map<string, SubjectQuestionGroup & { submatterMap: Map<string, Set<number>> }>();
+
+  questions.forEach((question) => {
+    const key = `${question.bookId}:${question.chapterId}`;
+    const group =
+      groups.get(key) ||
+      {
+        key,
+        bookTitle: question.bookTitle,
+        subject: question.subject,
+        total: 0,
+        recovery: 0,
+        maintenance: 0,
+        new: 0,
+        difficult: 0,
+        overdue: 0,
+        questions: [],
+        submatters: [],
+        submatterMap: new Map<string, Set<number>>(),
+      };
+
+    group.total += 1;
+    group[question.bucket] += 1;
+    if (question.difficult) group.difficult += 1;
+    if (question.reviewOverdue) group.overdue += 1;
+    group.questions.push(question);
+    question.submatters.forEach((submatter) => {
+      const numbers = group.submatterMap.get(submatter) || new Set<number>();
+      numbers.add(question.questionNumber);
+      group.submatterMap.set(submatter, numbers);
+    });
+    groups.set(key, group);
+  });
+
+  return [...groups.values()]
+    .map(({ submatterMap, ...group }) => ({
+      ...group,
+      questions: group.questions.sort((a, b) => a.questionNumber - b.questionNumber),
+      submatters: [...submatterMap.entries()]
+        .map(([name, numbers]) => ({ name, total: numbers.size, questions: [...numbers].sort((a, b) => a - b) }))
+        .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => b.total - a.total || a.subject.localeCompare(b.subject));
 };
 
 export default function RandomQuestionsModal({ books, onClose }: Props) {
@@ -68,15 +128,11 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
     setScreen("report");
   };
 
-  const previewSubjects = React.useMemo(() => {
-    const map = new Map<string, { name: string; book: string; total: number }>();
-    preview.forEach((question) => {
-      const row = map.get(question.chapterId) || { name: question.subject, book: question.bookTitle, total: 0 };
-      row.total += 1;
-      map.set(question.chapterId, row);
-    });
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [preview]);
+  const previewGroups = React.useMemo(() => groupQuestionsBySubject(preview), [preview]);
+
+  const markMany = (questionIds: string[], answer: SmartReviewAnswer) => {
+    questionIds.forEach((questionId) => store.setReviewAnswer(questionId, answer));
+  };
 
   const setup = (
     <div className="grid lg:grid-cols-2 gap-5">
@@ -135,11 +191,37 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
             {showQuestionPreview ? "Ocultar questões" : "Ver questões"}
           </button>
         </div>
-        <div className="space-y-2 mt-4 max-h-80 overflow-y-auto">
-          {previewSubjects.map((row) => (
-            <div key={`${row.book}:${row.name}`} className="border border-slate-800 bg-slate-900/60 rounded-lg p-3 flex justify-between gap-3">
-              <div className="min-w-0"><strong className="text-sm text-slate-200 block truncate">{row.name}</strong><span className="text-[10px] uppercase text-slate-500">{row.book}</span></div>
-              <span className="bg-slate-800 text-[#D4AF37] rounded px-2 py-1 text-xs font-bold">{row.total}</span>
+        <div className="space-y-3 mt-4 max-h-[28rem] overflow-y-auto pr-1">
+          {previewGroups.map((group) => (
+            <div key={group.key} className="border border-slate-800 bg-slate-900/60 rounded-xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <strong className="text-sm text-slate-100 block leading-snug">{group.subject}</strong>
+                  <span className="text-[10px] uppercase text-slate-500">{group.bookTitle}</span>
+                </div>
+                <span className="bg-[#D4AF37] text-slate-950 rounded-lg px-3 py-1 text-xs font-black shrink-0">{group.total}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                {[
+                  ["Recuperação", group.recovery, "text-rose-300"],
+                  ["Manutenção", group.maintenance, "text-sky-300"],
+                  ["Inéditas", group.new, "text-violet-300"],
+                ].map(([label, value, color]) => (
+                  <div key={String(label)} className="rounded-lg bg-slate-950/60 border border-slate-800 px-2 py-1.5 text-center">
+                    <strong className={`block text-sm ${color}`}>{value}</strong>
+                    <span className="text-[8px] uppercase text-slate-500">{label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 space-y-1.5">
+                {group.submatters.slice(0, 4).map((submatter) => (
+                  <div key={submatter.name} className="flex items-center justify-between gap-3 rounded-lg bg-slate-950/40 border border-slate-800 px-3 py-2">
+                    <span className="text-xs text-slate-300 truncate">{submatter.name}</span>
+                    <span className="text-[10px] text-[#D4AF37] shrink-0">{submatter.total} q.</span>
+                  </div>
+                ))}
+                {group.submatters.length > 4 && <p className="text-[10px] text-slate-500">+ {group.submatters.length - 4} submatérias nesta revisão</p>}
+              </div>
             </div>
           ))}
           {!preview.length && <p className="text-sm text-slate-500 text-center py-12">Cadastre questões nas aulas para ativar o motor.</p>}
@@ -172,6 +254,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
   const correct = active?.questions.filter((q) => active.answers[q.id] === "correct").length || 0;
   const incorrect = active?.questions.filter((q) => active.answers[q.id] === "incorrect").length || 0;
   const elapsed = active ? Math.floor((clock - new Date(active.startedAt).getTime()) / 1000) : 0;
+  const activeGroups = React.useMemo(() => groupQuestionsBySubject(active?.questions || []), [active?.questions]);
 
   const session = active ? (
     <>
@@ -185,25 +268,79 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
         ].map(([label, value]) => <div key={String(label)} className="bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-center"><strong className="text-lg text-slate-100 block">{value}</strong><span className="text-[9px] uppercase text-slate-500">{label}</span></div>)}
       </div>
       <div className="h-1.5 bg-slate-800 rounded-full mb-5 overflow-hidden"><div className="h-full bg-gradient-to-r from-[#D4AF37] to-emerald-500" style={{ width: `${(answered / active.questions.length) * 100}%` }} /></div>
-      <div className="space-y-3 max-h-[57vh] overflow-y-auto pr-1">
-        {active.questions.map((question, index) => {
-          const answer = active.answers[question.id] || "pending";
+      <div className="space-y-4 max-h-[57vh] overflow-y-auto pr-1">
+        {activeGroups.map((group) => {
+          const groupAnswers = group.questions.map((question) => active.answers[question.id] || "pending");
+          const groupCorrect = groupAnswers.filter((answer) => answer === "correct").length;
+          const groupIncorrect = groupAnswers.filter((answer) => answer === "incorrect").length;
+          const groupPending = group.total - groupCorrect - groupIncorrect;
+          const questionIds = group.questions.map((question) => question.id);
+
           return (
-            <article key={question.id} className={`border rounded-xl p-4 ${answer === "correct" ? "border-emerald-700 bg-emerald-950/20" : answer === "incorrect" ? "border-rose-700 bg-rose-950/20" : "border-slate-800 bg-slate-950/40"}`}>
-              <div className="flex gap-3 items-start">
-                <div className="w-9 h-9 rounded-lg bg-slate-800 text-[#D4AF37] grid place-items-center text-xs font-black">{String(index + 1).padStart(2, "0")}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap gap-2 items-center"><h3 className="text-sm font-semibold text-slate-100">Questão {question.questionNumber} · {question.subject}</h3><span className={`text-[9px] uppercase border px-2 py-0.5 rounded-full ${bucketClass[question.bucket]}`}>{bucketLabel[question.bucket]}</span></div>
-                  <p className="text-[10px] uppercase text-slate-500 mt-1">{question.bookTitle}</p>
-                  <div className="flex flex-wrap gap-1 mt-2">{question.submatters.map((name) => <span key={name} className="text-[10px] bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300">{name}</span>)}</div>
-                  <p className="text-xs text-slate-400 mt-3 flex gap-1"><Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />{question.reasons.join(" · ")}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => store.setReviewAnswer(question.id, answer === "correct" ? "pending" : "correct")} className={`w-10 h-10 rounded-lg border grid place-items-center ${answer === "correct" ? "bg-emerald-500 border-emerald-400 text-slate-950" : "bg-slate-900 border-slate-700 text-slate-400"}`} aria-label={`Marcar questão ${question.questionNumber} como correta`}><Check className="w-4 h-4" /></button>
-                  <button onClick={() => store.setReviewAnswer(question.id, answer === "incorrect" ? "pending" : "incorrect")} className={`w-10 h-10 rounded-lg border grid place-items-center ${answer === "incorrect" ? "bg-rose-500 border-rose-400 text-slate-950" : "bg-slate-900 border-slate-700 text-slate-400"}`} aria-label={`Marcar questão ${question.questionNumber} como incorreta`}><X className="w-4 h-4" /></button>
+            <section key={group.key} className="border border-slate-800 bg-slate-950/35 rounded-2xl overflow-hidden">
+              <div className="bg-slate-950/70 border-b border-slate-800 p-4">
+                <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase tracking-[.2em] text-slate-500">{group.bookTitle}</span>
+                    <h3 className="text-base text-slate-100 font-semibold leading-snug">{group.subject}</h3>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {group.submatters.map((submatter) => (
+                        <span key={submatter.name} className="text-[10px] bg-slate-900 border border-slate-700 rounded-full px-2 py-1 text-slate-300">
+                          {submatter.name} · {submatter.total}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                    <div className="grid grid-cols-3 gap-1 text-center">
+                      <div className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5"><strong className="text-emerald-400 block">{groupCorrect}</strong><span className="text-[8px] uppercase text-slate-500">Acertos</span></div>
+                      <div className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5"><strong className="text-rose-400 block">{groupIncorrect}</strong><span className="text-[8px] uppercase text-slate-500">Erros</span></div>
+                      <div className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5"><strong className="text-slate-300 block">{groupPending}</strong><span className="text-[8px] uppercase text-slate-500">Pend.</span></div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => markMany(questionIds, "correct")} className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wider">
+                        Marcar matéria como acertei
+                      </button>
+                      <button type="button" onClick={() => markMany(questionIds, "incorrect")} className="bg-rose-500 hover:bg-rose-400 text-slate-950 rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wider">
+                        Marcar matéria como errei
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </article>
+              <div className="p-3 space-y-3">
+                {group.questions.map((question) => {
+                  const globalIndex = active.questions.findIndex((item) => item.id === question.id) + 1;
+                  const answer = active.answers[question.id] || "pending";
+                  return (
+                    <article key={question.id} className={`border rounded-xl p-4 ${answer === "correct" ? "border-emerald-700 bg-emerald-950/20" : answer === "incorrect" ? "border-rose-700 bg-rose-950/20" : "border-slate-800 bg-slate-900/50"}`}>
+                      <div className="flex flex-col lg:flex-row gap-3 lg:items-start">
+                        <div className="flex gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-lg bg-slate-800 text-[#D4AF37] grid place-items-center text-xs font-black shrink-0">{String(globalIndex).padStart(2, "0")}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <h4 className="text-sm font-semibold text-slate-100">Questão {question.questionNumber}</h4>
+                              <span className={`text-[9px] uppercase border px-2 py-0.5 rounded-full ${bucketClass[question.bucket]}`}>{bucketLabel[question.bucket]}</span>
+                              {answer !== "pending" && <span className={answer === "correct" ? "text-[9px] uppercase text-emerald-300" : "text-[9px] uppercase text-rose-300"}>{answer === "correct" ? "Marcada como acerto" : "Marcada como erro"}</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-2">{question.submatters.map((name) => <span key={name} className="text-[10px] bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300">{name}</span>)}</div>
+                            <p className="text-xs text-slate-400 mt-3 flex gap-1"><Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />{question.reasons.join(" · ")}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 lg:w-56">
+                          <button onClick={() => store.setReviewAnswer(question.id, answer === "correct" ? "pending" : "correct")} className={`rounded-lg border px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 ${answer === "correct" ? "bg-emerald-500 border-emerald-400 text-slate-950" : "bg-slate-950 border-slate-700 text-slate-300 hover:border-emerald-500 hover:text-emerald-300"}`} aria-label={`Marcar questão ${question.questionNumber} como correta`}>
+                            <Check className="w-4 h-4" /> Acertei
+                          </button>
+                          <button onClick={() => store.setReviewAnswer(question.id, answer === "incorrect" ? "pending" : "incorrect")} className={`rounded-lg border px-3 py-2 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 ${answer === "incorrect" ? "bg-rose-500 border-rose-400 text-slate-950" : "bg-slate-950 border-slate-700 text-slate-300 hover:border-rose-500 hover:text-rose-300"}`} aria-label={`Marcar questão ${question.questionNumber} como incorreta`}>
+                            <X className="w-4 h-4" /> Errei
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           );
         })}
       </div>
