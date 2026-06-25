@@ -27,6 +27,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
   const [screen, setScreen] = React.useState<Screen>(store.activeReviewSession ? "session" : "setup");
   const [report, setReport] = React.useState<SmartReviewSession | null>(null);
   const [clock, setClock] = React.useState(Date.now());
+  const [showQuestionPreview, setShowQuestionPreview] = React.useState(false);
   const preview = React.useMemo(() => selectSmartReviewQuestions(books, count), [books, count]);
 
   React.useEffect(() => {
@@ -118,12 +119,22 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
           </button>
         ) : (
           <button onClick={start} disabled={!preview.length} className="mt-6 w-full bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-lg py-3 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
-            <BrainCircuit className="w-4 h-4" /> Montar revisão inteligente
+            <Play className="w-4 h-4" /> Iniciar revisão inteligente
           </button>
         )}
       </section>
       <section className="bg-slate-950/45 border border-slate-800 rounded-xl p-5">
-        <h3 className="text-lg text-slate-100 font-semibold flex items-center gap-2"><Target className="w-5 h-5 text-[#D4AF37]" /> Matérias previstas</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-lg text-slate-100 font-semibold flex items-center gap-2"><Target className="w-5 h-5 text-[#D4AF37]" /> Matérias previstas</h3>
+          <button
+            type="button"
+            onClick={() => setShowQuestionPreview((value) => !value)}
+            disabled={!preview.length}
+            className="border border-slate-700 hover:border-[#D4AF37] disabled:opacity-40 disabled:hover:border-slate-700 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-300"
+          >
+            {showQuestionPreview ? "Ocultar questões" : "Ver questões"}
+          </button>
+        </div>
         <div className="space-y-2 mt-4 max-h-80 overflow-y-auto">
           {previewSubjects.map((row) => (
             <div key={`${row.book}:${row.name}`} className="border border-slate-800 bg-slate-900/60 rounded-lg p-3 flex justify-between gap-3">
@@ -133,6 +144,24 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
           ))}
           {!preview.length && <p className="text-sm text-slate-500 text-center py-12">Cadastre questões nas aulas para ativar o motor.</p>}
         </div>
+        {showQuestionPreview && preview.length > 0 && (
+          <div className="mt-4 border border-slate-800 bg-slate-950/60 rounded-xl p-3">
+            <h4 className="text-xs text-slate-200 font-bold uppercase tracking-wider mb-3">Questões selecionadas para hoje</h4>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {preview.map((question, index) => (
+                <div key={question.id} className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm text-slate-100">#{index + 1} · Questão {question.questionNumber}</strong>
+                    <span className={`text-[9px] uppercase border px-2 py-0.5 rounded-full ${bucketClass[question.bucket]}`}>{bucketLabel[question.bucket]}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">{question.subject}</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{question.submatters.join(" · ")}</p>
+                  <p className="text-[10px] text-[#D4AF37] mt-2">{question.reasons.join(" · ")}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <p className="text-xs text-slate-500 border-t border-slate-800 pt-4 mt-4">Prioriza erros, regressões, dificuldade e revisões vencidas, equilibrando matérias e submatérias.</p>
       </section>
     </div>
@@ -234,6 +263,32 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
           <div className="flex gap-2">{screen === "setup" && <button onClick={() => setScreen("history")} className="p-2 border border-slate-800 rounded-lg text-slate-400" title="Histórico"><History className="w-4 h-4" /></button>}<button onClick={onClose} className="p-2 border border-slate-800 rounded-lg text-slate-400"><X className="w-4 h-4" /></button></div>
         </header>
         <main data-testid="random-questions-content" className="p-4 md:p-5 min-h-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">{screen === "setup" ? setup : screen === "session" ? session : screen === "report" ? reportView : history}</main>
+        {screen === "setup" && (
+          <footer className="shrink-0 border-t border-slate-800 bg-slate-950/80 px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+            <p className="text-[11px] text-slate-500">
+              {preview.length ? `${preview.length} questões prontas para revisar hoje.` : "Cadastre questões nas aulas para iniciar uma revisão."}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowQuestionPreview((value) => !value)}
+                disabled={!preview.length}
+                className="flex-1 sm:flex-none border border-slate-700 hover:border-[#D4AF37] disabled:opacity-40 disabled:hover:border-slate-700 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-300"
+              >
+                {showQuestionPreview ? "Ocultar questões" : "Ver questões"}
+              </button>
+              {store.activeReviewSession ? (
+                <button onClick={() => setScreen("session")} className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
+                  <Play className="w-4 h-4" /> Retomar
+                </button>
+              ) : (
+                <button onClick={start} disabled={!preview.length} className="flex-1 sm:flex-none bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
+                  <Play className="w-4 h-4" /> Iniciar
+                </button>
+              )}
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   );
