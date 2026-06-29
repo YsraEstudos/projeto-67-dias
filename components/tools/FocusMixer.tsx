@@ -50,7 +50,7 @@ export const FocusMixer: React.FC = () => {
                     const playPromise = audio.play();
                     if (playPromise !== undefined) {
                         playPromise.catch(e => {
-                            console.error("Audio play failed:", e);
+                            console.error(`[FocusMixer] Failed to play sound "${id}":`, e);
                         });
                     }
                 }

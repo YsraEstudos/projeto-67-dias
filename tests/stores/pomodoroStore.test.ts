@@ -92,6 +92,8 @@ describe('pomodoroStore', () => {
         timeLeft: 1402,
         endTime: 1776075802000,
         sessionCount: 3,
+        sessionStartTime: 1776074400000,
+        alertStep: null,
       },
       settings: {
         pomodoroLength: 25,
@@ -103,7 +105,7 @@ describe('pomodoroStore', () => {
         disableBreak: false,
         alarmSound: 'bell',
         tickSound: 'none',
-        volume: 50,
+        volume: 30,
         desktopNotifications: false,
         theme: 'dark',
         accentColor: '#f43f5e',
@@ -184,6 +186,8 @@ describe('pomodoroStore', () => {
       timeLeft: 1500,
       endTime: 1776077300000,
       sessionCount: 2,
+      sessionStartTime: 1776075800000,
+      alertStep: null,
     });
 
     expect(writeToFirestore).toHaveBeenCalledWith(

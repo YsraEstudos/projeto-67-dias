@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
   disableBreak: false,
   alarmSound: 'bell',
   tickSound: 'none',
-  volume: 50,
+  volume: 30,
   desktopNotifications: false,
   theme: 'dark',
   accentColor: '#f43f5e',
@@ -39,6 +39,8 @@ const createDefaultTimerState = (): PomodoroTimerState => ({
   timeLeft: DEFAULT_SETTINGS.pomodoroLength * 60,
   endTime: null,
   sessionCount: 0,
+  sessionStartTime: null,
+  alertStep: null,
 });
 
 const createId = (): string => {
@@ -414,9 +416,16 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
           ? data.activeTaskSelectionDate
           : null;
         const today = getTodayISODate();
+
+        // Check if the active task should survive hydration:
+        // 1) It's a standard task that exists in the tasks array
+        // 2) It's a skill focus task (skill-focus:<skillId>) — verify skill still exists (can't check here, accept it)
+        // 3) It's a roadmap item — accept it (will be resolved by activeTask logic at runtime)
+        const isStandardTask = tasks.some((task) => task.id === activeTaskId);
+        const isSkillFocusTask = typeof activeTaskId === 'string' && activeTaskId.startsWith('skill-focus:');
         const shouldKeepActiveTask = Boolean(
           activeTaskId
-          && tasks.some((task) => task.id === activeTaskId)
+          && (isStandardTask || isSkillFocusTask)
           && activeTaskSelectionDate === today,
         );
 

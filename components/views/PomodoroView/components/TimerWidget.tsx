@@ -371,19 +371,11 @@ export function TimerWidget() {
     timeLeft
   } = usePomodoroTimer();
 
-  const alertStep = useMemo(() => {
-    if (mode === 'alert') {
-      return (typeof window !== 'undefined' ? localStorage.getItem('alert-timer-step') : 'countdown') || 'countdown';
-    }
-    return null;
-  }, [timerState, mode]);
+  const alertStep = timerState.alertStep;
 
   const isAlertCountdown = mode === 'alert' && alertStep === 'countdown';
 
   const handleCompleteAlertSteps = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('alert-timer-step', 'breathing');
-    }
     const duration = 300; // 5 minutes
     setTimerState({
       mode: 'alert',
@@ -391,6 +383,8 @@ export function TimerWidget() {
       timeLeft: duration,
       endTime: Date.now() + duration * 1000,
       sessionCount: timerState.sessionCount,
+      sessionStartTime: Date.now(),
+      alertStep: 'breathing',
     });
   };
 
@@ -551,11 +545,11 @@ export function TimerWidget() {
       subtasks: activeTask.subtasks?.map(st => {
         if (st.id !== subtaskId) return st;
 
-        const isCompletedToday = st.completed && st.lastCompletedDate === todayStr;
+        const wasCompleted = st.completed;
         return {
           ...st,
-          completed: !isCompletedToday,
-          lastCompletedDate: !isCompletedToday ? todayStr : null,
+          completed: !wasCompleted,
+          lastCompletedDate: !wasCompleted ? todayStr : null,
         };
       })
     });
@@ -2012,7 +2006,7 @@ export function TimerWidget() {
                     if (settings.volume > 0) {
                       updateSettings({ previousVolume: settings.volume, volume: 0 });
                     } else {
-                      updateSettings({ volume: settings.previousVolume || 50 });
+                      updateSettings({ volume: settings.previousVolume || 30 });
                     }
                   }}
                   className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1"

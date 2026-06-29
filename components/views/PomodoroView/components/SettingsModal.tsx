@@ -1,8 +1,40 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Clock, Bell, Palette, Database, Download, Upload, Trash2, Volume2 } from 'lucide-react';
+import { X, Clock, Bell, Palette, Database, Download, Upload, Trash2, Volume2, type LucideIcon } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
+import type { Settings } from '../store/types';
+
+interface SelectOption {
+  value: string | number;
+  label: string;
+}
+
+interface SectionProps {
+  title: string;
+  icon: LucideIcon;
+  children: React.ReactNode;
+}
+
+interface SelectRowProps {
+  label: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+}
+
+interface NumberRowProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+}
+
+interface ToggleRowProps {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}
 
 export function SettingsModal() {
   const { settings, updateSettings, setSettingsOpen, exportData, importData, resetData } = useStore();
@@ -47,7 +79,7 @@ export function SettingsModal() {
     }
   };
 
-  const Section = ({ title, icon: Icon, children }: { title: string, icon: any, children: React.ReactNode }) => (
+  const Section = ({ title, icon: Icon, children }: SectionProps) => (
     <div className="mb-8">
       <div className="flex items-center text-[var(--color-primary)] mb-4">
         <Icon className="w-5 h-5 mr-2" />
@@ -59,7 +91,7 @@ export function SettingsModal() {
     </div>
   );
 
-  const SelectRow = ({ label, value, onChange, options }: any) => (
+  const SelectRow = ({ label, value, onChange, options }: SelectRowProps) => (
     <div className="flex items-center justify-between">
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <select 
@@ -67,14 +99,14 @@ export function SettingsModal() {
         onChange={(e) => onChange(e.target.value)}
         className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-[var(--color-text)]"
       >
-        {options.map((opt: any) => (
+        {options.map((opt: SelectOption) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
     </div>
   );
 
-  const NumberRow = ({ label, value, onChange, min = 1 }: any) => (
+  const NumberRow = ({ label, value, onChange, min = 1 }: NumberRowProps) => (
     <div className="flex items-center justify-between gap-4">
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <input
@@ -93,7 +125,7 @@ export function SettingsModal() {
     </div>
   );
 
-  const ToggleRow = ({ label, checked, onChange }: any) => (
+  const ToggleRow = ({ label, checked, onChange }: ToggleRowProps) => (
     <div className="flex items-center justify-between">
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <button 
@@ -208,13 +240,16 @@ export function SettingsModal() {
                 <Volume2 className="w-4 h-4 mr-2" />
                 Volume
               </span>
-              <input 
-                type="range" 
-                min="0" max="100" 
-                value={settings.volume}
-                onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
-                className="w-32 accent-[var(--color-primary)]"
-              />
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-[var(--color-text-muted)] w-8 text-right tabular-nums">{settings.volume}%</span>
+                <input 
+                  type="range" 
+                  min="0" max="100" 
+                  value={settings.volume}
+                  onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
+                  className="w-32 accent-[var(--color-primary)]"
+                />
+              </div>
             </div>
             <div className="h-px bg-[var(--color-border)] my-4" />
             <ToggleRow 
@@ -236,7 +271,7 @@ export function SettingsModal() {
             <SelectRow 
               label="Theme" 
               value={settings.theme} 
-              onChange={(v: any) => updateSettings({ theme: v })}
+              onChange={(v: string) => updateSettings({ theme: v as Settings['theme'] })}
               options={[
                 { value: 'dark', label: 'Dark' },
                 { value: 'light', label: 'Light' },
