@@ -175,7 +175,7 @@ export function SettingsModal() {
               label="Pomodoro Length" 
               value={settings.pomodoroLength} 
               onChange={(v: string) => updateSettings({ pomodoroLength: parseInt(v) })}
-              options={[15, 20, 25, 30, 45, 60].map(n => ({ value: n, label: `${n} Minutes` }))}
+              options={[15, 20, 25, 30, 45, 50, 60].map(n => ({ value: n, label: `${n} Minutes` }))}
             />
             <SelectRow 
               label="Short Break Length" 
