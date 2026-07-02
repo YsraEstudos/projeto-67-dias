@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { playSound, playAlertFailSound } from '../lib/audio';
 import { getLocalISODate, getTaskTodayPomodoros } from '../lib/pomodoroStats';
 import { getSkillRoadmapIndex } from '../lib/skillRoadmapIndex';
-import type { PomodoroTimerMode } from '../store/types';
+import type { PomodoroTimerMode, AlertStep, PomodoroTimerState } from '../store/types';
 import { useSkillsStore } from '../../../../stores/skillsStore';
 
 export type TimerMode = PomodoroTimerMode;
@@ -25,10 +25,9 @@ export function usePomodoroTimer() {
         return settings.shortBreakLength * 60;
       case 'longBreak':
         return settings.longBreakLength * 60;
-      case 'alert': {
-        const step = typeof window !== 'undefined' ? (localStorage.getItem('alert-timer-step') || 'countdown') : 'countdown';
-        return step === 'breathing' ? 5 * 60 : 60;
-      }
+      case 'alert':
+        // Alert duration is set explicitly at call sites (60s countdown, 300s breathing)
+        return 60;
       default:
         return 25 * 60;
     }
@@ -40,7 +39,8 @@ export function usePomodoroTimer() {
     sessionCount: number,
     timeLeft?: number,
     startedAt: number = Date.now(),
-  ) => {
+    overrides?: Partial<Pick<PomodoroTimerState, 'alertStep'>>,
+  ): PomodoroTimerState => {
     const resolvedTimeLeft = timeLeft ?? getDuration(mode);
     return {
       mode,
@@ -48,8 +48,10 @@ export function usePomodoroTimer() {
       timeLeft: resolvedTimeLeft,
       endTime: status === 'RUNNING' ? startedAt + resolvedTimeLeft * 1000 : null,
       sessionCount,
+      sessionStartTime: status === 'RUNNING' ? Date.now() : null,
+      alertStep: overrides?.alertStep ?? (mode === 'alert' ? timerState.alertStep : null),
     };
-  }, [getDuration]);
+  }, [getDuration, timerState.alertStep]);
 
   const getRemainingTime = useCallback(() => {
     if (timerState.status !== 'RUNNING' || !timerState.endTime) {
@@ -105,6 +107,8 @@ export function usePomodoroTimer() {
   ]);
 
   useEffect(() => {
+    // Alert mode duration is managed explicitly by alertStep, not by settings
+    if (timerState.mode === 'alert') return;
     if (timerState.status === 'RUNNING') return;
 
     const refreshedTimeLeft = getDuration(timerState.mode);
@@ -126,25 +130,21 @@ export function usePomodoroTimer() {
     const completedAt = new Date(completedAtMs);
 
     if (timerState.mode === 'alert') {
-      const step = typeof window !== 'undefined' ? (localStorage.getItem('alert-timer-step') || 'countdown') : 'countdown';
+      const step = timerState.alertStep;
       if (step === 'countdown') {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('alert-timer-step', 'pix');
-        }
         playAlertFailSound(settings.volume);
-        const nextState = {
-          mode: 'alert' as TimerMode,
-          status: 'PAUSED' as const,
+        const nextState: PomodoroTimerState = {
+          mode: 'alert',
+          status: 'PAUSED',
           timeLeft: 0,
           endTime: null,
           sessionCount: timerState.sessionCount,
+          sessionStartTime: null,
+          alertStep: 'pix',
         };
         setPersistedTimerState(nextState);
         setTimeLeft(0);
       } else if (step === 'breathing') {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('alert-timer-step', 'countdown');
-        }
         if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           new Notification('Pausa de Respiração concluída', {
             body: 'Hora de voltar ao foco.',
@@ -169,10 +169,14 @@ export function usePomodoroTimer() {
       if (settings.volume > 0) playSound('work-end', settings.volume);
 
       const sessionDuration = settings.pomodoroLength;
+      // Use the tracked sessionStartTime when available for accurate start (handles pauses correctly)
+      const actualStartTime = timerState.sessionStartTime
+        ? new Date(timerState.sessionStartTime).toISOString()
+        : new Date(completedAt.getTime() - sessionDuration * 60000).toISOString();
       addRecord({
         taskId: activeTaskId ?? undefined,
         duration: sessionDuration,
-        startTime: new Date(completedAt.getTime() - sessionDuration * 60000).toISOString(),
+        startTime: actualStartTime,
         endTime: completedAt.toISOString(),
       });
 
@@ -240,6 +244,8 @@ export function usePomodoroTimer() {
     tasks,
     timerState.mode,
     timerState.sessionCount,
+    timerState.alertStep,
+    timerState.sessionStartTime,
     updateTask,
   ]);
 
@@ -338,16 +344,15 @@ export function usePomodoroTimer() {
 
   const setMode = useCallback((mode: TimerMode) => {
     if (mode === 'alert') {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('alert-timer-step', 'countdown');
-      }
       const duration = 60;
-      const nextState = {
+      const nextState: PomodoroTimerState = {
         mode,
-        status: 'RUNNING' as const,
+        status: 'RUNNING',
         timeLeft: duration,
         endTime: Date.now() + duration * 1000,
         sessionCount: timerState.sessionCount,
+        sessionStartTime: Date.now(),
+        alertStep: 'countdown',
       };
       setPersistedTimerState(nextState);
       setTimeLeft(nextState.timeLeft);
@@ -364,7 +369,7 @@ export function usePomodoroTimer() {
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
-  const progress = ((getDuration(timerState.mode) - timeLeft) / getDuration(timerState.mode)) * 100;
+  const progress = Math.min(100, Math.max(0, ((getDuration(timerState.mode) - timeLeft) / getDuration(timerState.mode)) * 100));
 
   return {
     isActive: timerState.status === 'RUNNING',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Clock, CheckCircle2, Flame } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { motion } from 'motion/react';
@@ -9,82 +9,84 @@ export function ReportDashboard() {
   const { setReportOpen, tasks, records, projects, settings } = useStore();
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  
+  const now = useMemo(() => new Date(), []);
+  const todayStart = useMemo(
+    () => new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
+    [now],
+  );
+
   // Week start (depends on settings.weekStartsOn)
-  const dayOfWeek = now.getDay();
-  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 && settings.weekStartsOn === 1 ? -6 : settings.weekStartsOn);
-  const weekStart = new Date(now.getFullYear(), now.getMonth(), diff).getTime();
+  const weekStart = useMemo(() => {
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 && settings.weekStartsOn === 1 ? -6 : settings.weekStartsOn);
+    return new Date(now.getFullYear(), now.getMonth(), diff).getTime();
+  }, [now, settings.weekStartsOn]);
 
   // 1. Focus Time Stats (in minutes)
-  let totalFocusMinutes = 0;
-  let weekFocusMinutes = 0;
-  let todayFocusMinutes = 0;
-
-  records.forEach(record => {
-    totalFocusMinutes += record.duration;
-    const recordTime = new Date(record.endTime).getTime();
-    if (recordTime >= todayStart) {
-      todayFocusMinutes += record.duration;
-    }
-    if (recordTime >= weekStart) {
-      weekFocusMinutes += record.duration;
-    }
-  });
+  const { totalFocusMinutes, weekFocusMinutes, todayFocusMinutes } = useMemo(() => {
+    let total = 0, week = 0, today = 0;
+    records.forEach(record => {
+      total += record.duration;
+      const recordTime = new Date(record.endTime).getTime();
+      if (recordTime >= todayStart) today += record.duration;
+      if (recordTime >= weekStart) week += record.duration;
+    });
+    return { totalFocusMinutes: total, weekFocusMinutes: week, todayFocusMinutes: today };
+  }, [records, todayStart, weekStart]);
 
   // 2. Tasks Stats
-  let totalTasksCompleted = 0;
-  let weekTasksCompleted = 0;
-  let todayTasksCompleted = 0;
-
-  tasks.forEach(task => {
-    if (task.completed) {
-      totalTasksCompleted++;
-      if (task.completedAt) {
-        const completedTime = new Date(task.completedAt).getTime();
-        if (completedTime >= todayStart) {
-          todayTasksCompleted++;
-        }
-        if (completedTime >= weekStart) {
-          weekTasksCompleted++;
+  const { totalTasksCompleted, weekTasksCompleted, todayTasksCompleted } = useMemo(() => {
+    let total = 0, week = 0, today = 0;
+    tasks.forEach(task => {
+      if (task.completed) {
+        total++;
+        if (task.completedAt) {
+          const completedTime = new Date(task.completedAt).getTime();
+          if (completedTime >= todayStart) today++;
+          if (completedTime >= weekStart) week++;
         }
       }
-    }
-  });
+    });
+    return { totalTasksCompleted: total, weekTasksCompleted: week, todayTasksCompleted: today };
+  }, [tasks, todayStart, weekStart]);
 
   // 3. Chart Data
-  const chartData = [];
-  const daysToShow = timeRange === 'daily' ? 7 : timeRange === 'weekly' ? 14 : 30;
-  
-  for (let i = daysToShow - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    const dayStart = d.getTime();
-    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-    
-    const dayMinutes = records
-      .filter(r => {
-        const t = new Date(r.endTime).getTime();
-        return t >= dayStart && t < dayEnd;
-      })
-      .reduce((acc, r) => acc + r.duration, 0);
+  const chartData = useMemo(() => {
+    const data: { name: string; shortName: string; minutes: number; isToday: boolean }[] = [];
+    const daysToShow = timeRange === 'daily' ? 7 : timeRange === 'weekly' ? 14 : 30;
 
-    chartData.push({
-      name: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      shortName: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
-      minutes: dayMinutes,
-      isToday: i === 0
-    });
-  }
+    for (let i = daysToShow - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dayStart = d.getTime();
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+      const dayMinutes = records
+        .filter(r => {
+          const t = new Date(r.endTime).getTime();
+          return t >= dayStart && t < dayEnd;
+        })
+        .reduce((acc, r) => acc + r.duration, 0);
+
+      data.push({
+        name: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        shortName: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+        minutes: dayMinutes,
+        isToday: i === 0,
+      });
+    }
+    return data;
+  }, [records, now, timeRange]);
 
   // 4. Project Breakdown (All Time)
-  const projectStats = projects.map(p => {
-    const projectTasks = tasks.filter(t => t.projectId === p.id).map(t => t.id);
-    const projectMinutes = records
-      .filter(r => r.taskId && projectTasks.includes(r.taskId))
-      .reduce((acc, r) => acc + r.duration, 0);
-    return { ...p, minutes: projectMinutes };
-  }).filter(p => p.minutes > 0).sort((a, b) => b.minutes - a.minutes);
+  const projectStats = useMemo(() => {
+    return projects.map(p => {
+      const projectTasks = tasks.filter(t => t.projectId === p.id).map(t => t.id);
+      const projectMinutes = records
+        .filter(r => r.taskId && projectTasks.includes(r.taskId))
+        .reduce((acc, r) => acc + r.duration, 0);
+      return { ...p, minutes: projectMinutes };
+    }).filter(p => p.minutes > 0).sort((a, b) => b.minutes - a.minutes);
+  }, [projects, tasks, records]);
 
   // Helper to format hours/minutes
   const formatHM = (minutes: number, colorClass: string = "text-[var(--color-primary)]") => {

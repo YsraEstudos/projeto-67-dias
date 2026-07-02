@@ -23,6 +23,8 @@ describe('usePomodoroTimer', () => {
       timeLeft: 1500,
       endTime: now + ((23 * 60) + 22) * 1000,
       sessionCount: 1,
+      sessionStartTime: now,
+      alertStep: null,
     });
 
     const { result } = renderHook(() => usePomodoroTimer());
@@ -48,6 +50,8 @@ describe('usePomodoroTimer', () => {
       timeLeft: 1500,
       endTime: now + 25 * 60 * 1000,
       sessionCount: 0,
+      sessionStartTime: now,
+      alertStep: null,
     });
 
     const { result } = renderHook(() => usePomodoroTimer());
@@ -72,6 +76,8 @@ describe('usePomodoroTimer', () => {
       timeLeft: 1500,
       endTime: now + 10 * 60 * 1000,
       sessionCount: 0,
+      sessionStartTime: now,
+      alertStep: null,
     });
 
     const { result } = renderHook(() => usePomodoroTimer());
@@ -110,6 +116,8 @@ describe('usePomodoroTimer', () => {
           timeLeft: 1500,
           endTime: syncedEndTime,
           sessionCount: 0,
+          sessionStartTime: now,
+          alertStep: null,
         },
       });
     });
@@ -201,10 +209,6 @@ describe('usePomodoroTimer', () => {
   });
 
   describe('Alerta mode', () => {
-    beforeEach(() => {
-      localStorage.clear();
-    });
-
     it('initializes alert mode in countdown step with 60 seconds', () => {
       const { result } = renderHook(() => usePomodoroTimer());
 
@@ -212,7 +216,7 @@ describe('usePomodoroTimer', () => {
         result.current.setMode('alert');
       });
 
-      expect(localStorage.getItem('alert-timer-step')).toBe('countdown');
+      expect(usePomodoroStore.getState().timerState.alertStep).toBe('countdown');
       expect(result.current.mode).toBe('alert');
       expect(result.current.timeLeft).toBe(60);
       expect(result.current.isActive).toBe(true);
@@ -230,36 +234,37 @@ describe('usePomodoroTimer', () => {
         vi.advanceTimersByTime(60 * 1000);
       });
 
-      expect(localStorage.getItem('alert-timer-step')).toBe('pix');
+      expect(usePomodoroStore.getState().timerState.alertStep).toBe('pix');
       expect(result.current.timeLeft).toBe(0);
       expect(result.current.isActive).toBe(false);
       expect(usePomodoroStore.getState().timerState.status).toBe('PAUSED');
     });
 
     it('sets duration to 300 seconds when step is breathing', () => {
-      localStorage.setItem('alert-timer-step', 'breathing');
       usePomodoroStore.getState().setTimerState({
         mode: 'alert',
         status: 'IDLE',
         timeLeft: 300,
         endTime: null,
         sessionCount: 0,
+        sessionStartTime: null,
+        alertStep: 'breathing',
       });
-      
+
       const { result } = renderHook(() => usePomodoroTimer());
-      
+
       expect(result.current.timeLeft).toBe(300);
     });
 
     it('transitions back to pomodoro idle when breathing step runs out', () => {
-      localStorage.setItem('alert-timer-step', 'breathing');
-      
       usePomodoroStore.getState().setTimerState({
         mode: 'alert',
         status: 'RUNNING',
         timeLeft: 300,
         endTime: Date.now() + 300 * 1000,
         sessionCount: 0,
+        sessionStartTime: Date.now(),
+        alertStep: 'breathing',
       });
 
       const { result } = renderHook(() => usePomodoroTimer());
@@ -268,7 +273,7 @@ describe('usePomodoroTimer', () => {
         vi.advanceTimersByTime(300 * 1000);
       });
 
-      expect(localStorage.getItem('alert-timer-step')).toBe('countdown');
+      expect(usePomodoroStore.getState().timerState.alertStep).toBeNull();
       expect(result.current.mode).toBe('pomodoro');
       expect(result.current.isActive).toBe(false);
     });

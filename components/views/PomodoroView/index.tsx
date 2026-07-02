@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './pomodoro.css';
 import { Sidebar } from './components/Sidebar';
 import { MainContent } from './components/MainContent';
@@ -15,7 +15,7 @@ import { useStore } from './store/useStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertOctagon, Copy, Check } from 'lucide-react';
 import { getLocalISODate } from './lib/pomodoroStats';
-import type { Task } from './store/types';
+import type { Task, PomodoroTimerState } from './store/types';
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -36,23 +36,17 @@ export default function App() {
   const timerMode = timerState.mode;
   const isBreakMode = timerMode === 'shortBreak' || timerMode === 'longBreak';
 
-  const alertStep = useMemo(() => {
-    if (timerMode === 'alert') {
-      return (typeof window !== 'undefined' ? localStorage.getItem('alert-timer-step') : 'countdown') || 'countdown';
-    }
-    return null;
-  }, [timerState, timerMode]);
+  const alertStep = timerState.alertStep;
 
   const handleResetAlert = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('alert-timer-step', 'countdown');
-    }
-    const nextState = {
-      mode: 'pomodoro' as const,
-      status: 'IDLE' as const,
+    const nextState: PomodoroTimerState = {
+      mode: 'pomodoro',
+      status: 'IDLE',
       timeLeft: settings.pomodoroLength * 60,
       endTime: null,
       sessionCount: timerState.sessionCount,
+      sessionStartTime: null,
+      alertStep: null,
     };
     setTimerState(nextState);
   };

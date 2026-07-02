@@ -47,12 +47,18 @@ export type PomodoroTimerMode = 'pomodoro' | 'shortBreak' | 'longBreak' | 'alert
 
 export type PomodoroTimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED';
 
+export type AlertStep = 'countdown' | 'breathing' | 'pix';
+
 export type PomodoroTimerState = {
   mode: PomodoroTimerMode;
   status: PomodoroTimerStatus;
   timeLeft: number;
   endTime: number | null;
   sessionCount: number;
+  /** Timestamp (ms) when the current RUNNING segment started (set on start/resume, cleared on pause/idle) */
+  sessionStartTime: number | null;
+  /** Current step in the alert flow (countdown → pix or countdown → breathing → pomodoro). null when not in alert. */
+  alertStep: AlertStep | null;
 };
 
 export type BreakSelectionSource = 'REST_ACTIVITY' | 'QUICK_OPTION';

@@ -58,8 +58,10 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
   const [selectedText, setSelectedText] = useState("");
   const [selectedContext, setSelectedContext] = useState("");
+  const selectionChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [clickedMarkRect, setClickedMarkRect] = useState<DOMRect | null>(null);
   const [clickedMarkText, setClickedMarkText] = useState("");
+  const [clickedMarkId, setClickedMarkId] = useState<string | null>(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [commentInput, setCommentInput] = useState("");
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
@@ -139,43 +141,56 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
   React.useEffect(() => {
     const handleSelectionChange = () => {
-      if (editMode || isEditingContent) {
+      // Debounce to avoid excessive React state updates on rapid selection changes
+      if (selectionChangeTimerRef.current) {
+        clearTimeout(selectionChangeTimerRef.current);
+      }
+      selectionChangeTimerRef.current = setTimeout(() => {
+        if (editMode || isEditingContent) {
+          setSelectionRect(null);
+          setSelectedText("");
+          setSelectedContext("");
+          setClickedMarkRect(null);
+          setClickedMarkText("");
+          setClickedMarkId(null);
+          return;
+        }
+
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+          const text = selection.toString().trim();
+          if (text.length > 0) {
+            const range = selection.getRangeAt(0);
+            
+            let node: Node | null = range.startContainer;
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+              node = node.parentNode;
+            }
+            const container = (node as HTMLElement)?.closest("p, li, h1, h2, h3, h4, h5, h6, pre");
+            const context = container?.textContent?.trim() || "";
+
+            setSelectionRect(range.getBoundingClientRect());
+            setSelectedText(text);
+            setSelectedContext(context);
+            setClickedMarkRect(null);
+            setClickedMarkText("");
+            setClickedMarkId(null);
+            return;
+          }
+        }
         setSelectionRect(null);
         setSelectedText("");
         setSelectedContext("");
-        setClickedMarkRect(null);
-        setClickedMarkText("");
-        return;
-      }
-
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-        const text = selection.toString().trim();
-        if (text.length > 0) {
-          const range = selection.getRangeAt(0);
-          
-          let node: Node | null = range.startContainer;
-          if (node.nodeType !== Node.ELEMENT_NODE) {
-            node = node.parentNode;
-          }
-          const container = (node as HTMLElement)?.closest("p, li, h1, h2, h3, h4, h5, h6, pre");
-          const context = container?.textContent?.trim() || "";
-
-          setSelectionRect(range.getBoundingClientRect());
-          setSelectedText(text);
-          setSelectedContext(context);
-          setClickedMarkRect(null);
-          setClickedMarkText("");
-          return;
-        }
-      }
-      setSelectionRect(null);
-      setSelectedText("");
-      setSelectedContext("");
+      }, 80);
     };
 
     document.addEventListener("selectionchange", handleSelectionChange);
-    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      if (selectionChangeTimerRef.current) {
+        clearTimeout(selectionChangeTimerRef.current);
+      }
+    };
   }, [editMode, isEditingContent]);
 
   React.useEffect(() => {
@@ -275,7 +290,8 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const handleHighlight = () => {
     if (!selectedText || !chapter) return;
 
-    const newContent = replaceSelectedTextInContent(`<mark>${selectedText}</mark>`);
+    const markId = crypto.randomUUID();
+    const newContent = replaceSelectedTextInContent(`<mark data-mark-id="${markId}">${selectedText}</mark>`);
 
     if (!newContent) {
       alert(
@@ -350,22 +366,37 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       const rect = target.getBoundingClientRect();
       setClickedMarkRect(rect);
       setClickedMarkText(target.innerHTML);
+      setClickedMarkId(target.dataset.markId || null);
       setActiveCommentId(null);
     } else {
       setClickedMarkRect(null);
       setClickedMarkText("");
+      setClickedMarkId(null);
     }
   };
 
   const handleRemoveHighlight = () => {
     if (!clickedMarkText || !chapter) return;
 
-    const markTag = `<mark>${clickedMarkText}</mark>`;
-    const newContent = chapter.content.replace(markTag, clickedMarkText);
+    let newContent: string | null = null;
 
-    updateChapter(book.id, chapter.id, { content: newContent });
+    if (clickedMarkId) {
+      // Use unique ID to remove exactly the clicked mark
+      const markRegex = new RegExp(`<mark[^>]*data-mark-id="${clickedMarkId}"[^>]*>([\\s\\S]*?)<\\/mark>`, "g");
+      newContent = chapter.content.replace(markRegex, "$1");
+    } else {
+      // Fallback for marks without ID (backward compatibility)
+      const markTag = `<mark>${clickedMarkText}</mark>`;
+      newContent = chapter.content.replaceAll(markTag, clickedMarkText);
+    }
+
+    if (newContent) {
+      updateChapter(book.id, chapter.id, { content: newContent });
+    }
+
     setClickedMarkRect(null);
     setClickedMarkText("");
+    setClickedMarkId(null);
   };
 
   const updateComment = (commentId: string, updates: Partial<NonNullable<typeof chapter.comments>[number]>) => {
@@ -499,15 +530,19 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   };
 
   const setQuestionStatus = (questionNumber: number, status: "correct" | "incorrect" | "pending") => {
-    if (!book || !chapter) return;
+    // Read fresh state from store to avoid stale closure when called rapidly
+    const state = useAulasStore.getState();
+    const currentBook = state.books.find((b) => b.id === bookId);
+    const currentChapter = currentBook?.chapters.find((c) => c.id === chapterId);
+    if (!currentBook || !currentChapter) return;
 
     // Get current lists, fallback to empty arrays
-    const correctQuestions = chapter.correctQuestions || [];
-    const incorrectQuestions = chapter.incorrectQuestions || [];
+    const correctQuestions = currentChapter.correctQuestions || [];
+    const incorrectQuestions = currentChapter.incorrectQuestions || [];
     
     // Legacy support: if correctQuestions is empty but completedPrincipalQuestions has items,
     // we migrate them to correctQuestions on the fly.
-    const legacyCompleted = chapter.completedPrincipalQuestions || [];
+    const legacyCompleted = currentChapter.completedPrincipalQuestions || [];
     let activeCorrect = [...correctQuestions];
     if (correctQuestions.length === 0 && incorrectQuestions.length === 0 && legacyCompleted.length > 0) {
       activeCorrect = [...legacyCompleted];
@@ -516,7 +551,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     let nextCorrect = activeCorrect.filter(q => q !== questionNumber);
     let nextIncorrect = incorrectQuestions.filter(q => q !== questionNumber);
 
-    const questionAttempts = chapter.questionAttempts || {};
+    const questionAttempts = currentChapter.questionAttempts || {};
     let nextAttempts = { ...questionAttempts };
 
     if (status === "correct" || status === "incorrect") {
@@ -553,7 +588,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     // Keep completedPrincipalQuestions in sync as the union of correct and incorrect
     const nextCompleted = [...nextCorrect, ...nextIncorrect].sort((a, b) => a - b);
 
-    updateChapter(book.id, chapter.id, {
+    updateChapter(currentBook.id, currentChapter.id, {
       correctQuestions: nextCorrect,
       incorrectQuestions: nextIncorrect,
       completedPrincipalQuestions: nextCompleted,

@@ -75,16 +75,15 @@ export function TaskDetailsSidebar() {
   };
 
   const handleToggleSubtask = (subtaskId: string) => {
-    const nextDate = todayStr;
     updateTask(task.id, {
       subtasks: task.subtasks?.map(st => {
         if (st.id !== subtaskId) return st;
 
-        const isCompletedToday = st.completed && st.lastCompletedDate === todayStr;
+        const wasCompleted = st.completed;
         return {
           ...st,
-          completed: !isCompletedToday,
-          lastCompletedDate: !isCompletedToday ? nextDate : null,
+          completed: !wasCompleted,
+          lastCompletedDate: !wasCompleted ? todayStr : null,
         };
       })
     });

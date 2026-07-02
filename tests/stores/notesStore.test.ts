@@ -3,20 +3,16 @@ import type { Note } from '../../types';
 
 const {
     writeToFirestoreMock,
-    writeItemToSubcollectionMock,
-    deleteItemFromSubcollectionMock,
     getCurrentUserIdMock,
 } = vi.hoisted(() => ({
     writeToFirestoreMock: vi.fn(),
-    writeItemToSubcollectionMock: vi.fn(() => Promise.resolve()),
-    deleteItemFromSubcollectionMock: vi.fn(() => Promise.resolve()),
     getCurrentUserIdMock: vi.fn(() => 'user-123'),
 }));
 
 vi.mock('../../stores/firestoreSync', () => ({
     writeToFirestore: writeToFirestoreMock,
-    writeItemToSubcollection: writeItemToSubcollectionMock,
-    deleteItemFromSubcollection: deleteItemFromSubcollectionMock,
+    writeItemToSubcollection: vi.fn(),
+    deleteItemFromSubcollection: vi.fn(),
     getCurrentUserId: getCurrentUserIdMock,
 }));
 
@@ -45,12 +41,11 @@ describe('notesStore', () => {
         vi.clearAllMocks();
     });
 
-    it('mirrors note create, update and delete actions to the notes subcollection', () => {
+    it('syncs note create, update and delete to Firestore via _syncToFirestore only', () => {
         const note = createNote();
 
         useNotesStore.getState().addNote(note);
 
-        expect(writeItemToSubcollectionMock).toHaveBeenCalledWith('p67_notes_store_items', note.id, note);
         expect(writeToFirestoreMock).toHaveBeenCalledWith('p67_notes_store', {
             notes: [note],
             tags: [],
@@ -62,7 +57,6 @@ describe('notesStore', () => {
         const updatedNote = useNotesStore.getState().notes[0];
 
         expect(updatedNote.title).toBe('Nota atualizada');
-        expect(writeItemToSubcollectionMock).toHaveBeenCalledWith('p67_notes_store_items', note.id, updatedNote);
         expect(writeToFirestoreMock).toHaveBeenCalledWith('p67_notes_store', {
             notes: [updatedNote],
             tags: [],
@@ -72,7 +66,6 @@ describe('notesStore', () => {
 
         useNotesStore.getState().deleteNote(note.id);
 
-        expect(deleteItemFromSubcollectionMock).toHaveBeenCalledWith('p67_notes_store_items', note.id);
         expect(writeToFirestoreMock).toHaveBeenCalledWith('p67_notes_store', {
             notes: [],
             tags: [],
