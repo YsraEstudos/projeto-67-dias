@@ -215,3 +215,9 @@ When a rule applies only to a specific language, subsystem, framework, or workfl
 
 - `RandomQuestionsModal` is capped to the dynamic viewport height and uses a flex-column shell.
 - Its header and footer remain visible while the central content owns vertical scrolling, preventing filters or actions from falling outside shorter screens.
+
+## 2026-07-02 Pomodoro background timing
+
+- The embedded Pomodoro module (`components/views/PomodoroView`) treats `timerState.endTime` as the source of truth for running phases.
+- When the app resumes from background or mobile lock, `usePomodoroTimer` reconciles elapsed phases against the saved `endTime` instead of restarting the next phase from the resume time.
+- Browser/PWA audio and notification delivery while a phone is locked remains best-effort; persisted timer state must still advance correctly when the app is reopened.

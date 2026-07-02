@@ -175,6 +175,31 @@ describe('usePomodoroTimer', () => {
     expect(usePomodoroStore.getState().records).toHaveLength(1);
   });
 
+  it('starts the next break from the completed pomodoro end time when resuming late', async () => {
+    const now = Date.now();
+    const completedAt = now - 2 * 60 * 1000;
+
+    usePomodoroStore.getState().setTimerState({
+      mode: 'pomodoro',
+      status: 'RUNNING',
+      timeLeft: 1,
+      endTime: completedAt,
+      sessionCount: 0,
+    });
+
+    renderHook(() => usePomodoroTimer());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const timerState = usePomodoroStore.getState().timerState;
+    expect(timerState.mode).toBe('shortBreak');
+    expect(timerState.status).toBe('RUNNING');
+    expect(timerState.sessionCount).toBe(1);
+    expect(timerState.endTime).toBe(completedAt + 5 * 60 * 1000);
+  });
+
   describe('Alerta mode', () => {
     beforeEach(() => {
       localStorage.clear();

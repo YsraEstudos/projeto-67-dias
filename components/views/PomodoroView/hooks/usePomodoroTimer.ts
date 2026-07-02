@@ -39,13 +39,14 @@ export function usePomodoroTimer() {
     status: 'IDLE' | 'RUNNING' | 'PAUSED',
     sessionCount: number,
     timeLeft?: number,
+    startedAt: number = Date.now(),
   ) => {
     const resolvedTimeLeft = timeLeft ?? getDuration(mode);
     return {
       mode,
       status,
       timeLeft: resolvedTimeLeft,
-      endTime: status === 'RUNNING' ? Date.now() + resolvedTimeLeft * 1000 : null,
+      endTime: status === 'RUNNING' ? startedAt + resolvedTimeLeft * 1000 : null,
       sessionCount,
     };
   }, [getDuration]);
@@ -121,8 +122,8 @@ export function usePomodoroTimer() {
     settings.longBreakLength,
   ]);
 
-  const handleComplete = useCallback(() => {
-    const completedAt = new Date();
+  const handleComplete = useCallback((completedAtMs = Date.now()) => {
+    const completedAt = new Date(completedAtMs);
 
     if (timerState.mode === 'alert') {
       const step = typeof window !== 'undefined' ? (localStorage.getItem('alert-timer-step') || 'countdown') : 'countdown';
@@ -212,7 +213,7 @@ export function usePomodoroTimer() {
       const longBreakAfter = Math.max(1, Math.floor(settings.longBreakAfter) || 1);
       const nextMode = newCount % longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
       const shouldAutoStartBreak = settings.autoStartBreak || !activeTaskId;
-      const nextState = createTimerState(nextMode, shouldAutoStartBreak ? 'RUNNING' : 'IDLE', newCount);
+      const nextState = createTimerState(nextMode, shouldAutoStartBreak ? 'RUNNING' : 'IDLE', newCount, undefined, completedAtMs);
       setPersistedTimerState(nextState);
       setTimeLeft(nextState.timeLeft);
       return;
@@ -227,7 +228,7 @@ export function usePomodoroTimer() {
     if (settings.volume > 0) playSound('break-end', settings.volume);
 
     const shouldAutoStartPomodoro = settings.autoStartPomodoro || !activeTaskId;
-    const nextState = createTimerState('pomodoro', shouldAutoStartPomodoro ? 'RUNNING' : 'IDLE', timerState.sessionCount);
+    const nextState = createTimerState('pomodoro', shouldAutoStartPomodoro ? 'RUNNING' : 'IDLE', timerState.sessionCount, undefined, completedAtMs);
     setPersistedTimerState(nextState);
     setTimeLeft(nextState.timeLeft);
   }, [
@@ -242,6 +243,19 @@ export function usePomodoroTimer() {
     updateTask,
   ]);
 
+  const reconcileRunningTimer = useCallback(() => {
+    const currentTimerState = useStore.getState().timerState;
+    if (currentTimerState.status !== 'RUNNING' || !currentTimerState.endTime) return;
+
+    const remaining = Math.max(0, Math.ceil((currentTimerState.endTime - Date.now()) / 1000));
+    if (remaining > 0) {
+      setTimeLeft(remaining);
+      return;
+    }
+
+    handleComplete(currentTimerState.endTime);
+  }, [handleComplete]);
+
   useEffect(() => {
     if (timerState.status !== 'RUNNING') return;
 
@@ -255,7 +269,7 @@ export function usePomodoroTimer() {
 
       const remaining = getRemainingTime();
       if (remaining <= 0) {
-        handleComplete();
+        handleComplete(currentTimerState.endTime ?? Date.now());
         return;
       }
 
@@ -277,6 +291,16 @@ export function usePomodoroTimer() {
       }
     };
   }, [getRemainingTime, handleComplete, timerState.status]);
+
+  useEffect(() => {
+    const handleResume = () => reconcileRunningTimer();
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('focus', handleResume);
+    return () => {
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('focus', handleResume);
+    };
+  }, [reconcileRunningTimer]);
 
   const toggleTimer = useCallback(() => {
     if (timerState.status === 'RUNNING') {
