@@ -104,7 +104,6 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
 
     // Note Actions
     setNotes: (notes) => {
-        const previousNotes = get().notes;
         const nextNotes = deduplicateById(notes);
 
         set((state) => { state.notes = nextNotes; });
