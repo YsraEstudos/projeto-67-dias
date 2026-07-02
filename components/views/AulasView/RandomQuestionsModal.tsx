@@ -1,14 +1,16 @@
 import React from "react";
-import { AlertTriangle, BarChart3, BrainCircuit, Check, ChevronLeft, History, Play, Sparkles, Target, TrendingDown, TrendingUp, X } from "lucide-react";
+import { AlertTriangle, BarChart3, BrainCircuit, Check, ChevronLeft, History, Play, RotateCcw, Sparkles, Target, TrendingDown, TrendingUp, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAulasStore } from "../../../stores/aulasStore";
 import { AulaBook, SmartReviewAnswer, SmartReviewQuestion, SmartReviewSession } from "../../../types";
 import { generateUUID } from "../../../utils/uuid";
 import { buildSmartReviewPool, buildSmartReviewSummary, selectSmartReviewQuestions, SMART_REVIEW_MAX } from "./smartReview";
+import { motion, AnimatePresence } from "motion/react";
 
 interface Props {
   books: AulaBook[];
   onClose: () => void;
+  onSetQuestionStatus?: (question: any, status: "correct" | "incorrect" | "pending") => void;
 }
 
 type Screen = "setup" | "session" | "report" | "history";
@@ -33,6 +35,8 @@ type SubjectQuestionGroup = {
   questions: SmartReviewQuestion[];
   submatters: Array<{ name: string; total: number; questions: number[] }>;
 };
+
+const SECONDARY_SUBMATTER = "Secundárias / conteúdo futuro";
 
 const groupQuestionsBySubject = (questions: SmartReviewQuestion[]): SubjectQuestionGroup[] => {
   const groups = new Map<string, SubjectQuestionGroup & { submatterMap: Map<string, Set<number>> }>();
@@ -80,7 +84,7 @@ const groupQuestionsBySubject = (questions: SmartReviewQuestion[]): SubjectQuest
     .sort((a, b) => b.total - a.total || a.subject.localeCompare(b.subject));
 };
 
-export default function RandomQuestionsModal({ books, onClose }: Props) {
+export default function RandomQuestionsModal({ books, onClose, onSetQuestionStatus }: Props) {
   const store = useAulasStore();
   const pool = React.useMemo(() => buildSmartReviewPool(books), [books]);
   const [count, setCount] = React.useState(Math.min(15, Math.max(1, pool.length)));
@@ -90,11 +94,85 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
   const [showQuestionPreview, setShowQuestionPreview] = React.useState(false);
   const preview = React.useMemo(() => selectSmartReviewQuestions(books, count), [books, count]);
 
+  const [activeTab, setActiveTab] = React.useState<"todo" | "solved" | "forecast">("todo");
+
   React.useEffect(() => {
     if (screen !== "session") return;
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [screen]);
+
+  const solvedToday = React.useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const solved: Array<SmartReviewQuestion & { latestAttempt: { status: "correct" | "incorrect"; timestamp: string } }> = [];
+
+    books.forEach((book) => {
+      (book.chapters || []).forEach((chapter) => {
+        const attempts = chapter.questionAttempts || {};
+        Object.entries(attempts).forEach(([qNumberStr, stats]) => {
+          const qNumber = parseInt(qNumberStr, 10);
+          const history = stats.history || [];
+          if (history.length > 0) {
+            const latest = history[0];
+            if (latest.timestamp.startsWith(todayStr)) {
+              const difficult = (chapter.difficultQuestions || []).includes(qNumber);
+              const reviewOverdue = Boolean(chapter.nextReviewDate && chapter.nextReviewDate <= todayStr);
+              
+              const submatterSet = new Set<string>();
+              const related = chapter.relatedQuestions;
+              if (related) {
+                if (related.questoes_principais?.includes(qNumber)) {}
+                related.por_secao?.forEach((section) => {
+                  if (section.questoes?.includes(qNumber)) submatterSet.add(section.secao);
+                });
+                if (related.questoes_secundarias_que_misturam_com_aulas_futuras?.includes(qNumber)) {
+                  submatterSet.add(SECONDARY_SUBMATTER);
+                }
+              }
+
+              const classifyCandidateLocal = (
+                hist: any[],
+                diff: boolean,
+                overdue: boolean,
+              ): any => {
+                if (hist.length === 0) return "new";
+                const incorrect = hist.filter((attempt) => attempt.status === "incorrect").length;
+                const errorRate = incorrect / hist.length;
+                const regressed = hist.length > 1 && hist[0].status === "incorrect" && hist[1].status === "correct";
+                return hist[0].status === "incorrect" || errorRate >= 0.4 || diff || overdue || regressed
+                  ? "recovery"
+                  : "maintenance";
+              };
+
+              solved.push({
+                id: `${book.id}:${chapter.id}:${qNumber}`,
+                bookId: book.id,
+                bookTitle: book.title,
+                chapterId: chapter.id,
+                subject: chapter.relatedQuestions?.titulo || chapter.title,
+                questionNumber: qNumber,
+                submatters: submatterSet.size > 0 ? Array.from(submatterSet) : ["Geral"],
+                bucket: classifyCandidateLocal(history, difficult, reviewOverdue),
+                priority: 0,
+                reasons: ["Resolvida hoje"],
+                previousStatus: history[1]?.status,
+                previousAttemptAt: history[1]?.timestamp,
+                previousAttempts: history,
+                difficult,
+                reviewOverdue,
+                latestAttempt: {
+                  status: latest.status as "correct" | "incorrect",
+                  timestamp: latest.timestamp,
+                }
+              });
+            }
+          }
+        });
+      });
+    });
+
+    return solved.sort((a, b) => new Date(b.latestAttempt.timestamp).getTime() - new Date(a.latestAttempt.timestamp).getTime());
+  }, [books]);
 
   const start = () => {
     const questions = selectSmartReviewQuestions(books, count);
@@ -135,116 +213,331 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
   };
 
   const setup = (
-    <div className="grid lg:grid-cols-2 gap-5">
-      <section className="bg-slate-950/45 border border-slate-800 rounded-xl p-5">
-        <div className="flex justify-between gap-4">
-          <div>
-            <span className="text-[10px] uppercase tracking-[.24em] text-[#D4AF37] font-bold">Plano de hoje</span>
-            <h3 className="text-xl text-slate-100 font-semibold mt-1">Defina seu volume de revisão</h3>
-            <p className="text-xs text-slate-500 mt-1">De 1 a 30 questões, com redistribuição automática.</p>
+    <div className="grid lg:grid-cols-3 gap-6 h-full min-h-0 items-stretch">
+      {/* Coluna Esquerda: Configurações & Métricas (1/3) */}
+      <section className="lg:col-span-1 bg-slate-950/50 backdrop-blur-md border border-slate-800/80 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+        <div className="space-y-6">
+          <div className="flex justify-between items-start gap-4 pb-4 border-b border-slate-850">
+            <div>
+              <span className="text-[10px] uppercase tracking-[.24em] text-[#D4AF37] font-extrabold block">Revisão Inteligente</span>
+              <h3 className="text-lg text-slate-100 font-bold mt-1">Plano de Revisão</h3>
+              <p className="text-xs text-slate-500 mt-1">Redistribuição dinâmica de matérias previstas para hoje.</p>
+            </div>
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#bfa032] text-slate-950 flex flex-col items-center justify-center shadow-lg shadow-[#D4AF37]/10 shrink-0">
+              <strong className="text-xl font-black leading-none">{preview.length}</strong>
+              <span className="text-[8px] uppercase font-bold tracking-wider mt-0.5">questões</span>
+            </div>
           </div>
-          <div className="w-16 h-16 rounded-2xl bg-[#D4AF37] text-slate-950 grid place-items-center text-2xl font-black">{preview.length}</div>
-        </div>
-        <input
-          className="w-full accent-[#D4AF37] mt-6"
-          type="range"
-          min={1}
-          max={Math.max(1, Math.min(SMART_REVIEW_MAX, pool.length))}
-          value={count}
-          onChange={(event) => setCount(Number(event.target.value))}
-          aria-label="Quantidade de questões"
-        />
-        <div className="flex justify-between text-[10px] text-slate-500"><span>1</span><span>{Math.min(SMART_REVIEW_MAX, pool.length)} disponíveis</span></div>
-        <div className="grid grid-cols-5 gap-2 mt-6">
-          {[
-            ["Recuperação", preview.filter((q) => q.bucket === "recovery").length],
-            ["Manutenção", preview.filter((q) => q.bucket === "maintenance").length],
-            ["Inéditas", preview.filter((q) => q.bucket === "new").length],
-            ["Difíceis", preview.filter((q) => q.difficult).length],
-            ["Vencidas", preview.filter((q) => q.reviewOverdue).length],
-          ].map(([label, value]) => (
-            <div key={String(label)} className="bg-slate-900/70 border border-slate-800 rounded-lg p-2 text-center">
-              <strong className="text-lg text-slate-100 block">{value}</strong>
-              <span className="text-[8px] uppercase text-slate-500">{label}</span>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label htmlFor="question-volume-slider" className="text-xs font-semibold text-slate-350">Volume selecionado</label>
+              <span className="text-xs text-[#D4AF37] font-bold">{count} de {Math.min(SMART_REVIEW_MAX, pool.length)}</span>
             </div>
-          ))}
-        </div>
-        {store.activeReviewSession ? (
-          <button onClick={() => setScreen("session")} className="mt-6 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg py-3 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
-            <Play className="w-4 h-4" /> Retomar sessão
-          </button>
-        ) : (
-          <button onClick={start} disabled={!preview.length} className="mt-6 w-full bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-lg py-3 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
-            <Play className="w-4 h-4" /> Iniciar revisão inteligente
-          </button>
-        )}
-      </section>
-      <section className="bg-slate-950/45 border border-slate-800 rounded-xl p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg text-slate-100 font-semibold flex items-center gap-2"><Target className="w-5 h-5 text-[#D4AF37]" /> Matérias previstas</h3>
-          <button
-            type="button"
-            onClick={() => setShowQuestionPreview((value) => !value)}
-            disabled={!preview.length}
-            className="border border-slate-700 hover:border-[#D4AF37] disabled:opacity-40 disabled:hover:border-slate-700 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-300"
-          >
-            {showQuestionPreview ? "Ocultar questões" : "Ver questões"}
-          </button>
-        </div>
-        <div className="space-y-3 mt-4 max-h-[28rem] overflow-y-auto pr-1">
-          {previewGroups.map((group) => (
-            <div key={group.key} className="border border-slate-800 bg-slate-900/60 rounded-xl p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <strong className="text-sm text-slate-100 block leading-snug">{group.subject}</strong>
-                  <span className="text-[10px] uppercase text-slate-500">{group.bookTitle}</span>
-                </div>
-                <span className="bg-[#D4AF37] text-slate-950 rounded-lg px-3 py-1 text-xs font-black shrink-0">{group.total}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 mt-3">
-                {[
-                  ["Recuperação", group.recovery, "text-rose-300"],
-                  ["Manutenção", group.maintenance, "text-sky-300"],
-                  ["Inéditas", group.new, "text-violet-300"],
-                ].map(([label, value, color]) => (
-                  <div key={String(label)} className="rounded-lg bg-slate-950/60 border border-slate-800 px-2 py-1.5 text-center">
-                    <strong className={`block text-sm ${color}`}>{value}</strong>
-                    <span className="text-[8px] uppercase text-slate-500">{label}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 space-y-1.5">
-                {group.submatters.slice(0, 4).map((submatter) => (
-                  <div key={submatter.name} className="flex items-center justify-between gap-3 rounded-lg bg-slate-950/40 border border-slate-800 px-3 py-2">
-                    <span className="text-xs text-slate-300 truncate">{submatter.name}</span>
-                    <span className="text-[10px] text-[#D4AF37] shrink-0">{submatter.total} q.</span>
-                  </div>
-                ))}
-                {group.submatters.length > 4 && <p className="text-[10px] text-slate-500">+ {group.submatters.length - 4} submatérias nesta revisão</p>}
-              </div>
+            <input
+              id="question-volume-slider"
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#D4AF37]"
+              type="range"
+              min={1}
+              max={Math.max(1, Math.min(SMART_REVIEW_MAX, pool.length))}
+              value={count}
+              onChange={(event) => setCount(Number(event.target.value))}
+            />
+            <div className="flex justify-between text-[9px] text-slate-500 font-semibold px-0.5">
+              <span>1 questão</span>
+              <span>{Math.min(SMART_REVIEW_MAX, pool.length)} disponíveis</span>
             </div>
-          ))}
-          {!preview.length && <p className="text-sm text-slate-500 text-center py-12">Cadastre questões nas aulas para ativar o motor.</p>}
-        </div>
-        {showQuestionPreview && preview.length > 0 && (
-          <div className="mt-4 border border-slate-800 bg-slate-950/60 rounded-xl p-3">
-            <h4 className="text-xs text-slate-200 font-bold uppercase tracking-wider mb-3">Questões selecionadas para hoje</h4>
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {preview.map((question, index) => (
-                <div key={question.id} className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <strong className="text-sm text-slate-100">#{index + 1} · Questão {question.questionNumber}</strong>
-                    <span className={`text-[9px] uppercase border px-2 py-0.5 rounded-full ${bucketClass[question.bucket]}`}>{bucketLabel[question.bucket]}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">{question.subject}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">{question.submatters.join(" · ")}</p>
-                  <p className="text-[10px] text-[#D4AF37] mt-2">{question.reasons.join(" · ")}</p>
+          </div>
+
+          <div>
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Sua carga para hoje</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "Recuperação", value: preview.filter((q) => q.bucket === "recovery").length, colorClass: "border-rose-900/40 bg-rose-950/10 text-rose-300" },
+                { label: "Manutenção", value: preview.filter((q) => q.bucket === "maintenance").length, colorClass: "border-sky-900/40 bg-sky-950/10 text-sky-300" },
+                { label: "Inéditas", value: preview.filter((q) => q.bucket === "new").length, colorClass: "border-violet-900/40 bg-violet-950/10 text-violet-300" },
+                { label: "Difíceis", value: preview.filter((q) => q.difficult).length, colorClass: "border-amber-900/40 bg-amber-950/10 text-amber-300" },
+              ].map(({ label, value, colorClass }) => (
+                <div key={label} className={`border rounded-xl p-3 flex flex-col justify-between ${colorClass}`}>
+                  <span className="text-[8px] uppercase tracking-wider font-bold opacity-75">{label}</span>
+                  <strong className="text-xl font-bold mt-1 block">{value}</strong>
                 </div>
               ))}
+              <div className="col-span-2 border border-slate-800 bg-slate-900/40 rounded-xl p-3 flex justify-between items-center text-slate-400">
+                <span className="text-[8px] uppercase tracking-wider font-bold">Revisões Vencidas</span>
+                <strong className="text-sm font-bold text-[#D4AF37]">{preview.filter((q) => q.reviewOverdue).length}</strong>
+              </div>
             </div>
           </div>
-        )}
-        <p className="text-xs text-slate-500 border-t border-slate-800 pt-4 mt-4">Prioriza erros, regressões, dificuldade e revisões vencidas, equilibrando matérias e submatérias.</p>
+        </div>
+
+        <div className="pt-6 border-t border-slate-805 mt-6 space-y-3">
+          {store.activeReviewSession ? (
+            <button onClick={() => setScreen("session")} className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider flex justify-center items-center gap-2 shadow-lg shadow-amber-950/20 active:scale-[0.98] transition-all cursor-pointer">
+              <Play className="w-4 h-4 fill-slate-950" /> Retomar sessão cronometrada
+            </button>
+          ) : (
+            <button onClick={start} disabled={!preview.length} className="w-full bg-gradient-to-r from-[#D4AF37] to-[#bfa032] hover:from-[#e5c158] hover:to-[#D4AF37] disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none text-slate-950 rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider flex justify-center items-center gap-2 shadow-lg shadow-[#D4AF37]/15 active:scale-[0.98] transition-all cursor-pointer">
+              <Play className="w-4 h-4 fill-slate-950" /> Iniciar Sessão Cronometrada
+            </button>
+          )}
+          <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+            As alterações nas questões feitas diretamente no painel à direita atualizam seu progresso instantaneamente.
+          </p>
+        </div>
+      </section>
+
+      {/* Coluna Direita: Gerenciador de Questões Interativo (2/3) */}
+      <section className="lg:col-span-2 bg-slate-900/20 border border-slate-800/50 rounded-2xl flex flex-col h-full min-h-0 shadow-lg overflow-hidden">
+        {/* Abas */}
+        <div className="bg-slate-950/40 border-b border-slate-800 px-5 py-3 flex items-center justify-between shrink-0">
+          <div className="flex gap-2">
+            {[
+              { id: "todo", label: "A Fazer Hoje", count: preview.length, color: "bg-[#D4AF37]" },
+              { id: "solved", label: "Resolvidas Hoje", count: solvedToday.length, color: "bg-emerald-500" },
+              { id: "forecast", label: "Matérias Previstas", count: previewGroups.length, color: "bg-slate-505" },
+            ].map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`relative px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    active ? "text-slate-100 bg-slate-800/50" : "text-slate-500 hover:text-slate-355"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className={`px-1.5 py-0.2 text-[8px] rounded-full text-slate-950 font-black ${tab.id === "todo" ? "bg-[#D4AF37]" : tab.id === "solved" ? "bg-emerald-400" : "bg-slate-700 text-slate-300"}`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </span>
+                  {active && (
+                    <motion.div
+                      layoutId="activeTabIndicator"
+                      className={`absolute bottom-0 left-0 right-0 h-0.5 ${tab.id === "todo" ? "bg-[#D4AF37]" : tab.id === "solved" ? "bg-emerald-400" : "bg-slate-500"}`}
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Conteúdo da Aba */}
+        <div className="flex-1 min-h-0 p-4 max-h-[62vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+          <AnimatePresence mode="popLayout">
+            {activeTab === "todo" && (
+              <motion.div
+                key="todo-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-3"
+              >
+                {preview.length === 0 ? (
+                  <div className="text-center py-20 text-slate-500 flex flex-col items-center justify-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-300">Tudo em dia!</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Você revisou todas as questões previstas para hoje.</p>
+                    </div>
+                  </div>
+                ) : (
+                  preview.map((question, index) => (
+                    <motion.div
+                      key={question.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, x: -100, scale: 0.9 }}
+                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                      className="bg-slate-950/50 hover:bg-slate-950/80 border border-slate-805 hover:border-slate-700/80 rounded-xl p-4 transition-all duration-200 group flex flex-col md:flex-row justify-between gap-4 shadow-sm"
+                    >
+                      <div className="min-w-0 flex-1 flex gap-3.5">
+                        <div className="w-9 h-9 rounded-xl bg-slate-905 border border-slate-800/80 text-[#D4AF37] flex items-center justify-center text-xs font-black shrink-0 shadow-inner">
+                          {String(index + 1).padStart(2, "0")}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <strong className="text-slate-100 text-sm font-semibold">Questão {question.questionNumber}</strong>
+                            <span className="text-[10px] text-slate-500">•</span>
+                            <span className="text-xs text-slate-400 font-medium truncate max-w-[200px] md:max-w-xs" title={question.bookTitle}>{question.bookTitle}</span>
+                            <span className={`text-[8px] uppercase font-bold tracking-wider border px-2 py-0.5 rounded-full ${bucketClass[question.bucket]}`}>
+                              {bucketLabel[question.bucket]}
+                            </span>
+                            {question.difficult && (
+                              <span className="text-[8px] uppercase font-bold tracking-wider border px-2 py-0.5 rounded-full border-amber-500/40 bg-amber-950/20 text-amber-300">
+                                Difícil
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-350 font-bold mt-1.5">{question.subject}</p>
+                          {question.submatters.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {question.submatters.map((sub) => (
+                                <span key={sub} className="text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-slate-400">
+                                  {sub}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {question.reasons.length > 0 && (
+                            <div className="mt-2.5 flex items-center gap-1.5 text-[9px] text-[#D4AF37] bg-[#D4AF37]/5 px-2 py-1 rounded-lg w-fit border border-[#D4AF37]/10">
+                              <Sparkles className="w-3 h-3 shrink-0" />
+                              <span className="font-medium">{question.reasons.join(" · ")}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                        <button
+                          onClick={() => store.recordQuestionAttemptDirectly(question.bookId, question.chapterId, question.questionNumber, "correct")}
+                          className="bg-emerald-550/10 hover:bg-emerald-500 hover:text-slate-950 border border-emerald-500/30 text-emerald-450 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200 active:scale-[0.95] cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Acertei
+                        </button>
+                        <button
+                          onClick={() => store.recordQuestionAttemptDirectly(question.bookId, question.chapterId, question.questionNumber, "incorrect")}
+                          className="bg-rose-550/10 hover:bg-rose-500 hover:text-slate-950 border border-rose-500/30 text-rose-455 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200 active:scale-[0.95] cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" /> Errei
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === "solved" && (
+              <motion.div
+                key="solved-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-3"
+              >
+                {solvedToday.length === 0 ? (
+                  <div className="text-center py-20 text-slate-500 flex flex-col items-center justify-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400">
+                      <Play className="w-5 h-5 opacity-40 rotate-90" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-350">Nenhuma questão resolvida</p>
+                      <p className="text-xs text-slate-500 mt-0.5">As questões resolvidas hoje aparecerão listadas aqui.</p>
+                    </div>
+                  </div>
+                ) : (
+                  solvedToday.map((question) => (
+                    <motion.div
+                      key={question.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, x: 100, scale: 0.9 }}
+                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                      className="bg-slate-950/40 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between gap-4 shadow-sm"
+                    >
+                      <div className="min-w-0 flex-1 flex gap-3.5">
+                        <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 shadow-inner ${
+                          question.latestAttempt.status === "correct" 
+                            ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-400" 
+                            : "bg-rose-950/20 border-rose-500/30 text-rose-400"
+                        }`}>
+                          {question.latestAttempt.status === "correct" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <strong className="text-slate-200 text-sm font-semibold">Questão {question.questionNumber}</strong>
+                            <span className="text-[10px] text-slate-500">•</span>
+                            <span className="text-xs text-slate-400 truncate max-w-[200px]" title={question.bookTitle}>{question.bookTitle}</span>
+                            <span className={`text-[8px] uppercase font-bold tracking-wider border px-2 py-0.2 rounded-full ${
+                              question.latestAttempt.status === "correct" 
+                                ? "border-emerald-500/40 bg-emerald-950/20 text-emerald-300" 
+                                : "border-rose-500/40 bg-rose-950/20 text-rose-300"
+                            }`}>
+                              {question.latestAttempt.status === "correct" ? "Acerto" : "Erro"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">{question.subject}</p>
+                          <span className="text-[9px] text-slate-500 block mt-1.5">
+                            Resolvida em: {new Date(question.latestAttempt.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center shrink-0 self-end md:self-center">
+                        <button
+                          onClick={() => store.recordQuestionAttemptDirectly(question.bookId, question.chapterId, question.questionNumber, "pending")}
+                          className="text-slate-400 hover:text-slate-250 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-lg px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Desfazer
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === "forecast" && (
+              <motion.div
+                key="forecast-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-3"
+              >
+                {previewGroups.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-12">Nenhuma matéria prevista.</p>
+                ) : (
+                  previewGroups.map((group) => (
+                    <div key={group.key} className="border border-slate-800 bg-slate-950/40 rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <strong className="text-sm text-slate-200 block leading-snug">{group.subject}</strong>
+                          <span className="text-[10px] uppercase text-slate-505 font-semibold">{group.bookTitle}</span>
+                        </div>
+                        <span className="bg-[#D4AF37] text-slate-950 rounded-lg px-2.5 py-1 text-xs font-black shrink-0 shadow-md shadow-[#D4AF37]/5">{group.total} q.</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mt-3.5">
+                        {[
+                          ["Recuperação", group.recovery, "text-rose-300"],
+                          ["Manutenção", group.maintenance, "text-sky-300"],
+                          ["Inéditas", group.new, "text-violet-300"],
+                        ].map(([label, val, color]) => (
+                          <div key={String(label)} className="rounded-lg bg-slate-900/35 border border-slate-800/80 px-2 py-1.5 text-center">
+                            <strong className={`block text-sm ${color}`}>{val}</strong>
+                            <span className="text-[8px] uppercase text-slate-500 font-bold">{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3.5 space-y-1.5">
+                        {group.submatters.slice(0, 4).map((submatter) => (
+                          <div key={submatter.name} className="flex items-center justify-between gap-3 rounded-lg bg-slate-900/20 border border-slate-800/50 px-3 py-2">
+                            <span className="text-xs text-slate-350 truncate">{submatter.name}</span>
+                            <span className="text-[10px] text-[#D4AF37] font-semibold shrink-0">{submatter.total} q.</span>
+                          </div>
+                        ))}
+                        {group.submatters.length > 4 && <p className="text-[10px] text-slate-500 font-semibold mt-1">+ {group.submatters.length - 4} submatérias nesta revisão</p>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </section>
     </div>
   );
@@ -406,21 +699,13 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
               {preview.length ? `${preview.length} questões prontas para revisar hoje.` : "Cadastre questões nas aulas para iniciar uma revisão."}
             </p>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowQuestionPreview((value) => !value)}
-                disabled={!preview.length}
-                className="flex-1 sm:flex-none border border-slate-700 hover:border-[#D4AF37] disabled:opacity-40 disabled:hover:border-slate-700 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-300"
-              >
-                {showQuestionPreview ? "Ocultar questões" : "Ver questões"}
-              </button>
               {store.activeReviewSession ? (
-                <button onClick={() => setScreen("session")} className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
-                  <Play className="w-4 h-4" /> Retomar
+                <button onClick={() => setScreen("session")} className="flex-1 sm:flex-none bg-amber-550 hover:bg-amber-400 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2 cursor-pointer">
+                  <Play className="w-4 h-4 fill-slate-950" /> Retomar Sessão
                 </button>
               ) : (
-                <button onClick={start} disabled={!preview.length} className="flex-1 sm:flex-none bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2">
-                  <Play className="w-4 h-4" /> Iniciar
+                <button onClick={start} disabled={!preview.length} className="flex-1 sm:flex-none bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-505 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2 cursor-pointer">
+                  <Play className="w-4 h-4 fill-slate-950" /> Iniciar Sessão
                 </button>
               )}
             </div>

@@ -41,6 +41,7 @@ import {
     subscribeToSubcollection,
     flushPendingWrites,
 } from '../stores/firestoreSync';
+import { updateQuotaFromRemote } from '../utils/firestoreQuota';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -168,6 +169,15 @@ export const useHydrationOrchestrator = (userId: string | undefined): boolean =>
         unsubscribers.push(
             subscribeToSubcollection('p67_aulas_books', (data: any[]) => {
                 useAulasStore.getState()._hydrateBooksFromSubcollection(data);
+            })
+        );
+
+        // Subscribe to firestore quota changes for real-time universal stats
+        unsubscribers.push(
+            subscribeToDocument('p67_firestore_quota', (data: any) => {
+                if (data) {
+                    updateQuotaFromRemote(data);
+                }
             })
         );
 

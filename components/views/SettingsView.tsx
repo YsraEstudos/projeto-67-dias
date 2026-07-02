@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target, Smartphone, HardDrive, Image } from 'lucide-react';
+import { Database, ShieldCheck, Info, AlertTriangle, RotateCcw, Settings as SettingsIcon, RefreshCw, User, Mail, Shield, CalendarDays, Flame, Palette, Target, Smartphone, HardDrive, Image, X } from 'lucide-react';
 import { useConfigStore } from '../../stores';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSimple } from '../shared/Loading';
@@ -16,6 +16,48 @@ import { MAX_IMAGE_SIZE } from '../../utils/imageUtils';
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
 const ResetProjectModal = React.lazy(() => import('../modals/ResetProjectModal'));
 
+const MODULE_NAME_MAPPING: Record<string, string> = {
+  'p67_project_config': 'Configuração do Desafio',
+  'p67_habits_store': 'Hábitos & Rotinas',
+  'p67_work_store': 'Trabalho & Foco',
+  'p67_notes_store': 'Notas & Anotações',
+  'p67_notes_store_items': 'Itens de Notas',
+  'p67_sunday_store': 'Domingo de Planejamento',
+  'p67_journal_store': 'Diário',
+  'p67_links_store': 'Links Úteis',
+  'p67_skills_store': 'Habilidades',
+  'p67_reading_store': 'Leitura de Livros',
+  'p67_rest_store': 'Descanso / Lazer',
+  'p67_prompts_store': 'Prompts IA',
+  'games-storage': 'Jogos / Exercícios',
+  'p67_games_store': 'Jogos / Desafios',
+  'p67_review_store': 'Revisão Periódica',
+  'p67_water_store': 'Consumo de Água',
+  'p67_streak_store': 'Ofensivas (Streaks)',
+  'p67_tool_timer': 'Timer de Ferramentas',
+  'p67_site_categories_store': 'Categorias de Sites',
+  'p67_sites_store': 'Sites Favoritos',
+  'p67_site_folders_store': 'Pastas de Sites',
+  'p67_sunday_timer': 'Timer de Domingo',
+  'p67_goals_store': 'Metas do Desafio',
+  'p67_competition_store': 'Competição / Ranking',
+  'p67_daily_planner_store': 'Planejador Diário',
+  'pomodoro-storage': 'Timer Pomodoro',
+  'p67_aulas_config': 'Configuração de Aulas',
+  'p67_aulas_books': 'Livros de Aulas',
+  'p67_firestore_quota': 'Sincronização de Cotas',
+};
+
+const getFriendlyModuleName = (key: string): string => {
+  if (MODULE_NAME_MAPPING[key]) {
+    return MODULE_NAME_MAPPING[key];
+  }
+  return key
+    .replace(/^p67_/, '')
+    .replace(/_store$/, '')
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+};
 
 const SettingsView: React.FC = () => {
   const { user } = useAuth();
@@ -24,6 +66,7 @@ const SettingsView: React.FC = () => {
 
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [showStartConfirmation, setShowStartConfirmation] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [quotaStats, setQuotaStats] = useState(getUsageStats());
@@ -237,9 +280,11 @@ const SettingsView: React.FC = () => {
                     <HardDrive className={`${quotaStats.isWarning ? 'text-amber-400' : quotaStats.isExceeded ? 'text-red-400' : 'text-cyan-400'}`} size={20} />
                     <div>
                       <span className="text-slate-300 font-medium">Uso do Firestore Hoje</span>
-                      <p className="text-xs text-slate-500">
-                        {quotaStats.total.toLocaleString('pt-BR')} de {getDailyLimit().toLocaleString('pt-BR')} operações
-                      </p>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-x-2 text-xs text-slate-500">
+                        <span>{quotaStats.total.toLocaleString('pt-BR')} de {getDailyLimit().toLocaleString('pt-BR')} operações</span>
+                        <span className="hidden sm:inline text-slate-700">•</span>
+                        <span>(L: {quotaStats.reads.toLocaleString('pt-BR')} | G: {quotaStats.writes.toLocaleString('pt-BR')})</span>
+                      </div>
                     </div>
                   </div>
                   <span className={`text-sm font-bold px-2 py-1 rounded ${quotaStats.isExceeded
@@ -278,6 +323,16 @@ const SettingsView: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                <div className="pt-2 border-t border-slate-800/60 flex justify-end">
+                  <button
+                    onClick={() => setIsDetailsModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    <Info size={14} />
+                    Ver Detalhes por Módulo
+                  </button>
+                </div>
               </div>
 
               {/* Image Size Limit Info */}
@@ -448,6 +503,122 @@ const SettingsView: React.FC = () => {
                 className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-bold transition-colors border border-violet-500/20 shadow-lg shadow-violet-500/20"
               >
                 Iniciar Agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Firestore Usage Details Modal */}
+      {isDetailsModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 max-w-xl w-full animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                  <HardDrive size={22} className="text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Detalhamento de Requisições</h3>
+                  <p className="text-xs text-slate-400">Operações acumuladas por módulo hoje</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors p-1.5 hover:bg-slate-800 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Summary Stats Row */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="p-3 bg-slate-800/40 border border-slate-800/60 rounded-xl text-center">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 block mb-0.5">Total</span>
+                <span className="text-lg font-extrabold text-white">{quotaStats.total.toLocaleString('pt-BR')}</span>
+              </div>
+              <div className="p-3 bg-slate-850/40 border border-slate-800/60 rounded-xl text-center">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-500 block mb-0.5 font-mono">Leituras</span>
+                <span className="text-lg font-extrabold text-emerald-400">{quotaStats.reads.toLocaleString('pt-BR')}</span>
+              </div>
+              <div className="p-3 bg-slate-850/40 border border-slate-800/60 rounded-xl text-center">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-cyan-500 block mb-0.5 font-mono">Gravações</span>
+                <span className="text-lg font-extrabold text-cyan-400">{quotaStats.writes.toLocaleString('pt-BR')}</span>
+              </div>
+            </div>
+
+            {/* Content / Module list */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 max-h-[45vh] scrollbar-thin scrollbar-thumb-slate-800">
+              {Object.keys({ ...quotaStats.moduleWrites, ...quotaStats.moduleReads }).length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                  Nenhuma requisição registrada hoje.
+                </div>
+              ) : (
+                (() => {
+                  const moduleKeys = Array.from(new Set([
+                    ...Object.keys(quotaStats.moduleWrites || {}),
+                    ...Object.keys(quotaStats.moduleReads || {})
+                  ]));
+
+                  const modulesData = moduleKeys.map(key => {
+                    const writes = quotaStats.moduleWrites[key] || 0;
+                    const reads = quotaStats.moduleReads[key] || 0;
+                    const total = writes + reads;
+                    return { key, writes, reads, total };
+                  }).sort((a, b) => b.total - a.total);
+
+                  const maxModuleTotal = Math.max(...modulesData.map(m => m.total), 1);
+
+                  return (
+                    <div className="space-y-4 pr-1">
+                      {modulesData.map(mod => {
+                        const barWidth = (mod.total / maxModuleTotal) * 100;
+
+                        return (
+                          <div key={mod.key} className="p-3 bg-slate-900/40 border border-slate-800/50 rounded-xl space-y-2">
+                            <div className="flex justify-between items-start">
+                              <div className="min-w-0">
+                                <span className="text-sm font-semibold text-slate-200 block truncate">
+                                  {getFriendlyModuleName(mod.key)}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono block truncate">
+                                  {mod.key}
+                                </span>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <span className="text-sm font-bold text-slate-100 block">
+                                  {mod.total} <span className="text-[10px] text-slate-500 font-normal">ops</span>
+                                </span>
+                                <span className="text-[10px] text-slate-400 block font-mono">
+                                  L: {mod.reads} | G: {mod.writes}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500"
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
+              <span>As cotas reiniciam diariamente à meia-noite.</span>
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>

@@ -168,6 +168,12 @@ interface AulasState {
     saveActiveReviewSession: (session: SmartReviewSession | null) => void;
     setReviewAnswer: (questionId: string, answer: SmartReviewAnswer) => void;
     setReviewAnswers: (questionIds: string[], answer: SmartReviewAnswer) => void;
+    recordQuestionAttemptDirectly: (
+        bookId: string,
+        chapterId: string,
+        questionNumber: number,
+        status: 'correct' | 'incorrect' | 'pending'
+    ) => void;
     completeReviewSession: (session: SmartReviewSession) => void;
 
     importBackupData: (backupData: { folders: any[]; books?: any[]; collections?: any[]; recentlyStudied?: any[] }) => void;
@@ -638,6 +644,78 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         const payload = { folders, collections, recentlyStudied, activeReviewSession, reviewSessions };
         writeLocalBackupDebounced({ folders, collections, books, recentlyStudied, activeReviewSession, reviewSessions });
         writeRootStateDebounced(payload, Boolean(getCurrentUserId() && _initialized));
+    },
+
+    recordQuestionAttemptDirectly: (bookId, chapterId, questionNumber, status) => {
+        set((state) => {
+            const book = state.books.find((item) => item.id === bookId);
+            const chapter = book?.chapters.find((item) => item.id === chapterId);
+            if (!book || !chapter) return;
+
+            const correctQuestions = chapter.correctQuestions || [];
+            const incorrectQuestions = chapter.incorrectQuestions || [];
+            const legacyCompleted = chapter.completedPrincipalQuestions || [];
+            const activeCorrect =
+                correctQuestions.length === 0 && incorrectQuestions.length === 0 && legacyCompleted.length > 0
+                    ? [...legacyCompleted]
+                    : [...correctQuestions];
+
+            let nextCorrect = activeCorrect.filter((number) => number !== questionNumber);
+            let nextIncorrect = incorrectQuestions.filter((number) => number !== questionNumber);
+            const nextAttempts = { ...(chapter.questionAttempts || {}) };
+
+            if (status === "correct" || status === "incorrect") {
+                if (status === "correct") {
+                    nextCorrect = [...nextCorrect, questionNumber].sort((a, b) => a - b);
+                } else {
+                    nextIncorrect = [...nextIncorrect, questionNumber].sort((a, b) => a - b);
+                }
+
+                const key = questionNumber.toString();
+                const currentStats = nextAttempts[key] || { total: 0, correct: 0, incorrect: 0, history: [] };
+
+                const attempt = {
+                    timestamp: new Date().toISOString(),
+                    status,
+                    sessionId: `direct-${generateUUID().substring(0, 8)}`,
+                    source: 'smart-review' as const,
+                };
+
+                nextAttempts[key] = {
+                    total: currentStats.total + 1,
+                    correct: currentStats.correct + (status === "correct" ? 1 : 0),
+                    incorrect: currentStats.incorrect + (status === "incorrect" ? 1 : 0),
+                    history: [attempt, ...currentStats.history],
+                };
+            } else if (status === "pending") {
+                const key = questionNumber.toString();
+                if (nextAttempts[key]) {
+                    const currentStats = nextAttempts[key];
+                    if (currentStats.history.length > 0) {
+                        const lastAttempt = currentStats.history[0];
+                        const wasCorrect = lastAttempt.status === 'correct';
+                        nextAttempts[key] = {
+                            total: Math.max(0, currentStats.total - 1),
+                            correct: Math.max(0, currentStats.correct - (wasCorrect ? 1 : 0)),
+                            incorrect: Math.max(0, currentStats.incorrect - (!wasCorrect ? 1 : 0)),
+                            history: currentStats.history.slice(1)
+                        };
+                    }
+                }
+            }
+
+            chapter.correctQuestions = nextCorrect;
+            chapter.incorrectQuestions = nextIncorrect;
+            chapter.completedPrincipalQuestions = [...nextCorrect, ...nextIncorrect].sort((a, b) => a - b);
+            chapter.questionAttempts = nextAttempts;
+        });
+
+        const updated = get().books.find((b) => b.id === bookId);
+        if (updated) syncBookToSubcollection(updated);
+
+        const { folders, collections, books, recentlyStudied } = get();
+        writeLocalBackupDebounced({ folders, collections, books, recentlyStudied } as any);
+        get()._syncToFirestore();
     },
 
     completeReviewSession: (session) => {

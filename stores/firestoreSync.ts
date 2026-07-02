@@ -8,8 +8,15 @@
  */
 import { doc, setDoc, deleteDoc, onSnapshot, Unsubscribe, collection, query } from 'firebase/firestore';
 import { db, auth, getLocalAuthSessionUser } from '../services/firebase';
-import { incrementWrites, incrementReads, isQuotaExceeded, notifyQuotaListeners } from '../utils/firestoreQuota';
+import { incrementWrites, incrementReads, isQuotaExceeded, notifyQuotaListeners, setQuotaSyncCallback } from '../utils/firestoreQuota';
 import { getStorageKeyForUser, readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
+
+// Set the quota sync callback to update Firestore with debounced quota data
+if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
+    setQuotaSyncCallback((data) => {
+        writeToFirestore('p67_firestore_quota', data, 5000); // 5s debounce
+    });
+}
 
 // Debounce writes to avoid excessive Firestore calls during rapid typing
 type PendingWrite = {
@@ -284,7 +291,9 @@ const performWrite = async (payload: PendingWrite['payload']) => {
             updatedAt: Date.now()
         });
         // Track successful write for quota monitoring
-        incrementWrites();
+        if (collectionKey !== 'p67_firestore_quota') {
+            incrementWrites(collectionKey);
+        }
         notifyQuotaListeners();
         // Update last written data hash for dirty checking
         lastWrittenData.set(writeIdentity, dataHash);
@@ -395,7 +404,9 @@ export const subscribeToDocument = <T>(
             // Local cache updates and optimistic local writes should not consume
             // daily request budget in our internal tracker.
             if (!snapshot.metadata?.fromCache && !snapshot.metadata?.hasPendingWrites) {
-                incrementReads();
+                if (collectionKey !== 'p67_firestore_quota') {
+                    incrementReads(collectionKey);
+                }
                 notifyQuotaListeners();
             }
 
@@ -500,7 +511,9 @@ export const writeItemToSubcollection = async (
             _updatedAt: Date.now()
         });
 
-        incrementWrites();
+        if (collectionKey !== 'p67_firestore_quota') {
+            incrementWrites(collectionKey);
+        }
         notifyQuotaListeners();
     } catch (error) {
         console.error(`[Firestore] Failed to write item ${itemId} to ${collectionKey}:`, error);
@@ -552,7 +565,9 @@ export const deleteItemFromSubcollection = async (
         const docRef = doc(db, 'users', userId, collectionKey, itemId);
         await deleteDoc(docRef);
 
-        incrementWrites();
+        if (collectionKey !== 'p67_firestore_quota') {
+            incrementWrites(collectionKey);
+        }
         notifyQuotaListeners();
     } catch (error) {
         console.error(`[Firestore] Failed to delete item ${itemId} from ${collectionKey}:`, error);
@@ -600,7 +615,9 @@ export const subscribeToSubcollection = <T>(
             if (!snapshot.metadata?.fromCache && !snapshot.metadata?.hasPendingWrites) {
                 // Approximate read cost: 1 per document returned
                 for (let i = 0; i < snapshot.docs.length; i++) {
-                     incrementReads();
+                     if (collectionKey !== 'p67_firestore_quota') {
+                         incrementReads(collectionKey);
+                     }
                 }
                 notifyQuotaListeners();
             }

@@ -19,12 +19,21 @@ interface QuotaData {
     date: string; // YYYY-MM-DD
     writes: number;
     reads: number;
+    moduleWrites?: Record<string, number>;
+    moduleReads?: Record<string, number>;
 }
+
+// Synchronization callback
+let syncCallback: ((data: QuotaData) => void) | null = null;
+
+export const setQuotaSyncCallback = (callback: (data: QuotaData) => void): void => {
+    syncCallback = callback;
+};
 
 /**
  * Get today's date in YYYY-MM-DD format
  */
-const getTodayString = (): string => {
+export const getTodayString = (): string => {
     const now = new Date();
     return now.toISOString().split('T')[0];
 };
@@ -34,27 +43,31 @@ const getTodayString = (): string => {
  */
 const getQuotaData = (): QuotaData => {
     if (typeof window === 'undefined') {
-        return { date: getTodayString(), writes: 0, reads: 0 };
+        return { date: getTodayString(), writes: 0, reads: 0, moduleWrites: {}, moduleReads: {} };
     }
 
     try {
         const raw = localStorage.getItem(QUOTA_STORAGE_KEY);
         if (!raw) {
-            return { date: getTodayString(), writes: 0, reads: 0 };
+            return { date: getTodayString(), writes: 0, reads: 0, moduleWrites: {}, moduleReads: {} };
         }
 
         const data: QuotaData = JSON.parse(raw);
 
         // Reset if it's a new day
         if (data.date !== getTodayString()) {
-            const newData = { date: getTodayString(), writes: 0, reads: 0 };
+            const newData = { date: getTodayString(), writes: 0, reads: 0, moduleWrites: {}, moduleReads: {} };
             localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(newData));
             return newData;
         }
 
+        // Ensure module structures exist
+        if (!data.moduleWrites) data.moduleWrites = {};
+        if (!data.moduleReads) data.moduleReads = {};
+
         return data;
     } catch {
-        return { date: getTodayString(), writes: 0, reads: 0 };
+        return { date: getTodayString(), writes: 0, reads: 0, moduleWrites: {}, moduleReads: {} };
     }
 };
 
@@ -64,13 +77,65 @@ const getQuotaData = (): QuotaData => {
 const saveQuotaData = (data: QuotaData): void => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(data));
+    if (syncCallback) {
+        syncCallback(data);
+    }
+};
+
+/**
+ * Update quota stats from remote Firestore document
+ */
+export const updateQuotaFromRemote = (remoteData: any): void => {
+    if (typeof window === 'undefined') return;
+    if (!remoteData || remoteData.date !== getTodayString()) return;
+
+    try {
+        const localData = getQuotaData();
+
+        const remoteWrites = typeof remoteData.writes === 'number' ? remoteData.writes : 0;
+        const remoteReads = typeof remoteData.reads === 'number' ? remoteData.reads : 0;
+
+        // Take max of local vs remote to prevent syncing losses
+        const newWrites = Math.max(localData.writes, remoteWrites);
+        const newReads = Math.max(localData.reads, remoteReads);
+
+        const newModuleWrites: Record<string, number> = {};
+        const localModuleWrites = localData.moduleWrites || {};
+        const remoteModuleWrites = remoteData.moduleWrites || {};
+        const allWriteKeys = new Set([...Object.keys(localModuleWrites), ...Object.keys(remoteModuleWrites)]);
+        for (const key of allWriteKeys) {
+            newModuleWrites[key] = Math.max(localModuleWrites[key] || 0, remoteModuleWrites[key] || 0);
+        }
+
+        const newModuleReads: Record<string, number> = {};
+        const localModuleReads = localData.moduleReads || {};
+        const remoteModuleReads = remoteData.moduleReads || {};
+        const allReadKeys = new Set([...Object.keys(localModuleReads), ...Object.keys(remoteModuleReads)]);
+        for (const key of allReadKeys) {
+            newModuleReads[key] = Math.max(localModuleReads[key] || 0, remoteModuleReads[key] || 0);
+        }
+
+        const mergedData: QuotaData = {
+            date: getTodayString(),
+            writes: newWrites,
+            reads: newReads,
+            moduleWrites: newModuleWrites,
+            moduleReads: newModuleReads
+        };
+
+        // Write directly to local storage to bypass syncCallback
+        localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(mergedData));
+        notifyQuotaListeners();
+    } catch (e) {
+        console.error('[FirestoreQuota] Failed to merge remote quota:', e);
+    }
 };
 
 /**
  * Increment write counter
  * @returns true if increment was successful, false if quota exceeded
  */
-export const incrementWrites = (): boolean => {
+export const incrementWrites = (moduleKey?: string): boolean => {
     const data = getQuotaData();
     const total = data.writes + data.reads;
 
@@ -80,6 +145,12 @@ export const incrementWrites = (): boolean => {
     }
 
     data.writes++;
+    
+    if (moduleKey) {
+        if (!data.moduleWrites) data.moduleWrites = {};
+        data.moduleWrites[moduleKey] = (data.moduleWrites[moduleKey] || 0) + 1;
+    }
+
     saveQuotaData(data);
     return true;
 };
@@ -88,9 +159,15 @@ export const incrementWrites = (): boolean => {
  * Increment read counter
  * Note: Reads are tracked but not blocked to maintain usability
  */
-export const incrementReads = (): void => {
+export const incrementReads = (moduleKey?: string): void => {
     const data = getQuotaData();
     data.reads++;
+
+    if (moduleKey) {
+        if (!data.moduleReads) data.moduleReads = {};
+        data.moduleReads[moduleKey] = (data.moduleReads[moduleKey] || 0) + 1;
+    }
+
     saveQuotaData(data);
 };
 
@@ -123,6 +200,8 @@ export const getUsageStats = (): {
     percentage: number;
     isWarning: boolean;
     isExceeded: boolean;
+    moduleWrites: Record<string, number>;
+    moduleReads: Record<string, number>;
 } => {
     const data = getQuotaData();
     const total = data.writes + data.reads;
@@ -137,6 +216,8 @@ export const getUsageStats = (): {
         percentage,
         isWarning: percentage >= WARNING_THRESHOLD * 100,
         isExceeded: total >= DAILY_LIMIT,
+        moduleWrites: data.moduleWrites || {},
+        moduleReads: data.moduleReads || {},
     };
 };
 

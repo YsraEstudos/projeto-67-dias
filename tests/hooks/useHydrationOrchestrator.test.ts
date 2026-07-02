@@ -277,8 +277,8 @@ describe('useHydrationOrchestrator', () => {
     it('calls all unsubscribers on unmount', () => {
         const { unmount } = renderHook(() => useHydrationOrchestrator('user-123'));
 
-        // 25 document subscriptions + 2 subcollection subscriptions = 27
-        expect(unsubscribeFns.length).toBe(27);
+        // 25 document subscriptions + 1 quota subscription + 2 subcollection subscriptions = 28
+        expect(unsubscribeFns.length).toBe(28);
 
         unmount();
 

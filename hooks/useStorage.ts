@@ -172,7 +172,9 @@ export function useStorage<T>(
             docRef,
             (docSnap) => {
                 // Track read for quota monitoring
-                incrementReads();
+                if (key !== 'p67_firestore_quota') {
+                    incrementReads(key);
+                }
                 notifyQuotaListeners();
 
                 try {
@@ -202,7 +204,9 @@ export function useStorage<T>(
                                 value: localValue,
                                 updatedAt: localTimestamp
                             }).then(() => {
-                                incrementWrites();
+                                if (key !== 'p67_firestore_quota') {
+                                    incrementWrites(key);
+                                }
                                 notifyQuotaListeners();
                             }).catch(err => {
                                 console.error('Erro ao criar documento inicial:', err);
@@ -247,7 +251,9 @@ export function useStorage<T>(
             value,
             updatedAt
         }).then(() => {
-            incrementWrites();
+            if (key !== 'p67_firestore_quota') {
+                incrementWrites(key);
+            }
             notifyQuotaListeners();
         }).catch(err => {
             console.error(`Erro ao salvar (flush) no Firestore (key: "${key}"):`, err);

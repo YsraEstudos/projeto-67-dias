@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
 import { useDebounce } from "../../../hooks/useDebounce";
-import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles } from "lucide-react";
+import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles, BrainCircuit } from "lucide-react";
 import { QuestionAttempt, RecentlyStudiedItem } from "../../../types";
 import RandomQuestionsModal from "./RandomQuestionsModal";
 import { RandomQuestionItem } from "./randomQuestions";
@@ -915,6 +915,31 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           </button>
         </div>
       </header>
+
+      {/* Banner de Destaque para Revisão Inteligente */}
+      <section className="mb-8 bg-gradient-to-r from-slate-900/60 via-[#D4AF37]/5 to-slate-900/60 backdrop-blur-md border border-[#D4AF37]/20 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-[#D4AF37]/45 transition-all duration-300">
+        <div className="flex items-center gap-4 text-center md:text-left">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#bfa032] text-slate-950 flex items-center justify-center shadow-lg shadow-[#D4AF37]/10 shrink-0">
+            <BrainCircuit className="w-6 h-6 animate-pulse" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 justify-center md:justify-start">
+              Revisão Inteligente Diária
+              <span className="text-[9px] uppercase px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30 font-black animate-pulse">Recomendado</span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+              O motor inteligente selecionou revisões focadas para otimizar seu aprendizado hoje. Acelere seu progresso!
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setRandomQuestionsOpen(true)}
+          className="w-full md:w-auto bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-[#D4AF37]/10 active:scale-[0.98] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 shrink-0"
+        >
+          <Sparkles className="w-4 h-4 fill-slate-950" />
+          Acessar Central de Revisão
+        </button>
+      </section>
 
       {/* Continuar Estudando Carrossel */}
       {recentlyStudied && recentlyStudied.length > 0 && (
