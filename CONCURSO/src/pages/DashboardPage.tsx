@@ -11,6 +11,7 @@ import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/forma
 import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
 import { calculateAnkiProjection } from '../app/anki';
 import { ActionButton } from '../components/ActionButton';
+import { resolveDailyStudy } from '../app/contentSubmatters';
 import { MetricCard } from '../components/MetricCard';
 import { PageIntro } from '../components/PageIntro';
 import { SectionCard } from '../components/SectionCard';
@@ -52,48 +53,8 @@ const splitQuestionsByStudyItem = (totalQuestions: number, itemIndex: number, it
   return baseQuestions + (itemIndex < remainingQuestions ? 1 : 0);
 };
 
-const buildDashboardStudyItems = (
-  plan: DayPlan | undefined,
-  checklist: ChecklistItem[],
-): DashboardStudyItem[] => {
-  if (!plan || plan.isRestDay) {
-    return [];
-  }
-
-  if (plan.planMode === 'manual' && plan.manualBlocks?.length) {
-    const studyBlocks = plan.manualBlocks.filter(isStudyManualBlock);
-
-    return plan.manualBlocks.map((block, index) => {
-      const studyIndex = studyBlocks.findIndex((studyBlock) => studyBlock.id === block.id);
-      const questionTarget =
-        studyIndex >= 0
-          ? splitQuestionsByStudyItem(plan.targets.objectiveQuestions, studyIndex, studyBlocks.length)
-          : 0;
-
-      return {
-        id: block.id,
-        title: `${block.area}: ${block.title}`,
-        detail: block.detail,
-        questionTarget,
-        checklistItem: checklist.find((item) => item.id === `manual-block-${index + 1}`) ?? null,
-        block,
-      };
-    });
-  }
-
-  const mainStudyItem = checklist.find((item) => item.id === 'main-study-minutes') ?? null;
-  return plan.subjects.map((subject, index) => ({
-    id: `auto-subject-${index + 1}`,
-    title: subjectLabel(subject),
-    detail: index === 0 ? 'Matéria primária do ciclo' : 'Matéria secundária do ciclo',
-    questionTarget: splitQuestionsByStudyItem(plan.targets.objectiveQuestions, index, plan.subjects.length),
-    checklistItem: mainStudyItem,
-    block: null,
-  }));
-};
-
 export const DashboardPage = () => {
-  const { state, dayPlans, dayPlansByDate, monthlyTargets, failCalendarManualBlock, updateChecklistItem } = useAppContext();
+  const { state, topics, dayPlans, dayPlansByDate, monthlyTargets, failCalendarManualBlock, updateChecklistItem } = useAppContext();
   const plan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
   const selectedMonthKey = useMemo(() => state.selectedDate.slice(0, 7), [state.selectedDate]);
@@ -112,10 +73,60 @@ export const DashboardPage = () => {
 
   const progress = record ? getChecklistProgressPercent(record.checklist) : 0;
   const checklist = useMemo(() => record?.checklist ?? [], [record?.checklist]);
-  const studyItems = useMemo(
-    () => buildDashboardStudyItems(plan, checklist),
-    [plan, checklist],
+
+  const dailyStudy = useMemo(
+    () => resolveDailyStudy(state, state.selectedDate, topics),
+    [state, state.selectedDate, topics],
   );
+
+  const studyItems = useMemo(() => {
+    if (!plan || plan.isRestDay) {
+      return [];
+    }
+
+    const items: DashboardStudyItem[] = [];
+
+    // Slot 1: New Matter (or Review 1 if all repeated)
+    if (dailyStudy.newMatter) {
+      const item = dailyStudy.newMatter;
+      const isNew = !dailyStudy.isAllRepeated;
+      const submatter = item.submatter;
+      const checklistItem = checklist.find((c) => c.id === 'new-matter-study') ?? null;
+      
+      items.push({
+        id: 'dashboard-new-matter',
+        title: isNew
+          ? `Estudo: Matéria Nova - ${item.topic.title}`
+          : `Revisão SRS 1: ${item.topic.title}`,
+        detail: isNew
+          ? "Estudo inicial do tópico"
+          : `Nota ${submatter.grade} | Repetições: ${submatter.srsRepetitions ?? 0}`,
+        questionTarget: splitQuestionsByStudyItem(plan.targets.objectiveQuestions, 0, 2),
+        checklistItem,
+        block: null,
+      });
+    }
+
+    // Slot 2: Review Matter (or Review 2 if all repeated)
+    if (dailyStudy.reviewMatter) {
+      const item = dailyStudy.reviewMatter;
+      const submatter = item.submatter;
+      const checklistItem = checklist.find((c) => c.id === 'review-matter-study') ?? null;
+
+      items.push({
+        id: 'dashboard-review-matter',
+        title: dailyStudy.isAllRepeated
+          ? `Revisão SRS 2: ${item.topic.title}`
+          : `Revisão SRS: ${item.topic.title}`,
+        detail: `Nota ${submatter.grade} | Intervalo: ${submatter.srsInterval ?? 0}d`,
+        questionTarget: splitQuestionsByStudyItem(plan.targets.objectiveQuestions, 1, 2),
+        checklistItem,
+        block: null,
+      });
+    }
+
+    return items;
+  }, [plan, checklist, dailyStudy]);
   const questionsItem = useMemo(
     () => checklist.find((item) => item.id === 'objective-questions') ?? null,
     [checklist],

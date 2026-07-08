@@ -38,7 +38,7 @@ import {
   getLocalTodayIsoDate,
   getMillisecondsUntilNextLocalMidnight,
 } from './dateUtils';
-import { getTodayIsoDate } from './contentSubmatters';
+import { getTodayIsoDate, calculateNextSrsState, type SrsRating } from './contentSubmatters';
 import {
   createPastedMarkdownFile,
   getNextTheoreticalContentOrder,
@@ -315,6 +315,14 @@ type Action =
       topicId: string;
       submatterId: string;
       reviewedAt: string;
+    }
+  | {
+      type: 'rate-submatter';
+      topicId: string;
+      submatterId: string;
+      rating: 'bad' | 'hard' | 'good' | 'easy';
+      date: string;
+      isNewMatter: boolean;
     }
   | { type: 'add-theoretical-content'; item: TheoreticalContentItem }
   | {
@@ -738,6 +746,76 @@ export const appReducer = (state: AppState, action: Action): AppState => {
         },
       });
     }
+    case 'rate-submatter': {
+      const current = state.topicSubmattersByTopic[action.topicId];
+      if (!current) {
+        return state;
+      }
+
+      const submatter = current.find((item) => item.id === action.submatterId);
+      if (!submatter) {
+        return state;
+      }
+
+      const nextSrs = calculateNextSrsState(submatter, action.rating, action.date);
+
+      let nextStatus: TopicStatus = 'em_progresso';
+      if (action.rating === 'bad') {
+        nextStatus = 'pendente';
+      } else if (action.rating === 'easy') {
+        nextStatus = 'acertado';
+      }
+
+      const updatedSubmatters = current.map((item) =>
+        item.id === action.submatterId
+          ? {
+              ...item,
+              grade: nextSrs.grade,
+              srsInterval: nextSrs.srsInterval,
+              srsEase: nextSrs.srsEase,
+              srsRepetitions: nextSrs.srsRepetitions,
+              srsNextReview: nextSrs.srsNextReview,
+              lastReviewedAt: action.date,
+              updatedAt: nowIso(),
+            }
+          : item
+      );
+
+      const dailyRecord = state.dailyRecords[action.date];
+      let updatedDailyRecords = state.dailyRecords;
+      if (dailyRecord) {
+        const targetChecklistId = action.isNewMatter ? 'new-matter-study' : 'review-matter-study';
+        const updatedChecklist = dailyRecord.checklist.map((item) =>
+          item.id === targetChecklistId
+            ? { ...item, done: 90, status: 'concluido' as const }
+            : item
+        );
+        updatedDailyRecords = {
+          ...state.dailyRecords,
+          [action.date]: {
+            ...dailyRecord,
+            checklist: updatedChecklist,
+          },
+        };
+      }
+
+      return markChanged({
+        ...state,
+        topicSubmattersByTopic: {
+          ...state.topicSubmattersByTopic,
+          [action.topicId]: updatedSubmatters,
+        },
+        topicProgress: {
+          ...state.topicProgress,
+          [action.topicId]: {
+            ...state.topicProgress[action.topicId],
+            status: nextStatus,
+            updatedAt: nowIso(),
+          },
+        },
+        dailyRecords: updatedDailyRecords,
+      });
+    }
     case 'add-theoretical-content': {
       return markChanged({
         ...state,
@@ -989,6 +1067,13 @@ interface AppContextValue {
   ) => void;
   removeTopicSubmatter: (topicId: string, submatterId: string) => void;
   markTopicSubmatterReviewedToday: (topicId: string, submatterId: string) => void;
+  rateSubmatter: (
+    topicId: string,
+    submatterId: string,
+    rating: 'bad' | 'hard' | 'good' | 'easy',
+    date: string,
+    isNewMatter: boolean,
+  ) => void;
   addTheoreticalContent: (input: {
     ownerType: TheoreticalContentOwnerType;
     ownerId: string;
@@ -1581,6 +1666,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           topicId,
           submatterId,
           reviewedAt: getTodayIsoDate(),
+        }),
+      rateSubmatter: (topicId, submatterId, rating, date, isNewMatter) =>
+        dispatch({
+          type: 'rate-submatter',
+          topicId,
+          submatterId,
+          rating,
+          date,
+          isNewMatter,
         }),
       addTheoreticalContent: async (input) => {
         let nextOrder = getNextTheoreticalContentOrder(

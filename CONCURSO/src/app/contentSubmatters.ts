@@ -1,5 +1,5 @@
 import { TOPIC_STALE_BUCKETS_DAYS } from './constants';
-import { getLocalTodayIsoDate } from './dateUtils';
+import { getLocalTodayIsoDate, parseIsoDate, toIsoDate as dateToIsoStr } from './dateUtils';
 import type { SubjectKey, TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
 import { getTopicDisplayTitle } from './topics';
 
@@ -50,6 +50,10 @@ export const normalizeTopicSubmatter = (submatter: TopicSubmatter): TopicSubmatt
     actionNote: submatter.actionNote ?? '',
     createdAt: submatter.createdAt ?? timestamp,
     updatedAt: submatter.updatedAt ?? timestamp,
+    srsInterval: submatter.srsInterval ?? 0,
+    srsEase: submatter.srsEase ?? 2.5,
+    srsRepetitions: submatter.srsRepetitions ?? 0,
+    srsNextReview: toIsoDate(submatter.srsNextReview ?? null),
   };
 };
 
@@ -388,3 +392,177 @@ export const buildTopicRollups = (
 };
 
 export const getTodayIsoDate = (): string => nowIsoDate();
+
+const addDays = (isoDate: string, days: number): string => {
+  const date = parseIsoDate(isoDate);
+  date.setUTCDate(date.getUTCDate() + days);
+  return dateToIsoStr(date);
+};
+
+export type SrsRating = 'bad' | 'hard' | 'good' | 'easy';
+
+export const calculateNextSrsState = (
+  submatter: TopicSubmatter,
+  rating: SrsRating,
+  referenceDate: string,
+): {
+  grade: TopicGrade;
+  srsInterval: number;
+  srsEase: number;
+  srsRepetitions: number;
+  srsNextReview: string;
+} => {
+  let ease = submatter.srsEase ?? 2.5;
+  let repetitions = submatter.srsRepetitions ?? 0;
+  let interval = submatter.srsInterval ?? 0;
+  let grade: TopicGrade = 'C';
+
+  if (rating === 'bad') {
+    ease = Math.max(1.3, ease - 0.2);
+    repetitions = 0;
+    interval = 1;
+    grade = 'E';
+  } else {
+    repetitions += 1;
+    if (rating === 'hard') {
+      ease = Math.max(1.3, ease - 0.15);
+      interval = repetitions === 1 ? 1 : repetitions === 2 ? 3 : Math.round(interval * ease * 0.8);
+      grade = 'D';
+    } else if (rating === 'good') {
+      // ease stays the same
+      interval = repetitions === 1 ? 1 : repetitions === 2 ? 6 : Math.round(interval * ease);
+      grade = 'B';
+    } else { // easy
+      ease = Math.min(3.0, ease + 0.15);
+      interval = repetitions === 1 ? 2 : repetitions === 2 ? 8 : Math.round(interval * ease * 1.2);
+      grade = 'A';
+    }
+  }
+
+  if (interval < 1) {
+    interval = 1;
+  }
+
+  const nextReviewDate = addDays(referenceDate, interval);
+
+  return {
+    grade,
+    srsInterval: interval,
+    srsEase: ease,
+    srsRepetitions: repetitions,
+    srsNextReview: nextReviewDate,
+  };
+};
+
+export interface StudyItem {
+  topic: TopicNode;
+  submatter: TopicSubmatter;
+}
+
+export interface ResolvedDailyStudy {
+  newMatter: StudyItem | null;
+  reviewMatter: StudyItem | null;
+  isAllRepeated: boolean;
+}
+
+const SUBJECT_ORDER_INDEX: Record<SubjectKey, number> = {
+  portugues: 0,
+  rlm: 1,
+  legislacao: 2,
+  especificos: 3,
+};
+
+const PRIORITY_ORDER_INDEX = {
+  alta: 0,
+  media: 1,
+  baixa: 2,
+};
+
+export const sortUnstudiedSubmatters = (items: StudyItem[]): StudyItem[] => {
+  return [...items].sort((a, b) => {
+    const subjA = SUBJECT_ORDER_INDEX[a.topic.subject] ?? 99;
+    const subjB = SUBJECT_ORDER_INDEX[b.topic.subject] ?? 99;
+    if (subjA !== subjB) return subjA - subjB;
+
+    const prioA = PRIORITY_ORDER_INDEX[a.topic.priority] ?? 99;
+    const prioB = PRIORITY_ORDER_INDEX[b.topic.priority] ?? 99;
+    if (prioA !== prioB) return prioA - prioB;
+
+    return a.submatter.id.localeCompare(b.submatter.id);
+  });
+};
+
+export const resolveDailyStudy = (
+  state: { topicSubmattersByTopic: Record<string, TopicSubmatter[]> },
+  date: string,
+  topics: TopicNode[],
+): ResolvedDailyStudy => {
+  const topicById = new Map(topics.map(t => [t.id, t]));
+  const allSubmatters: StudyItem[] = [];
+
+  Object.entries(state.topicSubmattersByTopic ?? {}).forEach(([topicId, submatters]) => {
+    const topic = topicById.get(topicId);
+    if (topic && topic.isLeaf && submatters) {
+      submatters.forEach(submatter => {
+        allSubmatters.push({ topic, submatter: normalizeTopicSubmatter(submatter) });
+      });
+    }
+  });
+
+  const unstudied = allSubmatters.filter(
+    item => item.submatter.lastReviewedAt === null || !item.submatter.srsNextReview
+  );
+  const studied = allSubmatters.filter(
+    item => item.submatter.lastReviewedAt !== null && item.submatter.srsNextReview
+  );
+
+  const sortedUnstudied = sortUnstudiedSubmatters(unstudied);
+
+  // Sort studied by urgency
+  const sortStudiedByUrgency = (list: StudyItem[]): StudyItem[] => {
+    return [...list].sort((a, b) => {
+      const nextA = a.submatter.srsNextReview!;
+      const nextB = b.submatter.srsNextReview!;
+
+      // Overdue days (higher means more overdue, so b - a for descending order of delay)
+      const delayA = nextA <= date ? daysBetween(nextA, date) : -daysBetween(date, nextA);
+      const delayB = nextB <= date ? daysBetween(nextB, date) : -daysBetween(date, nextB);
+
+      if (delayA !== delayB) {
+        return delayB - delayA; // most overdue first
+      }
+
+      const severityA = GRADE_SEVERITY[a.submatter.grade] ?? 0;
+      const severityB = GRADE_SEVERITY[b.submatter.grade] ?? 0;
+      if (severityA !== severityB) {
+        return severityB - severityA; // worst grade first
+      }
+
+      const lastReviewedA = a.submatter.lastReviewedAt ?? '';
+      const lastReviewedB = b.submatter.lastReviewedAt ?? '';
+      return lastReviewedA.localeCompare(lastReviewedB);
+    });
+  };
+
+  const sortedStudied = sortStudiedByUrgency(studied);
+
+  if (sortedUnstudied.length > 0) {
+    const newMatter = sortedUnstudied[0];
+    const reviewMatter = sortedStudied.length > 0 ? sortedStudied[0] : null;
+
+    return {
+      newMatter,
+      reviewMatter,
+      isAllRepeated: false,
+    };
+  } else {
+    const newMatter = sortedStudied.length > 0 ? sortedStudied[0] : null;
+    const reviewMatter = sortedStudied.length > 1 ? sortedStudied[1] : null;
+
+    return {
+      newMatter,
+      reviewMatter,
+      isAllRepeated: true,
+    };
+  }
+};

@@ -69,6 +69,10 @@ export interface TopicSubmatter {
   actionNote: string;
   createdAt: string;
   updatedAt: string;
+  srsInterval?: number;
+  srsEase?: number;
+  srsRepetitions?: number;
+  srsNextReview?: string | null;
 }
 
 export interface TheoreticalContentItem {

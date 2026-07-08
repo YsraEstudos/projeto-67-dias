@@ -42,10 +42,20 @@ export const createChecklistTemplate = (dayPlan: DayPlan): ChecklistItem[] => {
 
   const checklist: ChecklistItem[] = [
     {
-      id: 'main-study-minutes',
-      label: 'Bloco principal (duas matérias) - 3h',
+      id: 'new-matter-study',
+      label: 'Estudo: Matéria Nova (90 min)',
       kind: 'counter',
-      target: dayPlan.targets.mainStudyMinutes,
+      target: 90,
+      done: 0,
+      unit: 'min',
+      required: true,
+      status: 'pendente',
+    },
+    {
+      id: 'review-matter-study',
+      label: 'Revisão SRS: Matéria Anterior (90 min)',
+      kind: 'counter',
+      target: 90,
       done: 0,
       unit: 'min',
       required: true,

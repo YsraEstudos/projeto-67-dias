@@ -243,35 +243,155 @@ export const DailyPlanPage = () => {
           <p>Domingo configurado como descanso fixo, sem pendência obrigatória.</p>
         ) : (
           <div className="daily-block-grid" data-testid="daily-manual-blocks">
-            {visibleBlocks.map((block) => (
-              <article className="daily-block-card" key={block.id}>
-                <div className="daily-block-top">
-                  <span className="daily-block-area">{block.area}</span>
-                  {block.movedFromSunday ? (
-                    <span className="status-badge-pending">Realocado do domingo</span>
-                  ) : null}
-                </div>
-                <p className="daily-block-title">{block.title}</p>
-                <p className="daily-block-detail">{block.detail}</p>
-                {block.contentRefs?.length ? (
-                  <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
-                    <p className="daily-block-detail" style={{ marginBottom: '8px' }}>
-                      <strong style={{ color: 'var(--text-main)' }}>Conteúdo programático:</strong> {getManualBlockContentSummary(block)}
+            {(() => {
+              const studyBlocks = [];
+
+              if (dailyStudy.newMatter) {
+                const item = dailyStudy.newMatter;
+                const isNew = !dailyStudy.isAllRepeated;
+                const submatter = item.submatter;
+                
+                studyBlocks.push(
+                  <article className="daily-block-card" key="slot-new-matter" data-testid="srs-slot-1">
+                    <div className="daily-block-top">
+                      <span className="daily-block-area" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {isNew ? "Estudo: Matéria Nova" : "Revisão SRS 1"}
+                      </span>
+                      {submatter.lastReviewedAt && (
+                        <span className="status-badge-done">
+                          Última: {formatIsoDatePtBr(submatter.lastReviewedAt)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="daily-block-title">{item.topic.title}</p>
+                    <p className="daily-block-detail">
+                      {isNew ? "Estudo inicial do tópico" : `Nota ${submatter.grade} | Repetições: ${submatter.srsRepetitions ?? 0}`}
                     </p>
-                    {block.contentTargets?.length ? (
-                      <ul className="target-list">
-                        {block.contentTargets.map((target) => (
-                          <li key={target.topicId}>
-                            <Link to={target.path}>{target.title}</Link>
-                            <span style={{ color: 'var(--text-dim)' }}>{target.sectionTitle ? ` (${target.sectionTitle})` : ''}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
+                    <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+                      <Link
+                        to={`/conteudo/topico/${item.topic.id}?submatter=${submatter.id}`}
+                        className="link-action"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/>
+                          <line x1="10" x2="21" y1="14" y2="3"/>
+                        </svg>
+                        Estudar matéria
+                      </Link>
+                      
+                      <div className="srs-rating-container">
+                        <span className="srs-rating-label">
+                          Como foi seu desempenho?
+                          {submatter.srsNextReview && (
+                            <span className="srs-feedback-badge">
+                              Intervalo atual: {submatter.srsInterval ?? 0}d
+                            </span>
+                          )}
+                        </span>
+                        <div className="srs-buttons-row">
+                          <button type="button" className="btn-srs btn-srs-bad" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'bad', isNew)}>Errei</button>
+                          <button type="button" className="btn-srs btn-srs-hard" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'hard', isNew)}>Difícil</button>
+                          <button type="button" className="btn-srs btn-srs-good" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'good', isNew)}>Bom</button>
+                          <button type="button" className="btn-srs btn-srs-easy" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'easy', isNew)}>Fácil</button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+
+              if (dailyStudy.reviewMatter) {
+                const item = dailyStudy.reviewMatter;
+                const isNew = false;
+                const submatter = item.submatter;
+
+                studyBlocks.push(
+                  <article className="daily-block-card" key="slot-review-matter" data-testid="srs-slot-2">
+                    <div className="daily-block-top">
+                      <span className="daily-block-area" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {dailyStudy.isAllRepeated ? "Revisão SRS 2" : "Revisão SRS (Matéria Anterior)"}
+                      </span>
+                      {submatter.lastReviewedAt && (
+                        <span className="status-badge-done">
+                          Última: {formatIsoDatePtBr(submatter.lastReviewedAt)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="daily-block-title">{item.topic.title}</p>
+                    <p className="daily-block-detail">
+                      Nota {submatter.grade} | Repetições: {submatter.srsRepetitions ?? 0} | Intervalo: {submatter.srsInterval ?? 0}d
+                    </p>
+                    <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+                      <Link
+                        to={`/conteudo/topico/${item.topic.id}?submatter=${submatter.id}`}
+                        className="link-action"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/>
+                          <line x1="10" x2="21" y1="14" y2="3"/>
+                        </svg>
+                        Estudar matéria
+                      </Link>
+
+                      <div className="srs-rating-container">
+                        <span className="srs-rating-label">
+                          Como foi seu desempenho?
+                          {submatter.srsNextReview && (
+                            <span className="srs-feedback-badge">
+                              {submatter.srsNextReview <= state.selectedDate ? "Venceu hoje" : `Próxima: ${formatIsoDatePtBr(submatter.srsNextReview)}`}
+                            </span>
+                          )}
+                        </span>
+                        <div className="srs-buttons-row">
+                          <button type="button" className="btn-srs btn-srs-bad" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'bad', isNew)}>Errei</button>
+                          <button type="button" className="btn-srs btn-srs-hard" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'hard', isNew)}>Difícil</button>
+                          <button type="button" className="btn-srs btn-srs-good" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'good', isNew)}>Bom</button>
+                          <button type="button" className="btn-srs btn-srs-easy" onClick={() => handleSrsRate(item.topic.id, submatter.id, 'easy', isNew)}>Fácil</button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              } else if (!dailyStudy.isAllRepeated) {
+                studyBlocks.push(
+                  <article className="daily-block-card" key="slot-review-empty">
+                    <div className="daily-block-top">
+                      <span className="daily-block-area" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Revisão SRS</span>
+                    </div>
+                    <p className="daily-block-title">Sem revisões pendentes</p>
+                    <p className="daily-block-detail">
+                      Você ainda não estudou nenhuma matéria para iniciar a curva de repetição. Continue completando novas matérias!
+                    </p>
+                  </article>
+                );
+              }
+
+              studyBlocks.push(
+                <article className="daily-block-card" key="slot-work-block">
+                  <div className="daily-block-top">
+                    <span className="daily-block-area" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trabalho</span>
                   </div>
-                ) : null}
-              </article>
-            ))}
+                  <p className="daily-block-title">{workActivityLabel(dayPlan.workActivity)}</p>
+                  <p className="daily-block-detail">Bloco rotativo no expediente</p>
+                </article>
+              );
+
+              studyBlocks.push(
+                <article className="daily-block-card" key="slot-questions-block">
+                  <div className="daily-block-top">
+                    <span className="daily-block-area" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta</span>
+                  </div>
+                  <p className="daily-block-title">{dayPlan.targets.objectiveQuestions} questões</p>
+                  <p className="daily-block-detail">
+                    {dayPlan.hasSimulado ? 'Substituídas por simulado' : 'Meta diária padrão'}
+                  </p>
+                </article>
+              );
+
+              return <div className="daily-block-grid">{studyBlocks}</div>;
+            })()}
           </div>
         )}
       </SectionCard>
@@ -282,51 +402,63 @@ export const DailyPlanPage = () => {
 
         <p className="section-label" style={{ marginTop: 0 }}>Obrigatórios</p>
         <div>
-          {requiredItems.map((item) => (
-            <div className="check-item" key={item.id}>
-              <div className="check-item-info">
-                <p>{item.label}</p>
-                <div>
-                  <span
-                    className={item.status === 'concluido' ? 'status-badge-done' : 'status-badge-pending'}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="check-item-controls">
-                {item.kind === 'counter' ? (
-                  <div className="counter-row">
-                    <input
-                      data-testid={`check-${item.id}`}
-                      className="checklist-counter-input"
-                      type="number"
-                      min={0}
-                      aria-label={`Atualizar meta ${item.label}`}
-                      max={Math.max(item.target, item.done, 1)}
-                      value={item.done}
-                      onChange={(event) => handleChecklistChange(item.id, event, 'counter')}
-                    />
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>
-                      / {item.target} {item.unit}
+          {requiredItems.map((item) => {
+            let displayLabel = item.label;
+            if (item.id === 'new-matter-study') {
+              displayLabel = dailyStudy.isAllRepeated
+                ? `Revisão SRS 1: ${dailyStudy.newMatter?.topic.title ?? 'Carregando...'}`
+                : `Estudo: Matéria Nova - ${dailyStudy.newMatter?.topic.title ?? 'Carregando...'}`;
+            } else if (item.id === 'review-matter-study') {
+              displayLabel = dailyStudy.isAllRepeated
+                ? `Revisão SRS 2: ${dailyStudy.reviewMatter?.topic.title ?? 'Carregando...'}`
+                : `Revisão SRS: ${dailyStudy.reviewMatter?.topic.title ?? 'Carregando...'}`;
+            }
+            return (
+              <div className="check-item" key={item.id}>
+                <div className="check-item-info">
+                  <p>{displayLabel}</p>
+                  <div>
+                    <span
+                      className={item.status === 'concluido' ? 'status-badge-done' : 'status-badge-pending'}
+                    >
+                      {item.status}
                     </span>
                   </div>
-                ) : (
-                  <label className="boolean-row">
-                    <input
-                      data-testid={`check-${item.id}`}
-                      type="checkbox"
-                      aria-label={`Marcar ${item.label} como concluído`}
-                      checked={item.done >= 1}
-                      onChange={(event) => handleChecklistChange(item.id, event, 'boolean')}
-                    />
-                    <span>Concluído</span>
-                  </label>
-                )}
+                </div>
+
+                <div className="check-item-controls">
+                  {item.kind === 'counter' ? (
+                    <div className="counter-row">
+                      <input
+                        data-testid={`check-${item.id}`}
+                        className="checklist-counter-input"
+                        type="number"
+                        min={0}
+                        aria-label={`Atualizar meta ${displayLabel}`}
+                        max={Math.max(item.target, item.done, 1)}
+                        value={item.done}
+                        onChange={(event) => handleChecklistChange(item.id, event, 'counter')}
+                      />
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>
+                        / {item.target} {item.unit}
+                      </span>
+                    </div>
+                  ) : (
+                    <label className="boolean-row">
+                      <input
+                        data-testid={`check-${item.id}`}
+                        type="checkbox"
+                        aria-label={`Marcar ${displayLabel} como concluído`}
+                        checked={item.done >= 1}
+                        onChange={(event) => handleChecklistChange(item.id, event, 'boolean')}
+                      />
+                      <span>Concluído</span>
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {optionalItems.length > 0 ? (
