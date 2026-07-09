@@ -160,12 +160,7 @@ export const useHydrationOrchestrator = (userId: string | undefined): boolean =>
             );
         });
 
-        // Subcollection-based stores (Notes and Aulas books)
-        unsubscribers.push(
-            subscribeToSubcollection('p67_notes_store_items', (data: any[]) => {
-                useNotesStore.getState()._hydrateNotesFromSubcollection(data);
-            })
-        );
+        // Subcollection-based stores (Aulas books)
         unsubscribers.push(
             subscribeToSubcollection('p67_aulas_books', (data: any[]) => {
                 useAulasStore.getState()._hydrateBooksFromSubcollection(data);

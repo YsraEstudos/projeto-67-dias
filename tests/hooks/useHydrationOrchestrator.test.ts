@@ -252,10 +252,10 @@ describe('useHydrationOrchestrator', () => {
     });
 
     // -----------------------------------------------------------------------
-    it('calls subscribeToSubcollection for notes and aulas subcollections', () => {
+    it('calls subscribeToSubcollection for aulas subcollection', () => {
         renderHook(() => useHydrationOrchestrator('user-123'));
 
-        expect(subscribeToSubcollection).toHaveBeenCalledWith(
+        expect(subscribeToSubcollection).not.toHaveBeenCalledWith(
             'p67_notes_store_items',
             expect.any(Function)
         );
@@ -277,8 +277,8 @@ describe('useHydrationOrchestrator', () => {
     it('calls all unsubscribers on unmount', () => {
         const { unmount } = renderHook(() => useHydrationOrchestrator('user-123'));
 
-        // 25 document subscriptions + 1 quota subscription + 2 subcollection subscriptions = 28
-        expect(unsubscribeFns.length).toBe(28);
+        // 25 document subscriptions + 1 quota subscription + 1 subcollection subscription = 27
+        expect(unsubscribeFns.length).toBe(27);
 
         unmount();
 
@@ -335,18 +335,15 @@ describe('useHydrationOrchestrator', () => {
         const notesCb = subcollectionCallbacks.get('p67_notes_store_items');
         const aulasCb = subcollectionCallbacks.get('p67_aulas_books');
 
-        expect(notesCb).toBeDefined();
+        expect(notesCb).toBeUndefined();
         expect(aulasCb).toBeDefined();
 
-        const notesData = [{ id: '1', title: 'Note 1' }];
         const aulasData = [{ id: '2', title: 'Book 2' }];
 
         act(() => {
-            notesCb!(notesData);
             aulasCb!(aulasData);
         });
 
-        expect(notesStore.getState()._hydrateNotesFromSubcollection).toHaveBeenCalledWith(notesData);
         expect(aulasStore.getState()._hydrateBooksFromSubcollection).toHaveBeenCalledWith(aulasData);
     });
 });

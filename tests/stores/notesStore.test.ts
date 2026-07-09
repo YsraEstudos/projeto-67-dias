@@ -71,30 +71,4 @@ describe('notesStore', () => {
             tags: [],
         });
     });
-
-    it('does not wipe hydrated document notes when the notes subcollection is still empty', () => {
-        const legacyNote = createNote({ id: 'legacy-note', title: 'Nota legada' });
-
-        useNotesStore.getState()._reset();
-        useNotesStore.getState()._hydrateFromFirestore({
-            notes: [legacyNote],
-            tags: [],
-        });
-
-        vi.clearAllMocks();
-
-        useNotesStore.getState()._hydrateNotesFromSubcollection([]);
-
-        expect(useNotesStore.getState().notes).toEqual([legacyNote]);
-
-        const newerRemoteNote = createNote({
-            id: 'legacy-note',
-            title: 'Nota remota mais nova',
-            updatedAt: 200,
-        });
-
-        useNotesStore.getState()._hydrateNotesFromSubcollection([newerRemoteNote]);
-
-        expect(useNotesStore.getState().notes).toEqual([newerRemoteNote]);
-    });
 });

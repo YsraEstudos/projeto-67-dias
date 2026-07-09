@@ -68,7 +68,6 @@ interface NotesState {
     // Internal sync methods
     _syncToFirestore: () => void;
     _hydrateFromFirestore: (data: { notes: Note[]; tags: Tag[] } | null) => void;
-    _hydrateNotesFromSubcollection: (notes: Note[]) => void;
     _reset: () => void;
 }
 
@@ -303,16 +302,6 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             });
 
         }
-    },
-
-    _hydrateNotesFromSubcollection: (remoteNotes: Note[]) => {
-        set((state) => {
-            if (remoteNotes.length === 0) {
-                return;
-            }
-
-            state.notes = deduplicateById(mergeNotesByRecency(state.notes, remoteNotes));
-        });
     },
 
     _reset: () => {
