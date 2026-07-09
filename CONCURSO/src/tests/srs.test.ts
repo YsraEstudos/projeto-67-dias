@@ -84,9 +84,9 @@ describe('SRS (Spaced Repetition System) SuperMemo-2 algorithm', () => {
 
 describe('resolveDailyStudy', () => {
   const topics: TopicNode[] = [
-    { id: 't1', subject: 'portugues', title: 'Português 1', parentId: null, isLeaf: true, priority: 'alta' },
-    { id: 't2', subject: 'rlm', title: 'RLM 1', parentId: null, isLeaf: true, priority: 'media' },
-    { id: 't3', subject: 'legislacao', title: 'Legis 1', parentId: null, isLeaf: true, priority: 'alta' },
+    { id: 't1', subject: 'portugues', title: 'Português 1', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+    { id: 't2', subject: 'rlm', title: 'RLM 1', parentId: null, isLeaf: true, priority: 'media', sourceRef: '' },
+    { id: 't3', subject: 'legislacao', title: 'Legis 1', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
   ];
 
   it('resolve materia nova e materia de revisao a partir do estado', () => {

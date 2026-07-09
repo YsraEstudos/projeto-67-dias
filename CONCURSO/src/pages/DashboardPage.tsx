@@ -16,7 +16,7 @@ import { MetricCard } from '../components/MetricCard';
 import { PageIntro } from '../components/PageIntro';
 import { SectionCard } from '../components/SectionCard';
 import { RadialProgress } from '../components/RadialProgress';
-import type { ChecklistItem, DayPlan, ManualBlock } from '../app/types';
+import type { ChecklistItem, ManualBlock } from '../app/types';
 
 const findNextEventDate = (
   fromDate: string,
@@ -41,7 +41,6 @@ type DashboardStudyItem = {
   block: ManualBlock | null;
 };
 
-const isStudyManualBlock = (block: ManualBlock): boolean => block.area.toLowerCase() !== 'evento';
 
 const splitQuestionsByStudyItem = (totalQuestions: number, itemIndex: number, itemCount: number): number => {
   if (totalQuestions <= 0 || itemCount <= 0) {

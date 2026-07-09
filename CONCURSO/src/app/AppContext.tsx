@@ -38,7 +38,7 @@ import {
   getLocalTodayIsoDate,
   getMillisecondsUntilNextLocalMidnight,
 } from './dateUtils';
-import { getTodayIsoDate, calculateNextSrsState, type SrsRating } from './contentSubmatters';
+import { getTodayIsoDate, calculateNextSrsState } from './contentSubmatters';
 import {
   createPastedMarkdownFile,
   getNextTheoreticalContentOrder,

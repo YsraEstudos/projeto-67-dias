@@ -32,15 +32,13 @@ import {
   buildCleanPlanContentItems,
   buildPendingStudyDecisions,
   buildReviewSchedule,
-  findNextFailurePlanDate,
   getManualBlockSubjectLabel,
 } from '../app/cleanConcursoModule';
 import { getLocalTodayIsoDate } from '../app/dateUtils';
-import { buildReviewQueue, buildTopicRollups, resolveDailyStudy, getSubmatterReviewAgeDays } from '../app/contentSubmatters';
+import { buildReviewQueue, buildTopicRollups, resolveDailyStudy } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
-import { inferManualBlockSubject } from '../app/manualBlockSubjects';
 import { getTopicDisplayTitle } from '../app/topics';
-import type { ManualBlock, SubjectKey, TopicGrade } from '../app/types';
+import type { SubjectKey, TopicGrade } from '../app/types';
 
 type ModuleView = 'dia' | 'conteudo' | 'calendario' | 'configuracoes';
 type ContentFilter = 'all' | 'review' | TopicGrade;
@@ -303,7 +301,6 @@ export const CleanConcursoPage = () => {
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
   const selectedPlan = dayPlansByDate[state.selectedDate];
-  const selectedBlocks = selectedPlan?.manualBlocks ?? [];
   const dailyStudy = useMemo(
     () => resolveDailyStudy(state, state.selectedDate, topics),
     [state, state.selectedDate, topics],
@@ -448,9 +445,6 @@ export const CleanConcursoPage = () => {
     };
   }, [calendarEvents.length, leafTopics.length, pendingReviewQueue.length, planContentItems, rollups, state.manualBlockReschedules.length]);
 
-  const handleBlockFailure = (block: ManualBlock): void => {
-    failCalendarManualBlock(state.selectedDate, block);
-  };
 
   const handlePendingQuestionsChange = (eventId: string, questionsDone: number): void => {
     setPendingQuestionsByEventId((current) => ({

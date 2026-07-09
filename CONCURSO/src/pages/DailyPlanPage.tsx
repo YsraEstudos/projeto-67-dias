@@ -2,13 +2,13 @@ import { useMemo, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../app/AppContext';
 import { getChecklistProgressPercent } from '../app/progress';
-import { formatIsoDatePtBr, subjectLabel, workActivityLabel } from '../app/formatters';
-import { getManualBlockContentSummary } from '../app/manualPlanContentRefs';
-import type { ChecklistItem, ManualBlock, TopicNode, TopicSubmatter } from '../app/types';
+import { formatIsoDatePtBr, workActivityLabel } from '../app/formatters';
+import type { ChecklistItem, TopicNode, TopicSubmatter } from '../app/types';
 import { PageIntro } from '../components/PageIntro';
 import { MetricCard } from '../components/MetricCard';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionCard } from '../components/SectionCard';
+import { resolveDailyStudy } from '../app/contentSubmatters';
 import '../styles/daily-plan.css';
 
 type SmartReviewItem = {
@@ -36,7 +36,7 @@ const sortSmartReviewByDate = (
 };
 
 export const DailyPlanPage = () => {
-  const { state, topics, dayPlansByDate, updateChecklistItem, setDailyNote } = useAppContext();
+  const { state, topics, dayPlansByDate, updateChecklistItem, setDailyNote, rateSubmatter } = useAppContext();
   const dayPlan = dayPlansByDate[state.selectedDate];
   const record = state.dailyRecords[state.selectedDate];
 
@@ -93,6 +93,20 @@ export const DailyPlanPage = () => {
     return [...riskGroup.slice(0, 2), ...eliteGroup.slice(0, 1)];
   }, [state.topicSubmattersByTopic, topicById]);
 
+  const dailyStudy = useMemo(
+    () => resolveDailyStudy(state, state.selectedDate, topics),
+    [state, topics],
+  );
+
+  const handleSrsRate = (
+    topicId: string,
+    submatterId: string,
+    rating: 'bad' | 'hard' | 'good' | 'easy',
+    isNew: boolean,
+  ): void => {
+    rateSubmatter(topicId, submatterId, rating, state.selectedDate, isNew);
+  };
+
   const handleChecklistChange = (
     itemId: string,
     event: ChangeEvent<HTMLInputElement>,
@@ -110,37 +124,6 @@ export const DailyPlanPage = () => {
     );
   }
 
-  const fallbackBlocks: ManualBlock[] = [
-    {
-      id: 'auto-subject-1',
-      area: 'Matéria',
-      title: subjectLabel(dayPlan.subjects[0]),
-      detail: 'Bloco principal',
-    },
-    {
-      id: 'auto-subject-2',
-      area: 'Matéria',
-      title: subjectLabel(dayPlan.subjects[1]),
-      detail: 'Bloco principal',
-    },
-    {
-      id: 'auto-work',
-      area: 'Trabalho',
-      title: workActivityLabel(dayPlan.workActivity),
-      detail: 'Bloco rotativo no expediente',
-    },
-    {
-      id: 'auto-questions',
-      area: 'Meta',
-      title: `${dayPlan.targets.objectiveQuestions} questões`,
-      detail: dayPlan.hasSimulado ? 'Substituídas por simulado' : 'Meta diária padrão',
-    },
-  ];
-
-  const visibleBlocks =
-    dayPlan.planMode === 'manual' && dayPlan.manualBlocks && dayPlan.manualBlocks.length > 0
-      ? dayPlan.manualBlocks
-      : fallbackBlocks;
 
   const eventLabel =
     dayPlan.hasSimulado && dayPlan.hasRedacao
