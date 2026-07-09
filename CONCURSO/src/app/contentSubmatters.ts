@@ -74,7 +74,7 @@ export const migrateTopicSubmattersFromLegacy = (
         lastReviewedAt:
           legacyStatus === 'pendente' || legacyStatus === 'nao_iniciado'
             ? null
-            : toIsoDate(legacy?.updatedAt ?? null),
+            : toIsoDate(legacy?.updatedAt ?? timestamp),
         errorNote: legacy?.evidenceNote ?? '',
         actionNote: '',
         createdAt: timestamp,

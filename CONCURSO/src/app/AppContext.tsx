@@ -197,7 +197,15 @@ const resetCompletedTopicProgress = (
     if (firstSubmatter?.lastReviewedAt) {
       topicSubmattersByTopic[topicId] = (topicSubmattersByTopic[topicId] ?? []).map((submatter) =>
         submatter.id === firstSubmatter.id
-          ? { ...submatter, lastReviewedAt: null, updatedAt }
+          ? {
+              ...submatter,
+              lastReviewedAt: null,
+              srsNextReview: null,
+              srsInterval: 0,
+              srsRepetitions: 0,
+              srsEase: 2.5,
+              updatedAt,
+            }
           : submatter,
       );
     }
@@ -226,7 +234,12 @@ const markTopicsAsDone = (
     if (firstSubmatter) {
       topicSubmattersByTopic[topicId] = (topicSubmattersByTopic[topicId] ?? []).map((submatter) =>
         submatter.id === firstSubmatter.id
-          ? { ...submatter, lastReviewedAt: reviewedAt, updatedAt }
+          ? {
+              ...submatter,
+              lastReviewedAt: reviewedAt,
+              srsNextReview: submatter.srsNextReview ?? reviewedAt,
+              updatedAt,
+            }
           : submatter,
       );
     }
@@ -739,6 +752,7 @@ export const appReducer = (state: AppState, action: Action): AppState => {
               ? {
                   ...submatter,
                   lastReviewedAt: action.reviewedAt,
+                  srsNextReview: submatter.srsNextReview ?? action.reviewedAt,
                   updatedAt: nowIso(),
                 }
               : submatter,

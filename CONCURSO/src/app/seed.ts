@@ -430,12 +430,26 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
 
     const normalized = LEAF_TOPICS.reduce<AppState['topicSubmattersByTopic']>((accumulator, topic) => {
       const current = state.topicSubmattersByTopic?.[topic.id];
+      const prog = state.topicProgress?.[topic.id];
+      const hasStudied = prog && prog.status !== 'nao_iniciado' && prog.status !== 'pendente';
+
       if (!Array.isArray(current) || current.length === 0) {
         accumulator[topic.id] = migratedFallback[topic.id];
         return accumulator;
       }
 
-      accumulator[topic.id] = current.map((item) => normalizeTopicSubmatter(item));
+      accumulator[topic.id] = current.map((item) => {
+        const norm = normalizeTopicSubmatter(item);
+        if (hasStudied && (!norm.lastReviewedAt || !norm.srsNextReview)) {
+          const fallbackDate = (prog.updatedAt ?? planStartDate ?? getLocalTodayIsoDate()).slice(0, 10);
+          return {
+            ...norm,
+            lastReviewedAt: norm.lastReviewedAt ?? fallbackDate,
+            srsNextReview: norm.srsNextReview ?? norm.lastReviewedAt ?? fallbackDate,
+          };
+        }
+        return norm;
+      });
       return accumulator;
     }, {});
 
