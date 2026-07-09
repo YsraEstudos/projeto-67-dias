@@ -239,7 +239,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
               <h3 className="text-lg text-slate-100 font-bold mt-1">Plano de Revisão</h3>
               <p className="text-xs text-slate-500 mt-1">Redistribuição dinâmica de matérias previstas para hoje.</p>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#bfa032] text-slate-950 flex flex-col items-center justify-center shadow-lg shadow-[#D4AF37]/10 shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F5D76E] to-[#E8C840] text-slate-950 flex flex-col items-center justify-center shadow-lg shadow-[#E8C840]/20 shrink-0">
               <strong className="text-xl font-black leading-none">{preview.length}</strong>
               <span className="text-[8px] uppercase font-bold tracking-wider mt-0.5">questões</span>
             </div>
@@ -707,7 +707,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
                   <Play className="w-4 h-4 fill-slate-950" /> Retomar Sessão
                 </button>
               ) : (
-                <button onClick={start} disabled={!preview.length} className="flex-1 sm:flex-none bg-[#D4AF37] hover:bg-[#C2A032] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2 cursor-pointer">
+                <button onClick={start} disabled={!preview.length} className="flex-1 sm:flex-none bg-[#E8C840] hover:bg-[#D4AF37] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wider flex justify-center gap-2 cursor-pointer">
                   <Play className="w-4 h-4 fill-slate-950" /> Iniciar Sessão
                 </button>
               )}
