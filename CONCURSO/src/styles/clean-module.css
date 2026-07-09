@@ -411,7 +411,13 @@
   line-height: 1;
 }
 
-.clean-day-grid,
+.clean-day-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
 .clean-content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;

@@ -925,32 +925,6 @@ export const CleanConcursoPage = () => {
               </div>
             )}
           </section>
-
-          <aside className="clean-panel clean-review-panel">
-            <div className="clean-panel-head compact">
-              <div>
-                <span className="clean-kicker">Revisão crítica</span>
-                <h2>Fila automática</h2>
-              </div>
-              <RotateCcw size={20} />
-            </div>
-            <div className="clean-review-list">
-              {pendingReviewQueue.slice(0, 7).map((item) => (
-                <article className="clean-review-item" key={item.submatterId}>
-                  <span className={`clean-review-grade grade-text-${item.grade.toLowerCase()}`}>Nota {item.grade}</span>
-                  <strong>{item.submatterTitle}</strong>
-                  <p>{item.topicTitle}</p>
-                  <button type="button" onClick={() => handleReviewTopic(item.topicId)}>
-                    <CheckCircle2 size={14} />
-                    Revisado hoje
-                  </button>
-                </article>
-              ))}
-              {pendingReviewQueue.length === 0 ? (
-                <div className="clean-empty-state">Nenhuma revisão vencida para esta data.</div>
-              ) : null}
-            </div>
-          </aside>
         </div>
       ) : null}
 

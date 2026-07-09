@@ -53,7 +53,7 @@ export const normalizeTopicSubmatter = (submatter: TopicSubmatter): TopicSubmatt
     srsInterval: submatter.srsInterval ?? 0,
     srsEase: submatter.srsEase ?? 2.5,
     srsRepetitions: submatter.srsRepetitions ?? 0,
-    srsNextReview: toIsoDate(submatter.srsNextReview ?? null),
+    srsNextReview: toIsoDate(submatter.srsNextReview ?? submatter.lastReviewedAt ?? null),
   };
 };
 
