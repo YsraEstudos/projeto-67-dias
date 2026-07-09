@@ -1678,3 +1678,98 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* Clean SRS Rating buttons styling (Anki style) */
+.clean-srs-rating-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  width: 100%;
+}
+
+.clean-srs-rating-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clean-srs-buttons-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.clean-btn-srs {
+  flex: 1;
+  min-width: 65px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e2e8f0;
+}
+
+.clean-btn-srs-bad {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.clean-btn-srs-bad:hover {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.clean-btn-srs-hard {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fde047;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.clean-btn-srs-hard:hover {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.clean-btn-srs-good {
+  background: rgba(59, 130, 246, 0.1);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.clean-btn-srs-good:hover {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.clean-btn-srs-easy {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+.clean-btn-srs-easy:hover {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.clean-srs-feedback-badge {
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #64748b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}

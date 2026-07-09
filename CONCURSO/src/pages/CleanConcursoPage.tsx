@@ -36,7 +36,7 @@ import {
   getManualBlockSubjectLabel,
 } from '../app/cleanConcursoModule';
 import { getLocalTodayIsoDate } from '../app/dateUtils';
-import { buildReviewQueue, buildTopicRollups } from '../app/contentSubmatters';
+import { buildReviewQueue, buildTopicRollups, resolveDailyStudy, getSubmatterReviewAgeDays } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
 import { inferManualBlockSubject } from '../app/manualBlockSubjects';
 import { getTopicDisplayTitle } from '../app/topics';
@@ -284,6 +284,7 @@ export const CleanConcursoPage = () => {
     setPlanStartDate,
     setRestWeekday,
     setDefaultQuestionGoal,
+    rateSubmatter,
   } = useAppActionsContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
@@ -303,6 +304,10 @@ export const CleanConcursoPage = () => {
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
   const selectedPlan = dayPlansByDate[state.selectedDate];
   const selectedBlocks = selectedPlan?.manualBlocks ?? [];
+  const dailyStudy = useMemo(
+    () => resolveDailyStudy(state, state.selectedDate, topics),
+    [state, state.selectedDate, topics],
+  );
   const reviewQueue = useMemo(
     () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate),
     [state.topicSubmattersByTopic, state.selectedDate, topics],
@@ -776,60 +781,153 @@ export const CleanConcursoPage = () => {
               </div>
             ) : (
               <div className="clean-task-list">
-                {selectedBlocks.map((block) => {
-                  const nextDate = findNextFailurePlanDate(dayPlans, state.selectedDate, block);
-                  const blockReschedules = state.manualBlockReschedules.filter((r) => r.blockId === block.id);
-                  const lastReschedule = blockReschedules[blockReschedules.length - 1];
-                  const isRescheduledForToday = lastReschedule && state.selectedDate > lastReschedule.failedAt;
+                {(() => {
+                  const cards = [];
 
-                  return (
-                    <article className={isRescheduledForToday ? 'clean-task-card is-rescheduled' : 'clean-task-card'} key={block.id}>
-                      <div>
-                        <div className="clean-task-area-row">
-                          <span className="clean-task-area">{getManualBlockSubjectLabel(block)}</span>
-                          {isRescheduledForToday && (
-                            <span className="clean-task-rescheduled-badge">
-                              <RotateCcw size={12} />
-                              Realocado de {formatIsoDateCompactPtBr(lastReschedule.failedAt)}
+                  if (dailyStudy.newMatter) {
+                    const item = dailyStudy.newMatter;
+                    const isNew = !dailyStudy.isAllRepeated;
+                    const submatter = item.submatter;
+
+                    cards.push(
+                      <article className="clean-task-card" key="slot-new-matter" data-testid="srs-slot-1">
+                        <div>
+                          <div className="clean-task-area-row">
+                            <span className="clean-task-area">
+                              {isNew ? "Estudo: Matéria Nova" : "Revisão SRS 1"}
                             </span>
-                          )}
+                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
+                              {subjectLabel(item.topic.subject)}
+                            </span>
+                          </div>
+                          <h3>{item.topic.title}</h3>
+                          <p>{submatter.title}</p>
+                          <small>
+                            {isNew ? "Estudo inicial do tópico" : `Nota ${submatter.grade} | Repetições: ${submatter.srsRepetitions ?? 0}`}
+                          </small>
                         </div>
-                        <h3>{block.title}</h3>
-                        <p>{block.detail}</p>
-                        {nextDate ? (
-                          <small>Se falhar, volta no próximo ciclo compatível: {formatIsoDateCompactPtBr(nextDate)}</small>
-                        ) : null}
-                      </div>
-                      <div className="clean-task-actions">
-                        {block.contentTargets?.[0] ? (
+                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
                           <button
                             type="button"
                             className="clean-icon-link"
+                            style={{ alignSelf: 'flex-start', margin: 0 }}
                             onClick={() =>
                               handleStartStudySession({
-                                id: `day-${state.selectedDate}-${block.id}`,
-                                eventId: `${state.selectedDate}-${block.id}`,
-                                title: block.title,
-                                detail: block.detail,
-                                subject: getManualBlockSubjectLabel(block),
-                                subjectKey: inferManualBlockSubject(block),
-                                topicId: block.contentTargets?.[0]?.topicId ?? '',
-                                topicIds: (block.contentTargets ?? []).map((target) => target.topicId),
+                                id: `day-${state.selectedDate}-srs-new`,
+                                eventId: 'new-matter-study',
+                                title: submatter.title,
+                                detail: item.topic.title,
+                                subject: subjectLabel(item.topic.subject),
+                                subjectKey: item.topic.subject,
+                                topicId: item.topic.id,
+                                topicIds: [item.topic.id],
                               })
                             }
                           >
                             <Play size={15} />
                             Estudar
                           </button>
-                        ) : null}
-                        <button type="button" className="clean-fail-button" onClick={() => handleBlockFailure(block)}>
-                          <XCircle size={15} />
-                          Falhei
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
+
+                          <div className="clean-srs-rating-container">
+                            <span className="clean-srs-rating-label">
+                              Como foi seu desempenho?
+                              {submatter.srsNextReview && (
+                                <span className="clean-srs-feedback-badge">
+                                  Intervalo atual: {submatter.srsInterval ?? 0}d
+                                </span>
+                              )}
+                            </span>
+                            <div className="clean-srs-buttons-row">
+                              <button type="button" className="clean-btn-srs clean-btn-srs-bad" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, isNew)}>Errei</button>
+                              <button type="button" className="clean-btn-srs clean-btn-srs-hard" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, isNew)}>Difícil</button>
+                              <button type="button" className="clean-btn-srs clean-btn-srs-good" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, isNew)}>Bom</button>
+                              <button type="button" className="clean-btn-srs clean-btn-srs-easy" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, isNew)}>Fácil</button>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  if (dailyStudy.reviewMatter) {
+                    const item = dailyStudy.reviewMatter;
+                    const isNew = false;
+                    const submatter = item.submatter;
+
+                    cards.push(
+                      <article className="clean-task-card" key="slot-review-matter" data-testid="srs-slot-2">
+                        <div>
+                          <div className="clean-task-area-row">
+                            <span className="clean-task-area">
+                              {dailyStudy.isAllRepeated ? "Revisão SRS 2" : "Revisão SRS (Matéria Anterior)"}
+                            </span>
+                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
+                              {subjectLabel(item.topic.subject)}
+                            </span>
+                          </div>
+                          <h3>{item.topic.title}</h3>
+                          <p>{submatter.title}</p>
+                          <small>
+                            Nota {submatter.grade} | Repetições: {submatter.srsRepetitions ?? 0} | Intervalo: {submatter.srsInterval ?? 0}d
+                          </small>
+                        </div>
+                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                          <button
+                            type="button"
+                            className="clean-icon-link"
+                            style={{ alignSelf: 'flex-start', margin: 0 }}
+                            onClick={() =>
+                              handleStartStudySession({
+                                id: `day-${state.selectedDate}-srs-review`,
+                                eventId: 'review-matter-study',
+                                title: submatter.title,
+                                detail: item.topic.title,
+                                subject: subjectLabel(item.topic.subject),
+                                subjectKey: item.topic.subject,
+                                topicId: item.topic.id,
+                                topicIds: [item.topic.id],
+                              })
+                            }
+                          >
+                            <Play size={15} />
+                            Estudar
+                          </button>
+
+                          <div className="clean-srs-rating-container">
+                            <span className="clean-srs-rating-label">
+                              Como foi seu desempenho?
+                              {submatter.srsNextReview && (
+                                <span className="clean-srs-feedback-badge">
+                                  {submatter.srsNextReview <= state.selectedDate ? "Venceu hoje" : `Próxima: ${formatIsoDateCompactPtBr(submatter.srsNextReview)}`}
+                                </span>
+                              )}
+                            </span>
+                            <div className="clean-srs-buttons-row">
+                              <button type="button" className="clean-btn-srs clean-btn-srs-bad" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, isNew)}>Errei</button>
+                              <button type="button" className="clean-btn-srs clean-btn-srs-hard" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, isNew)}>Difícil</button>
+                              <button type="button" className="clean-btn-srs clean-btn-srs-good" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, isNew)}>Bom</button>
+                              <button type="button" className="clean-btn-srs clean-btn-srs-easy" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, isNew)}>Fácil</button>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  } else if (!dailyStudy.isAllRepeated) {
+                    cards.push(
+                      <article className="clean-task-card" key="slot-review-empty">
+                        <div>
+                          <div className="clean-task-area-row">
+                            <span className="clean-task-area">Revisão SRS</span>
+                          </div>
+                          <h3>Sem revisões pendentes</h3>
+                          <p>Você ainda não estudou nenhuma matéria para iniciar a curva de repetição. Continue completando novas matérias!</p>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  return cards;
+                })()}
               </div>
             )}
           </section>
