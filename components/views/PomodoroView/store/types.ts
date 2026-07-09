@@ -91,4 +91,5 @@ export type Settings = {
   accentColor: string;
   dailyGoal: number;
   weekStartsOn: 0 | 1; // 0 = Sunday, 1 = Monday
+  performanceMode: 'normal' | 'light';
 };

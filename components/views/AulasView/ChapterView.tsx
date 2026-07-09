@@ -1,18 +1,38 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css";
+import { useShallow } from "zustand/react/shallow";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ImagePlus, X, Edit, Eye, Save, Trash2, Bookmark, Highlighter, CheckCircle, CheckCircle2, ClipboardCopy, FileJson, MessageSquare, Check, RotateCcw, Sparkles, ChevronDown, BookOpen, Menu, History, TrendingUp, LineChart } from "lucide-react";
-import { extractTextFromReactNode, generateSlug, fileToBase64, cn } from "./utils";
-import { AulaRelatedQuestions, QuestionAttempt, QuestionStats } from "../../../types";
-import CodeTerminal from "./CodeTerminal";
+import {
+  ChevronLeft,
+  ImagePlus,
+  X,
+  Edit,
+  Eye,
+  Save,
+  Trash2,
+  Highlighter,
+  CheckCircle,
+  CheckCircle2,
+  ClipboardCopy,
+  FileJson,
+  MessageSquare,
+  Check,
+  RotateCcw,
+  Sparkles,
+  ChevronDown,
+  BookOpen,
+  History,
+  TrendingUp,
+  LineChart,
+} from "lucide-react";
+import { generateSlug, fileToBase64, cn } from "./utils";
+import { AulaRelatedQuestions, QuestionAttempt } from "../../../types";
 import Scratchpad from "./Scratchpad";
-import { normalizeAulasMathMarkdown } from "../../../utils/aulasMarkdown";
+
+import { TableOfContentsSidebar, TableOfContentsDrawer } from "./components/TableOfContents";
+import { MarkdownRenderer } from "./components/MarkdownRenderer";
+import { StudyTimer } from "./components/StudyTimer";
+import { AnnotationOverlay, CommentsSidebar, CommentsDrawer } from "./components/AnnotationOverlay";
 
 interface ChapterViewProps {
   bookId: string;
@@ -21,7 +41,15 @@ interface ChapterViewProps {
 }
 
 export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewProps) {
-  const { books, updateChapter, addRecentlyStudied, setChapterConfidence, updateChapterStudyTime } = useAulasStore();
+  const { books, updateChapter, addRecentlyStudied, setChapterConfidence, updateChapterStudyTime } = useAulasStore(
+    useShallow((state) => ({
+      books: state.books,
+      updateChapter: state.updateChapter,
+      addRecentlyStudied: state.addRecentlyStudied,
+      setChapterConfidence: state.setChapterConfidence,
+      updateChapterStudyTime: state.updateChapterStudyTime,
+    }))
+  );
 
   const [editMode, setEditMode] = useState(false);
   const [markdownInput, setMarkdownInput] = useState("");
@@ -32,7 +60,6 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const [timerRemaining, setTimerRemaining] = useState(900);
   const [timerActive, setTimerActive] = useState(false);
   const [timerEnded, setTimerEnded] = useState(false);
-  const [showTimerSettings, setShowTimerSettings] = useState(false);
   const [completedBeforeTimer, setCompletedBeforeTimer] = useState(false);
 
   // Confidence & Scratchpad state
@@ -62,8 +89,6 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const [clickedMarkRect, setClickedMarkRect] = useState<DOMRect | null>(null);
   const [clickedMarkText, setClickedMarkText] = useState("");
   const [clickedMarkId, setClickedMarkId] = useState<string | null>(null);
-  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
 
   const book = books.find((b) => b.id === bookId);
@@ -161,7 +186,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
           const text = selection.toString().trim();
           if (text.length > 0) {
             const range = selection.getRangeAt(0);
-            
+
             let node: Node | null = range.startContainer;
             if (node.nodeType !== Node.ELEMENT_NODE) {
               node = node.parentNode;
@@ -244,6 +269,24 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     };
   }, []);
 
+  const hasScrolledRef = useRef(false);
+
+  React.useEffect(() => {
+    hasScrolledRef.current = false;
+  }, [chapterId]);
+
+  React.useEffect(() => {
+    if (!hasScrolledRef.current && chapter?.lastReadSlug && headings.length > 0 && !isEditingContent) {
+      setTimeout(() => {
+        const el = document.getElementById(chapter.lastReadSlug!);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          hasScrolledRef.current = true;
+        }
+      }, 300);
+    }
+  }, [headings, chapter?.lastReadSlug, isEditingContent]);
+
   if (!book || !chapter) return <div className="p-12 text-center text-slate-100">Curso ou Aula não encontrados.</div>;
 
   const replaceSelectedTextInContent = (replacement: string) => {
@@ -260,7 +303,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       paragraphs.forEach((p, idx) => {
         if (p.includes(selectedText)) {
           const pWords = new Set(p.split(/\s+/));
-          const score = selectedContext.split(/\s+/).filter(w => pWords.has(w)).length;
+          const score = selectedContext.split(/\s+/).filter((w) => pWords.has(w)).length;
           if (score > maxScore) {
             maxScore = score;
             matchedIndex = idx;
@@ -310,45 +353,6 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     setSelectionRect(null);
     setSelectedText("");
     setSelectedContext("");
-  };
-
-  const openCommentDialog = () => {
-    if (!selectedText) return;
-    setCommentInput("");
-    setCommentDialogOpen(true);
-  };
-
-  const saveComment = () => {
-    if (!book || !chapter || !selectedText || !commentInput.trim()) return;
-
-    const id = crypto.randomUUID();
-    const wrappedText = `<span class="comment-anchor" data-comment-id="${id}">${selectedText}</span>`;
-    const newContent = replaceSelectedTextInContent(wrappedText);
-
-    if (!newContent) {
-      alert("Não foi possível comentar. Tente selecionar um trecho menor ou sem formatação complexa.");
-      return;
-    }
-
-    updateChapter(book.id, chapter.id, {
-      content: newContent,
-      comments: [
-        ...(chapter.comments || []),
-        {
-          id,
-          selectedText,
-          body: commentInput.trim(),
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    });
-
-    window.getSelection()?.removeAllRanges();
-    setSelectionRect(null);
-    setSelectedText("");
-    setCommentInput("");
-    setCommentDialogOpen(false);
-    setActiveCommentId(id);
   };
 
   const handleProseClick = (e: React.MouseEvent) => {
@@ -412,7 +416,10 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const removeComment = (commentId: string) => {
     if (!book || !chapter) return;
 
-    const anchorRegex = new RegExp(`<span class="comment-anchor" data-comment-id="${commentId}">([\\s\\S]*?)<\\/span>`, "g");
+    const anchorRegex = new RegExp(
+      `<span class="comment-anchor" data-comment-id="${commentId}">([\\s\\S]*?)<\\/span>`,
+      "g"
+    );
     updateChapter(book.id, chapter.id, {
       content: chapter.content.replace(anchorRegex, "$1"),
       comments: (chapter.comments || []).filter((comment) => comment.id !== commentId),
@@ -420,26 +427,6 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
 
     if (activeCommentId === commentId) setActiveCommentId(null);
   };
-
-
-
-  const hasScrolledRef = useRef(false);
-
-  React.useEffect(() => {
-    hasScrolledRef.current = false;
-  }, [chapterId]);
-
-  React.useEffect(() => {
-    if (!hasScrolledRef.current && chapter?.lastReadSlug && headings.length > 0 && !isEditingContent) {
-      setTimeout(() => {
-        const el = document.getElementById(chapter.lastReadSlug!);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          hasScrolledRef.current = true;
-        }
-      }, 300);
-    }
-  }, [headings, chapter?.lastReadSlug, isEditingContent]);
 
   const startEditingContent = () => {
     setMarkdownInput(chapter?.content || "");
@@ -466,7 +453,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
             confetti.default({
               particleCount: 120,
               spread: 70,
-              origin: { y: 0.6 }
+              origin: { y: 0.6 },
             });
           });
         }
@@ -521,7 +508,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       return getQuestionStatus(questionNumber);
     }
 
-    const oldestDayAttempts = history.filter(h => getDateOnly(h.timestamp) === oldestDate);
+    const oldestDayAttempts = history.filter((h) => getDateOnly(h.timestamp) === oldestDate);
     if (oldestDayAttempts.length > 0) {
       return oldestDayAttempts[0].status; // The latest status on the oldest day (index 0 is newest)
     }
@@ -539,7 +526,7 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     // Get current lists, fallback to empty arrays
     const correctQuestions = currentChapter.correctQuestions || [];
     const incorrectQuestions = currentChapter.incorrectQuestions || [];
-    
+
     // Legacy support: if correctQuestions is empty but completedPrincipalQuestions has items,
     // we migrate them to correctQuestions on the fly.
     const legacyCompleted = currentChapter.completedPrincipalQuestions || [];
@@ -548,8 +535,8 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       activeCorrect = [...legacyCompleted];
     }
 
-    let nextCorrect = activeCorrect.filter(q => q !== questionNumber);
-    let nextIncorrect = incorrectQuestions.filter(q => q !== questionNumber);
+    let nextCorrect = activeCorrect.filter((q) => q !== questionNumber);
+    let nextIncorrect = incorrectQuestions.filter((q) => q !== questionNumber);
 
     const questionAttempts = currentChapter.questionAttempts || {};
     let nextAttempts = { ...questionAttempts };
@@ -581,8 +568,8 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
       };
     } else if (status === "pending") {
       // Just clear current status but keep the attempts history intact
-      nextCorrect = activeCorrect.filter(q => q !== questionNumber);
-      nextIncorrect = incorrectQuestions.filter(q => q !== questionNumber);
+      nextCorrect = activeCorrect.filter((q) => q !== questionNumber);
+      nextIncorrect = incorrectQuestions.filter((q) => q !== questionNumber);
     }
 
     // Keep completedPrincipalQuestions in sync as the union of correct and incorrect
@@ -797,76 +784,6 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
   const attachments = chapter?.attachments || {};
   const comments = chapter?.comments || [];
   const openComments = comments.filter((comment) => !comment.resolvedAt);
-  const resolvedComments = comments.filter((comment) => comment.resolvedAt);
-
-  const markdownComponents = React.useMemo(() => {
-    const createHeadingRenderer = (Tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => ({
-      node,
-      children,
-      ...props
-    }: any) => {
-      const text = extractTextFromReactNode(children);
-      const slug = generateSlug(text);
-      const hasAttachment = !!(attachments && attachments[slug]);
-
-      const isH1 = Tag === "h1";
-      const isH2 = Tag === "h2";
-      const isH3 = Tag === "h3";
-
-      return (
-        <Tag
-          id={slug}
-          {...props}
-          title="Duplo clique para anexar/substituir imagem"
-          onClick={() => handleHeadingClick(slug)}
-          onDoubleClick={(e: React.MouseEvent) => {
-            e.preventDefault();
-            setActiveHeadingSlug(slug);
-            fileInputRef.current?.click();
-          }}
-          className={cn(
-            "not-prose relative group block w-full cursor-pointer transition-colors font-serif rounded-r scroll-mt-[120px] sm:scroll-mt-[136px]",
-            isH1 && "text-4xl md:text-5xl border-b border-slate-800 pb-4 mb-6 mt-12 text-slate-50 font-bold leading-tight",
-            isH2 && "text-2xl md:text-3xl border-b border-slate-850 pb-3 mb-4 mt-10 text-slate-100 font-semibold leading-snug",
-            isH3 && "text-xl md:text-2xl text-[#D4AF37] mb-4 mt-8 font-medium",
-            !isH1 && !isH2 && !isH3 && "text-lg md:text-xl mb-3 mt-6 text-slate-200 font-medium",
-            "border-l-4 pl-4 py-2 -ml-5",
-            editMode
-              ? "hover:bg-slate-850 border-slate-800"
-              : hasAttachment
-              ? "hover:bg-slate-900 border-[#D4AF37]"
-              : "border-transparent hover:border-slate-850 hover:bg-slate-900/30"
-          )}
-        >
-          <div className="relative z-10 flex items-center justify-between gap-4">
-            <span className="flex-1">{children}</span>
-            {hasAttachment && !editMode && (
-              <span className="text-[10px] uppercase font-bold text-[#D4AF37] bg-slate-900 border border-[#D4AF37]/30 px-2 py-1 rounded inline-flex shrink-0 font-sans tracking-widest shadow-sm">
-                Anexo visual
-              </span>
-            )}
-            {editMode && (
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] bg-slate-900 text-[#D4AF37] border border-slate-850 px-2 py-1 rounded inline-flex items-center gap-1 font-bold uppercase tracking-widest font-sans shrink-0 shadow-sm">
-                <ImagePlus className="w-3 h-3" />
-                {hasAttachment ? "Substituir" : "Anexar"}
-              </span>
-            )}
-          </div>
-        </Tag>
-      );
-    };
-
-    return {
-      h1: createHeadingRenderer("h1"),
-      h2: createHeadingRenderer("h2"),
-      h3: createHeadingRenderer("h3"),
-      h4: createHeadingRenderer("h4"),
-      h5: createHeadingRenderer("h5"),
-      h6: createHeadingRenderer("h6"),
-      code: CodeBlock,
-      pre: ({ children }: any) => <>{children}</>,
-    };
-  }, [attachments, editMode]);
 
   return (
     <div className="flex flex-col bg-slate-950">
@@ -897,8 +814,8 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
               className={cn(
                 "text-[9px] font-bold uppercase tracking-widest rounded flex items-center justify-center gap-1 transition-colors shadow-sm cursor-pointer",
                 "px-2 py-2 sm:px-2.5 sm:py-1.5",
-                isToolsMenuOpen 
-                  ? "bg-slate-800 border border-slate-700 text-white" 
+                isToolsMenuOpen
+                  ? "bg-slate-800 border border-slate-700 text-white"
                   : "bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-200"
               )}
               title="Ferramentas de IA"
@@ -955,77 +872,27 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 
           {/* Focus Timer Widget */}
           {!isEditingContent && (
-            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2 py-1 rounded text-xs select-none relative">
-              <span 
-                className={cn(
-                  "font-mono cursor-pointer hover:text-[#D4AF37] select-none text-[11px]",
-                  timerActive && "text-yellow-400 animate-pulse font-semibold",
-                  timerEnded && "text-red-400 font-bold"
-                )}
-                onClick={() => setShowTimerSettings(!showTimerSettings)}
-                title="Configurar timer"
-              >
-                ⏱️ {Math.floor(timerRemaining / 60)}:{(timerRemaining % 60).toString().padStart(2, "0")}
-              </span>
-              
-              {timerActive ? (
-                <button 
-                  onClick={() => setTimerActive(false)}
-                  className="px-1 hover:text-[#D4AF37] text-slate-400 text-[9px] font-bold uppercase cursor-pointer bg-transparent border-0 outline-none"
-                >
-                  Pausar
-                </button>
-              ) : (
-                <button 
-                  onClick={() => {
-                    if (timerRemaining <= 0) setTimerRemaining(timerDuration * 60);
-                    setTimerActive(true);
-                    setTimerEnded(false);
-                  }}
-                  className="px-1 hover:text-[#D4AF37] text-slate-400 text-[9px] font-bold uppercase cursor-pointer bg-transparent border-0 outline-none"
-                  disabled={completedBeforeTimer}
-                >
-                  Iniciar
-                </button>
-              )}
-              
-              {showTimerSettings && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowTimerSettings(false)} />
-                  <div className="absolute top-12 right-0 bg-slate-900 border border-slate-800 rounded-lg p-3 shadow-2xl z-50 w-44">
-                    <label className="block text-[9px] uppercase font-bold text-slate-400 mb-1.5 font-sans">
-                      Duração (minutos)
-                    </label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="number"
-                        min="1"
-                        max="120"
-                        value={timerDuration}
-                        onChange={(e) => {
-                          const val = Math.max(1, parseInt(e.target.value) || 15);
-                          setTimerDuration(val);
-                        }}
-                        className="bg-slate-950 border border-slate-800 text-slate-100 px-2 py-1 rounded text-xs w-full focus:outline-none focus:border-[#D4AF37]"
-                      />
-                      <button
-                        onClick={() => {
-                          const secs = timerDuration * 60;
-                          setTimerRemaining(secs);
-                          setTimerEnded(false);
-                          setCompletedBeforeTimer(false);
-                          setShowTimerSettings(false);
-                          updateChapter(book.id, chapter.id, { timerSeconds: secs });
-                        }}
-                        className="bg-[#D4AF37] text-slate-950 px-2 py-1 rounded text-xs font-bold font-sans"
-                      >
-                        OK
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            <StudyTimer
+              timerActive={timerActive}
+              timerRemaining={timerRemaining}
+              timerDuration={timerDuration}
+              timerEnded={timerEnded}
+              completedBeforeTimer={completedBeforeTimer}
+              onStart={() => {
+                if (timerRemaining <= 0) setTimerRemaining(timerDuration * 60);
+                setTimerActive(true);
+                setTimerEnded(false);
+              }}
+              onPause={() => setTimerActive(false)}
+              onSaveSettings={(minutes) => {
+                setTimerDuration(minutes);
+                const secs = minutes * 60;
+                setTimerRemaining(secs);
+                setTimerEnded(false);
+                setCompletedBeforeTimer(false);
+                updateChapter(book.id, chapter.id, { timerSeconds: secs });
+              }}
+            />
           )}
 
           {/* Mark read button */}
@@ -1101,61 +968,16 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 
       {/* Main split area */}
       <main className="flex-1 flex min-h-0 bg-slate-950 relative">
-        {/* Table of Contents / Outline Preview Sidebar */}
+        {/* Table of Contents Sidebar */}
         {!isEditingContent && headings.length > 0 && !selectedImage && (
-          <aside className="hidden lg:flex w-64 xl:w-72 border-r border-slate-900 flex-col bg-slate-950 shrink-0 sticky top-[120px] sm:top-[136px] h-[calc(100vh-120px)] sm:h-[calc(100vh-136px)]">
-            <div className="p-6 border-b border-slate-900 shrink-0">
-              <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></div>
-                Nesta Aula
-              </h3>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-              {headings.map((h, i) => (
-                <button
-                  key={`${h.slug}-${i}`}
-                  data-outline-slug={h.slug}
-                  onClick={() => {
-                    const el = document.getElementById(h.slug);
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }
-                  }}
-                  onDoubleClick={() => {
-                    updateChapter(book.id, chapter.id, { lastReadSlug: h.slug });
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded text-sm transition-all flex flex-col gap-1 border-l-2 group relative cursor-pointer",
-                    "hover:bg-slate-900 focus:outline-none focus:bg-slate-900",
-                    h.level === 1
-                      ? "font-serif font-bold text-slate-100 border-transparent mt-2 mb-1"
-                      : h.level === 2
-                      ? "font-serif text-slate-400 border-transparent ml-2"
-                      : h.level === 3
-                      ? "text-slate-500 text-xs border-slate-900 ml-4 hover:border-[#D4AF37] hover:text-[#D4AF37]"
-                      : "text-slate-600 text-[10px] border-slate-900 ml-6 hover:border-slate-400 hover:text-slate-400",
-                    activeScrollSlug === h.slug && "!border-[#D4AF37] bg-slate-900"
-                  )}
-                  title="Duplo clique marca onde você parou"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={cn(
-                        "line-clamp-2 flex-1",
-                        h.level === 3 && "italic",
-                        activeScrollSlug === h.slug ? "text-[#D4AF37] font-semibold" : "text-slate-400"
-                      )}
-                    >
-                      {h.text}
-                    </span>
-                    {chapter?.lastReadSlug === h.slug && (
-                      <Bookmark className="w-3 h-3 text-[#D4AF37] shrink-0 mt-0.5 fill-[#D4AF37]" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </aside>
+          <TableOfContentsSidebar
+            headings={headings}
+            activeScrollSlug={activeScrollSlug}
+            lastReadSlug={chapter.lastReadSlug}
+            onUpdateLastReadSlug={(slug) => {
+              updateChapter(book.id, chapter.id, { lastReadSlug: slug });
+            }}
+          />
         )}
 
         {/* Left side: Markdown */}
@@ -1173,43 +995,34 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
               placeholder="# Escreva sua aula em Markdown ou cole HTML aqui..."
             />
           ) : (
-            <div
+            <MarkdownRenderer
+              content={chapter.content}
+              attachments={attachments}
+              editMode={editMode}
+              onHeadingClick={handleHeadingClick}
+              onHeadingDoubleClick={(slug) => {
+                setActiveHeadingSlug(slug);
+                fileInputRef.current?.click();
+              }}
               onClick={handleProseClick}
-              className="prose prose-base md:prose-lg prose-invert max-w-none 
-              prose-p:text-slate-300 prose-p:leading-relaxed 
-              prose-a:text-[#D4AF37] prose-a:underline-offset-4 prose-a:font-bold prose-a:transition-colors hover:prose-a:text-[#F3D76F]
-              prose-strong:text-slate-100 prose-strong:font-semibold
-              prose-blockquote:border-l-4 prose-blockquote:border-[#D4AF37] prose-blockquote:bg-slate-900 prose-blockquote:py-1 prose-blockquote:pr-6 prose-blockquote:pl-6 prose-blockquote:rounded-r prose-blockquote:my-8 prose-blockquote:font-serif prose-blockquote:text-slate-400 prose-blockquote:italic
-              prose-ul:text-slate-300 prose-ol:text-slate-300 prose-li:marker:text-[#D4AF37]
-              prose-hr:border-slate-900 prose-hr:my-10
-              prose-img:rounded-md prose-img:border prose-img:border-slate-850 prose-img:shadow-lg
-              /* Custom mark style */
-              [&_mark]:bg-[#D4AF37]/20 [&_mark]:text-[#F3D76F] [&_mark]:rounded-sm [&_mark]:px-1 [&_mark]:cursor-pointer [&_mark]:transition-colors hover:[&_mark]:bg-[#D4AF37]/40
-              [&_.comment-anchor]:bg-blue-500/20 [&_.comment-anchor]:text-blue-200 [&_.comment-anchor]:border-b-2 [&_.comment-anchor]:border-blue-400 [&_.comment-anchor]:cursor-pointer [&_.comment-anchor]:rounded-sm [&_.comment-anchor]:px-1 hover:[&_.comment-anchor]:bg-blue-500/30
-            "
+              onRemoveAttachment={(slug) => {
+                const newAttachments = { ...attachments };
+                delete newAttachments[slug];
+                updateChapter(book.id, chapter.id, { attachments: newAttachments });
+                if (selectedImage === attachments[slug]) setSelectedImage(null);
+              }}
+              onViewAttachment={setSelectedImage}
             >
-              {editMode && (
-                <div className="bg-slate-900 border border-slate-800 text-slate-200 text-xs p-4 rounded mb-8 flex items-start gap-3">
-                  <ImagePlus className="w-5 h-5 shrink-0 mt-0.5 text-[#D4AF37]" />
-                  <div>
-                    <p className="font-bold mb-1 uppercase tracking-widest text-[10px] text-[#D4AF37]">
-                      Modo de Anexos Ativo
-                    </p>
-                    <p>Clique em qualquer título ou subtítulo abaixo para carregar e atribuir uma imagem a ele.</p>
-                  </div>
-                </div>
-              )}
-
               {chapter.relatedQuestions && (() => {
                 const totalPrincipal = chapter.relatedQuestions.questoes_principais?.length || 0;
                 const principalQuestions = chapter.relatedQuestions.questoes_principais || [];
-                
-                const correctPrincipal = principalQuestions.filter(q => 
-                  getQuestionStatus(q) === 'correct'
+
+                const correctPrincipal = principalQuestions.filter(
+                  (q) => getQuestionStatus(q) === "correct"
                 ).length;
-                
-                const incorrectPrincipal = principalQuestions.filter(q => 
-                  getQuestionStatus(q) === 'incorrect'
+
+                const incorrectPrincipal = principalQuestions.filter(
+                  (q) => getQuestionStatus(q) === "incorrect"
                 ).length;
 
                 const completedPrincipal = correctPrincipal + incorrectPrincipal;
@@ -1218,7 +1031,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 const incorrectPercent = totalPrincipal > 0 ? (incorrectPrincipal / totalPrincipal) * 100 : 0;
 
                 return (
-                  <section 
+                  <section
                     id="questions-section"
                     className="not-prose bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-xl p-5 md:p-6 mb-8 shadow-xl relative card-gradient-border"
                   >
@@ -1257,14 +1070,16 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                             {" • "}
                             <span className="text-rose-400 font-semibold">{incorrectPrincipal} erros</span>
                             {" de "}
-                            <span>{totalPrincipal} ({Math.round(progressPercent)}%)</span>
+                            <span>
+                              {totalPrincipal} ({Math.round(progressPercent)}%)
+                            </span>
                           </span>
                         </div>
                         <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-850 flex p-[1px]">
                           {correctPercent > 0 && (
-                            <motion.div 
+                            <motion.div
                               layout
-                              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full" 
+                              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full"
                               style={{ width: `${correctPercent}%` }}
                               initial={{ scaleX: 0 }}
                               animate={{ scaleX: 1 }}
@@ -1272,9 +1087,9 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                             />
                           )}
                           {incorrectPercent > 0 && (
-                            <motion.div 
+                            <motion.div
                               layout
-                              className="h-full bg-gradient-to-r from-rose-600 to-rose-450 rounded-full" 
+                              className="h-full bg-gradient-to-r from-rose-600 to-rose-450 rounded-full"
                               style={{ width: `${incorrectPercent}%` }}
                               initial={{ scaleX: 0 }}
                               animate={{ scaleX: 1 }}
@@ -1306,7 +1121,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                 onToggleDifficult={() => toggleDifficultQuestion(questionNumber)}
                                 onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                 isExpanded={expandedQuestion === questionNumber}
-                                onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
+                                onToggleExpand={() =>
+                                  setExpandedQuestion(
+                                    expandedQuestion === questionNumber ? null : questionNumber
+                                  )
+                                }
                               />
                             );
                           })
@@ -1324,7 +1143,12 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {chapter.relatedQuestions.por_secao.map((section) => (
                             <div key={section.secao} className="border-l-2 border-slate-800 pl-3.5 py-1">
-                              <div className="text-xs font-semibold text-slate-200 mb-2 truncate" title={section.secao}>{section.secao}</div>
+                              <div
+                                className="text-xs font-semibold text-slate-200 mb-2 truncate"
+                                title={section.secao}
+                              >
+                                {section.secao}
+                              </div>
                               <motion.div layout className="flex flex-wrap gap-1.5">
                                 {section.questoes.map((questionNumber) => (
                                   <QuestionPill
@@ -1338,7 +1162,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                     onToggleDifficult={() => toggleDifficultQuestion(questionNumber)}
                                     onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                     isExpanded={expandedQuestion === questionNumber}
-                                    onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
+                                    onToggleExpand={() =>
+                                      setExpandedQuestion(
+                                        expandedQuestion === questionNumber ? null : questionNumber
+                                      )
+                                    }
                                     size="sm"
                                   />
                                 ))}
@@ -1369,7 +1197,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                                   onToggleDifficult={() => toggleDifficultQuestion(questionNumber)}
                                   onOpenHistory={() => setSelectedHistoryQuestion(questionNumber)}
                                   isExpanded={expandedQuestion === questionNumber}
-                                  onToggleExpand={() => setExpandedQuestion(expandedQuestion === questionNumber ? null : questionNumber)}
+                                  onToggleExpand={() =>
+                                    setExpandedQuestion(
+                                      expandedQuestion === questionNumber ? null : questionNumber
+                                    )
+                                  }
                                   size="sm"
                                 />
                               )
@@ -1386,65 +1218,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                   </section>
                 );
               })()}
-
-              {!chapter.content ? (
-                <div className="text-slate-500 italic font-serif">
-                  Nenhum conteúdo. Clique em "Editar MD" para adicionar o texto desta aula.
-                </div>
-              ) : (
-                <Markdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeRaw, rehypeKatex]}
-                  components={markdownComponents}
-                >
-                  {normalizeAulasMathMarkdown(chapter.content)}
-                </Markdown>
-              )}
-
-              {editMode && Object.keys(attachments).length > 0 && (
-                <div className="mt-16 pt-8 border-t border-slate-900">
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] mb-6">
-                    Todos os Anexos Salvos nesta Aula
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.entries(attachments).map(([slug, imgBase64]) => (
-                      <div
-                        key={slug}
-                        className="relative group rounded overflow-hidden border border-slate-850 bg-slate-900 aspect-square flex items-center justify-center p-2"
-                      >
-                        <img src={imgBase64} alt={slug} className="max-w-full max-h-full object-contain" />
-                        <div className="absolute inset-0 bg-slate-950/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2">
-                          <span className="text-slate-400 text-[10px] text-center mb-3 truncate w-full" title={slug}>
-                            {slug}
-                          </span>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setSelectedImage(imgBase64)}
-                              className="bg-slate-900 border border-slate-800 p-2 rounded text-slate-200 hover:bg-slate-800 cursor-pointer"
-                              title="Visualizar"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                const newAttachments = { ...attachments };
-                                delete newAttachments[slug];
-                                updateChapter(book.id, chapter.id, { attachments: newAttachments });
-                                if (selectedImage === imgBase64) setSelectedImage(null);
-                              }}
-                              className="bg-red-500/20 border border-red-500/30 p-2 rounded text-red-400 hover:bg-red-500/40 cursor-pointer"
-                              title="Apagar"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            </MarkdownRenderer>
           )}
         </div>
 
@@ -1490,86 +1264,16 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
           </div>
         )}
 
-        {/* Comments section */}
+        {/* Comments Sidebar (desktop) */}
         {comments.length > 0 && !isEditingContent && !selectedImage && (
-          <aside className="hidden xl:flex w-80 border-l border-slate-900 bg-slate-950 flex-col shrink-0 sticky top-[120px] sm:top-[136px] h-[calc(100vh-120px)] sm:h-[calc(100vh-136px)]">
-            <div className="p-5 border-b border-slate-900 shrink-0">
-              <h3 className="text-slate-100 text-sm font-serif italic flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-blue-400" />
-                Anotações e Dúvidas
-              </h3>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1">
-                {openComments.length} Abertos
-              </p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-              {openComments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className={cn(
-                    "rounded-xl border p-3.5 bg-slate-900/40 backdrop-blur-sm transition-all duration-300",
-                    activeCommentId === comment.id
-                      ? "border-blue-500/50 shadow-md shadow-blue-950/40 bg-slate-900/60"
-                      : "border-slate-800 hover:border-slate-700 hover:bg-slate-900/50"
-                  )}
-                >
-                  <button type="button" onClick={() => setActiveCommentId(comment.id)} className="block w-full text-left cursor-pointer">
-                    <p className="text-[10px] leading-relaxed text-slate-400 line-clamp-2 border-l-2 border-blue-500 pl-2 mb-3">
-                      "{comment.selectedText}"
-                    </p>
-                    <p className="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap font-sans">{comment.body}</p>
-                  </button>
-                  <div className="flex items-center justify-end gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => updateComment(comment.id, { resolvedAt: new Date().toISOString() })}
-                      title="Resolver dúvida"
-                      className="p-1.5 rounded-lg border border-slate-800 text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeComment(comment.id)}
-                      title="Apagar anotação"
-                      className="p-1.5 rounded-lg border border-slate-800 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {resolvedComments.length > 0 && (
-                <div className="pt-3 border-t border-slate-900 space-y-2">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500">Resolvidos</p>
-                  {resolvedComments.map((comment) => (
-                    <div key={comment.id} className="rounded border border-slate-900 bg-slate-950 p-3 opacity-60">
-                      <p className="text-xs text-slate-400 line-clamp-2 mb-2">{comment.body}</p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateComment(comment.id, { resolvedAt: undefined })}
-                          title="Reabrir comentário"
-                          className="p-1.5 rounded border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 cursor-pointer"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeComment(comment.id)}
-                          title="Apagar comentário"
-                          className="p-1.5 rounded border border-slate-800 text-red-400 hover:bg-red-500/10 cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </aside>
+          <CommentsSidebar
+            comments={comments}
+            activeCommentId={activeCommentId}
+            setActiveCommentId={setActiveCommentId}
+            onResolveComment={(id) => updateComment(id, { resolvedAt: new Date().toISOString() })}
+            onReopenComment={(id) => updateComment(id, { resolvedAt: undefined })}
+            onRemoveComment={removeComment}
+          />
         )}
 
         {showScratchpad && !isEditingContent && !selectedImage && (
@@ -1578,6 +1282,45 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
           </aside>
         )}
       </main>
+
+      {/* Floating selection overlays and dialogs */}
+      <AnnotationOverlay
+        selectionRect={selectionRect}
+        selectedText={selectedText}
+        clickedMarkRect={clickedMarkRect}
+        clickedMarkText={clickedMarkText}
+        onHighlight={handleHighlight}
+        onRemoveHighlight={handleRemoveHighlight}
+        onAddComment={(body) => {
+          if (!book || !chapter || !selectedText) return;
+          const id = crypto.randomUUID();
+          const wrappedText = `<span class="comment-anchor" data-comment-id="${id}">${selectedText}</span>`;
+          const newContent = replaceSelectedTextInContent(wrappedText);
+          if (!newContent) {
+            alert("Não foi possível comentar. Tente selecionar um trecho menor ou sem formatação complexa.");
+            return;
+          }
+          updateChapter(book.id, chapter.id, {
+            content: newContent,
+            comments: [
+              ...(chapter.comments || []),
+              {
+                id,
+                selectedText,
+                body,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          });
+          setActiveCommentId(id);
+        }}
+        onClearSelection={() => {
+          window.getSelection()?.removeAllRanges();
+          setSelectionRect(null);
+          setSelectedText("");
+          setSelectedContext("");
+        }}
+      />
 
       {selectedHistoryQuestion !== null && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1598,18 +1341,28 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                   Histórico — Questão {selectedHistoryQuestion}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Status Atual:
-                  </span>
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400">Status Atual:</span>
                   {(() => {
                     const status = getQuestionStatus(selectedHistoryQuestion);
                     if (status === "correct") {
-                      return <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">Acertada</span>;
+                      return (
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">
+                          Acertada
+                        </span>
+                      );
                     }
                     if (status === "incorrect") {
-                      return <span className="text-[10px] bg-rose-500/10 text-rose-450 border border-rose-500/20 px-2 py-0.5 rounded font-bold">Errada</span>;
+                      return (
+                        <span className="text-[10px] bg-rose-500/10 text-rose-450 border border-rose-500/20 px-2 py-0.5 rounded font-bold">
+                          Errada
+                        </span>
+                      );
                     }
-                    return <span className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-bold">Pendente</span>;
+                    return (
+                      <span className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-bold">
+                        Pendente
+                      </span>
+                    );
                   })()}
                 </div>
               </div>
@@ -1631,33 +1384,25 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       <span className="text-[8px] uppercase tracking-wider text-slate-500 font-sans block mb-1">
                         Tentativas
                       </span>
-                      <strong className="text-slate-100 text-sm font-bold">
-                        {stats.total}
-                      </strong>
+                      <strong className="text-slate-100 text-sm font-bold">{stats.total}</strong>
                     </div>
                     <div className="bg-emerald-950/10 border border-emerald-900/20 p-2 rounded-lg flex flex-col justify-center">
                       <span className="text-[8px] uppercase tracking-wider text-emerald-500/70 font-sans block mb-1">
                         Acertos
                       </span>
-                      <strong className="text-emerald-400 text-sm font-bold">
-                        {stats.correct}
-                      </strong>
+                      <strong className="text-emerald-400 text-sm font-bold">{stats.correct}</strong>
                     </div>
                     <div className="bg-rose-950/10 border border-rose-900/20 p-2 rounded-lg flex flex-col justify-center">
                       <span className="text-[8px] uppercase tracking-wider text-rose-500/70 font-sans block mb-1">
                         Erros
                       </span>
-                      <strong className="text-rose-400 text-sm font-bold">
-                        {stats.incorrect}
-                      </strong>
+                      <strong className="text-rose-400 text-sm font-bold">{stats.incorrect}</strong>
                     </div>
                     <div className="bg-blue-950/10 border border-blue-900/20 p-2 rounded-lg flex flex-col justify-center">
                       <span className="text-[8px] uppercase tracking-wider text-blue-400/70 font-sans block mb-1">
                         Taxa
                       </span>
-                      <strong className="text-blue-400 text-sm font-bold">
-                        {successRate}%
-                      </strong>
+                      <strong className="text-blue-400 text-sm font-bold">{successRate}%</strong>
                     </div>
                   </div>
 
@@ -1686,20 +1431,15 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                               className="flex items-center justify-between p-2.5 rounded bg-slate-950/40 border border-slate-850 hover:bg-slate-950/60 transition-all"
                             >
                               <div className="flex items-center gap-2">
-                                <div className={cn(
-                                  "p-1 rounded-full shrink-0",
-                                  isCorrect ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-450"
-                                )}>
-                                  {isCorrect ? (
-                                    <Check className="w-3 h-3" />
-                                  ) : (
-                                    <X className="w-3 h-3" />
+                                <div
+                                  className={cn(
+                                    "p-1 rounded-full shrink-0",
+                                    isCorrect ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-450"
                                   )}
+                                >
+                                  {isCorrect ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                                 </div>
-                                <span className={cn(
-                                  "text-xs font-semibold",
-                                  isCorrect ? "text-emerald-400" : "text-rose-400"
-                                )}>
+                                <span className={cn("text-xs font-semibold", isCorrect ? "text-emerald-400" : "text-rose-400")}>
                                   {isCorrect ? "Marcou como Certo" : "Marcou como Errado"}
                                 </span>
                               </div>
@@ -1710,7 +1450,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                           );
                         })
                       ) : (
-                        <p className="text-xs text-slate-500 italic text-center py-6 border border-dashed border-slate-800 rounded-lg">
+                        <p className="text-xs text-slate-500 italic text-center py-6 border border-dashed border-slate-880 rounded-lg">
                           Nenhuma tentativa registrada para esta questão ainda.
                         </p>
                       )}
@@ -1722,7 +1462,11 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`Deseja limpar todo o histórico de tentativas da Questão ${selectedHistoryQuestion}?`)) {
+                          if (
+                            confirm(
+                              `Deseja limpar todo o histórico de tentativas da Questão ${selectedHistoryQuestion}?`
+                            )
+                          ) {
                             handleClearQuestionHistory(selectedHistoryQuestion);
                           }
                         }}
@@ -1731,8 +1475,10 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                         <RotateCcw className="w-3.5 h-3.5" />
                         Limpar Histórico
                       </button>
-                    ) : <div />}
-                    
+                    ) : (
+                      <div />
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setSelectedHistoryQuestion(null)}
@@ -1758,9 +1504,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-xl font-serif italic text-slate-100 mb-2">
-              Aula Concluída!
-            </h3>
+            <h3 className="text-xl font-serif italic text-slate-100 mb-2">Aula Concluída!</h3>
             {completedBeforeTimer && (
               <p className="text-xs text-emerald-400 font-semibold mb-4 animate-bounce">
                 🏆 Parabéns! Você concluiu a aula antes do tempo acabar!
@@ -1821,9 +1565,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 <LineChart className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-serif italic text-slate-100">
-                  Desempenho & Evolução
-                </h3>
+                <h3 className="text-lg font-serif italic text-slate-100">Desempenho & Evolução</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Aula {chapter.relatedQuestions.aula} — {chapter.relatedQuestions.titulo}
                 </p>
@@ -1833,16 +1575,18 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
             <div className="overflow-y-auto pr-1 flex-1 mt-4 space-y-6 custom-scrollbar">
               {(() => {
                 const totalPrincipal = chapter.relatedQuestions.questoes_principais.length;
-                const currentCorrect = chapter.relatedQuestions.questoes_principais.filter(q => getQuestionStatus(q) === 'correct').length;
+                const currentCorrect = chapter.relatedQuestions.questoes_principais.filter(
+                  (q) => getQuestionStatus(q) === "correct"
+                ).length;
                 const currentPct = totalPrincipal > 0 ? (currentCorrect / totalPrincipal) * 100 : 0;
-                
-                const firstAttemptCorrect = chapter.relatedQuestions.questoes_principais.filter(q => {
-                  return getInitialQuestionStatus(q) === 'correct';
+
+                const firstAttemptCorrect = chapter.relatedQuestions.questoes_principais.filter((q) => {
+                  return getInitialQuestionStatus(q) === "correct";
                 }).length;
                 const firstPct = totalPrincipal > 0 ? (firstAttemptCorrect / totalPrincipal) * 100 : 0;
-                
+
                 const diffPct = currentPct - firstPct;
-                
+
                 let improved = 0;
                 let declined = 0;
                 let stableCorrect = 0;
@@ -1850,19 +1594,19 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 let unattempted = 0;
                 let totalAttemptsOfAll = 0;
 
-                chapter.relatedQuestions.questoes_principais.forEach(q => {
+                chapter.relatedQuestions.questoes_principais.forEach((q) => {
                   const history = chapter.questionAttempts?.[q.toString()]?.history || [];
                   const current = getQuestionStatus(q);
                   totalAttemptsOfAll += history.length;
 
                   const first = getInitialQuestionStatus(q);
-                  if (first === 'pending') {
+                  if (first === "pending") {
                     unattempted += 1;
-                  } else if (first === 'incorrect' && current === 'correct') {
+                  } else if (first === "incorrect" && current === "correct") {
                     improved += 1;
-                  } else if (first === 'correct' && (current === 'incorrect' || current === 'pending')) {
+                  } else if (first === "correct" && (current === "incorrect" || current === "pending")) {
                     declined += 1;
-                  } else if (first === 'correct' && current === 'correct') {
+                  } else if (first === "correct" && current === "correct") {
                     stableCorrect += 1;
                   } else {
                     stableIncorrect += 1;
@@ -1874,15 +1618,13 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                     <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] mb-4">
                       Evolução Geral (Questões Principais)
                     </h4>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                       <div className="bg-slate-900/80 border border-slate-850 p-3.5 rounded-lg text-center flex flex-col justify-center">
                         <span className="text-[10px] uppercase tracking-wider text-slate-400 font-sans block mb-1">
                           Taxa de Acerto Atual
                         </span>
-                        <strong className="text-emerald-400 text-2xl font-bold">
-                          {Math.round(currentPct)}%
-                        </strong>
+                        <strong className="text-emerald-400 text-2xl font-bold">{Math.round(currentPct)}%</strong>
                         <span className="text-[9px] text-slate-500 mt-1">
                           {currentCorrect} de {totalPrincipal} questões
                         </span>
@@ -1892,9 +1634,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                         <span className="text-[10px] uppercase tracking-wider text-slate-400 font-sans block mb-1">
                           Taxa de Acerto Inicial
                         </span>
-                        <strong className="text-slate-300 text-2xl font-bold">
-                          {Math.round(firstPct)}%
-                        </strong>
+                        <strong className="text-slate-300 text-2xl font-bold">{Math.round(firstPct)}%</strong>
                         <span className="text-[9px] text-slate-500 mt-1">
                           {firstAttemptCorrect} corretas na 1ª tentativa
                         </span>
@@ -1920,18 +1660,14 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                             <span className="text-rose-400 text-2xl font-bold flex items-center gap-1">
                               {Math.round(diffPct)}% 📉
                             </span>
-                            <span className="text-[9px] text-rose-500 font-semibold mt-0.5">
-                              Sua média piorou
-                            </span>
+                            <span className="text-[9px] text-rose-500 font-semibold mt-0.5">Sua média piorou</span>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center">
                             <span className="text-slate-400 text-2xl font-bold flex items-center gap-1">
                               Estável ➖
                             </span>
-                            <span className="text-[9px] text-slate-500 font-semibold mt-0.5">
-                              Média mantida
-                            </span>
+                            <span className="text-[9px] text-slate-500 font-semibold mt-0.5">Média mantida</span>
                           </div>
                         )}
                       </div>
@@ -1963,26 +1699,26 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
                   Análise Focada por Seção da Aula
                 </h4>
-                
+
                 {chapter.relatedQuestions.por_secao && chapter.relatedQuestions.por_secao.length > 0 ? (
                   <div className="space-y-4">
                     {chapter.relatedQuestions.por_secao.map((section) => {
                       const totalSec = section.questoes.length;
-                      const correctSec = section.questoes.filter(q => getQuestionStatus(q) === 'correct').length;
-                      const incorrectSec = section.questoes.filter(q => getQuestionStatus(q) === 'incorrect').length;
+                      const correctSec = section.questoes.filter((q) => getQuestionStatus(q) === "correct").length;
+                      const incorrectSec = section.questoes.filter((q) => getQuestionStatus(q) === "incorrect").length;
                       const pendingSec = totalSec - correctSec - incorrectSec;
 
                       const correctSecPct = totalSec > 0 ? (correctSec / totalSec) * 100 : 0;
                       const incorrectSecPct = totalSec > 0 ? (incorrectSec / totalSec) * 100 : 0;
                       const pendingSecPct = totalSec > 0 ? (pendingSec / totalSec) * 100 : 0;
 
-                      const firstCorrectSec = section.questoes.filter(q => {
-                        return getInitialQuestionStatus(q) === 'correct';
+                      const firstCorrectSec = section.questoes.filter((q) => {
+                        return getInitialQuestionStatus(q) === "correct";
                       }).length;
                       const firstSecPct = totalSec > 0 ? (firstCorrectSec / totalSec) * 100 : 0;
                       const diffSecPct = correctSecPct - firstSecPct;
 
-                      const hasAttemptsSec = section.questoes.some(q => {
+                      const hasAttemptsSec = section.questoes.some((q) => {
                         const history = chapter.questionAttempts?.[q.toString()]?.history || [];
                         return history.length > 0;
                       });
@@ -1990,10 +1726,13 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                       return (
                         <article key={section.secao} className="bg-slate-950/20 border border-slate-850 p-4 rounded-xl">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                            <h5 className="text-sm font-semibold text-slate-200 truncate pr-2 max-w-[70%]" title={section.secao}>
+                            <h5
+                              className="text-sm font-semibold text-slate-200 truncate pr-2 max-w-[70%]"
+                              title={section.secao}
+                            >
                               {section.secao}
                             </h5>
-                            
+
                             {!hasAttemptsSec ? (
                               <span className="text-[9px] bg-slate-800 text-slate-500 border border-slate-700 px-2 py-0.5 rounded font-bold uppercase shrink-0">
                                 Sem tentativas
@@ -2018,7 +1757,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                               Acertos: <strong className="text-slate-200">{correctSec} / {totalSec}</strong>
                             </span>
                             <span className="text-slate-300">
-                              Atual: <strong className="text-emerald-400">{Math.round(correctSecPct)}%</strong> 
+                              Atual: <strong className="text-emerald-400">{Math.round(correctSecPct)}%</strong>
                               {" • "}
                               Inicial: <strong className="text-slate-400">{Math.round(firstSecPct)}%</strong>
                             </span>
@@ -2026,22 +1765,19 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 
                           <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-850 flex p-[1px] mb-4">
                             {correctSecPct > 0 && (
-                              <div 
-                                className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full" 
+                              <div
+                                className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full"
                                 style={{ width: `${correctSecPct}%` }}
                               />
                             )}
                             {incorrectSecPct > 0 && (
-                              <div 
-                                className="h-full bg-gradient-to-r from-rose-600 to-rose-450 rounded-full" 
+                              <div
+                                className="h-full bg-gradient-to-r from-rose-600 to-rose-450 rounded-full"
                                 style={{ width: `${incorrectSecPct}%` }}
                               />
                             )}
                             {pendingSecPct > 0 && (
-                              <div 
-                                className="h-full bg-slate-800 rounded-full" 
-                                style={{ width: `${pendingSecPct}%` }}
-                              />
+                              <div className="h-full bg-slate-800 rounded-full" style={{ width: `${pendingSecPct}%` }} />
                             )}
                           </div>
 
@@ -2050,7 +1786,7 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                               const status = getQuestionStatus(questionNumber);
                               const qHistory = chapter.questionAttempts?.[questionNumber.toString()]?.history || [];
                               const attemptsCount = qHistory.length;
-                              
+
                               let dotBorder = "border-slate-800";
                               let dotBg = "bg-slate-950";
                               let dotText = "text-slate-400";
@@ -2147,104 +1883,10 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
         </div>
       )}
 
-      {commentDialogOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-serif italic text-slate-100 mb-3">Novo Comentário / Anotação</h3>
-            <p className="text-xs leading-relaxed text-slate-400 border-l-2 border-blue-500 pl-3 mb-4 line-clamp-3">
-              "{selectedText}"
-            </p>
-            <textarea
-              autoFocus
-              value={commentInput}
-              onChange={(e) => setCommentInput(e.target.value)}
-              className="w-full h-32 bg-slate-950 border border-slate-850 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-blue-500 mb-5 text-sm resize-none"
-              placeholder="Escreva seu comentário ou dúvida..."
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setCommentDialogOpen(false);
-                  setCommentInput("");
-                }}
-                className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={saveComment}
-                disabled={!commentInput.trim()}
-                className="bg-blue-500 hover:bg-blue-400 disabled:opacity-50 disabled:hover:bg-blue-500 text-slate-950 px-4 py-2 rounded text-sm font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
-              >
-                Comentar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating text selection toolbar */}
-      {selectionRect && selectedText && (
-        <div
-          className="fixed z-50 animate-in fade-in zoom-in-95 duration-200"
-          style={{
-            top: selectionRect.top - 40,
-            left: selectionRect.left + selectionRect.width / 2 - 86,
-          }}
-        >
-          <div className="flex overflow-hidden rounded border border-slate-800 bg-slate-900 shadow-xl">
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleHighlight();
-              }}
-              className="flex items-center gap-1.5 hover:bg-slate-800 text-[#D4AF37] px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
-            >
-              <Highlighter className="w-3.5 h-3.5" />
-              Grifar
-            </button>
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                openCommentDialog();
-              }}
-              className="flex items-center gap-1.5 border-l border-slate-800 hover:bg-slate-800 text-blue-400 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              Comentar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Floating remove highlight toolbar */}
-      {clickedMarkRect && clickedMarkText && !selectionRect && (
-        <div
-          className="fixed z-50 animate-in fade-in zoom-in-95 duration-200"
-          style={{
-            top: clickedMarkRect.top - 40,
-            left: clickedMarkRect.left + clickedMarkRect.width / 2 - 40,
-          }}
-        >
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleRemoveHighlight();
-            }}
-            className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-red-400 px-3 py-1.5 rounded shadow-xl text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Remover
-          </button>
-        </div>
-      )}
-
       {/* Mobile Drawer Backdrop */}
       <AnimatePresence>
         {activeMobileDrawer && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -2256,173 +1898,28 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
 
       {/* Mobile Drawers */}
       <AnimatePresence>
-        {activeMobileDrawer === 'outline' && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-slate-900/95 backdrop-blur-md border-l border-slate-800 z-50 flex flex-col shadow-2xl lg:hidden"
-          >
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
-              <h3 className="text-slate-100 text-sm font-serif italic flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-[#D4AF37]" />
-                Nesta Aula
-              </h3>
-              <button
-                onClick={() => setActiveMobileDrawer(null)}
-                className="text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {headings.map((h, i) => (
-                <button
-                  key={`drawer-heading-${h.slug}-${i}`}
-                  data-outline-slug={h.slug}
-                  onClick={() => {
-                    const el = document.getElementById(h.slug);
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }
-                    setActiveMobileDrawer(null);
-                  }}
-                  onDoubleClick={() => {
-                    updateChapter(book.id, chapter.id, { lastReadSlug: h.slug });
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded text-sm transition-all flex flex-col gap-1 border-l-2 group relative cursor-pointer",
-                    "hover:bg-slate-850 focus:outline-none focus:bg-slate-850",
-                    h.level === 1
-                      ? "font-serif font-bold text-slate-100 border-transparent mt-2 mb-1"
-                      : h.level === 2
-                      ? "font-serif text-slate-400 border-transparent ml-2"
-                      : h.level === 3
-                      ? "text-slate-500 text-xs border-slate-800 ml-4 hover:border-[#D4AF37] hover:text-[#D4AF37]"
-                      : "text-slate-600 text-[10px] border-slate-800 ml-6 hover:border-slate-400 hover:text-slate-400",
-                    activeScrollSlug === h.slug && "!border-[#D4AF37] bg-slate-850"
-                  )}
-                  title="Duplo clique marca onde você parou"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={cn(
-                        "line-clamp-2 flex-1",
-                        h.level === 3 && "italic",
-                        activeScrollSlug === h.slug && "text-[#D4AF37]"
-                      )}
-                    >
-                      {h.text}
-                    </span>
-                    {chapter?.lastReadSlug === h.slug && (
-                      <Bookmark className="w-3 h-3 text-[#D4AF37] shrink-0 mt-0.5 fill-[#D4AF37]" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </motion.div>
+        {activeMobileDrawer === "outline" && (
+          <TableOfContentsDrawer
+            headings={headings}
+            activeScrollSlug={activeScrollSlug}
+            lastReadSlug={chapter.lastReadSlug}
+            onUpdateLastReadSlug={(slug) => {
+              updateChapter(book.id, chapter.id, { lastReadSlug: slug });
+            }}
+            onClose={() => setActiveMobileDrawer(null)}
+          />
         )}
 
-        {activeMobileDrawer === 'comments' && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-slate-900/95 backdrop-blur-md border-l border-slate-800 z-50 flex flex-col shadow-2xl lg:hidden"
-          >
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
-              <h3 className="text-slate-100 text-sm font-serif italic flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-blue-400" />
-                Anotações e Dúvidas
-              </h3>
-              <button
-                onClick={() => setActiveMobileDrawer(null)}
-                className="text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {openComments.length === 0 && resolvedComments.length === 0 && (
-                <p className="text-slate-500 text-xs italic text-center py-8">
-                  Nenhuma anotação nesta aula. Selecione texto no conteúdo para adicionar.
-                </p>
-              )}
-
-              {openComments.map((comment) => (
-                <div
-                  key={`drawer-comment-${comment.id}`}
-                  className={cn(
-                    "rounded-xl border p-3.5 bg-slate-950 transition-colors",
-                    activeCommentId === comment.id
-                      ? "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.35)] animate-pulse-glow"
-                      : "border-slate-850"
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveCommentId(comment.id)}
-                    className="block w-full text-left cursor-pointer animate-micro-pop"
-                  >
-                    <p className="text-[10px] leading-relaxed text-slate-400 line-clamp-2 border-l-2 border-blue-500 pl-2 mb-2">
-                      "{comment.selectedText}"
-                    </p>
-                    <p className="text-xs leading-relaxed text-slate-200 whitespace-pre-wrap font-sans">{comment.body}</p>
-                  </button>
-                  <div className="flex items-center justify-end gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => updateComment(comment.id, { resolvedAt: new Date().toISOString() })}
-                      title="Resolver dúvida"
-                      className="p-1.5 rounded-lg border border-slate-800 text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeComment(comment.id)}
-                      title="Apagar anotação"
-                      className="p-1.5 rounded-lg border border-slate-800 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {resolvedComments.length > 0 && (
-                <div className="pt-3 border-t border-slate-800 space-y-2">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500">Resolvidos</p>
-                  {resolvedComments.map((comment) => (
-                    <div key={`drawer-resolved-${comment.id}`} className="rounded-xl border border-slate-900 bg-slate-950 p-3 opacity-60">
-                      <p className="text-xs text-slate-400 line-clamp-2 mb-2">{comment.body}</p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateComment(comment.id, { resolvedAt: undefined })}
-                          title="Reabrir comentário"
-                          className="p-1.5 rounded-lg border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors cursor-pointer"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeComment(comment.id)}
-                          title="Apagar comentário"
-                          className="p-1.5 rounded-lg border border-slate-800 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
+        {activeMobileDrawer === "comments" && (
+          <CommentsDrawer
+            comments={comments}
+            activeCommentId={activeCommentId}
+            setActiveCommentId={setActiveCommentId}
+            onResolveComment={(id) => updateComment(id, { resolvedAt: new Date().toISOString() })}
+            onReopenComment={(id) => updateComment(id, { resolvedAt: undefined })}
+            onRemoveComment={removeComment}
+            onClose={() => setActiveMobileDrawer(null)}
+          />
         )}
       </AnimatePresence>
 
@@ -2430,10 +1927,10 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
       {!isEditingContent && (
         <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-slate-800/80 rounded-full py-1.5 px-3 shadow-2xl flex items-center gap-2 min-w-[280px] glass">
           <button
-            onClick={() => setActiveMobileDrawer(activeMobileDrawer === 'outline' ? null : 'outline')}
+            onClick={() => setActiveMobileDrawer(activeMobileDrawer === "outline" ? null : "outline")}
             className={cn(
               "flex-1 flex flex-col items-center justify-center py-1.5 px-3 rounded-full text-slate-400 hover:text-slate-200 transition-all duration-300 cursor-pointer",
-              activeMobileDrawer === 'outline' && "bg-[#D4AF37]/15 text-[#D4AF37] font-semibold"
+              activeMobileDrawer === "outline" && "bg-[#D4AF37]/15 text-[#D4AF37] font-semibold"
             )}
           >
             <BookOpen className="w-4 h-4 mb-0.5" />
@@ -2456,10 +1953,10 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
           )}
 
           <button
-            onClick={() => setActiveMobileDrawer(activeMobileDrawer === 'comments' ? null : 'comments')}
+            onClick={() => setActiveMobileDrawer(activeMobileDrawer === "comments" ? null : "comments")}
             className={cn(
               "flex-1 flex flex-col items-center justify-center py-1.5 px-3 rounded-full text-slate-400 hover:text-slate-200 transition-all duration-300 relative cursor-pointer",
-              activeMobileDrawer === 'comments' && "bg-blue-500/15 text-blue-400 font-semibold"
+              activeMobileDrawer === "comments" && "bg-blue-500/15 text-blue-400 font-semibold"
             )}
           >
             <MessageSquare className="w-4 h-4 mb-0.5" />
@@ -2659,7 +2156,7 @@ const QuestionPill = React.memo(function QuestionPill({
             >
               <History className={isSm ? "w-3.5 h-3.5" : "w-4 h-4"} />
             </button>
-            
+
             {/* Small arrow indicator */}
             <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
           </motion.div>
@@ -2668,243 +2165,3 @@ const QuestionPill = React.memo(function QuestionPill({
     </motion.div>
   );
 });
-
-interface Token {
-  type: string;
-  value: string;
-}
-
-const tokenizeCSS = (code: string): Token[] => {
-  const regex = /(\/\*[\s\S]*?\*\/)|(".*?"|'.*?')|(#(?:[0-9a-fA-F]{3,4}){1,2})\b|(\b\d+(?:\.\d+)?(?:px|em|rem|%|s|ms|deg)?\b)|(\b[\w-]+\b(?=\s*:))|(@[a-zA-Z-]+)|([{};:(),\.#])|(\b[\w-]+\b)|(\s+)|([^\s\w]+)/g;
-  let match;
-  const tokens: Token[] = [];
-  regex.lastIndex = 0;
-  while ((match = regex.exec(code)) !== null) {
-    const [
-      full,
-      comment,
-      string,
-      hexColor,
-      number,
-      property,
-      atRule,
-      punctuation,
-      word,
-      whitespace,
-      other
-    ] = match;
-    if (comment) tokens.push({ type: "comment", value: comment });
-    else if (string) tokens.push({ type: "string", value: string });
-    else if (hexColor) tokens.push({ type: "hex", value: hexColor });
-    else if (number) tokens.push({ type: "number", value: number });
-    else if (property) tokens.push({ type: "property", value: property });
-    else if (atRule) tokens.push({ type: "at-rule", value: atRule });
-    else if (punctuation) tokens.push({ type: "punctuation", value: punctuation });
-    else if (word) tokens.push({ type: "word", value: word });
-    else if (whitespace) tokens.push({ type: "whitespace", value: whitespace });
-    else if (other) tokens.push({ type: "other", value: other });
-  }
-  return tokens;
-};
-
-const tokenizeHTML = (code: string): Token[] => {
-  const regex = /(<!--[\s\S]*?-->)|(<[a-zA-Z0-9:-]+)|(<\/?[a-zA-Z0-9:-]+>)|(\b[a-zA-Z0-9:-]+(?=\s*=))|(".*?"|'.*?')|([=/<>!?-]+)|(\s+)|([^<\s]+)/g;
-  let match;
-  const tokens: Token[] = [];
-  regex.lastIndex = 0;
-  while ((match = regex.exec(code)) !== null) {
-    const [
-      full,
-      comment,
-      tagStart,
-      tagClose,
-      attribute,
-      string,
-      punctuation,
-      whitespace,
-      text
-    ] = match;
-    if (comment) tokens.push({ type: "comment", value: comment });
-    else if (tagStart) tokens.push({ type: "tag-name", value: tagStart });
-    else if (tagClose) tokens.push({ type: "tag-close", value: tagClose });
-    else if (attribute) tokens.push({ type: "attribute", value: attribute });
-    else if (string) tokens.push({ type: "string", value: string });
-    else if (punctuation) tokens.push({ type: "punctuation", value: punctuation });
-    else if (whitespace) tokens.push({ type: "whitespace", value: whitespace });
-    else if (text) tokens.push({ type: "text", value: text });
-  }
-  return tokens;
-};
-
-const tokenizeJS = (code: string): Token[] => {
-  const keywords = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|class|extends|import|export|from|default|as|try|catch|finally|throw|async|await|typeof|instanceof|in|of|this|super|true|false|null|undefined)\b/;
-  const regex = /(\/\/.*)|(\/\*[\s\S]*?\*\/)|(".*?"|'.*?'|`[\s\S]*?`)|(\b\d+(?:\.\d+)?\b)|([{}()\[\];:,\.])|(\b[a-zA-Z_]\w*(?=\s*\())|(\b[a-zA-Z_]\w*\b)|(\s+)|([^\s\w]+)/g;
-  let match;
-  const tokens: Token[] = [];
-  regex.lastIndex = 0;
-  while ((match = regex.exec(code)) !== null) {
-    const [
-      full,
-      lineComment,
-      blockComment,
-      string,
-      number,
-      punctuation,
-      functionCall,
-      word,
-      whitespace,
-      other
-    ] = match;
-    if (lineComment) tokens.push({ type: "comment", value: lineComment });
-    else if (blockComment) tokens.push({ type: "comment", value: blockComment });
-    else if (string) tokens.push({ type: "string", value: string });
-    else if (number) tokens.push({ type: "number", value: number });
-    else if (punctuation) tokens.push({ type: "punctuation", value: punctuation });
-    else if (functionCall) tokens.push({ type: "function", value: functionCall });
-    else if (word) {
-      if (keywords.test(word)) {
-        tokens.push({ type: "keyword", value: word });
-      } else {
-        tokens.push({ type: "word", value: word });
-      }
-    }
-    else if (whitespace) tokens.push({ type: "whitespace", value: whitespace });
-    else if (other) tokens.push({ type: "operator", value: other });
-  }
-  return tokens;
-};
-
-const HighlightedCode: React.FC<{ code: string; language: string }> = ({ code, language }) => {
-  const tokens = React.useMemo(() => {
-    const lang = (language || "").toLowerCase();
-    if (lang === "css") {
-      return tokenizeCSS(code);
-    } else if (lang === "html" || lang === "xml") {
-      return tokenizeHTML(code);
-    } else if (lang === "javascript" || lang === "js" || lang === "typescript" || lang === "ts" || lang === "json") {
-      return tokenizeJS(code);
-    } else {
-      return [{ type: "text", value: code }];
-    }
-  }, [code, language]);
-
-  let inBraces = false;
-
-  return (
-    <>
-      {tokens.map((token, index) => {
-        let className = "text-slate-200";
-        if (token.type === "comment") className = "text-slate-500 italic";
-        else if (token.type === "string") className = "text-emerald-400 font-medium";
-        else if (token.type === "hex") className = "text-amber-400 font-mono";
-        else if (token.type === "number") className = "text-amber-400 font-mono";
-        else if (token.type === "property") className = "text-cyan-400 font-semibold";
-        else if (token.type === "at-rule") className = "text-pink-400 font-bold";
-        else if (token.type === "punctuation") {
-          className = "text-slate-400";
-          if (token.value === "{") inBraces = true;
-          if (token.value === "}") inBraces = false;
-        }
-        else if (token.type === "keyword") className = "text-pink-400 font-bold";
-        else if (token.type === "function") className = "text-blue-400 font-semibold";
-        else if (token.type === "tag-name") className = "text-pink-400 font-semibold";
-        else if (token.type === "tag-close") className = "text-pink-400 font-semibold";
-        else if (token.type === "attribute") className = "text-cyan-400";
-        else if (token.type === "operator") className = "text-slate-400";
-        else if (token.type === "word") {
-          if ((language || "").toLowerCase() === "css") {
-            className = inBraces ? "text-emerald-300" : "text-[#F3D76F] font-semibold";
-          } else {
-            className = "text-slate-200";
-          }
-        }
-
-        return (
-          <span key={index} className={className}>
-            {token.value}
-          </span>
-        );
-      })}
-    </>
-  );
-};
-
-const CodeBlock: React.FC<any> = ({ className, children, ...props }) => {
-  const match = /language-(\w+)/.exec(className || "");
-  const language = match ? match[1] : "";
-  const codeString = String(children).replace(/\n$/, "");
-  const [copied, setCopied] = React.useState(false);
-  const [showTerminal, setShowTerminal] = React.useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(codeString);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const isInline = !className || !className.includes("language-");
-
-  if (isInline) {
-    return (
-      <code className="bg-slate-900/90 border border-slate-800/80 text-amber-300 px-1.5 py-0.5 rounded font-mono text-xs md:text-sm break-all" {...props}>
-        {children}
-      </code>
-    );
-  }
-
-  const isRunnable = language === "js" || language === "javascript" || language === "html" || language === "css";
-  const langLabel = language.toUpperCase();
-
-  return (
-    <div className="not-prose my-6 rounded-lg border border-slate-800 overflow-hidden shadow-lg bg-slate-950/60 backdrop-blur-md w-full">
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-850">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37] font-sans">
-          {langLabel || "código"}
-        </span>
-        <div className="flex items-center gap-3">
-          {isRunnable && (
-            <button
-              onClick={() => setShowTerminal(!showTerminal)}
-              className={cn(
-                "transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider font-sans cursor-pointer focus:outline-none",
-                showTerminal ? "text-[#D4AF37]" : "text-slate-400 hover:text-slate-200"
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>{showTerminal ? "Fechar Sandbox" : "Executar Sandbox"}</span>
-            </button>
-          )}
-          <button
-            onClick={handleCopy}
-            className="text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider font-sans cursor-pointer focus:outline-none"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">Copiado!</span>
-              </>
-            ) : (
-              <>
-                <ClipboardCopy className="w-3.5 h-3.5" />
-                <span>Copiar</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono bg-slate-950 text-slate-100 select-text">
-        <code className="block select-text">
-          <HighlightedCode code={codeString} language={language} />
-        </code>
-      </pre>
-      {showTerminal && (
-        <div className="border-t border-slate-800 bg-slate-950">
-          <CodeTerminal 
-            language={language === "javascript" ? "js" : (language as any)} 
-            initialCode={codeString} 
-          />
-        </div>
-      )}
-    </div>
-  );
-};

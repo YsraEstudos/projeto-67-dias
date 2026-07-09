@@ -25,3 +25,18 @@
 .pomodoro-app-container ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
+.performance-light,
+.performance-light *,
+.performance-light *::before,
+.performance-light *::after {
+  animation-delay: 0s !important;
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-delay: 0s !important;
+  transition-duration: 0s !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+}

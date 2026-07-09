@@ -9,9 +9,16 @@ import { useStore, Task, Subtask } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { countHistoricalPomodoros } from '../lib/pomodoroStats';
+import { useShallow } from 'zustand/react/shallow';
 
 export function TaskDetailsSidebar() {
-  const { tasks, records, selectedTaskId, setSelectedTaskId, updateTask, deleteTask, projects } = useStore();
+  const tasks = useStore(useShallow((state) => state.tasks));
+  const records = useStore(useShallow((state) => state.records));
+  const selectedTaskId = useStore((state) => state.selectedTaskId);
+  const setSelectedTaskId = useStore((state) => state.setSelectedTaskId);
+  const updateTask = useStore((state) => state.updateTask);
+  const deleteTask = useStore((state) => state.deleteTask);
+  const projects = useStore(useShallow((state) => state.projects));
   const task = tasks.find(t => t.id === selectedTaskId);
   const todayStr = new Date().toISOString().split('T')[0];
   const activeSkills = useSkillsStore((state) => state.skills).filter(s => !s.isCompleted);

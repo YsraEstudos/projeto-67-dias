@@ -7,7 +7,8 @@ import { useRestStore } from '../../../../stores/restStore';
 
 describe('TimerWidget break selection', () => {
   beforeEach(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     usePomodoroStore.getState()._reset();
     useRestStore.getState()._reset();

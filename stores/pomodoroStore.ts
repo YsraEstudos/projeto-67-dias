@@ -31,6 +31,7 @@ const DEFAULT_SETTINGS: Settings = {
   accentColor: '#f43f5e',
   dailyGoal: 8,
   weekStartsOn: 1,
+  performanceMode: 'normal',
 };
 
 const createDefaultTimerState = (): PomodoroTimerState => ({

@@ -278,6 +278,15 @@ export function SettingsModal() {
                 { value: 'system', label: 'System' }
               ]}
             />
+            <SelectRow 
+              label="Performance Mode" 
+              value={settings.performanceMode} 
+              onChange={(v: string) => updateSettings({ performanceMode: v as 'normal' | 'light' })}
+              options={[
+                { value: 'normal', label: 'Normal' },
+                { value: 'light', label: 'Light (Ultra-fast)' }
+              ]}
+            />
             <div className="flex items-center justify-between">
               <span className="text-[var(--color-text-muted)]">Accent Color</span>
               <div className="flex space-x-2">

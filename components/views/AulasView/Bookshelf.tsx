@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useAulasStore } from "../../../stores/aulasStore";
+import { useShallow } from "zustand/react/shallow";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { Plus, BookOpen, FolderPlus, Download, Upload, Trash2, Edit2, ChevronRight, ChevronDown, FolderSymlink, Check, Folder, Search, Grid, Layout, X, Sparkles, BrainCircuit } from "lucide-react";
 import { QuestionAttempt, RecentlyStudiedItem } from "../../../types";
@@ -14,7 +15,6 @@ import {
   useSensors,
   DragEndEvent,
   DragStartEvent,
-  useDroppable,
   DragOverlay,
 } from "@dnd-kit/core";
 import {
@@ -26,6 +26,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { AulaBook, AulaChapter } from "../../../types";
 import { motion, AnimatePresence } from "motion/react";
+import { BookSpine, SortableBookSpine } from "./components/BookSpine3D";
+import FolderManager from "./components/FolderManager";
+import CollectionSelector from "./components/CollectionSelector";
 
 interface BookshelfProps {
   onSelectBook: (bookId: string) => void;
@@ -298,209 +301,6 @@ const SortableBookCard = React.memo(function SortableBookCard({
   );
 }, (prevProps, nextProps) => prevProps.book === nextProps.book && prevProps.isSortingDisabled === nextProps.isSortingDisabled);
 
-interface BookSpineProps {
-  book: AulaBook;
-  height: number;
-  width: number;
-  colorClasses: string;
-  onSelectBook?: (bookId: string) => void;
-  onOpenMoveModal?: (book: AulaBook) => void;
-  isDragging?: boolean;
-  isPlaceholder?: boolean;
-  isSortingDisabled?: boolean;
-}
-
-const BookSpine = React.memo(function BookSpine({
-  book,
-  height,
-  width,
-  colorClasses,
-  onSelectBook,
-  onOpenMoveModal,
-  isDragging = false,
-  isPlaceholder = false,
-  isSortingDisabled = false,
-}: BookSpineProps) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  
-  const handleSpineClick = (e: React.MouseEvent) => {
-    if (isDragging || isPlaceholder) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button')) return;
-    onSelectBook?.(book.id);
-  };
-
-  return (
-    <div
-      onClick={handleSpineClick}
-      onMouseEnter={() => !isDragging && !isPlaceholder && setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-      style={{ height: `${height}px`, width: `${width}px` }}
-      className={`relative select-none flex flex-col items-center justify-between py-4 rounded-sm border-x border-t shadow-lg bg-gradient-to-b ${colorClasses} ${
-        isDragging
-          ? "cursor-grabbing ring-2 ring-[#D4AF37] opacity-90 scale-105"
-          : isPlaceholder
-          ? "opacity-25"
-          : "cursor-grab active:cursor-grabbing hover:-translate-y-4 hover:shadow-[0_15px_25px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out"
-      }`}
-    >
-      {/* 3D Curved Grooves shading overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/45 pointer-events-none rounded-sm" />
-      
-      {/* Left-edge ridge (simulated spine fold) */}
-      <div className="absolute top-0 bottom-0 left-[3px] w-[2px] bg-white/10 shadow-[1px_0_0_rgba(0,0,0,0.5)] pointer-events-none" />
-      <div className="absolute top-0 bottom-0 right-[3px] w-[2px] bg-black/20 pointer-events-none" />
-
-      {/* Top Gold Foil Stripe */}
-      <div className="w-full h-1.5 bg-gradient-to-r from-[#B59410] via-[#FCE068] to-[#B59410] border-y border-yellow-800 shadow-[0_1px_2px_rgba(0,0,0,0.3)] relative z-10 shrink-0" />
-
-      {/* Book Title (Vertical Text) */}
-      <div className="flex-1 flex items-center justify-center py-2 relative z-10 overflow-hidden w-full px-1">
-        <span 
-          style={{ writingMode: "vertical-rl" }} 
-          className="text-[10px] sm:text-xs font-serif font-bold text-[#FCE57F] tracking-widest text-center truncate max-h-[80%] uppercase select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
-        >
-          {book.title}
-        </span>
-      </div>
-
-      {/* Spine Details & Bottom Stripe */}
-      <div className="w-full flex flex-col items-center gap-1.5 relative z-10 shrink-0">
-        <span className="text-[8px] font-mono font-semibold text-white/50 tracking-wider">
-          {book.chapters?.length || 0}
-        </span>
-        
-        {/* Bottom Gold Foil Stripe */}
-        <div className="w-full h-1.5 bg-gradient-to-r from-[#B59410] via-[#FCE068] to-[#B59410] border-y border-yellow-800 shadow-[0_-1px_2px_rgba(0,0,0,0.3)]" />
-      </div>
-
-      {/* Hover Info Tooltip (Premium Popover) */}
-      <AnimatePresence>
-        {showTooltip && !isDragging && !isPlaceholder && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 5, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-slate-950/95 border border-[#D4AF37]/50 backdrop-blur-md rounded-lg p-3 text-xs w-48 shadow-2xl text-slate-100 z-30 pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r border-b border-[#D4AF37]/50 rotate-45" />
-            <h4 className="font-serif text-sm text-slate-100 mb-1 leading-snug truncate">{book.title}</h4>
-            <div className="text-[10px] text-slate-400 mb-2.5 flex items-center justify-between">
-              <span>{book.chapters?.length || 0} Aulas</span>
-              {book.targetDate ? (
-                <span className="text-[#D4AF37] font-bold">
-                  Meta: {new Date(book.targetDate + "T00:00:00").toLocaleDateString('pt-BR', { month: '2-digit', day: '2-digit' })}
-                </span>
-              ) : (
-                <span className="italic text-slate-500">Sem meta</span>
-              )}
-            </div>
-            <div className="flex gap-1.5 mt-2">
-              <button
-                onClick={() => onSelectBook?.(book.id)}
-                className="flex-1 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 py-1.5 px-2 rounded text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <BookOpen className="w-3 h-3" />
-                Abrir
-              </button>
-              {onOpenMoveModal && (
-                <button
-                  onClick={() => onOpenMoveModal(book)}
-                  className="bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 p-1.5 rounded transition-colors cursor-pointer"
-                  title="Mover curso"
-                >
-                  <FolderSymlink className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}, (prevProps, nextProps) => 
-  prevProps.book === nextProps.book && 
-  prevProps.height === nextProps.height && 
-  prevProps.width === nextProps.width && 
-  prevProps.colorClasses === nextProps.colorClasses && 
-  prevProps.isDragging === nextProps.isDragging && 
-  prevProps.isPlaceholder === nextProps.isPlaceholder
-);
-
-const SortableBookSpine = React.memo(function SortableBookSpine({
-  book,
-  height,
-  width,
-  colorClasses,
-  onSelectBook,
-  onOpenMoveModal,
-}: {
-  book: AulaBook;
-  height: number;
-  width: number;
-  colorClasses: string;
-  onSelectBook: (bookId: string) => void;
-  onOpenMoveModal: (book: AulaBook) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: book.id,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <BookSpine 
-        book={book} 
-        height={height}
-        width={width}
-        colorClasses={colorClasses}
-        onSelectBook={onSelectBook}
-        onOpenMoveModal={onOpenMoveModal}
-        isPlaceholder={isDragging}
-      />
-    </div>
-  );
-}, (prevProps, nextProps) => 
-  prevProps.book === nextProps.book && 
-  prevProps.height === nextProps.height && 
-  prevProps.width === nextProps.width && 
-  prevProps.colorClasses === nextProps.colorClasses
-);
-
-const DroppableFolder = React.memo(function DroppableFolder({
-  id,
-  children,
-  className,
-}: {
-  id: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: `folder-${id}`,
-    data: { type: "folder", id },
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`${className || ""} transition-all duration-300 ${
-        isOver
-          ? "bg-slate-800/80 ring-2 ring-[#D4AF37] scale-[1.03] shadow-lg shadow-[#D4AF37]/10 rounded-md"
-          : ""
-      }`}
-    >
-      {children}
-    </div>
-  );
-});
-
 export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const {
     folders,
@@ -519,10 +319,28 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     updateChapter,
     reorderBooks,
     importBackupData,
-  } = useAulasStore();
+  } = useAulasStore(
+    useShallow((state) => ({
+      folders: state.folders,
+      books: state.books,
+      collections: state.collections,
+      recentlyStudied: state.recentlyStudied,
+      isLoading: state.isLoading,
+      addFolder: state.addFolder,
+      updateFolder: state.updateFolder,
+      deleteFolder: state.deleteFolder,
+      addCollection: state.addCollection,
+      deleteCollection: state.deleteCollection,
+      updateCollectionBooks: state.updateCollectionBooks,
+      addBook: state.addBook,
+      updateBook: state.updateBook,
+      updateChapter: state.updateChapter,
+      reorderBooks: state.reorderBooks,
+      importBackupData: state.importBackupData,
+    }))
+  );
 
   const [activeView, setActiveView] = useState<{ type: "folder" | "collection"; id: string } | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editFolderDialogOpen, setEditFolderDialogOpen] = useState<{ id: string; name: string } | null>(null);
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
@@ -821,12 +639,6 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     }
   };
 
-  const toggleFolderExpand = (folderId: string) => {
-    setExpandedFolders((prev) =>
-      prev.includes(folderId) ? prev.filter((id) => id !== folderId) : [...prev, folderId]
-    );
-  };
-
   // Support exporting/importing JSON for simple data migration (no auto backup dependencies)
   const handleExportBackup = () => {
     const backupData = { folders, collections, books };
@@ -1000,324 +812,204 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col md:flex-row gap-8">
-          <div className="w-full md:w-64 shrink-0 space-y-2">
-            <h2 className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2 px-3 flex justify-between items-center group">
-              <span>Pastas</span>
-              <button
-                onClick={() => handleCreateFolderClick()}
-                className="opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] transition-opacity"
-                title="Adicionar Pasta Raiz"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            </h2>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDragId(null)}
+        >
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="w-full md:w-64 shrink-0 space-y-2">
+              <FolderManager
+                folders={folders}
+                currentView={currentView}
+                onSelectFolder={(id) => {
+                  setActiveView({ type: "folder", id });
+                  resetRenderedBookLimit();
+                }}
+                onCreateFolder={(parentId) => handleCreateFolderClick(parentId)}
+                onRenameFolder={(folder) => handleEditFolderClick(folder)}
+                onDeleteFolder={(id) => {
+                  setDeleteConfirm({
+                    type: "folder",
+                    id,
+                    message: "Deseja realmente excluir esta pasta e todos os seus cursos?",
+                  });
+                }}
+              />
 
-            {folders
-              .filter((f) => !f.parentId)
-              .map((folder) => {
-                const subfolders = folders.filter((sub) => sub.parentId === folder.id);
-                const isExpanded = expandedFolders.includes(folder.id);
-                return (
-                  <div key={folder.id} className="space-y-1">
-                    <DroppableFolder id={folder.id} className="flex items-center group">
+              <CollectionSelector
+                collections={collections}
+                currentView={currentView}
+                onSelectCollection={(id) => {
+                  setActiveView({ type: "collection", id });
+                  resetRenderedBookLimit();
+                }}
+                onCreateCollection={handleCreateCollectionClick}
+                onDeleteCollection={(id) => {
+                  setDeleteConfirm({
+                    type: "collection",
+                    id,
+                    message: "Deseja realmente excluir esta coleção?",
+                  });
+                }}
+              />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-2 border-b border-slate-800 gap-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-medium border-b-2 border-[#D4AF37] pb-1 -mb-[9px] text-slate-100">
+                    {isFolderView
+                      ? folders.find((f) => f.id === currentView?.id)?.name
+                      : collections?.find((c) => c.id === currentView?.id)?.name}
+                  </h2>
+                  {/* View Mode Toggle */}
+                  {currentBooks.length > 0 && (
+                    <div className="flex items-center bg-slate-950 border border-slate-850 p-0.5 rounded ml-2">
                       <button
+                        type="button"
                         onClick={() => {
-                          setActiveView({ type: "folder", id: folder.id });
+                          setShelfViewMode("grid");
                           resetRenderedBookLimit();
-                          toggleFolderExpand(folder.id);
                         }}
-                        className={`flex-1 flex items-center gap-1.5 text-left px-3 py-2 text-sm rounded transition-colors ${
-                          currentView?.type === "folder" && currentView.id === folder.id
-                            ? "border-l-2 border-[#D4AF37] bg-slate-850 text-[#D4AF37] font-medium"
-                            : "border-l-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                        className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
+                          shelfViewMode === "grid"
+                            ? "bg-[#D4AF37] text-slate-950"
+                            : "text-slate-400 hover:text-slate-200"
                         }`}
+                        title="Exibição em Grade"
                       >
-                        {subfolders.length > 0 && (
-                          isExpanded ? (
-                            <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                          ) : (
-                            <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                          )
-                        )}
-                        {subfolders.length === 0 && <span className="w-3.5 shrink-0" />}
-                        <span className="flex-1 truncate">{folder.name}</span>
+                        <Grid className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleCreateFolderClick(folder.id)}
-                        className="p-1 opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
-                        title="Adicionar Subpasta"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleEditFolderClick({ id: folder.id, name: folder.name })}
-                        className="p-1 opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
-                        title="Renomear Pasta"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
+                        type="button"
                         onClick={() => {
-                          setDeleteConfirm({
-                            type: "folder",
-                            id: folder.id,
-                            message: "Deseja realmente excluir esta pasta e todos os seus cursos?",
-                          });
+                          setShelfViewMode("shelf3d");
+                          resetRenderedBookLimit();
                         }}
-                        className="p-1 pr-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
-                        title="Excluir Pasta"
+                        className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
+                          shelfViewMode === "shelf3d"
+                            ? "bg-[#D4AF37] text-slate-950"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                        title="Exibição em Prateleira 3D"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Layout className="w-3.5 h-3.5" />
                       </button>
-                    </DroppableFolder>
-
-                    {isExpanded && (
-                      <div className="pl-4 space-y-1 border-l border-slate-800 ml-4">
-                        {subfolders.map((subf) => (
-                          <DroppableFolder id={subf.id} key={subf.id} className="flex items-center group">
-                            <button
-                              onClick={() => {
-                                setActiveView({ type: "folder", id: subf.id });
-                                resetRenderedBookLimit();
-                              }}
-                              className={`flex-1 text-left px-3 py-1.5 text-xs rounded transition-colors ${
-                                currentView?.type === "folder" && currentView.id === subf.id
-                                  ? "border-l-2 border-[#D4AF37] bg-slate-850 text-[#D4AF37] font-medium"
-                                  : "border-l-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-850"
-                              }`}
-                            >
-                              {subf.name}
-                            </button>
-                            <button
-                              onClick={() => handleEditFolderClick({ id: subf.id, name: subf.name })}
-                              className="p-1 opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
-                              title="Renomear Subpasta"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteConfirm({
-                                  type: "folder",
-                                  id: subf.id,
-                                  message: "Deseja realmente excluir esta subpasta e todos os seus cursos?",
-                                });
-                              }}
-                              className="p-1 pr-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
-                              title="Excluir Subpasta"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </DroppableFolder>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-            <div className="pt-6">
-              <h2 className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2 px-3 flex justify-between items-center group">
-                <span>Coleções</span>
-                <button
-                  onClick={handleCreateCollectionClick}
-                  className="opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] transition-opacity"
-                  title="Criar Coleção"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </h2>
-              {collections &&
-                collections.map((col) => (
-                  <div key={col.id} className="flex items-center group">
-                    <button
-                      onClick={() => {
-                        setActiveView({ type: "collection", id: col.id });
-                        resetRenderedBookLimit();
-                      }}
-                      className={`flex-1 text-left px-3 py-2 text-sm rounded transition-colors ${
-                        currentView?.type === "collection" && currentView.id === col.id
-                          ? "border-l-2 border-[#D4AF37] bg-slate-850 text-[#D4AF37] font-medium"
-                          : "border-l-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-850"
-                      }`}
-                    >
-                      {col.name}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeleteConfirm({
-                          type: "collection",
-                          id: col.id,
-                          message: "Deseja realmente excluir esta coleção?",
-                        });
-                      }}
-                      className="p-1 pr-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
-                      title="Excluir Coleção"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              {(!collections || collections.length === 0) && (
-                <div className="px-3 py-2 text-xs text-slate-500 italic">Nenhuma coleção</div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-2 border-b border-slate-800 gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-medium border-b-2 border-[#D4AF37] pb-1 -mb-[9px] text-slate-100">
-                  {isFolderView
-                    ? folders.find((f) => f.id === currentView?.id)?.name
-                    : collections?.find((c) => c.id === currentView?.id)?.name}
-                </h2>
-                {/* View Mode Toggle */}
-                {currentBooks.length > 0 && (
-                  <div className="flex items-center bg-slate-950 border border-slate-850 p-0.5 rounded ml-2">
-                    <button
-                      onClick={() => {
-                        setShelfViewMode("grid");
-                        resetRenderedBookLimit();
-                      }}
-                      className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
-                        shelfViewMode === "grid"
-                          ? "bg-[#D4AF37] text-slate-950"
-                          : "text-slate-400 hover:text-slate-200"
-                      }`}
-                      title="Exibição em Grade"
-                    >
-                      <Grid className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShelfViewMode("shelf3d");
-                        resetRenderedBookLimit();
-                      }}
-                      className={`p-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors cursor-pointer ${
-                        shelfViewMode === "shelf3d"
-                          ? "bg-[#D4AF37] text-slate-950"
-                          : "text-slate-400 hover:text-slate-200"
-                      }`}
-                      title="Exibição em Prateleira 3D"
-                    >
-                      <Layout className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              {isFolderView && (
-                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                  <button
-                    onClick={() => handleCreateFolderClick(currentView?.id)}
-                    className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm"
-                  >
-                    <FolderPlus className="w-3.5 h-3.5" />
-                    Subpasta
-                  </button>
-                  <button
-                    onClick={handleCreateBookClick}
-                    className="flex items-center gap-1.5 bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Novo Curso
-                  </button>
-                </div>
-              )}
-              {isCollectionView && (
-                <button
-                  onClick={() => setCollectionAddBookDialogOpen(true)}
-                  className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-100 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  Gerenciar Livros
-                </button>
-              )}
-            </div>
-
-            {currentBooks.length === 0 ? (
-              <div className="text-center py-20 bg-slate-900 rounded-lg border border-slate-800 border-dashed text-slate-500 text-sm italic">
-                {isFolderView
-                  ? "Nenhum curso nesta pasta. Clique em 'Novo Curso' para começar."
-                  : "Nenhum curso nesta coleção."}
-              </div>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragCancel={() => setActiveDragId(null)}
-              >
-                <SortableContext items={visibleBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
-                  {shelfViewMode === "shelf3d" ? (
-                    renderShelves()
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      <AnimatePresence mode="popLayout">
-                        {visibleBooks.map((book) => {
-                          const card = (
-                            <SortableBookCard
-                              book={book}
-                              onSelectBook={onSelectBook}
-                              onOpenMoveModal={setMoveBookTarget}
-                              isSortingDisabled={isCollectionView}
-                            />
-                          );
-
-                          return isLargeLibraryView ? (
-                            <div key={book.id}>{card}</div>
-                          ) : (
-                            <motion.div
-                              key={book.id}
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.9, y: 15 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              {card}
-                            </motion.div>
-                          );
-                        })}
-                      </AnimatePresence>
                     </div>
                   )}
-                </SortableContext>
-                {hasMoreBooks && (
-                  <div className="flex justify-center pt-8">
+                </div>
+                {isFolderView && (
+                  <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
                     <button
                       type="button"
-                      onClick={loadMoreBooks}
-                      className="rounded border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 transition-colors hover:border-[#D4AF37]/60 hover:text-[#D4AF37]"
+                      onClick={() => handleCreateFolderClick(currentView?.id)}
+                      className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm"
                     >
-                      Carregar mais {Math.min(RENDERED_BOOKS_INCREMENT, currentBooks.length - visibleBooks.length)} cursos
+                      <FolderPlus className="w-3.5 h-3.5" />
+                      Subpasta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateBookClick}
+                      className="flex items-center gap-1.5 bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Novo Curso
                     </button>
                   </div>
                 )}
-                <DragOverlay dropAnimation={null}>
-                  {activeDragId ? (
-                    <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">
-                      {shelfViewMode === "shelf3d" ? (
-                        <div style={{ height: "200px", width: "60px" }}>
-                          <BookSpine 
-                            book={books.find((b) => b.id === activeDragId)!} 
-                            height={200}
-                            width={60}
-                            colorClasses={getBookColor(activeDragId)}
-                            isDragging
-                          />
-                        </div>
-                      ) : (
-                        <BookCard book={books.find((b) => b.id === activeDragId)!} isDragging />
-                      )}
+                {isCollectionView && (
+                  <button
+                    type="button"
+                    onClick={() => setCollectionAddBookDialogOpen(true)}
+                    className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-100 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Gerenciar Livros
+                  </button>
+                )}
+              </div>
+
+              {currentBooks.length === 0 ? (
+                <div className="text-center py-20 bg-slate-900 rounded-lg border border-slate-800 border-dashed text-slate-500 text-sm italic">
+                  {isFolderView
+                    ? "Nenhum curso nesta pasta. Clique em 'Novo Curso' para começar."
+                    : "Nenhum curso nesta coleção."}
+                </div>
+              ) : (
+                <>
+                  <SortableContext items={visibleBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
+                    {shelfViewMode === "shelf3d" ? (
+                      renderShelves()
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <AnimatePresence mode="popLayout">
+                          {visibleBooks.map((book) => {
+                            const card = (
+                              <SortableBookCard
+                                book={book}
+                                onSelectBook={onSelectBook}
+                                onOpenMoveModal={setMoveBookTarget}
+                                isSortingDisabled={isCollectionView}
+                              />
+                            );
+
+                            return isLargeLibraryView ? (
+                              <div key={book.id}>{card}</div>
+                            ) : (
+                              <motion.div
+                                key={book.id}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                {card}
+                              </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </SortableContext>
+                  {hasMoreBooks && (
+                    <div className="flex justify-center pt-8">
+                      <button
+                        type="button"
+                        onClick={loadMoreBooks}
+                        className="rounded border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 transition-colors hover:border-[#D4AF37]/60 hover:text-[#D4AF37]"
+                      >
+                        Carregar mais {Math.min(RENDERED_BOOKS_INCREMENT, currentBooks.length - visibleBooks.length)} cursos
+                      </button>
                     </div>
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
-            )}
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+          <DragOverlay dropAnimation={null}>
+            {activeDragId ? (
+              <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">
+                {shelfViewMode === "shelf3d" ? (
+                  <div style={{ height: "200px", width: "60px" }}>
+                    <BookSpine 
+                      book={books.find((b) => b.id === activeDragId)!} 
+                      height={200}
+                      width={60}
+                      colorClasses={getBookColor(activeDragId)}
+                      isDragging
+                    />
+                  </div>
+                ) : (
+                  <BookCard book={books.find((b) => b.id === activeDragId)!} isDragging />
+                )}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {globalSearchOpen && (

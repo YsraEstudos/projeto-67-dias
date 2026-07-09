@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { Task, useStore } from '../store/useStore';
 import { countHistoricalPomodoros, getTaskTodayPomodoros } from '../lib/pomodoroStats';
 import { useSkillsStore } from '../../../../stores/skillsStore';
+import { useShallow } from 'zustand/react/shallow';
 
 interface TaskItemProps {
   key?: string | number;
@@ -30,7 +31,9 @@ export function TaskItem({
   onDragStart,
   isCompletedView 
 }: TaskItemProps) {
-  const { updateTask, projects, records } = useStore();
+  const updateTask = useStore((state) => state.updateTask);
+  const projects = useStore(useShallow((state) => state.projects));
+  const records = useStore(useShallow((state) => state.records));
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
 
