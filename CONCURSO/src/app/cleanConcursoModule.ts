@@ -94,14 +94,33 @@ const hasOfficialContentTarget = (block: ManualBlock): boolean =>
 const isStudyPlanBlock = (block: ManualBlock): boolean =>
   hasOfficialContentTarget(block) || inferManualBlockSubject(block) !== null;
 
-const getProgressStatus = (
-  eventProgress: AppState['calendarEventProgress'],
-  eventId: string,
-  fallback: CalendarEventStatus = 'pending',
-): CalendarEventStatus => eventProgress[eventId]?.status ?? fallback;
-
 const getBlockTopicIds = (block: ManualBlock): string[] =>
   Array.from(new Set((block.contentTargets ?? []).map((target) => target.topicId)));
+
+const getProgressStatus = (
+  eventProgress: AppState['calendarEventProgress'],
+  topicProgress: Record<string, TopicProgress>,
+  eventId: string,
+  topicIds: string[],
+  fallback: CalendarEventStatus = 'pending',
+): CalendarEventStatus => {
+  const event = eventProgress[eventId];
+  if (event) {
+    return event.status;
+  }
+  
+  if (topicIds.length > 0) {
+    const allStudied = topicIds.every((tid) => {
+      const p = topicProgress[tid];
+      return p && p.status !== 'nao_iniciado' && p.status !== 'pendente';
+    });
+    if (allStudied) {
+      return 'done';
+    }
+  }
+
+  return fallback;
+};
 
 const groupReviewsByDate = (
   topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
@@ -214,6 +233,7 @@ export const findNextFailurePlanDate = (
 export const buildPendingStudyDecisions = (
   plans: DayPlan[],
   calendarEventProgress: AppState['calendarEventProgress'],
+  topicProgress: Record<string, TopicProgress>,
   today: string,
   defaultQuestionGoals: Record<SubjectKey, number>,
 ): CleanPendingStudyDecision[] =>
@@ -222,7 +242,10 @@ export const buildPendingStudyDecisions = (
     .flatMap((plan) =>
       (plan.manualBlocks ?? []).filter(isStudyPlanBlock).flatMap((block) => {
         const eventId = `${plan.date}-${block.id}`;
-        if ((calendarEventProgress[eventId]?.status ?? 'pending') !== 'pending') {
+        const topicIds = getBlockTopicIds(block);
+        const status = getProgressStatus(calendarEventProgress, topicProgress, eventId, topicIds);
+        
+        if (status !== 'pending') {
           return [];
         }
 
@@ -247,6 +270,7 @@ export const buildCleanCalendarEvents = (
   plans: DayPlan[],
   topicSubmattersByTopic: Record<string, TopicSubmatter[]>,
   topics: TopicNode[],
+  topicProgress: Record<string, TopicProgress>,
   startDate: string = plans[0]?.date ?? getLocalTodayIsoDate(),
   calendarEventProgress: AppState['calendarEventProgress'] = {},
   manualBlockReschedules: ManualBlockReschedule[] = [],
@@ -275,7 +299,7 @@ export const buildCleanCalendarEvents = (
         subtitle: 'Sem pendência obrigatória',
         tone: 'rest',
         kind: 'rest',
-        status: getProgressStatus(calendarEventProgress, eventId),
+        status: getProgressStatus(calendarEventProgress, topicProgress, eventId, []),
         blockId: null,
         block: null,
         topicIds: [],
@@ -284,6 +308,7 @@ export const buildCleanCalendarEvents = (
     } else {
       (plan?.manualBlocks ?? []).filter(isStudyPlanBlock).forEach((block) => {
         const eventId = `${date}-${block.id}`;
+        const topicIds = getBlockTopicIds(block);
         events.push({
           id: eventId,
           date,
@@ -291,10 +316,10 @@ export const buildCleanCalendarEvents = (
           subtitle: getManualBlockSubjectLabel(block),
           tone: 'study',
           kind: 'study',
-          status: getProgressStatus(calendarEventProgress, eventId),
+          status: getProgressStatus(calendarEventProgress, topicProgress, eventId, topicIds),
           blockId: block.id,
           block,
-          topicIds: getBlockTopicIds(block),
+          topicIds,
           submatterId: null,
         });
       });
@@ -309,7 +334,7 @@ export const buildCleanCalendarEvents = (
         subtitle: 'Evento do cronograma',
         tone: 'exam',
         kind: 'exam',
-        status: getProgressStatus(calendarEventProgress, eventId),
+        status: getProgressStatus(calendarEventProgress, topicProgress, eventId, []),
         blockId: null,
         block: null,
         topicIds: [],
@@ -326,7 +351,7 @@ export const buildCleanCalendarEvents = (
         subtitle: 'Evento do cronograma',
         tone: 'writing',
         kind: 'writing',
-        status: getProgressStatus(calendarEventProgress, eventId),
+        status: getProgressStatus(calendarEventProgress, topicProgress, eventId, []),
         blockId: null,
         block: null,
         topicIds: [],
@@ -362,7 +387,7 @@ export const buildCleanCalendarEvents = (
         subtitle: `${subjectLabel(topic.subject)} | Nota ${submatter.grade}`,
         tone: 'review',
         kind: 'review',
-        status: getProgressStatus(calendarEventProgress, eventId),
+        status: getProgressStatus(calendarEventProgress, topicProgress, eventId, []),
         blockId: null,
         block: null,
         topicIds: [topic.id],

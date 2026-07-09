@@ -344,11 +344,12 @@ export const CleanConcursoPage = () => {
         dayPlans,
         state.topicSubmattersByTopic,
         topics,
+        state.topicProgress,
         dayPlans[0]?.date,
         state.calendarEventProgress,
         state.manualBlockReschedules,
       ),
-    [dayPlans, state.calendarEventProgress, state.manualBlockReschedules, state.topicSubmattersByTopic, topics],
+    [dayPlans, state.calendarEventProgress, state.manualBlockReschedules, state.topicProgress, state.topicSubmattersByTopic, topics],
   );
   const mappedTopic = useMemo(
     () =>
@@ -396,8 +397,8 @@ export const CleanConcursoPage = () => {
     ? defaultQuestionGoals[activeStudySession.subjectKey]
     : 30;
   const pendingStudyDecisions = useMemo(
-    () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, today, defaultQuestionGoals),
-    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, today],
+    () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, state.topicProgress, today, defaultQuestionGoals),
+    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, state.topicProgress, today],
   );
   const normalizedDeferredSearch = useMemo(() => normalizePlanSearch(deferredSearch), [deferredSearch]);
 

@@ -20,7 +20,7 @@ describe('clean concurso module', () => {
 
   it('monta calendario completo ate o fim do plano', () => {
     const plans = buildDayPlans();
-    const events = buildCleanCalendarEvents(plans, {}, TOPICS, plans[0]?.date);
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, plans[0]?.date);
 
     expect(events.length).toBeGreaterThan(110);
     expect(events.some((event) => event.date === '2026-11-19')).toBe(true);
@@ -28,7 +28,7 @@ describe('clean concurso module', () => {
 
   it('nao cria revisoes em massa no dia seguinte ao inicio sem historico de revisao', () => {
     const plans = buildDayPlans('2026-05-05');
-    const events = buildCleanCalendarEvents(plans, {}, TOPICS, '2026-05-05');
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, '2026-05-05');
     const maySixEvents = events.filter((event) => event.date === '2026-05-06');
 
     expect(maySixEvents).toHaveLength(2);
@@ -43,6 +43,7 @@ describe('clean concurso module', () => {
       plans,
       {},
       TOPICS,
+      {},
       plans[0]?.date,
       {
         [eventId]: {
@@ -62,6 +63,7 @@ describe('clean concurso module', () => {
       plans,
       {},
       TOPICS,
+      {},
       plans[0]?.date,
       {},
       [
@@ -91,6 +93,7 @@ describe('clean concurso module', () => {
     const plans = buildDayPlans();
     const pending = buildPendingStudyDecisions(
       plans,
+      {},
       {},
       '2026-03-19',
       {
@@ -127,6 +130,7 @@ describe('clean concurso module', () => {
           updatedAt: '2026-03-17T10:00:00.000Z',
         },
       },
+      {},
       '2026-03-19',
       {
         portugues: 80,
