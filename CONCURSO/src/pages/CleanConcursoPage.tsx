@@ -310,6 +310,7 @@ export const CleanConcursoPage = () => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(state.selectedDate);
   const [isCalendarEventListOpen, setIsCalendarEventListOpen] = useState(true);
   const [isWeeklyViewOpen, setIsWeeklyViewOpen] = useState(false);
+  const [weeklyViewWeek, setWeeklyViewWeek] = useState<number | null>(null);
 
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
@@ -365,14 +366,33 @@ export const CleanConcursoPage = () => {
   const planContentItems = useMemo(() => buildCleanPlanContentItems(dayPlans), [dayPlans]);
 
   const currentWeek = selectedPlan?.weekNumber;
+  const totalWeeks = useMemo(() => {
+    let maxWeek = 0;
+    for (const item of planContentItems) {
+      if (item.weekNumber && item.weekNumber > maxWeek) {
+        maxWeek = item.weekNumber;
+      }
+    }
+    return maxWeek;
+  }, [planContentItems]);
+
   const weeklyPlanItems = useMemo(() => {
-    if (currentWeek === undefined || currentWeek === null) return [];
-    return planContentItems.filter((item) => item.weekNumber === currentWeek);
-  }, [planContentItems, currentWeek]);
+    if (weeklyViewWeek === undefined || weeklyViewWeek === null) return [];
+    return planContentItems.filter((item) => item.weekNumber === weeklyViewWeek);
+  }, [planContentItems, weeklyViewWeek]);
 
   const formatDayOfWeek = (isoDate: string): string => {
     const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
     return days[getWeekday(isoDate)];
+  };
+
+  const openWeeklyView = () => {
+    if (currentWeek !== undefined && currentWeek !== null) {
+      setWeeklyViewWeek(currentWeek);
+    } else {
+      setWeeklyViewWeek(1);
+    }
+    setIsWeeklyViewOpen(true);
   };
 
   const planItemsBySubject = useMemo(() => groupPlanItemsBySubject(planContentItems), [planContentItems]);
@@ -758,7 +778,7 @@ export const CleanConcursoPage = () => {
                 <button
                   type="button"
                   className="clean-weekly-view-btn"
-                  onClick={() => setIsWeeklyViewOpen(true)}
+                  onClick={openWeeklyView}
                 >
                   <CalendarDays size={14} />
                   <span>Ver Matérias da Semana {currentWeek}</span>
@@ -1593,7 +1613,41 @@ export const CleanConcursoPage = () => {
             <div className="clean-modal-header">
               <div>
                 <span className="clean-kicker">Cronograma Semanal</span>
-                <h2>Matérias da Semana {currentWeek}</h2>
+                <div className="clean-week-selector-container">
+                  <h2>Matérias da </h2>
+                  <div className="clean-week-nav-controls">
+                    <button
+                      type="button"
+                      className="clean-week-nav-btn"
+                      disabled={weeklyViewWeek === 1}
+                      onClick={() => setWeeklyViewWeek((w) => (w && w > 1 ? w - 1 : w))}
+                      aria-label="Semana anterior"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <select
+                      value={weeklyViewWeek ?? 1}
+                      onChange={(e) => setWeeklyViewWeek(Number(e.target.value))}
+                      className="clean-week-select"
+                      aria-label="Selecionar semana"
+                    >
+                      {Array.from({ length: totalWeeks }, (_, idx) => idx + 1).map((w) => (
+                        <option key={w} value={w}>
+                          Semana {w}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="clean-week-nav-btn"
+                      disabled={weeklyViewWeek === totalWeeks}
+                      onClick={() => setWeeklyViewWeek((w) => (w && w < totalWeeks ? w + 1 : w))}
+                      aria-label="Próxima semana"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
               </div>
               <button
                 type="button"
