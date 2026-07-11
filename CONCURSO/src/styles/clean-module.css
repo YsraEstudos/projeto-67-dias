@@ -1804,3 +1804,259 @@
   border-color: #10b981 !important;
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
 }
+
+/* Custom premium styling for clean-task-area badges */
+.clean-task-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  transition: all 0.2s ease;
+}
+
+.clean-task-area.is-new {
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #38bdf8;
+}
+
+.clean-task-area.is-review {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.clean-task-area.is-completed {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+/* Subject Specific Colors for clean-task-area */
+.clean-task-area.subject-portugues {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+
+.clean-task-area.subject-rlm {
+  background: rgba(236, 72, 153, 0.15);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  color: #f472b6;
+}
+
+.clean-task-area.subject-legislacao {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.clean-task-area.subject-especificos {
+  background: rgba(34, 211, 238, 0.15);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: #22d3ee;
+}
+
+/* Weekly view button and modal styling */
+.clean-weekly-view-btn-container {
+  margin-top: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.clean-weekly-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #e2e8f0;
+  font-family: var(--font-label);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.clean-weekly-view-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25));
+  border-color: rgba(168, 85, 247, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(168, 85, 247, 0.15);
+}
+
+.clean-weekly-view-btn:active {
+  transform: translateY(0);
+}
+
+/* Modal Overlay */
+.clean-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Modal Content */
+.clean-modal-content {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  animation: scaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.clean-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.clean-modal-header h2 {
+  margin: 4px 0 0 0;
+  font-size: 1.5rem;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.clean-modal-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.2s ease;
+}
+
+.clean-modal-close:hover {
+  color: #ffffff;
+}
+
+.clean-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.clean-weekly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.clean-weekly-item {
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.clean-weekly-item:hover {
+  border-color: rgba(168, 85, 247, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+  transform: translateY(-2px);
+}
+
+.clean-weekly-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.clean-weekly-date {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.clean-weekly-item h3 {
+  margin: 6px 0;
+  font-size: 1.05rem;
+  color: #ffffff;
+}
+
+.clean-weekly-item p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.clean-weekly-status-row {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.clean-grade-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.clean-grade-badge.grade-a {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.clean-grade-badge.grade-b {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+.clean-grade-badge.grade-c {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+.clean-grade-badge.grade-d {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.clean-grade-badge.grade-e {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

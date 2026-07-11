@@ -34,7 +34,7 @@ import {
   buildReviewSchedule,
   getManualBlockSubjectLabel,
 } from '../app/cleanConcursoModule';
-import { getLocalTodayIsoDate } from '../app/dateUtils';
+import { getLocalTodayIsoDate, getWeekday } from '../app/dateUtils';
 import { buildReviewQueue, buildTopicRollups, resolveDailyStudy } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
 import { getTopicDisplayTitle } from '../app/topics';
@@ -309,6 +309,7 @@ export const CleanConcursoPage = () => {
   const [calendarMonth, setCalendarMonth] = useState(state.selectedDate.slice(0, 7));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(state.selectedDate);
   const [isCalendarEventListOpen, setIsCalendarEventListOpen] = useState(true);
+  const [isWeeklyViewOpen, setIsWeeklyViewOpen] = useState(false);
 
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
@@ -362,6 +363,18 @@ export const CleanConcursoPage = () => {
   const completedReview = useMemo(() => completedToday.find(x => !x.isNew) ?? null, [completedToday]);
 
   const planContentItems = useMemo(() => buildCleanPlanContentItems(dayPlans), [dayPlans]);
+
+  const currentWeek = selectedPlan?.weekNumber;
+  const weeklyPlanItems = useMemo(() => {
+    if (currentWeek === undefined || currentWeek === null) return [];
+    return planContentItems.filter((item) => item.weekNumber === currentWeek);
+  }, [planContentItems, currentWeek]);
+
+  const formatDayOfWeek = (isoDate: string): string => {
+    const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    return days[getWeekday(isoDate)];
+  };
+
   const planItemsBySubject = useMemo(() => groupPlanItemsBySubject(planContentItems), [planContentItems]);
   const failedBlocksByDate = useMemo(
     () =>
@@ -740,6 +753,19 @@ export const CleanConcursoPage = () => {
               ))}
             </div>
 
+            {currentWeek !== undefined && currentWeek !== null && (
+              <div className="clean-weekly-view-btn-container">
+                <button
+                  type="button"
+                  className="clean-weekly-view-btn"
+                  onClick={() => setIsWeeklyViewOpen(true)}
+                >
+                  <CalendarDays size={14} />
+                  <span>Ver Matérias da Semana {currentWeek}</span>
+                </button>
+              </div>
+            )}
+
             <section className="clean-pending-panel" aria-label="Pendências para fechar">
               <div className="clean-pending-head">
                 <div>
@@ -863,15 +889,18 @@ export const CleanConcursoPage = () => {
                     const item = dailyStudy.newMatter;
                     const isNew = !dailyStudy.isAllRepeated;
                     const submatter = item.submatter;
+                    const isCompletedToday = submatter.lastReviewedAt === state.selectedDate;
 
                     cards.push(
                       <article className="clean-task-card" key="slot-new-matter" data-testid="srs-slot-1">
                         <div>
                           <div className="clean-task-area-row">
-                            <span className="clean-task-area">
+                            <span className={`clean-task-area ${isCompletedToday ? 'is-completed' : (isNew ? 'is-new' : 'is-review')}`}>
+                              {isCompletedToday && <CheckCircle2 size={12} style={{ marginRight: '4px', display: 'inline' }} />}
                               {isNew ? "Estudo: Matéria Nova" : "Revisão SRS 1"}
+                              {isCompletedToday ? " (Concluído)" : ""}
                             </span>
-                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
+                            <span className={`clean-task-area subject-${item.topic.subject}`}>
                               {subjectLabel(item.topic.subject)}
                             </span>
                           </div>
@@ -887,16 +916,16 @@ export const CleanConcursoPage = () => {
                             className="clean-icon-link"
                             style={{ alignSelf: 'flex-start', margin: 0 }}
                             onClick={() =>
-                              handleStartStudySession({
-                                id: `day-${state.selectedDate}-srs-new`,
-                                eventId: 'new-matter-study',
-                                title: submatter.title,
-                                detail: item.topic.title,
-                                subject: subjectLabel(item.topic.subject),
-                                subjectKey: item.topic.subject,
-                                topicId: item.topic.id,
-                                topicIds: [item.topic.id],
-                              })
+                                handleStartStudySession({
+                                  id: `day-${state.selectedDate}-srs-new`,
+                                  eventId: 'new-matter-study',
+                                  title: submatter.title,
+                                  detail: item.topic.title,
+                                  subject: subjectLabel(item.topic.subject),
+                                  subjectKey: item.topic.subject,
+                                  topicId: item.topic.id,
+                                  topicIds: [item.topic.id],
+                                })
                             }
                           >
                             <Play size={15} />
@@ -974,15 +1003,18 @@ export const CleanConcursoPage = () => {
                     const item = dailyStudy.reviewMatter;
                     const isNew = false;
                     const submatter = item.submatter;
+                    const isCompletedToday = submatter.lastReviewedAt === state.selectedDate;
 
                     cards.push(
                       <article className="clean-task-card" key="slot-review-matter" data-testid="srs-slot-2">
                         <div>
                           <div className="clean-task-area-row">
-                            <span className="clean-task-area">
+                            <span className={`clean-task-area ${isCompletedToday ? 'is-completed' : 'is-review'}`}>
+                              {isCompletedToday && <CheckCircle2 size={12} style={{ marginRight: '4px', display: 'inline' }} />}
                               {dailyStudy.isAllRepeated ? "Revisão SRS 2" : "Revisão SRS (Matéria Anterior)"}
+                              {isCompletedToday ? " (Concluído)" : ""}
                             </span>
-                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
+                            <span className={`clean-task-area subject-${item.topic.subject}`}>
                               {subjectLabel(item.topic.subject)}
                             </span>
                           </div>
@@ -1038,7 +1070,7 @@ export const CleanConcursoPage = () => {
                       <article className="clean-task-card" key="slot-review-empty">
                         <div>
                           <div className="clean-task-area-row">
-                            <span className="clean-task-area">Revisão SRS</span>
+                            <span className="clean-task-area is-review">Revisão SRS</span>
                           </div>
                           <h3>Sem revisões pendentes</h3>
                           <p>Você ainda não estudou nenhuma matéria para iniciar a curva de repetição. Continue completando novas matérias!</p>
@@ -1554,6 +1586,59 @@ export const CleanConcursoPage = () => {
           </div>
         </section>
       ) : null}
+
+      {isWeeklyViewOpen && (
+        <div className="clean-modal-overlay" onClick={() => setIsWeeklyViewOpen(false)}>
+          <div className="clean-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="clean-modal-header">
+              <div>
+                <span className="clean-kicker">Cronograma Semanal</span>
+                <h2>Matérias da Semana {currentWeek}</h2>
+              </div>
+              <button
+                type="button"
+                className="clean-modal-close"
+                onClick={() => setIsWeeklyViewOpen(false)}
+                aria-label="Fechar"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="clean-modal-body">
+              {weeklyPlanItems.length > 0 ? (
+                <div className="clean-weekly-list">
+                  {weeklyPlanItems.map((item) => {
+                    const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
+                    return (
+                      <article key={item.id} className="clean-weekly-item">
+                        <div className="clean-weekly-item-header">
+                          <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
+                            {item.subject ? subjectLabel(item.subject) : 'Outros'}
+                          </span>
+                          <span className="clean-weekly-date">
+                            {formatIsoDateCompactPtBr(item.date)} ({formatDayOfWeek(item.date)})
+                          </span>
+                        </div>
+                        <h3>{item.block.title}</h3>
+                        <p>{item.block.detail}</p>
+                        {itemGrade && (
+                          <div className="clean-weekly-status-row">
+                            <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
+                              Desempenho: Nota {itemGrade}
+                            </span>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="clean-empty-state">Nenhuma matéria planejada para esta semana.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="clean-subject-strip" aria-label="Resumo por matéria">
         {(Object.keys(planItemsBySubject) as SubjectKey[]).map((subject) => (
