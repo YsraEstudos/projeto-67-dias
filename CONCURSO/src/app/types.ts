@@ -73,6 +73,15 @@ export interface TopicSubmatter {
   srsEase?: number;
   srsRepetitions?: number;
   srsNextReview?: string | null;
+  previousSrsState?: {
+    grade: TopicGrade;
+    srsInterval?: number;
+    srsEase?: number;
+    srsRepetitions?: number;
+    srsNextReview?: string | null;
+    lastReviewedAt: string | null;
+    status: TopicStatus;
+  } | null;
 }
 
 export interface TheoreticalContentItem {

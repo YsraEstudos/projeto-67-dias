@@ -11,6 +11,7 @@ import type {
   SubjectKey,
   TopicGrade,
   TopicNode,
+  TopicProgress,
   TopicSubmatter,
 } from './types';
 

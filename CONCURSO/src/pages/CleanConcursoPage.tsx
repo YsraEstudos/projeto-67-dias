@@ -38,7 +38,7 @@ import { getLocalTodayIsoDate } from '../app/dateUtils';
 import { buildReviewQueue, buildTopicRollups, resolveDailyStudy } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
 import { getTopicDisplayTitle } from '../app/topics';
-import type { SubjectKey, TopicGrade } from '../app/types';
+import type { SubjectKey, TopicGrade, TopicNode, TopicSubmatter } from '../app/types';
 
 type ModuleView = 'dia' | 'conteudo' | 'calendario' | 'configuracoes';
 type ContentFilter = 'all' | 'review' | TopicGrade;
@@ -136,6 +136,17 @@ const countCalendarStatuses = (events: Array<{ status: string }>) =>
   );
 
 const normalizePlanSearch = (query: string): string => query.trim().toLowerCase();
+
+const getRatingLabelFromGrade = (grade: TopicGrade): string => {
+  switch (grade) {
+    case 'E': return 'Errei';
+    case 'D': return 'Difícil';
+    case 'C': return 'Regular';
+    case 'B': return 'Bom';
+    case 'A': return 'Fácil';
+    default: return '';
+  }
+};
 
 const pickPlanItemGrade = (
   topicIds: string[],
@@ -283,6 +294,7 @@ export const CleanConcursoPage = () => {
     setRestWeekday,
     setDefaultQuestionGoal,
     rateSubmatter,
+    unrateSubmatter,
   } = useAppActionsContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
@@ -328,6 +340,27 @@ export const CleanConcursoPage = () => {
   );
   const leafTopics = useMemo(() => topics.filter((topic) => topic.isLeaf), [topics]);
   const topicById = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
+  const completedToday = useMemo(() => {
+    const list: Array<{ topic: TopicNode; submatter: TopicSubmatter; isNew: boolean }> = [];
+    Object.entries(state.topicSubmattersByTopic).forEach(([topicId, submatters]) => {
+      const topic = topicById.get(topicId);
+      if (topic && topic.isLeaf) {
+        submatters.forEach((submatter) => {
+          if (submatter.lastReviewedAt === state.selectedDate) {
+            const wasNew = submatter.previousSrsState
+              ? (submatter.previousSrsState.lastReviewedAt === null)
+              : (submatter.srsRepetitions !== undefined && submatter.srsRepetitions <= 1 && submatter.grade !== 'E');
+            list.push({ topic, submatter, isNew: wasNew });
+          }
+        });
+      }
+    });
+    return list;
+  }, [state.topicSubmattersByTopic, state.selectedDate, topicById]);
+
+  const completedNew = useMemo(() => completedToday.find(x => x.isNew) ?? null, [completedToday]);
+  const completedReview = useMemo(() => completedToday.find(x => !x.isNew) ?? null, [completedToday]);
+
   const planContentItems = useMemo(() => buildCleanPlanContentItems(dayPlans), [dayPlans]);
   const planItemsBySubject = useMemo(() => groupPlanItemsBySubject(planContentItems), [planContentItems]);
   const failedBlocksByDate = useMemo(
@@ -775,11 +808,58 @@ export const CleanConcursoPage = () => {
                 {renderRestDayPlanner(state.selectedDate, state.dailyRecords[state.selectedDate]?.notes ?? '')}
               </div>
             ) : (
-              <div className="clean-task-list">
+              <>
+                <div className="clean-task-list">
                 {(() => {
                   const cards = [];
 
-                  if (dailyStudy.newMatter) {
+                  // SLOT 1: Nova Matéria / Estudo
+                  if (completedNew) {
+                    const item = completedNew;
+                    const submatter = item.submatter;
+                    cards.push(
+                      <article className="clean-task-card completed" key="slot-new-matter" data-testid="srs-slot-1">
+                        <div>
+                          <div className="clean-task-area-row">
+                            <span className="clean-task-area">
+                              Estudo: Matéria Nova (Concluído)
+                            </span>
+                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
+                              {subjectLabel(item.topic.subject)}
+                            </span>
+                          </div>
+                          <h3>{item.topic.title}</h3>
+                          <p>{submatter.title}</p>
+                          <small>
+                            Desempenho registrado hoje. Intervalo atual: {submatter.srsInterval ?? 0}d
+                          </small>
+                        </div>
+                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                          <div className="clean-srs-rating-container">
+                            <span className="clean-srs-rating-label">
+                              Como foi seu desempenho?
+                              <span className="clean-srs-feedback-badge">Concluído</span>
+                            </span>
+                            <div className="clean-srs-buttons-row">
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, true)}>Errei</button>
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, true)}>Difícil</button>
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-good ${submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, true)}>Bom</button>
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, true)}>Fácil</button>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="clean-icon-link"
+                            style={{ alignSelf: 'flex-start', margin: 0, background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                            onClick={() => unrateSubmatter(item.topic.id, submatter.id, state.selectedDate, true)}
+                          >
+                            <RotateCcw size={15} />
+                            Desmarcar
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  } else if (dailyStudy.newMatter) {
                     const item = dailyStudy.newMatter;
                     const isNew = !dailyStudy.isAllRepeated;
                     const submatter = item.submatter;
@@ -844,7 +924,53 @@ export const CleanConcursoPage = () => {
                     );
                   }
 
-                  if (dailyStudy.reviewMatter) {
+                  // SLOT 2: Revisão
+                  if (completedReview) {
+                    const item = completedReview;
+                    const submatter = item.submatter;
+                    cards.push(
+                      <article className="clean-task-card completed" key="slot-review-matter" data-testid="srs-slot-2">
+                        <div>
+                          <div className="clean-task-area-row">
+                            <span className="clean-task-area">
+                              Revisão SRS (Concluído)
+                            </span>
+                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
+                              {subjectLabel(item.topic.subject)}
+                            </span>
+                          </div>
+                          <h3>{item.topic.title}</h3>
+                          <p>{submatter.title}</p>
+                          <small>
+                            Desempenho registrado hoje. Intervalo atual: {submatter.srsInterval ?? 0}d
+                          </small>
+                        </div>
+                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                          <div className="clean-srs-rating-container">
+                            <span className="clean-srs-rating-label">
+                              Como foi seu desempenho?
+                              <span className="clean-srs-feedback-badge">Concluído</span>
+                            </span>
+                            <div className="clean-srs-buttons-row">
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, false)}>Errei</button>
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, false)}>Difícil</button>
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-good ${submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, false)}>Bom</button>
+                              <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, false)}>Fácil</button>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="clean-icon-link"
+                            style={{ alignSelf: 'flex-start', margin: 0, background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                            onClick={() => unrateSubmatter(item.topic.id, submatter.id, state.selectedDate, false)}
+                          >
+                            <RotateCcw size={15} />
+                            Desmarcar
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  } else if (dailyStudy.reviewMatter) {
                     const item = dailyStudy.reviewMatter;
                     const isNew = false;
                     const submatter = item.submatter;
@@ -907,7 +1033,7 @@ export const CleanConcursoPage = () => {
                         </div>
                       </article>
                     );
-                  } else if (!dailyStudy.isAllRepeated) {
+                  } else if (!dailyStudy.isAllRepeated && !completedNew) {
                     cards.push(
                       <article className="clean-task-card" key="slot-review-empty">
                         <div>
@@ -924,6 +1050,40 @@ export const CleanConcursoPage = () => {
                   return cards;
                 })()}
               </div>
+
+              {completedToday.length > 0 && (
+                <section className="clean-history-panel" style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <div className="clean-history-head" style={{ marginBottom: '14px' }}>
+                    <span className="clean-kicker">Histórico de Hoje</span>
+                    <h3 style={{ margin: '4px 0 0', fontSize: '1.1rem' }}>Matérias concluídas na data selecionada</h3>
+                  </div>
+                  <div className="clean-history-list" style={{ display: 'grid', gap: '10px' }}>
+                    {completedToday.map((item) => (
+                      <article key={item.submatter.id} className="clean-history-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: '12px', background: 'rgba(2, 6, 23, 0.25)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                        <div>
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>{subjectLabel(item.topic.subject)} {item.isNew ? '| Matéria Nova' : '| Revisão'}</span>
+                          <h4 style={{ margin: '2px 0 0', fontSize: '0.92rem', fontWeight: 600 }}>{item.topic.title}</h4>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#cbd5e1' }}>{item.submatter.title}</p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span className={`clean-srs-feedback-badge grade-${item.submatter.grade.toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.05)', fontWeight: 600 }}>
+                            Nota {item.submatter.grade} ({getRatingLabelFromGrade(item.submatter.grade)})
+                          </span>
+                          <button
+                            type="button"
+                            className="clean-btn-srs"
+                            style={{ minWidth: 'auto', padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}
+                            onClick={() => unrateSubmatter(item.topic.id, item.submatter.id, state.selectedDate, item.isNew)}
+                          >
+                            Desmarcar
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+              </>
             )}
           </section>
         </div>

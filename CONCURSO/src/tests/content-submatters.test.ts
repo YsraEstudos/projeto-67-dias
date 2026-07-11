@@ -192,4 +192,82 @@ describe('content submatters reducer', () => {
     expect(state.meta.changeToken).toBe(4);
     vi.useRealTimers();
   });
+
+  it('registra avaliação com srs e salva previousSrsState', () => {
+    let state = createInitialState();
+    const topicId = Object.keys(state.topicSubmattersByTopic)[0];
+    const subId = state.topicSubmattersByTopic[topicId][0].id;
+
+    state = appReducer(state, {
+      type: 'rate-submatter',
+      topicId,
+      submatterId: subId,
+      rating: 'good',
+      date: '2026-07-11',
+      isNewMatter: true,
+    });
+
+    const rated = state.topicSubmattersByTopic[topicId].find((item) => item.id === subId);
+    expect(rated?.grade).toBe('B');
+    expect(rated?.lastReviewedAt).toBe('2026-07-11');
+    expect(rated?.previousSrsState).toBeDefined();
+    expect(rated?.previousSrsState?.grade).toBe('E');
+  });
+
+  it('permite re-avaliar no mesmo dia usando previousSrsState original', () => {
+    let state = createInitialState();
+    const topicId = Object.keys(state.topicSubmattersByTopic)[0];
+    const subId = state.topicSubmattersByTopic[topicId][0].id;
+
+    state = appReducer(state, {
+      type: 'rate-submatter',
+      topicId,
+      submatterId: subId,
+      rating: 'good',
+      date: '2026-07-11',
+      isNewMatter: true,
+    });
+
+    state = appReducer(state, {
+      type: 'rate-submatter',
+      topicId,
+      submatterId: subId,
+      rating: 'easy',
+      date: '2026-07-11',
+      isNewMatter: true,
+    });
+
+    const ratedAgain = state.topicSubmattersByTopic[topicId].find((item) => item.id === subId);
+    expect(ratedAgain?.grade).toBe('A');
+    expect(ratedAgain?.lastReviewedAt).toBe('2026-07-11');
+    expect(ratedAgain?.previousSrsState?.grade).toBe('E');
+  });
+
+  it('reverte avaliação ao desmarcar (unrate-submatter)', () => {
+    let state = createInitialState();
+    const topicId = Object.keys(state.topicSubmattersByTopic)[0];
+    const subId = state.topicSubmattersByTopic[topicId][0].id;
+
+    state = appReducer(state, {
+      type: 'rate-submatter',
+      topicId,
+      submatterId: subId,
+      rating: 'good',
+      date: '2026-07-11',
+      isNewMatter: true,
+    });
+
+    state = appReducer(state, {
+      type: 'unrate-submatter',
+      topicId,
+      submatterId: subId,
+      date: '2026-07-11',
+      isNewMatter: true,
+    });
+
+    const unrated = state.topicSubmattersByTopic[topicId].find((item) => item.id === subId);
+    expect(unrated?.grade).toBe('E');
+    expect(unrated?.lastReviewedAt).toBeNull();
+    expect(unrated?.previousSrsState).toBeNull();
+  });
 });

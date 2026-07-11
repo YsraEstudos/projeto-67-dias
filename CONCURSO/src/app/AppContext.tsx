@@ -337,6 +337,13 @@ type Action =
       date: string;
       isNewMatter: boolean;
     }
+  | {
+      type: 'unrate-submatter';
+      topicId: string;
+      submatterId: string;
+      date: string;
+      isNewMatter: boolean;
+    }
   | { type: 'add-theoretical-content'; item: TheoreticalContentItem }
   | {
       type: 'move-theoretical-content';
@@ -771,7 +778,21 @@ export const appReducer = (state: AppState, action: Action): AppState => {
         return state;
       }
 
-      const nextSrs = calculateNextSrsState(submatter, action.rating, action.date);
+      // If already rated today, restore the previous state as calculation basis
+      const alreadyReviewedToday = submatter.lastReviewedAt === action.date;
+      const baseSubmatterForCalculation = (alreadyReviewedToday && submatter.previousSrsState)
+        ? {
+            ...submatter,
+            grade: submatter.previousSrsState.grade,
+            srsInterval: submatter.previousSrsState.srsInterval,
+            srsEase: submatter.previousSrsState.srsEase,
+            srsRepetitions: submatter.previousSrsState.srsRepetitions,
+            srsNextReview: submatter.previousSrsState.srsNextReview,
+            lastReviewedAt: submatter.previousSrsState.lastReviewedAt,
+          }
+        : submatter;
+
+      const nextSrs = calculateNextSrsState(baseSubmatterForCalculation, action.rating, action.date);
 
       let nextStatus: TopicStatus = 'em_progresso';
       if (action.rating === 'bad') {
@@ -779,6 +800,19 @@ export const appReducer = (state: AppState, action: Action): AppState => {
       } else if (action.rating === 'easy') {
         nextStatus = 'acertado';
       }
+
+      // Store previousSrsState before today's first rating
+      const previousSrsState = alreadyReviewedToday
+        ? submatter.previousSrsState
+        : {
+            grade: submatter.grade,
+            srsInterval: submatter.srsInterval,
+            srsEase: submatter.srsEase,
+            srsRepetitions: submatter.srsRepetitions,
+            srsNextReview: submatter.srsNextReview,
+            lastReviewedAt: submatter.lastReviewedAt,
+            status: state.topicProgress[action.topicId]?.status ?? 'nao_iniciado',
+          };
 
       const updatedSubmatters = current.map((item) =>
         item.id === action.submatterId
@@ -790,6 +824,7 @@ export const appReducer = (state: AppState, action: Action): AppState => {
               srsRepetitions: nextSrs.srsRepetitions,
               srsNextReview: nextSrs.srsNextReview,
               lastReviewedAt: action.date,
+              previousSrsState,
               updatedAt: nowIso(),
             }
           : item
@@ -824,6 +859,70 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           [action.topicId]: {
             ...state.topicProgress[action.topicId],
             status: nextStatus,
+            updatedAt: nowIso(),
+          },
+        },
+        dailyRecords: updatedDailyRecords,
+      });
+    }
+    case 'unrate-submatter': {
+      const current = state.topicSubmattersByTopic[action.topicId];
+      if (!current) {
+        return state;
+      }
+
+      const submatter = current.find((item) => item.id === action.submatterId);
+      if (!submatter) {
+        return state;
+      }
+
+      const oldSrs = submatter.previousSrsState;
+
+      const revertedSubmatter = {
+        ...submatter,
+        grade: oldSrs ? oldSrs.grade : 'E',
+        srsInterval: oldSrs ? oldSrs.srsInterval : 0,
+        srsEase: oldSrs ? oldSrs.srsEase : 2.5,
+        srsRepetitions: oldSrs ? oldSrs.srsRepetitions : 0,
+        srsNextReview: oldSrs ? oldSrs.srsNextReview : null,
+        lastReviewedAt: oldSrs ? oldSrs.lastReviewedAt : null,
+        previousSrsState: null,
+        updatedAt: nowIso(),
+      };
+
+      const updatedSubmatters = current.map((item) =>
+        item.id === action.submatterId ? revertedSubmatter : item
+      );
+
+      const dailyRecord = state.dailyRecords[action.date];
+      let updatedDailyRecords = state.dailyRecords;
+      if (dailyRecord) {
+        const targetChecklistId = action.isNewMatter ? 'new-matter-study' : 'review-matter-study';
+        const updatedChecklist = dailyRecord.checklist.map((item) =>
+          item.id === targetChecklistId
+            ? { ...item, done: 0, status: 'pendente' as const }
+            : item
+        );
+        updatedDailyRecords = {
+          ...state.dailyRecords,
+          [action.date]: {
+            ...dailyRecord,
+            checklist: updatedChecklist,
+          },
+        };
+      }
+
+      return markChanged({
+        ...state,
+        topicSubmattersByTopic: {
+          ...state.topicSubmattersByTopic,
+          [action.topicId]: updatedSubmatters,
+        },
+        topicProgress: {
+          ...state.topicProgress,
+          [action.topicId]: {
+            ...state.topicProgress[action.topicId],
+            status: oldSrs ? oldSrs.status : 'nao_iniciado',
             updatedAt: nowIso(),
           },
         },
@@ -1085,6 +1184,12 @@ interface AppContextValue {
     topicId: string,
     submatterId: string,
     rating: 'bad' | 'hard' | 'good' | 'easy',
+    date: string,
+    isNewMatter: boolean,
+  ) => void;
+  unrateSubmatter: (
+    topicId: string,
+    submatterId: string,
     date: string,
     isNewMatter: boolean,
   ) => void;
@@ -1687,6 +1792,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           topicId,
           submatterId,
           rating,
+          date,
+          isNewMatter,
+        }),
+      unrateSubmatter: (topicId, submatterId, date, isNewMatter) =>
+        dispatch({
+          type: 'unrate-submatter',
+          topicId,
+          submatterId,
           date,
           isNewMatter,
         }),
