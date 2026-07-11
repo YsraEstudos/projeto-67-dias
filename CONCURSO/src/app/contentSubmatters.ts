@@ -479,17 +479,51 @@ const PRIORITY_ORDER_INDEX = {
 };
 
 export const sortUnstudiedSubmatters = (items: StudyItem[]): StudyItem[] => {
-  return [...items].sort((a, b) => {
-    const subjA = SUBJECT_ORDER_INDEX[a.topic.subject] ?? 99;
-    const subjB = SUBJECT_ORDER_INDEX[b.topic.subject] ?? 99;
-    if (subjA !== subjB) return subjA - subjB;
-
-    const prioA = PRIORITY_ORDER_INDEX[a.topic.priority] ?? 99;
-    const prioB = PRIORITY_ORDER_INDEX[b.topic.priority] ?? 99;
-    if (prioA !== prioB) return prioA - prioB;
-
-    return a.submatter.id.localeCompare(b.submatter.id);
+  // 1. Group by subject
+  const groups: Record<string, StudyItem[]> = {};
+  items.forEach(item => {
+    const s = item.topic.subject;
+    if (!groups[s]) {
+      groups[s] = [];
+    }
+    groups[s].push(item);
   });
+
+  // 2. Sort each group internally by priority first, then id
+  const subjects = Object.keys(groups);
+  subjects.forEach(s => {
+    groups[s].sort((a, b) => {
+      const prioA = PRIORITY_ORDER_INDEX[a.topic.priority] ?? 99;
+      const prioB = PRIORITY_ORDER_INDEX[b.topic.priority] ?? 99;
+      if (prioA !== prioB) return prioA - prioB;
+      return a.submatter.id.localeCompare(b.submatter.id);
+    });
+  });
+
+  // 3. Order the subject groups by the SUBJECT_ORDER_INDEX to keep a predictable round-robin starting order
+  const sortedSubjects = [...subjects].sort((a, b) => {
+    const idxA = SUBJECT_ORDER_INDEX[a as SubjectKey] ?? 99;
+    const idxB = SUBJECT_ORDER_INDEX[b as SubjectKey] ?? 99;
+    return idxA - idxB;
+  });
+
+  // 4. Interleave items (Round-Robin)
+  const result: StudyItem[] = [];
+  let hasMore = true;
+  let index = 0;
+  while (hasMore) {
+    hasMore = false;
+    for (const s of sortedSubjects) {
+      const list = groups[s];
+      if (index < list.length) {
+        result.push(list[index]);
+        hasMore = true;
+      }
+    }
+    index += 1;
+  }
+
+  return result;
 };
 
 export const resolveDailyStudy = (
@@ -548,7 +582,12 @@ export const resolveDailyStudy = (
 
   if (sortedUnstudied.length > 0) {
     const newMatter = sortedUnstudied[0];
-    const reviewMatter = sortedStudied.length > 0 ? sortedStudied[0] : null;
+    
+    // Find reviewMatter with a different subject than newMatter if possible
+    let reviewMatter = sortedStudied.find(item => item.topic.subject !== newMatter.topic.subject) || null;
+    if (!reviewMatter && sortedStudied.length > 0) {
+      reviewMatter = sortedStudied[0];
+    }
 
     return {
       newMatter,
@@ -557,7 +596,13 @@ export const resolveDailyStudy = (
     };
   } else {
     const newMatter = sortedStudied.length > 0 ? sortedStudied[0] : null;
-    const reviewMatter = sortedStudied.length > 1 ? sortedStudied[1] : null;
+    let reviewMatter = null;
+    if (newMatter) {
+      reviewMatter = sortedStudied.find(item => item.topic.subject !== newMatter.topic.subject) || null;
+    }
+    if (!reviewMatter && sortedStudied.length > 1) {
+      reviewMatter = sortedStudied[1];
+    }
 
     return {
       newMatter,

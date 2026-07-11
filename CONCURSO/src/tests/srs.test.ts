@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateNextSrsState, resolveDailyStudy } from '../app/contentSubmatters';
+import { calculateNextSrsState, resolveDailyStudy, sortUnstudiedSubmatters } from '../app/contentSubmatters';
 import type { TopicNode, TopicSubmatter } from '../app/types';
 
 describe('SRS (Spaced Repetition System) SuperMemo-2 algorithm', () => {
@@ -119,5 +119,53 @@ describe('resolveDailyStudy', () => {
     expect(study.isAllRepeated).toBe(true);
     expect(study.newMatter?.topic.id).toBe('t2'); // most urgent (grade E)
     expect(study.reviewMatter?.topic.id).toBe('t1'); // second most urgent (grade C)
+  });
+
+  it('alterna matérias novas na fila usando intercalação (round-robin)', () => {
+    const customTopics: TopicNode[] = [
+      { id: 't1', subject: 'portugues', title: 'Port 1', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+      { id: 't2', subject: 'portugues', title: 'Port 2', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+      { id: 't3', subject: 'rlm', title: 'RLM 1', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+      { id: 't4', subject: 'rlm', title: 'RLM 2', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+    ];
+    const mockState = {
+      topicSubmattersByTopic: {
+        t1: [{ id: 'sub-t1', title: 'Sub Port 1', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t2: [{ id: 'sub-t2', title: 'Sub Port 2', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t3: [{ id: 'sub-t3', title: 'Sub RLM 1', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t4: [{ id: 'sub-t4', title: 'Sub RLM 2', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+      },
+    };
+
+    const unstudied = [
+      { topic: customTopics[0], submatter: mockState.topicSubmattersByTopic.t1[0] },
+      { topic: customTopics[1], submatter: mockState.topicSubmattersByTopic.t2[0] },
+      { topic: customTopics[2], submatter: mockState.topicSubmattersByTopic.t3[0] },
+      { topic: customTopics[3], submatter: mockState.topicSubmattersByTopic.t4[0] },
+    ];
+
+    const sorted = sortUnstudiedSubmatters(unstudied);
+    // Should alternate: portugues first, then rlm, then portugues, then rlm
+    expect(sorted.map(s => s.topic.id)).toEqual(['t1', 't3', 't2', 't4']);
+  });
+
+  it('evita matérias repetidas nos Slots 1 e 2 no mesmo dia se houver alternativa', () => {
+    const customTopics: TopicNode[] = [
+      { id: 't1', subject: 'portugues', title: 'Port 1', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+      { id: 't2', subject: 'portugues', title: 'Port 2', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+      { id: 't3', subject: 'rlm', title: 'RLM 1', parentId: null, isLeaf: true, priority: 'alta', sourceRef: '' },
+    ];
+    const mockState = {
+      topicSubmattersByTopic: {
+        t1: [{ id: 'sub-t1', title: 'Sub Port 1', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t2: [{ id: 'sub-t2', title: 'Sub Port 2', grade: 'E' as const, lastReviewedAt: '2026-07-01', srsNextReview: '2026-07-08', srsInterval: 7, srsEase: 2.5, srsRepetitions: 1, errorNote: '', actionNote: '', createdAt: '2026-07-01', updatedAt: '2026-07-01' }],
+        t3: [{ id: 'sub-t3', title: 'Sub RLM 1', grade: 'E' as const, lastReviewedAt: '2026-07-01', srsNextReview: '2026-07-08', srsInterval: 7, srsEase: 2.5, srsRepetitions: 1, errorNote: '', actionNote: '', createdAt: '2026-07-01', updatedAt: '2026-07-01' }],
+      },
+    };
+
+    // If newMatter is t1 (portugues), reviewMatter should skip t2 (portugues, which is more overdue) and pick t3 (rlm)
+    const study = resolveDailyStudy(mockState, '2026-07-08', customTopics);
+    expect(study.newMatter?.topic.id).toBe('t1'); // new matter (portugues)
+    expect(study.reviewMatter?.topic.id).toBe('t3'); // review skipped t2 (portugues) and chose t3 (rlm) to avoid same subject in Slot 2!
   });
 });
