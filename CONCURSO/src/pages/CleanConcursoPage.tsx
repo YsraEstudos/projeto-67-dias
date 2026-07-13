@@ -1243,8 +1243,16 @@ export const CleanConcursoPage = () => {
                       <h3>{item.block.title}</h3>
                       <p>
                         {item.block.detail}
-                        {item.block.contentTargets?.length ? ` | ${item.block.contentTargets.length} tópico(s) oficial(is)` : ''}
                       </p>
+                      {item.block.contentTargets && item.block.contentTargets.length > 0 && (
+                        <div className="clean-topic-targets" style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {item.block.contentTargets.map((target) => (
+                            <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                              • {target.title}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="clean-topic-actions">
                       {firstTopicId ? (
@@ -1737,6 +1745,15 @@ export const CleanConcursoPage = () => {
                         </div>
                         <h3>{item.block.title}</h3>
                         <p>{item.block.detail}</p>
+                        {item.block.contentTargets && item.block.contentTargets.length > 0 && (
+                          <div className="clean-weekly-item-targets" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {item.block.contentTargets.map((target) => (
+                              <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                                • {target.title}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {itemGrade && (
                           <div className="clean-weekly-status-row">
                             <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
