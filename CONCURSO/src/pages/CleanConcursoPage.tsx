@@ -34,6 +34,7 @@ import {
   buildReviewSchedule,
   getManualBlockSubjectLabel,
 } from '../app/cleanConcursoModule';
+import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport';
 import { getLocalTodayIsoDate, getWeekday } from '../app/dateUtils';
 import { buildReviewQueue, buildTopicRollups, resolveDailyStudy } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
@@ -299,6 +300,7 @@ export const CleanConcursoPage = () => {
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [subjectFilter, setSubjectFilter] = useState<'all' | SubjectKey>('all');
+  const [weekFilter, setWeekFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
   const [mappedTopicId, setMappedTopicId] = useState<string | null>(null);
@@ -396,6 +398,18 @@ export const CleanConcursoPage = () => {
   };
 
   const planItemsBySubject = useMemo(() => groupPlanItemsBySubject(planContentItems), [planContentItems]);
+
+  const currentWeekNumber = selectedPlan?.weekNumber ?? null;
+
+  const availableWeeks = useMemo(() => {
+    const weeks = new Set<number>();
+    for (const item of planContentItems) {
+      if (item.weekNumber !== null && item.weekNumber !== undefined) {
+        weeks.add(item.weekNumber);
+      }
+    }
+    return Array.from(weeks).sort((a, b) => a - b);
+  }, [planContentItems]);
   const failedBlocksByDate = useMemo(
     () =>
       state.manualBlockReschedules.reduce<Record<string, number>>((accumulator, item) => {
@@ -472,6 +486,11 @@ export const CleanConcursoPage = () => {
     return planContentItems.filter((item) => {
       if (subjectFilter !== 'all' && item.subject !== subjectFilter) return false;
 
+      if (weekFilter !== 'all') {
+        const targetWeek = weekFilter === 'current' ? currentWeekNumber : Number(weekFilter);
+        if (item.weekNumber !== targetWeek) return false;
+      }
+
       const currentGrade = pickPlanItemGrade(item.topicIds, rollups);
 
       if (contentFilter !== 'all' && contentFilter !== 'review' && currentGrade !== contentFilter) {
@@ -494,7 +513,7 @@ export const CleanConcursoPage = () => {
         .toLowerCase()
         .includes(normalizedDeferredSearch);
     });
-  }, [contentFilter, normalizedDeferredSearch, planContentItems, topicsNeedingReview, rollups, subjectFilter]);
+  }, [contentFilter, normalizedDeferredSearch, planContentItems, topicsNeedingReview, rollups, subjectFilter, weekFilter, currentWeekNumber]);
 
   const dashboardStats = useMemo(() => {
     const reviewNow = pendingReviewQueue.length;
@@ -1154,7 +1173,7 @@ export const CleanConcursoPage = () => {
               </span>
             </div>
 
-            <div className="clean-filter-bar">
+            <div className="clean-filter-bar" style={{ gridTemplateColumns: 'minmax(0, 1fr) 180px 180px' }}>
               <label className="clean-search">
                 <Search size={16} />
                 <input
@@ -1174,6 +1193,24 @@ export const CleanConcursoPage = () => {
                   <option value="rlm">RLM</option>
                   <option value="legislacao">Legislação</option>
                   <option value="especificos">Específicos</option>
+                </select>
+              </label>
+              <label className="clean-select-label">
+                <CalendarDays size={16} />
+                <select
+                  value={weekFilter}
+                  onChange={(event) => setWeekFilter(event.target.value)}
+                  aria-label="Filtrar por semana"
+                >
+                  <option value="all">Todas as semanas</option>
+                  {currentWeekNumber !== null && (
+                    <option value="current">Semana Atual ({currentWeekNumber})</option>
+                  )}
+                  {availableWeeks.map((weekNum) => (
+                    <option key={weekNum} value={String(weekNum)}>
+                      Semana {weekNum}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -1583,6 +1620,31 @@ export const CleanConcursoPage = () => {
                 ))}
               </div>
               <small>Ao clicar em Estudar, uma nova sessão já abre com a meta da matéria.</small>
+            </div>
+
+            <div className="clean-settings-field" style={{ gridColumn: '1 / -1' }}>
+              <span>Exportar Cronograma de Estudos</span>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="clean-icon-link"
+                  onClick={() => exportFullPlanAsMarkdown(dayPlans)}
+                  style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', minHeight: '40px', cursor: 'pointer', borderRadius: '12px', fontWeight: 'bold' }}
+                >
+                  Baixar Markdown (.md)
+                </button>
+                <button
+                  type="button"
+                  className="clean-icon-link"
+                  onClick={() => exportFullPlanAsPdf(dayPlans)}
+                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', minHeight: '40px', cursor: 'pointer', borderRadius: '12px', fontWeight: 'bold' }}
+                >
+                  Exportar PDF / Imprimir
+                </button>
+              </div>
+              <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8' }}>
+                Gere um documento contendo todo o seu plano de estudos diário, incluindo as matérias realocadas por falhas e as datas atualizadas.
+              </small>
             </div>
 
             <div className="clean-settings-summary" aria-label="Resumo das configurações do plano">
