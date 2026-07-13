@@ -2127,3 +2127,114 @@
   background: #1e293b;
   color: #ffffff;
 }
+
+/* Multi-column filter bar styling */
+.clean-filter-bar.has-three-cols {
+  grid-template-columns: minmax(0, 1fr) 180px 180px;
+}
+
+@media (max-width: 1040px) {
+  .clean-filter-bar.has-three-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Plan export buttons and layouts */
+.clean-settings-export-container {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.clean-settings-export-btn {
+  min-height: 40px;
+  cursor: pointer;
+  border-radius: 12px;
+  font-weight: bold;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.clean-settings-export-btn.btn-markdown {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.clean-settings-export-btn.btn-markdown:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.clean-settings-export-btn.btn-pdf {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.clean-settings-export-btn.btn-pdf:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.clean-settings-export-help {
+  display: block;
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+/* Content targets styling inside weekly modal items and content cards */
+.clean-weekly-item-targets,
+.clean-topic-targets {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clean-weekly-item-target,
+.clean-topic-target {
+  font-size: 0.82rem;
+  color: #fde68a;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+/* Weekly view modal headers grouping */
+.clean-weekly-group-header {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clean-weekly-group-header.group-new {
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(14, 165, 233, 0.2);
+}
+
+.clean-weekly-group-header.group-review {
+  color: #fbbf24;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.clean-badges-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.clean-grid-span-full {
+  grid-column: 1 / -1;
+}
+
+

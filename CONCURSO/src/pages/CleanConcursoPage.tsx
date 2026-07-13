@@ -1193,7 +1193,7 @@ export const CleanConcursoPage = () => {
               </span>
             </div>
 
-            <div className="clean-filter-bar" style={{ gridTemplateColumns: 'minmax(0, 1fr) 180px 180px' }}>
+            <div className="clean-filter-bar has-three-cols">
               <label className="clean-search">
                 <Search size={16} />
                 <input
@@ -1265,9 +1265,9 @@ export const CleanConcursoPage = () => {
                         {item.block.detail}
                       </p>
                       {item.block.contentTargets && item.block.contentTargets.length > 0 && (
-                        <div className="clean-topic-targets" style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div className="clean-topic-targets">
                           {item.block.contentTargets.map((target) => (
-                            <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                            <span key={target.topicId} className="clean-topic-target">
                               • {target.title}
                             </span>
                           ))}
@@ -1650,27 +1650,25 @@ export const CleanConcursoPage = () => {
               <small>Ao clicar em Estudar, uma nova sessão já abre com a meta da matéria.</small>
             </div>
 
-            <div className="clean-settings-field" style={{ gridColumn: '1 / -1' }}>
+            <div className="clean-settings-field clean-grid-span-full">
               <span>Exportar Cronograma de Estudos</span>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+              <div className="clean-settings-export-container">
                 <button
                   type="button"
-                  className="clean-icon-link"
+                  className="clean-settings-export-btn btn-markdown"
                   onClick={() => exportFullPlanAsMarkdown(dayPlans)}
-                  style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', minHeight: '40px', cursor: 'pointer', borderRadius: '12px', fontWeight: 'bold' }}
                 >
                   Baixar Markdown (.md)
                 </button>
                 <button
                   type="button"
-                  className="clean-icon-link"
+                  className="clean-settings-export-btn btn-pdf"
                   onClick={() => exportFullPlanAsPdf(dayPlans)}
-                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', minHeight: '40px', cursor: 'pointer', borderRadius: '12px', fontWeight: 'bold' }}
                 >
                   Exportar PDF / Imprimir
                 </button>
               </div>
-              <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8' }}>
+              <small className="clean-settings-export-help">
                 Gere um documento contendo todo o seu plano de estudos diário, incluindo as matérias realocadas por falhas e as datas atualizadas.
               </small>
             </div>
@@ -1750,19 +1748,19 @@ export const CleanConcursoPage = () => {
             </div>
             <div className="clean-modal-body">
               {weeklyPlanItems.length > 0 ? (
-                <div className="clean-weekly-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="clean-weekly-list">
                   {weeklyNewItems.length > 0 && (
                     <div>
-                      <h4 style={{ color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', borderBottom: '1px solid rgba(14, 165, 233, 0.2)', paddingBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <h4 className="clean-weekly-group-header group-new">
                         Matérias Novas ({weeklyNewItems.length})
                       </h4>
-                      <div className="clean-weekly-list" style={{ gap: '10px' }}>
+                      <div className="clean-weekly-list">
                         {weeklyNewItems.map((item) => {
                           const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
                           return (
                             <article key={item.id} className="clean-weekly-item">
                               <div className="clean-weekly-item-header">
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <div className="clean-badges-row">
                                   <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
                                     {item.subject ? subjectLabel(item.subject) : 'Outros'}
                                   </span>
@@ -1777,9 +1775,9 @@ export const CleanConcursoPage = () => {
                               <h3>{item.block.title}</h3>
                               <p>{item.block.detail}</p>
                               {item.block.contentTargets && item.block.contentTargets.length > 0 && (
-                                <div className="clean-weekly-item-targets" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div className="clean-weekly-item-targets">
                                   {item.block.contentTargets.map((target) => (
-                                    <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                                    <span key={target.topicId} className="clean-weekly-item-target">
                                       • {target.title}
                                     </span>
                                   ))}
@@ -1801,16 +1799,16 @@ export const CleanConcursoPage = () => {
 
                   {weeklyReviewItems.length > 0 && (
                     <div>
-                      <h4 style={{ color: '#fbbf24', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', borderBottom: '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <h4 className="clean-weekly-group-header group-review">
                         Revisões ({weeklyReviewItems.length})
                       </h4>
-                      <div className="clean-weekly-list" style={{ gap: '10px' }}>
+                      <div className="clean-weekly-list">
                         {weeklyReviewItems.map((item) => {
                           const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
                           return (
                             <article key={item.id} className="clean-weekly-item">
                               <div className="clean-weekly-item-header">
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <div className="clean-badges-row">
                                   <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
                                     {item.subject ? subjectLabel(item.subject) : 'Outros'}
                                   </span>
@@ -1825,9 +1823,9 @@ export const CleanConcursoPage = () => {
                               <h3>{item.block.title}</h3>
                               <p>{item.block.detail}</p>
                               {item.block.contentTargets && item.block.contentTargets.length > 0 && (
-                                <div className="clean-weekly-item-targets" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div className="clean-weekly-item-targets">
                                   {item.block.contentTargets.map((target) => (
-                                    <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                                    <span key={target.topicId} className="clean-weekly-item-target">
                                       • {target.title}
                                     </span>
                                   ))}

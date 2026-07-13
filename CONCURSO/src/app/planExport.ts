@@ -197,8 +197,10 @@ export const exportFullPlanAsPdf = (dayPlans: DayPlan[]): void => {
     throw new Error('Popup bloqueado. Permita popups para gerar o PDF.');
   }
 
-  printWindow.document.write(buildFullPlanHtml(dayPlans));
-  printWindow.document.close();
+  const doc = printWindow.document;
+  doc.open();
+  doc.write(buildFullPlanHtml(dayPlans));
+  doc.close();
   printWindow.focus();
   printWindow.print();
 };
