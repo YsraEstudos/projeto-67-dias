@@ -35,7 +35,7 @@ import {
   getManualBlockSubjectLabel,
 } from '../app/cleanConcursoModule';
 import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport';
-import { getLocalTodayIsoDate, getWeekday } from '../app/dateUtils';
+import { getLocalTodayIsoDate } from '../app/dateUtils';
 import { buildReviewQueue, buildTopicRollups, resolveDailyStudy } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
 import { getTopicDisplayTitle } from '../app/topics';
@@ -383,30 +383,42 @@ export const CleanConcursoPage = () => {
     return planContentItems.filter((item) => item.weekNumber === weeklyViewWeek);
   }, [planContentItems, weeklyViewWeek]);
 
-  const { weeklyNewItems, weeklyReviewItems } = useMemo(() => {
-    const newItems: typeof weeklyPlanItems = [];
-    const reviewItems: typeof weeklyPlanItems = [];
+  const weeklyTopicsBySubject = useMemo(() => {
+    const grouped: Record<SubjectKey, Array<{ title: string; isNew: boolean }>> = {
+      portugues: [],
+      rlm: [],
+      legislacao: [],
+      especificos: [],
+    };
 
     for (const item of weeklyPlanItems) {
-      const isNew = item.topicIds.length === 0 || item.topicIds.some((topicId) => {
-        const submatters = state.topicSubmattersByTopic[topicId] ?? [];
-        return submatters.length === 0 || submatters.every(s => s.lastReviewedAt === null);
-      });
+      const subject = item.subject;
+      if (!subject) continue;
 
-      if (isNew) {
-        newItems.push(item);
+      if (item.block.contentTargets && item.block.contentTargets.length > 0) {
+        for (const target of item.block.contentTargets) {
+          if (!grouped[subject].some((t) => t.title === target.title)) {
+            const topic = topics.find((t) => t.title === target.sourceTitle);
+            const submatters = topic ? (state.topicSubmattersByTopic[topic.id] ?? []) : [];
+            const isNew = submatters.length === 0 || submatters.every((s) => s.lastReviewedAt === null);
+            grouped[subject].push({ title: target.title, isNew });
+          }
+        }
       } else {
-        reviewItems.push(item);
+        if (!grouped[subject].some((t) => t.title === item.block.title)) {
+          grouped[subject].push({ title: item.block.title, isNew: true });
+        }
       }
     }
 
-    return { weeklyNewItems: newItems, weeklyReviewItems: reviewItems };
-  }, [weeklyPlanItems, state.topicSubmattersByTopic]);
+    (Object.keys(grouped) as SubjectKey[]).forEach((subj) => {
+      grouped[subj].sort((a, b) => (a.isNew === b.isNew ? a.title.localeCompare(b.title) : a.isNew ? -1 : 1));
+    });
 
-  const formatDayOfWeek = (isoDate: string): string => {
-    const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-    return days[getWeekday(isoDate)];
-  };
+    return grouped;
+  }, [weeklyPlanItems, topics, state.topicSubmattersByTopic]);
+
+
 
   const openWeeklyView = () => {
     if (currentWeek !== undefined && currentWeek !== null) {
@@ -1748,102 +1760,29 @@ export const CleanConcursoPage = () => {
             </div>
             <div className="clean-modal-body">
               {weeklyPlanItems.length > 0 ? (
-                <div className="clean-weekly-list">
-                  {weeklyNewItems.length > 0 && (
-                    <div>
-                      <h4 className="clean-weekly-group-header group-new">
-                        Matérias Novas ({weeklyNewItems.length})
-                      </h4>
-                      <div className="clean-weekly-list">
-                        {weeklyNewItems.map((item) => {
-                          const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
-                          return (
-                            <article key={item.id} className="clean-weekly-item">
-                              <div className="clean-weekly-item-header">
-                                <div className="clean-badges-row">
-                                  <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
-                                    {item.subject ? subjectLabel(item.subject) : 'Outros'}
-                                  </span>
-                                  <span className="clean-task-area is-new">
-                                    Matéria Nova
-                                  </span>
-                                </div>
-                                <span className="clean-weekly-date">
-                                  {formatIsoDateCompactPtBr(item.date)} ({formatDayOfWeek(item.date)})
-                                </span>
-                              </div>
-                              <h3>{item.block.title}</h3>
-                              <p>{item.block.detail}</p>
-                              {item.block.contentTargets && item.block.contentTargets.length > 0 && (
-                                <div className="clean-weekly-item-targets">
-                                  {item.block.contentTargets.map((target) => (
-                                    <span key={target.topicId} className="clean-weekly-item-target">
-                                      • {target.title}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {itemGrade && (
-                                <div className="clean-weekly-status-row">
-                                  <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
-                                    Desempenho: Nota {itemGrade}
-                                  </span>
-                                </div>
-                              )}
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {(Object.keys(weeklyTopicsBySubject) as SubjectKey[]).map((subject) => {
+                    const topicsList = weeklyTopicsBySubject[subject];
+                    if (topicsList.length === 0) return null;
 
-                  {weeklyReviewItems.length > 0 && (
-                    <div>
-                      <h4 className="clean-weekly-group-header group-review">
-                        Revisões ({weeklyReviewItems.length})
-                      </h4>
-                      <div className="clean-weekly-list">
-                        {weeklyReviewItems.map((item) => {
-                          const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
-                          return (
-                            <article key={item.id} className="clean-weekly-item">
-                              <div className="clean-weekly-item-header">
-                                <div className="clean-badges-row">
-                                  <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
-                                    {item.subject ? subjectLabel(item.subject) : 'Outros'}
-                                  </span>
-                                  <span className="clean-task-area is-review">
-                                    Revisão
-                                  </span>
-                                </div>
-                                <span className="clean-weekly-date">
-                                  {formatIsoDateCompactPtBr(item.date)} ({formatDayOfWeek(item.date)})
-                                </span>
-                              </div>
-                              <h3>{item.block.title}</h3>
-                              <p>{item.block.detail}</p>
-                              {item.block.contentTargets && item.block.contentTargets.length > 0 && (
-                                <div className="clean-weekly-item-targets">
-                                  {item.block.contentTargets.map((target) => (
-                                    <span key={target.topicId} className="clean-weekly-item-target">
-                                      • {target.title}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {itemGrade && (
-                                <div className="clean-weekly-status-row">
-                                  <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
-                                    Desempenho: Nota {itemGrade}
-                                  </span>
-                                </div>
-                              )}
-                            </article>
-                          );
-                        })}
+                    return (
+                      <div key={subject} className="clean-weekly-subject-group">
+                        <h4 className={`clean-task-area subject-${subject}`}>
+                          {subjectLabel(subject)}
+                        </h4>
+                        <ul className="clean-weekly-topics-list">
+                          {topicsList.map((topic, idx) => (
+                            <li key={idx} className="clean-weekly-topic-item">
+                              <span className="clean-weekly-topic-item-title">• {topic.title}</span>
+                              <span className={`clean-task-area clean-weekly-topic-item-badge ${topic.isNew ? 'is-new' : 'is-review'}`}>
+                                {topic.isNew ? 'Estudo Novo' : 'Revisão'}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="clean-empty-state">Nenhuma matéria planejada para esta semana.</p>
