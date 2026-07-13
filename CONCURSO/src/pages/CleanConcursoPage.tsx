@@ -383,6 +383,26 @@ export const CleanConcursoPage = () => {
     return planContentItems.filter((item) => item.weekNumber === weeklyViewWeek);
   }, [planContentItems, weeklyViewWeek]);
 
+  const { weeklyNewItems, weeklyReviewItems } = useMemo(() => {
+    const newItems: typeof weeklyPlanItems = [];
+    const reviewItems: typeof weeklyPlanItems = [];
+
+    for (const item of weeklyPlanItems) {
+      const isNew = item.topicIds.length === 0 || item.topicIds.some((topicId) => {
+        const submatters = state.topicSubmattersByTopic[topicId] ?? [];
+        return submatters.length === 0 || submatters.every(s => s.lastReviewedAt === null);
+      });
+
+      if (isNew) {
+        newItems.push(item);
+      } else {
+        reviewItems.push(item);
+      }
+    }
+
+    return { weeklyNewItems: newItems, weeklyReviewItems: reviewItems };
+  }, [weeklyPlanItems, state.topicSubmattersByTopic]);
+
   const formatDayOfWeek = (isoDate: string): string => {
     const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
     return days[getWeekday(isoDate)];
@@ -1730,40 +1750,102 @@ export const CleanConcursoPage = () => {
             </div>
             <div className="clean-modal-body">
               {weeklyPlanItems.length > 0 ? (
-                <div className="clean-weekly-list">
-                  {weeklyPlanItems.map((item) => {
-                    const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
-                    return (
-                      <article key={item.id} className="clean-weekly-item">
-                        <div className="clean-weekly-item-header">
-                          <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
-                            {item.subject ? subjectLabel(item.subject) : 'Outros'}
-                          </span>
-                          <span className="clean-weekly-date">
-                            {formatIsoDateCompactPtBr(item.date)} ({formatDayOfWeek(item.date)})
-                          </span>
-                        </div>
-                        <h3>{item.block.title}</h3>
-                        <p>{item.block.detail}</p>
-                        {item.block.contentTargets && item.block.contentTargets.length > 0 && (
-                          <div className="clean-weekly-item-targets" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {item.block.contentTargets.map((target) => (
-                              <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
-                                • {target.title}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {itemGrade && (
-                          <div className="clean-weekly-status-row">
-                            <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
-                              Desempenho: Nota {itemGrade}
-                            </span>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
+                <div className="clean-weekly-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {weeklyNewItems.length > 0 && (
+                    <div>
+                      <h4 style={{ color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', borderBottom: '1px solid rgba(14, 165, 233, 0.2)', paddingBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        Matérias Novas ({weeklyNewItems.length})
+                      </h4>
+                      <div className="clean-weekly-list" style={{ gap: '10px' }}>
+                        {weeklyNewItems.map((item) => {
+                          const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
+                          return (
+                            <article key={item.id} className="clean-weekly-item">
+                              <div className="clean-weekly-item-header">
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
+                                    {item.subject ? subjectLabel(item.subject) : 'Outros'}
+                                  </span>
+                                  <span className="clean-task-area is-new">
+                                    Matéria Nova
+                                  </span>
+                                </div>
+                                <span className="clean-weekly-date">
+                                  {formatIsoDateCompactPtBr(item.date)} ({formatDayOfWeek(item.date)})
+                                </span>
+                              </div>
+                              <h3>{item.block.title}</h3>
+                              <p>{item.block.detail}</p>
+                              {item.block.contentTargets && item.block.contentTargets.length > 0 && (
+                                <div className="clean-weekly-item-targets" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {item.block.contentTargets.map((target) => (
+                                    <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                                      • {target.title}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {itemGrade && (
+                                <div className="clean-weekly-status-row">
+                                  <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
+                                    Desempenho: Nota {itemGrade}
+                                  </span>
+                                </div>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {weeklyReviewItems.length > 0 && (
+                    <div>
+                      <h4 style={{ color: '#fbbf24', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px', borderBottom: '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        Revisões ({weeklyReviewItems.length})
+                      </h4>
+                      <div className="clean-weekly-list" style={{ gap: '10px' }}>
+                        {weeklyReviewItems.map((item) => {
+                          const itemGrade = pickPlanItemGrade(item.topicIds, rollups);
+                          return (
+                            <article key={item.id} className="clean-weekly-item">
+                              <div className="clean-weekly-item-header">
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  <span className={`clean-task-area subject-${item.subject ?? 'unknown'}`}>
+                                    {item.subject ? subjectLabel(item.subject) : 'Outros'}
+                                  </span>
+                                  <span className="clean-task-area is-review">
+                                    Revisão
+                                  </span>
+                                </div>
+                                <span className="clean-weekly-date">
+                                  {formatIsoDateCompactPtBr(item.date)} ({formatDayOfWeek(item.date)})
+                                </span>
+                              </div>
+                              <h3>{item.block.title}</h3>
+                              <p>{item.block.detail}</p>
+                              {item.block.contentTargets && item.block.contentTargets.length > 0 && (
+                                <div className="clean-weekly-item-targets" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {item.block.contentTargets.map((target) => (
+                                    <span key={target.topicId} style={{ fontSize: '0.82rem', color: '#fde68a', opacity: 0.9 }}>
+                                      • {target.title}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {itemGrade && (
+                                <div className="clean-weekly-status-row">
+                                  <span className={`clean-grade-badge grade-${itemGrade.toLowerCase()}`}>
+                                    Desempenho: Nota {itemGrade}
+                                  </span>
+                                </div>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="clean-empty-state">Nenhuma matéria planejada para esta semana.</p>
