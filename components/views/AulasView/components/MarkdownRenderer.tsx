@@ -372,9 +372,11 @@ export function MarkdownRenderer({
       {children}
 
       {!content ? (
-        <div className="text-slate-500 italic font-serif">
-          Nenhum conteúdo. Clique em "Editar MD" para adicionar o texto desta aula.
-        </div>
+        !children && (
+          <div className="text-slate-500 italic font-serif">
+            Nenhum conteúdo. Clique em "Editar MD" para adicionar o texto desta aula.
+          </div>
+        )
       ) : (
         <Markdown
           remarkPlugins={[remarkGfm, remarkMath]}

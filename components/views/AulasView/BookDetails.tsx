@@ -17,6 +17,7 @@ import {
   ArrowRightLeft,
   Folder,
   BookOpen,
+  Plus,
 } from "lucide-react";
 import { fileToBase64 } from "./utils";
 import {
@@ -242,11 +243,24 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [pasteJsonDialogOpen, setPasteJsonDialogOpen] = useState(false);
   const [jsonPasteText, setJsonPasteText] = useState("");
+  const [createChapterDialogOpen, setCreateChapterDialogOpen] = useState(false);
+  const [newChapterTitle, setNewChapterTitle] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const handleCreateChapterSubmit = () => {
+    const title = newChapterTitle.trim();
+    if (!title) {
+      alert("Por favor, digite o título da aula.");
+      return;
+    }
+    addChaptersJson(book.id, [{ title }]);
+    setCreateChapterDialogOpen(false);
+    setNewChapterTitle("");
+  };
 
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -548,6 +562,13 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
               Baixar (.md)
             </button>
             <button
+              onClick={() => setCreateChapterDialogOpen(true)}
+              className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Nova Aula
+            </button>
+            <button
               onClick={() => setPasteJsonDialogOpen(true)}
               className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
             >
@@ -557,7 +578,7 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
             <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleUploadJson} />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer shrink-0"
             >
               <FileJson className="w-4 h-4" />
               Instalar JSON
@@ -605,6 +626,12 @@ Regras:
                 Copiar Prompt Base
               </button>
               <button
+                onClick={() => setCreateChapterDialogOpen(true)}
+                className="bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                + Nova Aula
+              </button>
+              <button
                 onClick={() => setPasteJsonDialogOpen(true)}
                 className="bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
               >
@@ -612,7 +639,7 @@ Regras:
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-[#D4AF37] border border-[#D4AF37] hover:bg-[#C2A032] hover:border-[#C2A032] text-slate-950 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+                className="bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
               >
                 Procurar JSON
               </button>
@@ -726,6 +753,45 @@ Regras:
           </DndContext>
         )}
       </div>
+
+      {createChapterDialogOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-serif italic text-slate-100 mb-4">Criar Nova Aula</h3>
+            <p className="text-slate-400 text-sm mb-4">Digite o título da nova aula:</p>
+            <input
+              type="text"
+              autoFocus
+              value={newChapterTitle}
+              onChange={(e) => setNewChapterTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateChapterSubmit();
+              }}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] mb-6 text-sm"
+              placeholder="ex: Aula 1 - Direito Constitucional"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateChapterDialogOpen(false);
+                  setNewChapterTitle("");
+                }}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateChapterSubmit}
+                className="bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-4 py-2 rounded text-sm font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                Criar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pasteJsonDialogOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">

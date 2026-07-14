@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import ChapterView from '../../../components/views/AulasView/ChapterView';
+import ChapterView, { parseQuestionNumbers, formatQuestionNumbers } from '../../../components/views/AulasView/ChapterView';
 
 // Mock Zustand store updates
 const mockUpdateChapter = vi.fn();
@@ -236,6 +236,41 @@ describe('ChapterView - Question Performance Evolution & Pill Styles', () => {
 
     expect(mockUpdateChapter).toHaveBeenCalledWith('book-1', 'chapter-1', {
       difficultQuestions: [5],
+    });
+  });
+
+  describe('parseQuestionNumbers helper', () => {
+    it('parses empty inputs and plain numbers', () => {
+      expect(parseQuestionNumbers('')).toEqual([]);
+      expect(parseQuestionNumbers('  ')).toEqual([]);
+      expect(parseQuestionNumbers('5')).toEqual([5]);
+      expect(parseQuestionNumbers('1,2,3')).toEqual([1, 2, 3]);
+      expect(parseQuestionNumbers(' 1 ,  4 , 2 ')).toEqual([1, 2, 4]); // sorted, trimmed
+    });
+
+    it('parses simple ranges and complex mix', () => {
+      expect(parseQuestionNumbers('1-5')).toEqual([1, 2, 3, 4, 5]);
+      expect(parseQuestionNumbers('10-12, 15, 20-22')).toEqual([10, 11, 12, 15, 20, 21, 22]);
+      expect(parseQuestionNumbers('3-1, 5')).toEqual([1, 2, 3, 5]); // reversed range
+    });
+
+    it('avoids duplicates and handles invalid inputs gracefully', () => {
+      expect(parseQuestionNumbers('1, 1, 2-3, 3, abc')).toEqual([1, 2, 3]);
+      expect(parseQuestionNumbers('-3, 0, 5')).toEqual([5]); // filters <= 0
+    });
+  });
+
+  describe('formatQuestionNumbers helper', () => {
+    it('formats empty lists and plain numbers', () => {
+      expect(formatQuestionNumbers([])).toBe('');
+      expect(formatQuestionNumbers([5])).toBe('5');
+      expect(formatQuestionNumbers([1, 3, 5])).toBe('1, 3, 5');
+    });
+
+    it('formats consecutive ranges', () => {
+      expect(formatQuestionNumbers([1, 2, 3, 4, 5])).toBe('1-5');
+      expect(formatQuestionNumbers([1, 2, 3, 5, 7, 8, 9])).toBe('1-3, 5, 7-9');
+      expect(formatQuestionNumbers([10, 11, 12, 15, 20, 21, 22])).toBe('10-12, 15, 20-22');
     });
   });
 });

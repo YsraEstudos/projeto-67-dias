@@ -24,6 +24,8 @@ import {
   History,
   TrendingUp,
   LineChart,
+  ListTodo,
+  Plus,
 } from "lucide-react";
 import { generateSlug, fileToBase64, cn } from "./utils";
 import { AulaRelatedQuestions, QuestionAttempt } from "../../../types";
@@ -33,6 +35,75 @@ import { TableOfContentsSidebar, TableOfContentsDrawer } from "./components/Tabl
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { StudyTimer } from "./components/StudyTimer";
 import { AnnotationOverlay, CommentsSidebar, CommentsDrawer } from "./components/AnnotationOverlay";
+
+/**
+ * Converte uma string com números e intervalos de questões (ex: "1-5, 8, 10-12")
+ * em uma lista ordenada de números únicos ([1, 2, 3, 4, 5, 8, 10, 11, 12]).
+ */
+export function parseQuestionNumbers(input: string): number[] {
+  const result = new Set<number>();
+  if (!input) return [];
+
+  const normalized = input.replace(/[\u2013\u2014]/g, "-");
+  const parts = normalized.split(",");
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    if (trimmed.includes("-")) {
+      const [startStr, endStr] = trimmed.split("-");
+      const start = parseInt(startStr.trim(), 10);
+      const end = parseInt(endStr.trim(), 10);
+
+      if (!isNaN(start) && !isNaN(end)) {
+        const minVal = Math.min(start, end);
+        const maxVal = Math.max(start, end);
+        const safeMax = Math.min(minVal + 1000, maxVal);
+        for (let i = minVal; i <= safeMax; i++) {
+          if (i > 0) result.add(i);
+        }
+      }
+    } else {
+      const num = parseInt(trimmed, 10);
+      if (!isNaN(num) && num > 0) {
+        result.add(num);
+      }
+    }
+  }
+
+  return Array.from(result).sort((a, b) => a - b);
+}
+
+/**
+ * Converte uma lista de números em uma string formatada de forma compacta (ex: [1, 2, 3, 5, 7, 8] -> "1-3, 5, 7-8").
+ */
+export function formatQuestionNumbers(numbers: number[]): string {
+  if (!numbers || numbers.length === 0) return "";
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const ranges: string[] = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+
+  for (let i = 1; i <= sorted.length; i++) {
+    const current = sorted[i];
+    if (current === undefined || current !== prev + 1) {
+      if (start === prev) {
+        ranges.push(String(start));
+      } else {
+        ranges.push(`${start}-${prev}`);
+      }
+      if (current !== undefined) {
+        start = current;
+        prev = current;
+      }
+    } else {
+      prev = current;
+    }
+  }
+
+  return ranges.join(", ");
+}
 
 interface ChapterViewProps {
   bookId: string;
@@ -54,6 +125,64 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
   const [editMode, setEditMode] = useState(false);
   const [markdownInput, setMarkdownInput] = useState("");
   const [isEditingContent, setIsEditingContent] = useState(false);
+
+  // Visual Question Editor State
+  const [isQuestionEditorOpen, setIsQuestionEditorOpen] = useState(false);
+  const [editorAulaNumber, setEditorAulaNumber] = useState<number>(1);
+  const [editorAulaTitle, setEditorAulaTitle] = useState("");
+  const [editorPrincipais, setEditorPrincipais] = useState("");
+  const [editorSecundarias, setEditorSecundarias] = useState("");
+  const [editorObservacao, setEditorObservacao] = useState("");
+  const [editorSections, setEditorSections] = useState<Array<{ secao: string; questoes: string }>>([]);
+
+  const handleOpenQuestionEditor = () => {
+    const currentQuestions = chapter?.relatedQuestions;
+    const defaultAulaNum = book?.chapters.findIndex((c) => c.id === chapter?.id) !== -1 
+      ? (book?.chapters.findIndex((c) => c.id === chapter?.id) ?? 0) + 1 
+      : 1;
+
+    setEditorAulaNumber(currentQuestions?.aula ?? defaultAulaNum);
+    setEditorAulaTitle(currentQuestions?.titulo ?? chapter?.title ?? "");
+    setEditorPrincipais(formatQuestionNumbers(currentQuestions?.questoes_principais ?? []));
+    setEditorSecundarias(formatQuestionNumbers(currentQuestions?.questoes_secundarias_que_misturam_com_aulas_futuras ?? []));
+    setEditorObservacao(currentQuestions?.observacao ?? "");
+    setEditorSections(
+      (currentQuestions?.por_secao ?? []).map((sec) => ({
+        secao: sec.secao,
+        questoes: formatQuestionNumbers(sec.questoes),
+      }))
+    );
+    setIsQuestionEditorOpen(true);
+  };
+
+  const handleSaveQuestions = () => {
+    if (!book || !chapter) return;
+
+    const parsedPrincipais = parseQuestionNumbers(editorPrincipais);
+    
+    if (parsedPrincipais.length === 0) {
+      updateChapter(book.id, chapter.id, { relatedQuestions: undefined });
+      setIsQuestionEditorOpen(false);
+      return;
+    }
+
+    const relatedQuestions: AulaRelatedQuestions = {
+      aula: Number(editorAulaNumber) || 1,
+      titulo: editorAulaTitle.trim() || chapter.title,
+      questoes_principais: parsedPrincipais,
+      por_secao: editorSections
+        .map((sec) => ({
+          secao: sec.secao.trim(),
+          questoes: parseQuestionNumbers(sec.questoes),
+        }))
+        .filter((sec) => sec.secao !== "" && sec.questoes.length > 0),
+      questoes_secundarias_que_misturam_com_aulas_futuras: parseQuestionNumbers(editorSecundarias),
+      observacao: editorObservacao.trim() || undefined,
+    };
+
+    updateChapter(book.id, chapter.id, { relatedQuestions });
+    setIsQuestionEditorOpen(false);
+  };
 
   // Focus Timer state
   const [timerDuration, setTimerDuration] = useState(15);
@@ -857,6 +986,16 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                   </button>
                   <button
                     onClick={() => {
+                      handleOpenQuestionEditor();
+                      setIsToolsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded text-xs font-semibold hover:bg-slate-800 text-[#D4AF37] transition-colors flex items-center gap-2 cursor-pointer font-bold"
+                  >
+                    <ListTodo className="w-3.5 h-3.5 shrink-0" />
+                    <span>Configurar Questões</span>
+                  </button>
+                  <button
+                    onClick={() => {
                       setQuestionsJsonDialogOpen(true);
                       setIsToolsMenuOpen(false);
                     }}
@@ -994,6 +1133,30 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
               className="w-full h-full p-6 border-2 border-slate-800 rounded bg-slate-900 font-mono text-xs leading-relaxed text-slate-100 resize-none focus:outline-none focus:border-[#D4AF37]"
               placeholder="# Escreva sua aula em Markdown ou cole HTML aqui..."
             />
+          ) : !chapter.content && !chapter.relatedQuestions ? (
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-8 max-w-xl mx-auto my-12 text-center shadow-2xl backdrop-blur-md relative card-gradient-border">
+              <BookOpen className="w-12 h-12 text-[#D4AF37] mx-auto mb-4 opacity-85 animate-pulse" />
+              <h2 className="text-2xl font-serif italic text-slate-100 mb-2">Aula sem Conteúdo</h2>
+              <p className="text-xs text-slate-400 mb-8 max-w-sm mx-auto leading-relaxed">
+                Esta aula ainda está vazia. Você pode adicionar um texto de estudo em Markdown ou configurar as questões para praticar diretamente.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <button
+                  onClick={startEditingContent}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-750 px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  Texto de Estudo
+                </button>
+                <button
+                  onClick={handleOpenQuestionEditor}
+                  className="bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <ListTodo className="w-4 h-4" />
+                  Configurar Questões
+                </button>
+              </div>
+            </div>
           ) : (
             <MarkdownRenderer
               content={chapter.content}
@@ -1840,6 +2003,184 @@ A aula deve ser completa, bonita em Markdown e adequada para alunos de qualquer 
                 className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-5 py-2.5 rounded text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
               >
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isQuestionEditorOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-2xl shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+              <h3 className="text-xl font-serif italic text-slate-100 flex items-center gap-2">
+                <ListTodo className="w-5 h-5 text-[#D4AF37]" />
+                Configurar Questões da Aula
+              </h3>
+              <button
+                onClick={() => setIsQuestionEditorOpen(false)}
+                className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer border-none bg-transparent outline-none focus:outline-none"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-sans font-semibold">
+                    Número da Aula
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editorAulaNumber}
+                    onChange={(e) => setEditorAulaNumber(parseInt(e.target.value, 10) || 1)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-sans font-semibold">
+                    Título das Questões (Assunto)
+                  </label>
+                  <input
+                    type="text"
+                    value={editorAulaTitle}
+                    onChange={(e) => setEditorAulaTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] text-sm"
+                    placeholder="ex: Direito Constitucional - Teoria Geral"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[#D4AF37] mb-1.5 font-sans font-semibold flex items-center justify-between">
+                  <span>Questões Principais</span>
+                  <span className="text-slate-500 font-normal lowercase not-italic">Use vírgula ou intervalo (ex: 1-10, 15)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editorPrincipais}
+                  onChange={(e) => setEditorPrincipais(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] text-sm"
+                  placeholder="ex: 1-5, 8, 12-20"
+                />
+                {editorPrincipais && (
+                  <div className="mt-2 bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                    <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">Pré-visualização ({parseQuestionNumbers(editorPrincipais).length} questões):</div>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {parseQuestionNumbers(editorPrincipais).map(n => (
+                        <span key={n} className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-300 font-mono font-bold">{n}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-sans font-semibold flex items-center justify-between">
+                  <span>Questões Secundárias (Misturam com aulas futuras)</span>
+                  <span className="text-slate-500 font-normal lowercase not-italic">opcional</span>
+                </label>
+                <input
+                  type="text"
+                  value={editorSecundarias}
+                  onChange={(e) => setEditorSecundarias(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] text-sm"
+                  placeholder="ex: 6, 7, 11"
+                />
+              </div>
+
+              <div className="border-t border-slate-800 pt-4 mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37] font-sans font-semibold">
+                    Divisão por Seção da Aula
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setEditorSections([...editorSections, { secao: "", questoes: "" }])}
+                    className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37] hover:text-[#C2A032] flex items-center gap-1.5 cursor-pointer bg-slate-800 border border-slate-700 hover:bg-slate-750 px-2.5 py-1 rounded border-none outline-none focus:outline-none shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Adicionar Seção
+                  </button>
+                </div>
+
+                {editorSections.length === 0 ? (
+                  <div className="text-center py-4 bg-slate-950/20 border border-dashed border-slate-850 rounded-lg text-slate-500 text-xs italic">
+                    Nenhuma seção configurada. As questões principais serão exibidas agrupadas.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {editorSections.map((sec, idx) => (
+                      <div key={idx} className="flex gap-2 items-start bg-slate-950/30 p-3 rounded border border-slate-850 relative">
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="text"
+                            value={sec.secao}
+                            onChange={(e) => {
+                              const newSecs = [...editorSections];
+                              newSecs[idx].secao = e.target.value;
+                              setEditorSections(newSecs);
+                            }}
+                            placeholder="Nome da Seção (ex: Teoria Geral)"
+                            className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-2 py-1.5 rounded focus:outline-none focus:border-[#D4AF37] text-xs font-semibold"
+                          />
+                          <input
+                            type="text"
+                            value={sec.questoes}
+                            onChange={(e) => {
+                              const newSecs = [...editorSections];
+                              newSecs[idx].questoes = e.target.value;
+                              setEditorSections(newSecs);
+                            }}
+                            placeholder="Questões da Seção (ex: 1-5, 8)"
+                            className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-2 py-1.5 rounded focus:outline-none focus:border-[#D4AF37] text-xs font-mono"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditorSections(editorSections.filter((_, sidx) => sidx !== idx));
+                          }}
+                          className="p-2 hover:bg-red-500/10 text-slate-400 hover:text-red-400 rounded transition-colors cursor-pointer border border-transparent hover:border-red-500/20 shrink-0 self-center"
+                          title="Remover Seção"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-sans font-semibold">
+                  Observações da Aula (opcional)
+                </label>
+                <textarea
+                  value={editorObservacao}
+                  onChange={(e) => setEditorObservacao(e.target.value)}
+                  className="w-full h-20 bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded focus:outline-none focus:border-[#D4AF37] text-sm resize-none"
+                  placeholder="ex: Focar em jurisprudência do STF sobre esse assunto..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-800 pt-4 mt-6">
+              <button
+                type="button"
+                onClick={() => setIsQuestionEditorOpen(false)}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuestions}
+                className="bg-[#D4AF37] hover:bg-[#C2A032] text-slate-950 px-5 py-2.5 rounded text-sm font-bold uppercase tracking-widest shadow-sm transition-colors cursor-pointer"
+              >
+                Salvar Questões
               </button>
             </div>
           </div>
