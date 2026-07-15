@@ -200,7 +200,11 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     addTag: (tag) => {
-        set((state) => { state.tags.push(tag); });
+        set((state) => {
+            if (!state.tags.some(existing => existing.id === tag.id)) {
+                state.tags.push(tag);
+            }
+        });
         get()._syncToFirestore();
     },
 
@@ -296,7 +300,8 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 if (fallback.notes && state.notes.length === 0) {
                     state.notes = deduplicateById(fallback.notes || []);
                 }
-                state.tags = deduplicateById(remoteTags);
+                // Preserve tags created while the initial hydration was still pending.
+                state.tags = deduplicateById([...remoteTags, ...state.tags]);
                 state.isLoading = false;
                 state._initialized = true;
             });

@@ -71,4 +71,14 @@ describe('notesStore', () => {
             tags: [],
         });
     });
+    it('keeps a tag created before initial hydration completes', () => {
+        useNotesStore.getState()._reset();
+        const tag = { id: 'tag-fiscal-5', label: 'Fiscal 5.0', color: 'bg-purple-500', createdAt: 200 };
+
+        useNotesStore.getState().addTag(tag);
+        useNotesStore.getState()._hydrateFromFirestore({ notes: [], tags: [] });
+
+        expect(useNotesStore.getState().tags).toEqual([tag]);
+    });
+
 });

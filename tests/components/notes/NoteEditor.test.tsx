@@ -320,5 +320,24 @@ describe('NoteEditor', () => {
             expect(screen.getByText('Tags')).toBeInTheDocument();
             expect(screen.getByPlaceholderText(/Nova tag/i)).toBeInTheDocument();
         });
+
+        it('creates and selects a tag when Enter is pressed', () => {
+            render(
+                <NoteEditor
+                    note={mockExistingNote}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            fireEvent.click(screen.getByText(/Metadados e Tags/i));
+            const input = screen.getByPlaceholderText(/Nova tag/i);
+            fireEvent.change(input, { target: { value: 'Fiscal 5.0' } });
+            fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+            expect(mockHandlers.onCreateTag).toHaveBeenCalledWith('Fiscal 5.0');
+            expect(screen.getAllByText('Fiscal 5.0').length).toBeGreaterThanOrEqual(1);
+            expect(input).toHaveValue('');
+        });
     });
 });

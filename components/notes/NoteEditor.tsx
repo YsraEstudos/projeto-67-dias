@@ -349,11 +349,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
             e.preventDefault();
             const label = tagInput.trim();
             const tag = onCreateTag(label);
-            setTempTags(prev => [...prev, tag]);
-
-            if (!tags.includes(tag.id)) {
-                setTags([...tags, tag.id]);
-            }
+            setTempTags(prev => prev.some(existing => existing.id === tag.id) ? prev : [...prev, tag]);
+            setTags(prev => prev.includes(tag.id) ? prev : [...prev, tag.id]);
             setTagInput('');
         }
     };
