@@ -52,7 +52,15 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
   return (
     <div
       data-testid={`dashboard-card-${id}`}
+      role="button"
+      tabIndex={0}
       onClick={() => onClick(id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(id);
+        }
+      }}
       onAuxClick={(e) => {
         if (e.button === 1 && onAuxClick && !middleClickHandled.current) {
           e.preventDefault();
