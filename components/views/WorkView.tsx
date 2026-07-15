@@ -1,7 +1,6 @@
-import React, { useState, useCallback, lazy, Suspense, useMemo } from 'react';
-import { useWorkStore, useUIStore } from '../../stores';
+import React, { useMemo } from 'react';
+import { useWorkStore } from '../../stores';
 import { useShallow } from 'zustand/react/shallow';
-import { ViewState } from '../../types';
 
 // Components
 import { ConfigurationHeader } from './work/components/ConfigurationHeader';
@@ -11,25 +10,6 @@ import { AnalysisGrid } from './work/components/AnalysisGrid';
 // Hooks
 import { useWorkMetrics } from './work/hooks/useWorkMetrics';
 import { useWeeklyGoal } from './work/hooks/useWeeklyGoal';
-
-// Lazy load heavy modal
-const MetTargetModal = lazy(() => import('./work/MetTargetModal'));
-
-// Skeleton for modal loading
-const ModalLoadingSkeleton = () => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
-    <div className="bg-slate-900 w-full max-w-2xl rounded-3xl border border-slate-700 p-8 animate-pulse">
-      <div className="h-8 w-48 bg-slate-700 rounded mb-6"></div>
-      <div className="space-y-4">
-        <div className="h-32 bg-slate-800 rounded-2xl"></div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="h-24 bg-slate-800 rounded-2xl"></div>
-          <div className="h-24 bg-slate-800 rounded-2xl"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 // --- SKELETON LOADING ---
 const WorkViewSkeleton: React.FC = () => (
@@ -79,15 +59,6 @@ const WorkView: React.FC = () => {
 
   const paceMode = useWorkStore((s) => s.paceMode);
 
-  // Grouped selectors for modal data (only used when modal is open)
-  const modalData = useWorkStore(useShallow((s) => ({
-    history: s.history,
-    goals: s.goals,
-    studySubjects: s.studySubjects,
-    studySchedules: s.studySchedules,
-    selectedIdleTasks: s.selectedIdleTasks,
-  })));
-
   // Actions are stable references - they don't cause re-renders
   const setCurrentCount = useWorkStore((s) => s.setCurrentCount);
   const setDailyGoalOverride = useWorkStore((s) => s.setDailyGoalOverride);
@@ -96,19 +67,6 @@ const WorkView: React.FC = () => {
   const setEndTime = useWorkStore((s) => s.setEndTime);
   const setBreakTime = useWorkStore((s) => s.setBreakTime);
   const setPaceMode = useWorkStore((s) => s.setPaceMode);
-  const addSession = useWorkStore((s) => s.addSession);
-  const deleteSession = useWorkStore((s) => s.deleteSession);
-  const setGoals = useWorkStore((s) => s.setGoals);
-  const setStudySubjects = useWorkStore((s) => s.setStudySubjects);
-  const setSchedules = useWorkStore((s) => s.setSchedules);
-
-  // Idle Tasks actions
-  const addIdleTask = useWorkStore((s) => s.addIdleTask);
-  const removeIdleTask = useWorkStore((s) => s.removeIdleTask);
-  const updateIdleTaskPoints = useWorkStore((s) => s.updateIdleTaskPoints);
-
-  // UI State only (not persisted)
-  const [isMetTargetModalOpen, setIsMetTargetModalOpen] = useState(false);
 
   // Calculate daily quota from weekly goal to fix pacing bugs and UI progress tracking
   const weeklyDailyGoal = useMemo(
@@ -126,34 +84,6 @@ const WorkView: React.FC = () => {
     preBreakCount,
     paceMode
   });
-
-  // Memoized callbacks for modal
-  const handleCloseModal = useCallback(() => {
-    setIsMetTargetModalOpen(false);
-  }, []);
-
-  const handleOpenModal = useCallback(() => {
-    setIsMetTargetModalOpen(true);
-  }, []);
-
-  // Navigation to Sunday view
-  const setActiveView = useUIStore((s) => s.setActiveView);
-  const handleNavigateToSunday = useCallback(() => {
-    setIsMetTargetModalOpen(false);
-    setActiveView(ViewState.SUNDAY);
-  }, [setActiveView]);
-
-  const handleUpdateGoals = useCallback((newGoals: { weekly: number; ultra: number; anki: number; ncm: number }) => {
-    setGoals(newGoals);
-  }, [setGoals]);
-
-  // Memoized goals object for modal
-  const goalsForModal = useMemo(() => ({
-    weekly: modalData.goals.weekly,
-    ultra: modalData.goals.ultra,
-    anki: modalData.goals.anki,
-    ncm: modalData.goals.ncm
-  }), [modalData.goals.weekly, modalData.goals.ultra, modalData.goals.anki, modalData.goals.ncm]);
 
   // Don't render until store is hydrated
   if (isLoading) {
@@ -181,33 +111,7 @@ const WorkView: React.FC = () => {
         onGoalUpdate={setDailyGoalOverride}
         status={stats.status}
         minutesRemaining={stats.minutesRemaining}
-        onMetTargetClick={handleOpenModal}
       />
-
-      {/* Lazy loaded modal - only loads when opened */}
-      {isMetTargetModalOpen && (
-        <Suspense fallback={<ModalLoadingSkeleton />}>
-          <MetTargetModal
-            isOpen={isMetTargetModalOpen}
-            onClose={handleCloseModal}
-            history={modalData.history}
-            onSaveSession={addSession}
-            goals={goalsForModal}
-            onUpdateGoals={handleUpdateGoals}
-            onDeleteSession={deleteSession}
-            studySubjects={modalData.studySubjects}
-            onUpdateSubjects={setStudySubjects}
-            studySchedules={modalData.studySchedules}
-            onUpdateSchedules={setSchedules}
-            // Idle Tasks props
-            selectedIdleTasks={modalData.selectedIdleTasks}
-            onAddIdleTask={addIdleTask}
-            onRemoveIdleTask={removeIdleTask}
-            onUpdateIdleTaskPoints={updateIdleTaskPoints}
-            onNavigateToSunday={handleNavigateToSunday}
-          />
-        </Suspense>
-      )}
 
       {/* ANALYSIS GRID */}
       <AnalysisGrid
@@ -222,6 +126,7 @@ const WorkView: React.FC = () => {
         requiredPacePerHour={stats.requiredPacePerHour}
         intervalPace={stats.intervalPace}
         minutesRemaining={stats.minutesRemaining}
+        hasBreak={stats.hasBreak}
       />
 
     </div>

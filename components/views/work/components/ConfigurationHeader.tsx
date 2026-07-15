@@ -35,7 +35,7 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
             <div className="flex flex-col gap-1">
                 <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Meta Semanal</label>
                 <div className="flex items-center gap-2">
-                    <Target className="text-orange-500" size={18} />
+                    <Target className="text-orange-500 flex-shrink-0" size={18} />
                     <input
                         type="number"
                         value={goal}
@@ -48,7 +48,7 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
             <div className="flex flex-col gap-1">
                 <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Dias na Semana</label>
                 <div className="flex items-center gap-2">
-                    <Calendar className="text-emerald-500" size={18} />
+                    <Calendar className="text-emerald-500 flex-shrink-0" size={18} />
                     <input
                         type="number"
                         value={workDays}
@@ -62,7 +62,7 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
             <div className="flex flex-col gap-1">
                 <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Jornada</label>
                 <div className="flex items-center gap-2">
-                    <Clock className="text-blue-500" size={18} />
+                    <Clock className="text-blue-500 flex-shrink-0" size={18} />
                     <div className="flex items-center gap-1">
                         <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="bg-transparent font-mono text-slate-200 focus:outline-none hover:bg-slate-800 rounded" />
                         <span className="text-slate-500">-</span>
@@ -71,10 +71,32 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
                 </div>
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Início Intervalo</label>
-                <div className="flex items-center gap-2">
-                    <Coffee className="text-amber-600" size={18} />
-                    <input type="time" value={breakTime} onChange={e => setBreakTime(e.target.value)} className="bg-transparent font-mono text-slate-200 focus:outline-none w-full hover:bg-slate-800 rounded" />
+                <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Início Intervalo</label>
+                    <button
+                        onClick={() => setBreakTime(breakTime ? '' : '12:00')}
+                        className={`text-[10px] px-1.5 py-0.5 rounded transition-all font-semibold uppercase tracking-wider ${
+                            !breakTime 
+                                ? 'bg-amber-600/20 text-amber-500 border border-amber-600/30' 
+                                : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                        title={breakTime ? "Remover Intervalo" : "Adicionar Intervalo"}
+                    >
+                        {breakTime ? 'Remover' : 'Sem Intervalo'}
+                    </button>
+                </div>
+                <div className="flex items-center gap-2 h-[28px]">
+                    <Coffee className={`${breakTime ? 'text-amber-500' : 'text-slate-600'} flex-shrink-0`} size={18} />
+                    {breakTime ? (
+                        <input 
+                            type="time" 
+                            value={breakTime} 
+                            onChange={e => setBreakTime(e.target.value)} 
+                            className="bg-transparent font-mono text-slate-200 focus:outline-none hover:bg-slate-800 rounded px-1" 
+                        />
+                    ) : (
+                        <span className="text-xs font-medium text-slate-500 italic">Desativado</span>
+                    )}
                 </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -82,7 +104,7 @@ export const ConfigurationHeader: React.FC<ConfigurationHeaderProps> = React.mem
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${status === 'FINISHED' ? 'bg-green-500' : status === 'BREAK' ? 'bg-amber-500' : 'bg-cyan-500 animate-pulse'}`}></div>
                     <span className="text-sm font-medium text-slate-300">
-                        {status === 'PRE_BREAK' && 'Manhã / Pré-Intervalo'}
+                        {status === 'PRE_BREAK' && (breakTime ? 'Manhã / Pré-Intervalo' : 'Trabalhando (Sem Intervalo)')}
                         {status === 'BREAK' && 'Intervalo'}
                         {status === 'POST_BREAK' && 'Tarde / Pós-Intervalo'}
                         {status === 'FINISHED' && 'Expediente Encerrado'}

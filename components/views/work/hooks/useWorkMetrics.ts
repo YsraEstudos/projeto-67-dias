@@ -50,9 +50,10 @@ export const useWorkMetrics = ({
     }, [ensureCurrentDay]);
 
     return useMemo(() => {
+        const hasBreak = !!breakTime && breakTime !== '';
         let startMins = getMinutesFromMidnight(startTime);
         let endMins = getMinutesFromMidnight(endTime);
-        let breakStartMins = getMinutesFromMidnight(breakTime);
+        let breakStartMins = hasBreak ? getMinutesFromMidnight(breakTime) : 0;
         let currentMins = nowMinutes;
 
         // Ajuste para turnos que atravessam a meia-noite
@@ -61,7 +62,7 @@ export const useWorkMetrics = ({
         }
         
         // Ajusta o break se ele parecer estar na madrugada do turno
-        if (breakStartMins < startMins && (breakStartMins + 24 * 60) <= endMins) {
+        if (hasBreak && breakStartMins < startMins && (breakStartMins + 24 * 60) <= endMins) {
             breakStartMins += 24 * 60;
         }
 
@@ -70,17 +71,21 @@ export const useWorkMetrics = ({
             currentMins += 24 * 60;
         }
 
-        const breakEndMins = breakStartMins + BREAK_DURATION_MINUTES;
+        const breakDuration = hasBreak ? BREAK_DURATION_MINUTES : 0;
+        const breakEndMins = breakStartMins + breakDuration;
 
-        // Total Work Duration (excluding 1h break)
+        // Total Work Duration (excluding break if present)
         // Ensure it doesn't go below 1 to avoid division by zero or negative ratios
-        const totalWorkDuration = Math.max(1, (endMins - startMins) - BREAK_DURATION_MINUTES);
+        const totalWorkDuration = Math.max(1, (endMins - startMins) - breakDuration);
 
         // Status Determination
         let status: WorkStatus = 'PRE_BREAK';
-        if (currentMins >= endMins) status = 'FINISHED';
-        else if (currentMins >= breakEndMins) status = 'POST_BREAK';
-        else if (currentMins >= breakStartMins) status = 'BREAK';
+        if (currentMins >= endMins) {
+            status = 'FINISHED';
+        } else if (hasBreak) {
+            if (currentMins >= breakEndMins) status = 'POST_BREAK';
+            else if (currentMins >= breakStartMins) status = 'BREAK';
+        }
 
         // Time Remaining Calculation
         let minutesRemaining = 0;
@@ -88,7 +93,7 @@ export const useWorkMetrics = ({
             const effectiveCurrentMins = Math.max(currentMins, startMins);
             minutesRemaining = Math.max(0, endMins - effectiveCurrentMins);
             // If currently before break end, subtract the remaining break time from work time
-            if (effectiveCurrentMins < breakEndMins) {
+            if (hasBreak && effectiveCurrentMins < breakEndMins) {
                 const breakMinutesLeft = Math.max(0, breakEndMins - Math.max(effectiveCurrentMins, breakStartMins));
                 minutesRemaining -= breakMinutesLeft;
             }
@@ -98,13 +103,13 @@ export const useWorkMetrics = ({
         const progressPercent = Math.min(100, Math.round((currentCount / (goal || 1)) * 100));
 
         // Break Analysis (Performance before break)
-        const expectedPreBreakRatio = Math.max(0, Math.min(1, (breakStartMins - startMins) / totalWorkDuration));
+        const expectedPreBreakRatio = hasBreak ? Math.max(0, Math.min(1, (breakStartMins - startMins) / totalWorkDuration)) : 0;
         const expectedPreBreakCount = Math.round(goal * expectedPreBreakRatio);
         const breakDiff = preBreakCount - expectedPreBreakCount;
         
         // Only show negative performance if we've already passed the break time
         // Before the break time, always show positive (user still has time to catch up)
-        const breakPerformance = (status === 'PRE_BREAK' || breakDiff >= 0 ? 'positive' : 'negative') as 'positive' | 'negative';
+        const breakPerformance = (!hasBreak || status === 'PRE_BREAK' || breakDiff >= 0 ? 'positive' : 'negative') as 'positive' | 'negative';
 
         // Pace Calculation (Required Speed)
         const itemsRemaining = Math.max(0, goal - currentCount);
@@ -123,7 +128,8 @@ export const useWorkMetrics = ({
             breakPerformance,
             requiredPacePerHour,
             intervalPace,
-            itemsRemaining
+            itemsRemaining,
+            hasBreak
         };
     }, [goal, startTime, endTime, breakTime, currentCount, preBreakCount, nowMinutes, paceMode]);
 };

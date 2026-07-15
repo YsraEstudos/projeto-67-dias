@@ -19,7 +19,7 @@ export { useHabitsStore } from './habitsStore';
 
 // Work Store - Work sessions, goals, and study schedules
 export { useWorkStore } from './workStore';
-export type { MetTargetSession, StudySubject, DailyStudySchedule, WorkGoals, PaceMode, ScheduledStudyItem } from './workStore';
+export type { PaceMode } from './workStore';
 
 // Reading Store - Books and folders
 export { useReadingStore } from './readingStore';
@@ -103,13 +103,8 @@ export {
     useHabitActions,
     useTaskActions,
     // Work selectors
-    useWorkHistory,
-    useWorkGoals,
-    useStudySubjects,
-    useStudySchedules,
     useWorkTracking,
     useTimeConfig,
-    useWorkSessionActions,
     // Reading selectors
     useBooks,
     useCompletedBooks,

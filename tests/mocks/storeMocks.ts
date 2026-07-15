@@ -10,11 +10,6 @@ export const createWorkStoreMock = (overrides = {}) => {
         endTime: '17:00',
         breakTime: '12:00',
         paceMode: 'remaining' as const,
-        history: [],
-        goals: { weekly: 100, ultra: 500, anki: 15, ncm: 20 },
-        studySubjects: [],
-        studySchedules: [],
-        selectedIdleTasks: [],
         weeklyGoals: {},
         getWeeklyGoal: vi.fn(() => 300),
         getCurrentWeekGoal: vi.fn(() => 300),
@@ -31,14 +26,6 @@ export const createWorkStoreMock = (overrides = {}) => {
         setPaceMode: vi.fn(),
         ensureCurrentDay: vi.fn(() => false),
         _checkAndResetForNewDay: vi.fn(() => false),
-        addSession: vi.fn(),
-        deleteSession: vi.fn(),
-        setGoals: vi.fn(),
-        setStudySubjects: vi.fn(),
-        setSchedules: vi.fn(),
-        addIdleTask: vi.fn(),
-        removeIdleTask: vi.fn(),
-        updateIdleTaskPoints: vi.fn(),
         ...overrides
     };
 };

@@ -11,11 +11,10 @@ interface MainTrackerProps {
     onGoalUpdate: (newGoal: number) => void;
     status: WorkStatus;
     minutesRemaining: number;
-    onMetTargetClick: () => void;
 }
 
 export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
-    currentCount, goal, progressPercent, onUpdate, onGoalUpdate, status, minutesRemaining, onMetTargetClick
+    currentCount, goal, progressPercent, onUpdate, onGoalUpdate, status, minutesRemaining
 }) => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Tracker */}
@@ -33,12 +32,6 @@ export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
                         <h2 className="text-slate-400 text-sm font-medium flex items-center gap-2">
                             <CheckCircle2 size={16} /> Progresso Real
                         </h2>
-                        <button
-                            onClick={onMetTargetClick}
-                            className="text-xs bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded-full font-bold shadow-lg shadow-yellow-900/20 flex items-center gap-1 transition-all hover:scale-105"
-                        >
-                            <Trophy size={12} /> Metas Extras
-                        </button>
                     </div>
                     <div className="flex items-baseline gap-1 mb-4">
                         <span className="text-4xl sm:text-6xl font-bold text-white tracking-tight">{currentCount}</span>

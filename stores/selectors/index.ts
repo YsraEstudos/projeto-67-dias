@@ -68,18 +68,6 @@ export const useTaskActions = () => useHabitsStore(
 // WORK STORE SELECTORS
 // ============================================================
 
-/** Get work session history */
-export const useWorkHistory = () => useWorkStore((s) => s.history);
-
-/** Get work goals */
-export const useWorkGoals = () => useWorkStore((s) => s.goals);
-
-/** Get study subjects */
-export const useStudySubjects = () => useWorkStore((s) => s.studySubjects);
-
-/** Get study schedules */
-export const useStudySchedules = () => useWorkStore((s) => s.studySchedules);
-
 /** Get current work tracking state */
 export const useWorkTracking = () => useWorkStore(
     useShallow((s) => ({
@@ -95,15 +83,6 @@ export const useTimeConfig = () => useWorkStore(
         startTime: s.startTime,
         endTime: s.endTime,
         breakTime: s.breakTime,
-    }))
-);
-
-/** Get work session actions */
-export const useWorkSessionActions = () => useWorkStore(
-    useShallow((s) => ({
-        addSession: s.addSession,
-        deleteSession: s.deleteSession,
-        clearHistory: s.clearHistory,
     }))
 );
 

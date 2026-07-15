@@ -73,7 +73,7 @@ describe('useCompetitionTracker', () => {
 
         render(<TrackerHarness enabled startDate={today} />);
 
-        const firstMetrics = calculateAdaptiveCompetitionMetrics(40, 390);
+        const firstMetrics = calculateAdaptiveCompetitionMetrics(40, 350);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             expect(record?.activityScore).toBe(40);
@@ -86,7 +86,7 @@ describe('useCompetitionTracker', () => {
             useWorkStore.setState({ currentCount: 130 } as any);
         });
 
-        const secondMetrics = calculateAdaptiveCompetitionMetrics(180, 390);
+        const secondMetrics = calculateAdaptiveCompetitionMetrics(180, 350);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const questoes = record?.breakdown.find((entry) => entry.id === 'questoes');
@@ -147,7 +147,7 @@ describe('useCompetitionTracker', () => {
             useReadingStore.getState().updateProgress('book-1', 10);
         });
 
-        const firstReadingMetrics = calculateAdaptiveCompetitionMetrics(45, 480);
+        const firstReadingMetrics = calculateAdaptiveCompetitionMetrics(45, 440);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const reading = record?.breakdown.find((entry) => entry.id === 'leitura');
@@ -160,7 +160,7 @@ describe('useCompetitionTracker', () => {
             useReadingStore.getState().updateProgress('book-1', 20);
         });
 
-        const secondReadingMetrics = calculateAdaptiveCompetitionMetrics(90, 480);
+        const secondReadingMetrics = calculateAdaptiveCompetitionMetrics(90, 440);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const reading = record?.breakdown.find((entry) => entry.id === 'leitura');
@@ -243,7 +243,7 @@ describe('useCompetitionTracker', () => {
             useHabitsStore.getState().toggleHabitCompletion('habit-1', today, 'sub-1');
         });
 
-        const metrics = calculateAdaptiveCompetitionMetrics(40, 430);
+        const metrics = calculateAdaptiveCompetitionMetrics(40, 390);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const habits = record?.breakdown.find((entry) => entry.id === 'habitos');
@@ -278,7 +278,7 @@ describe('useCompetitionTracker', () => {
             useHabitsStore.getState().toggleTaskComplete('task-1');
         });
 
-        const metrics = calculateAdaptiveCompetitionMetrics(22, 372);
+        const metrics = calculateAdaptiveCompetitionMetrics(22, 332);
         await waitFor(() => {
             const record = useCompetitionStore.getState().competition.dailyRecords[today];
             const tasks = record?.breakdown.find((entry) => entry.id === 'tarefas');

@@ -16,12 +16,13 @@ interface AnalysisGridProps {
     requiredPacePerHour: number;
     intervalPace: number;
     minutesRemaining: number;
+    hasBreak?: boolean;
 }
 
 export const AnalysisGrid: React.FC<AnalysisGridProps> = React.memo(({
     preBreakCount, setPreBreakCount, paceMode, setPaceMode,
     expectedPreBreakCount, breakDiff, breakPerformance, itemsRemaining,
-    requiredPacePerHour, intervalPace, minutesRemaining
+    requiredPacePerHour, intervalPace, minutesRemaining, hasBreak = true
 }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -31,37 +32,47 @@ export const AnalysisGrid: React.FC<AnalysisGridProps> = React.memo(({
                 <h3 className="text-slate-200 font-semibold flex items-center gap-2">
                     <Coffee size={20} className="text-amber-500" /> Análise de Intervalo
                 </h3>
-                <span className="text-xs bg-slate-900 text-slate-400 px-2 py-1 rounded border border-slate-700">1h Duração</span>
+                {hasBreak && (
+                    <span className="text-xs bg-slate-900 text-slate-400 px-2 py-1 rounded border border-slate-700">1h Duração</span>
+                )}
             </div>
 
-            <div className="space-y-4">
-                <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
-                    <span className="text-sm text-slate-400">Feito Pré-Almoço</span>
-                    <input
-                        type="number"
-                        value={preBreakCount}
-                        onChange={(e) => setPreBreakCount(Number(e.target.value))}
-                        placeholder="0"
-                        className="bg-slate-800 border border-slate-600 rounded w-20 text-right px-2 py-1 text-sm text-white focus:border-amber-500 focus:outline-none"
-                    />
+            {!hasBreak ? (
+                <div className="min-h-[150px] flex flex-col items-center justify-center text-slate-400 text-sm bg-slate-900/30 rounded-xl border border-slate-800/50 p-4 text-center">
+                    <Coffee size={28} className="text-slate-600 mb-2" />
+                    <span className="font-semibold text-slate-300">Sem Intervalo Configurado</span>
+                    <span className="text-xs text-slate-500 mt-1 max-w-[280px]">Sua jornada hoje é contínua. Foco total no ritmo necessário ao lado!</span>
                 </div>
+            ) : (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                        <span className="text-sm text-slate-400">Feito Pré-Almoço</span>
+                        <input
+                            type="number"
+                            value={preBreakCount}
+                            onChange={(e) => setPreBreakCount(Number(e.target.value))}
+                            placeholder="0"
+                            className="bg-slate-800 border border-slate-600 rounded w-20 text-right px-2 py-1 text-sm text-white focus:border-amber-500 focus:outline-none"
+                        />
+                    </div>
 
-                <div className="flex justify-between items-center">
-                    <div className="text-xs text-slate-500">
-                        Meta Esperada: <span className="text-slate-300 font-mono">{expectedPreBreakCount}</span>
+                    <div className="flex justify-between items-center">
+                        <div className="text-xs text-slate-500">
+                            Meta Esperada: <span className="text-slate-300 font-mono">{expectedPreBreakCount}</span>
+                        </div>
+                        <div className={`flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-full border ${breakPerformance === 'positive' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                            {breakDiff > 0 ? '+' : ''}{breakDiff}
+                            {breakPerformance === 'positive' ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
+                        </div>
                     </div>
-                    <div className={`flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-full border ${breakPerformance === 'positive' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                        {breakDiff > 0 ? '+' : ''}{breakDiff}
-                        {breakPerformance === 'positive' ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
-                    </div>
+
+                    <p className="text-xs text-slate-500 italic border-t border-slate-700/50 pt-3 mt-2">
+                        {breakPerformance === 'positive'
+                            ? "Ótimo ritmo! Você está adiantado em relação à meta para o período da manhã."
+                            : "Atenção: Você fechou a manhã com déficit. Aumente o ritmo à tarde."}
+                    </p>
                 </div>
-
-                <p className="text-xs text-slate-500 italic border-t border-slate-700/50 pt-3 mt-2">
-                    {breakPerformance === 'positive'
-                        ? "Ótimo ritmo! Você está adiantado em relação à meta para o período da manhã."
-                        : "Atenção: Você fechou a manhã com déficit. Aumente o ritmo à tarde."}
-                </p>
-            </div>
+            )}
         </div>
 
         {/* Pace Calculator */}

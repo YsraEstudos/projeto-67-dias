@@ -24,9 +24,6 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
 
     const workState = useWorkStore(useShallow((state) => ({
         currentCount: state.currentCount,
-        workHistory: state.history,
-        scheduledTasks: state.tasks,
-        availableGoals: state.availableGoals,
     })));
     const habitsState = useHabitsStore(useShallow((state) => ({
         habits: state.habits,
@@ -72,9 +69,9 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
         const result = createCompetitionDailyRecord({
             startDate,
             currentCount: workState.currentCount,
-            workHistory: workState.workHistory,
-            scheduledTasks: workState.scheduledTasks,
-            availableGoals: workState.availableGoals,
+            workHistory: [],
+            scheduledTasks: [],
+            availableGoals: [],
             habits: habitsState.habits,
             tasks: habitsState.tasks,
             skills,
@@ -92,9 +89,6 @@ export const useCompetitionTracker = ({ enabled, startDate }: UseCompetitionTrac
         enabled,
         startDate,
         workState.currentCount,
-        workState.workHistory,
-        workState.scheduledTasks,
-        workState.availableGoals,
         habitsState.habits,
         habitsState.tasks,
         skills,

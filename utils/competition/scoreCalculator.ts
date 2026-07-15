@@ -429,18 +429,11 @@ export const createCompetitionDailyRecord = (
 
     const restBreakdown = calculateRestBreakdown(state.restActivities, dateKey);
 
-    const sessionPoints = clamp(todaySessions.reduce((sum, session) => sum + session.points, 0), 0, 40);
-    const extraGoalsToday = todaysScheduleTasks.filter((task) => task.goalId !== 'questoes');
-    const completedExtraGoals = extraGoalsToday.filter((task) => isTimeSlotTaskQualified(task, goalMap.get(task.goalId))).length;
-    const extraGoalsMax = Math.min(30, extraGoalsToday.length * 10);
-    const extraGoalsPoints = Math.min(30, completedExtraGoals * 10);
-    const extrasMax = 40 + extraGoalsMax;
-    const extrasPoints = sessionPoints + extraGoalsPoints;
     const extrasBreakdown = buildBreakdown(
         'extras',
-        extrasPoints,
-        extrasMax,
-        `${sessionPoints}/40 em sessoes extras e ${completedExtraGoals} metas extras qualificadas.`,
+        0,
+        0,
+        'Metas Extras desativadas.',
     );
 
     const breakdown = [

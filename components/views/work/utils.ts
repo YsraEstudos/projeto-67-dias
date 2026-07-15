@@ -4,6 +4,7 @@
  * Converte string de horário (HH:MM) para minutos desde meia-noite
  */
 export const getMinutesFromMidnight = (timeStr: string): number => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
     const [h, m] = timeStr.split(':').map(Number);
     return h * 60 + m;
 };
