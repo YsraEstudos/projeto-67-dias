@@ -2,6 +2,35 @@ import React, { useRef } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { ViewState, DashboardCardProps } from '../types';
 
+const GLOW_MAP: Record<string, string> = {
+  'text-orange-500': 'sm:hover:shadow-orange-500/20',
+  'text-orange-400': 'sm:hover:shadow-orange-400/20',
+  'text-pink-500': 'sm:hover:shadow-pink-500/20',
+  'text-indigo-400': 'sm:hover:shadow-indigo-400/20',
+  'text-yellow-500': 'sm:hover:shadow-yellow-500/20',
+  'text-emerald-400': 'sm:hover:shadow-emerald-400/20',
+  'text-purple-500': 'sm:hover:shadow-purple-500/20',
+  'text-purple-400': 'sm:hover:shadow-purple-400/20',
+  'text-teal-500': 'sm:hover:shadow-teal-500/20',
+  'text-cyan-400': 'sm:hover:shadow-cyan-400/20',
+  'text-slate-400': 'sm:hover:shadow-slate-400/20',
+};
+
+// Keep these maps module-level so renders do not recreate them.
+const BACKGROUND_MAP: Record<string, string> = {
+  'text-orange-500': 'bg-orange-500',
+  'text-orange-400': 'bg-orange-400',
+  'text-pink-500': 'bg-pink-500',
+  'text-indigo-400': 'bg-indigo-400',
+  'text-yellow-500': 'bg-yellow-500',
+  'text-emerald-400': 'bg-emerald-400',
+  'text-purple-500': 'bg-purple-500',
+  'text-purple-400': 'bg-purple-400',
+  'text-teal-500': 'bg-teal-500',
+  'text-cyan-400': 'bg-cyan-400',
+  'text-slate-400': 'bg-slate-400',
+};
+
 export const Card: React.FC<DashboardCardProps> = React.memo(({
   id,
   title,
@@ -16,38 +45,9 @@ export const Card: React.FC<DashboardCardProps> = React.memo(({
 }) => {
   // Prevent double-trigger of middle-click (auxclick + mouseup)
   const middleClickHandled = useRef(false);
-  // Map color classes to glow colors
-  const glowMap: Record<string, string> = {
-    'text-orange-500': 'sm:hover:shadow-orange-500/20',
-    'text-orange-400': 'sm:hover:shadow-orange-400/20',
-    'text-pink-500': 'sm:hover:shadow-pink-500/20',
-    'text-indigo-400': 'sm:hover:shadow-indigo-400/20',
-    'text-yellow-500': 'sm:hover:shadow-yellow-500/20',
-    'text-emerald-400': 'sm:hover:shadow-emerald-400/20',
-    'text-purple-500': 'sm:hover:shadow-purple-500/20',
-    'text-purple-400': 'sm:hover:shadow-purple-400/20',
-    'text-teal-500': 'sm:hover:shadow-teal-500/20',
-    'text-cyan-400': 'sm:hover:shadow-cyan-400/20',
-    'text-slate-400': 'sm:hover:shadow-slate-400/20',
-  };
 
-  // Tailwind purge-safe background colors matching the text accents
-  const bgMap: Record<string, string> = {
-    'text-orange-500': 'bg-orange-500',
-    'text-orange-400': 'bg-orange-400',
-    'text-pink-500': 'bg-pink-500',
-    'text-indigo-400': 'bg-indigo-400',
-    'text-yellow-500': 'bg-yellow-500',
-    'text-emerald-400': 'bg-emerald-400',
-    'text-purple-500': 'bg-purple-500',
-    'text-purple-400': 'bg-purple-400',
-    'text-teal-500': 'bg-teal-500',
-    'text-cyan-400': 'bg-cyan-400',
-    'text-slate-400': 'bg-slate-400',
-  };
-
-  const glowClass = glowMap[color] || 'sm:hover:shadow-cyan-500/20';
-  const accentBgClass = bgMap[color] || 'bg-cyan-500';
+  const glowClass = GLOW_MAP[color] || 'sm:hover:shadow-cyan-500/20';
+  const accentBgClass = BACKGROUND_MAP[color] || 'bg-cyan-500';
 
   return (
     <div

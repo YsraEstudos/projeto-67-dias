@@ -24,7 +24,8 @@ type PendingWrite = {
     payload: {
         userId: string;
         collectionKey: string;
-        data: any;
+        data: unknown;
+        dataHash: string;
     };
 };
 
@@ -136,26 +137,62 @@ let lastWriteResetTime = Date.now();
  * Recursively remove undefined values from an object
  * Firestore fails with "Unsupported field value: undefined"
  */
-const removeUndefined = (obj: any): any => {
-    if (obj && typeof obj === 'object') {
-        // Use JSON stringify/parse for deep cleaning of simple objects
-        // This also handles Date serialization which is safer for our sync pattern
-        try {
-            return JSON.parse(JSON.stringify(obj));
-        } catch (e) {
-            console.error('[FirestoreSync] Failed to clean object:', e);
-            return obj;
+const isPlainObject = (value: object): value is Record<string, unknown> => {
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+};
+
+const removeUndefined = <T>(value: T): T => {
+    const seen = new WeakSet<object>();
+    const clean = (current: unknown): unknown => {
+        if (current === undefined) return undefined;
+
+        if (Array.isArray(current)) {
+            if (seen.has(current)) throw new TypeError('Cannot clean circular data');
+            seen.add(current);
+            const result = current.map((item) => item === undefined ? null : clean(item));
+            seen.delete(current);
+            return result;
         }
+
+        if (current === null || typeof current !== 'object' || !isPlainObject(current)) {
+            return current;
+        }
+
+        if (seen.has(current)) throw new TypeError('Cannot clean circular data');
+        seen.add(current);
+        const result: Record<string, unknown> = {};
+        for (const [key, child] of Object.entries(current)) {
+            if (child !== undefined) result[key] = clean(child);
+        }
+        seen.delete(current);
+        return result;
+    };
+
+    try {
+        return clean(value) as T;
+    } catch (error) {
+        console.error('[FirestoreSync] Failed to clean object:', error);
+        return value;
     }
-    return obj;
 };
 
 /**
  * Stable stringify to avoid hash differences due to key ordering
  */
-const stableStringify = (value: any, seen = new WeakSet<object>()): string => {
+const stableStringify = (value: unknown, seen = new WeakSet<object>()): string => {
     if (value === null || typeof value !== 'object') {
-        return JSON.stringify(value);
+        const serialized = JSON.stringify(value);
+        return serialized === undefined ? 'null' : serialized;
+    }
+
+    if (value instanceof Date) {
+        return JSON.stringify(value.toISOString());
+    }
+
+    if (!Array.isArray(value) && !isPlainObject(value)) {
+        const serialized = JSON.stringify(value);
+        return serialized === undefined ? JSON.stringify(String(value)) : serialized;
     }
 
     if (seen.has(value)) {
@@ -163,13 +200,17 @@ const stableStringify = (value: any, seen = new WeakSet<object>()): string => {
     }
     seen.add(value);
 
-    if (Array.isArray(value)) {
-        return `[${value.map(item => stableStringify(item, seen)).join(',')}]`;
-    }
+    try {
+        if (Array.isArray(value)) {
+            return `[${value.map(item => stableStringify(item, seen)).join(',')}]`;
+        }
 
-    const keys = Object.keys(value).sort();
-    const entries = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key], seen)}`);
-    return `{${entries.join(',')}}`;
+        const keys = Object.keys(value).sort();
+        const entries = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key], seen)}`);
+        return `{${entries.join(',')}}`;
+    } finally {
+        seen.delete(value);
+    }
 };
 
 // Track pending writes for UI indicator
@@ -246,7 +287,7 @@ const performWrite = async (payload: PendingWrite['payload']) => {
     // Note: pendingWriteCount already incremented in writeToFirestore
 
     // Dirty check: skip write if data hasn't changed since last write
-    const dataHash = stableStringify(payload.data);
+    const { dataHash } = payload;
     const lastHash = lastWrittenData.get(writeIdentity);
     if (lastHash === dataHash) {
         // Data is identical to last write - skip to save quota
@@ -330,15 +371,14 @@ export const writeToFirestore = <T extends object>(
         return;
     }
 
-    const payload: PendingWrite['payload'] = { userId, collectionKey, data: cleanedData };
+    const dataHash = stableStringify(cleanedData);
+    const payload: PendingWrite['payload'] = { userId, collectionKey, data: cleanedData, dataHash };
     const writeIdentity = getWriteIdentity(userId, collectionKey);
 
     const existing = writeTimeouts.get(writeIdentity);
     if (existing) {
         // Skip noop updates that are identical to already-pending payload
-        const currentHash = stableStringify(existing.payload.data);
-        const nextHash = stableStringify(cleanedData);
-        if (currentHash === nextHash) {
+        if (existing.payload.dataHash === dataHash) {
             return;
         }
 

@@ -84,7 +84,11 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
   const setMenuOpen = useUIStore((state) => state.setMenuOpen);
 
   // --- Tab state (multi-tab navigation) ---
-  const { tabs, activeTabId, addTab, setActiveTab, updateTabState } = useTabStore();
+  const tabs = useTabStore((state) => state.tabs);
+  const activeTabId = useTabStore((state) => state.activeTabId);
+  const addTab = useTabStore((state) => state.addTab);
+  const setActiveTab = useTabStore((state) => state.setActiveTab);
+  const updateTabState = useTabStore((state) => state.updateTabState);
   const { pushNavigation } = useNavigationHistory();
 
   // --- Concurso prefetch ---

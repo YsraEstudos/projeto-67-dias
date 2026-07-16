@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { CompetitionDailyRecord, CompetitionState } from '../types';
+import { CompetitionDailyRecord, CompetitionScoreBreakdown, CompetitionState } from '../types';
 import { writeToFirestore } from './firestoreSync';
 import { COMPETITION_ENGINE_VERSION, migrateCompetitionDailyRecord } from '../utils/competitionEngine';
 
@@ -18,31 +18,27 @@ const areDailyRecordsEquivalent = (
     right?: CompetitionDailyRecord,
 ) => {
     if (!left || !right) return false;
-    return JSON.stringify({
-        date: left.date,
-        projectDay: left.projectDay,
-        score: left.score,
-        activityScore: left.activityScore,
-        maxScore: left.maxScore,
-        theoreticalMaxScore: left.theoreticalMaxScore,
-        completionRate: left.completionRate,
-        availabilityRate: left.availabilityRate,
-        difficultyMultiplier: left.difficultyMultiplier,
-        remainingScore: left.remainingScore,
-        breakdown: left.breakdown,
-    }) === JSON.stringify({
-        date: right.date,
-        projectDay: right.projectDay,
-        score: right.score,
-        activityScore: right.activityScore,
-        maxScore: right.maxScore,
-        theoreticalMaxScore: right.theoreticalMaxScore,
-        completionRate: right.completionRate,
-        availabilityRate: right.availabilityRate,
-        difficultyMultiplier: right.difficultyMultiplier,
-        remainingScore: right.remainingScore,
-        breakdown: right.breakdown,
-    });
+    return left.date === right.date
+        && left.projectDay === right.projectDay
+        && left.score === right.score
+        && left.activityScore === right.activityScore
+        && left.maxScore === right.maxScore
+        && left.theoreticalMaxScore === right.theoreticalMaxScore
+        && left.completionRate === right.completionRate
+        && left.availabilityRate === right.availabilityRate
+        && left.difficultyMultiplier === right.difficultyMultiplier
+        && left.remainingScore === right.remainingScore
+        && left.breakdown.length === right.breakdown.length
+        && left.breakdown.every((entry, index) => {
+            const candidate = right.breakdown[index];
+            return entry.id === candidate.id
+                && entry.label === candidate.label
+                && entry.points === candidate.points
+                && entry.maxPoints === candidate.maxPoints
+                && entry.remainingPoints === candidate.remainingPoints
+                && entry.summary === candidate.summary
+                && entry.priority === candidate.priority;
+        });
 };
 
 interface CompetitionStoreState {

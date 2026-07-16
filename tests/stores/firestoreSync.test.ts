@@ -175,6 +175,27 @@ describe('firestoreSync', () => {
             );
         });
 
+        it('should preserve Date instances while cleaning nested values', async () => {
+            const createdAt = new Date('2026-07-16T12:00:00.000Z');
+            writeToFirestore('test_collection', {
+                createdAt,
+                items: [1, undefined, { keep: true, drop: undefined }]
+            }, TEST_DEBOUNCE_MS);
+
+            vi.advanceTimersByTime(350);
+            await vi.runAllTimersAsync();
+
+            expect(setDoc).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    value: {
+                        createdAt,
+                        items: [1, null, { keep: true }]
+                    }
+                })
+            );
+        });
+
         it('should handle concurrent writes to different collections', async () => {
             writeToFirestore('collection_a', { a: 1 }, TEST_DEBOUNCE_MS);
             writeToFirestore('collection_b', { b: 2 }, TEST_DEBOUNCE_MS);

@@ -8,7 +8,7 @@
  *   import { useHabits, useTasks, useHabitActions } from '../stores/selectors';
  */
 
-import { useShallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import { useHabitsStore } from '../habitsStore';
 import { useWorkStore } from '../workStore';
 import { useReadingStore } from '../readingStore';
@@ -24,7 +24,7 @@ export const useHabits = () => useHabitsStore((s) => s.habits);
 
 /** Get active (non-archived) habits */
 export const useActiveHabits = () => useHabitsStore(
-    (s) => s.habits.filter(h => !h.archived)
+    useShallow((s) => s.habits.filter(h => !h.archived))
 );
 
 /** Get all tasks (reactive to tasks changes only) */
@@ -32,12 +32,12 @@ export const useTasks = () => useHabitsStore((s) => s.tasks);
 
 /** Get active (non-archived) tasks */
 export const useActiveTasks = () => useHabitsStore(
-    (s) => s.tasks.filter(t => !t.isArchived)
+    useShallow((s) => s.tasks.filter(t => !t.isArchived))
 );
 
 /** Get completed tasks */
 export const useCompletedTasks = () => useHabitsStore(
-    (s) => s.tasks.filter(t => t.isCompleted)
+    useShallow((s) => s.tasks.filter(t => t.isCompleted))
 );
 
 /** Get habit actions (stable references) */
@@ -95,12 +95,12 @@ export const useBooks = () => useReadingStore((s) => s.books);
 
 /** Get completed books */
 export const useCompletedBooks = () => useReadingStore(
-    (s) => s.books.filter(b => b.status === 'COMPLETED')
+    useShallow((s) => s.books.filter(b => b.status === 'COMPLETED'))
 );
 
 /** Get books in progress */
 export const useReadingBooks = () => useReadingStore(
-    (s) => s.books.filter(b => b.status === 'READING')
+    useShallow((s) => s.books.filter(b => b.status === 'READING'))
 );
 
 // ============================================================
@@ -153,12 +153,12 @@ export const useGameFolders = () => useGamesStore((s) => s.folders);
 
 /** Get games from the 67 Days central folder */
 export const useCentralFolderGames = () => useGamesStore(
-    (s) => s.games.filter(g => g.folderId === CENTRAL_FOLDER_ID)
+    useShallow((s) => s.games.filter(g => g.folderId === CENTRAL_FOLDER_ID))
 );
 
 /** Get games with pending reviews (from 67 Days folder) */
 export const usePendingReviewGames = () => useGamesStore(
-    (s) => s.games.filter(g => g.reviewPending && g.folderId === CENTRAL_FOLDER_ID)
+    useShallow((s) => s.games.filter(g => g.reviewPending && g.folderId === CENTRAL_FOLDER_ID))
 );
 
 /** Get game folder actions (stable references) */

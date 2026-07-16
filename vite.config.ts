@@ -173,8 +173,6 @@ export default defineConfig(({ mode, command }) => {
           manualChunks: {
             'vendor': ['react', 'react-dom', 'zustand'],
             'firebase-core': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/ai', 'firebase/app-check'],
-            'charts': ['recharts'],
-            'markdown': ['react-markdown', 'remark-gfm'],
             'date-utils': ['date-fns'],
             'roadmap': ['dagre', 'react-zoom-pan-pinch'],
             'validation': ['zod'],
