@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar, CheckCircle2, AlertTriangle } from
 import { useHabitsManager } from './hooks/useHabitsManager';
 import { WaterTracker } from '../../habits/WaterTracker';
 import HabitCard from '../../habits/HabitCard';
-import { getActiveConsequences, getConsequenceSummary } from '../../../utils/habitConsequences';
+import { getActiveConsequences, getConsequenceSummary, getConsequencesForTomorrow, getTomorrowTriggerSummary } from '../../../utils/habitConsequences';
 
 const HabitModal = React.lazy(() => import('../../habits/HabitModal'));
 
@@ -39,6 +39,24 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
         [habits, dateKey]
     );
 
+    // Calculate consequences accumulated today for tomorrow
+    const tomorrowConsequences = useMemo(
+        () => getConsequencesForTomorrow(habits, dateKey),
+        [habits, dateKey]
+    );
+
+    const isToday = selectedDate.toDateString() === new Date().toDateString();
+    
+    const confirmedTomorrow = useMemo(
+        () => tomorrowConsequences.filter(c => c.status === 'CONFIRMED'),
+        [tomorrowConsequences]
+    );
+
+    const threatenedTomorrow = useMemo(
+        () => tomorrowConsequences.filter(c => c.status === 'THREATENED'),
+        [tomorrowConsequences]
+    );
+
     return (
         <div className="flex flex-col gap-6">
             {/* WATER TRACKER */}
@@ -70,7 +88,7 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
                     <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle size={18} className="text-amber-400" />
                         <span className="text-sm font-bold text-amber-300 uppercase tracking-wide">
-                            Consequências Ativas Hoje
+                            Consequências Ativas Hoje (Falhas de Ontem)
                         </span>
                     </div>
                     <div className="space-y-2">
@@ -86,6 +104,51 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* LIVE TOMORROW CONSEQUENCES FOR TODAY */}
+            {isToday && tomorrowConsequences.length > 0 && (
+                <div className="flex flex-col gap-3 p-4 bg-slate-800/40 border border-slate-700 rounded-2xl shadow-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold text-slate-300 uppercase tracking-wide">
+                            Impacto para Amanhã (Feedback em Tempo Real)
+                        </span>
+                    </div>
+                    
+                    {/* Confirmed Consequences (Red/Amber) */}
+                    {confirmedTomorrow.length > 0 && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                            <div className="text-xs font-bold text-red-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                                ❌ Confirmado para amanhã (Falhou hoje)
+                            </div>
+                            <div className="space-y-2">
+                                {confirmedTomorrow.map((tc, i) => (
+                                    <div key={i} className="bg-red-950/20 border border-red-900/20 rounded-lg p-2 flex flex-col gap-0.5">
+                                        <span className="text-sm font-bold text-red-200">🎯 {tc.consequence.description}</span>
+                                        <span className="text-[10px] text-red-400/80">{getTomorrowTriggerSummary(tc)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Threatened/Pending Consequences (Yellow) */}
+                    {threatenedTomorrow.length > 0 && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
+                            <div className="text-xs font-bold text-yellow-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                                ⚠️ Em risco para amanhã (Realize o hábito para sumir)
+                            </div>
+                            <div className="space-y-2">
+                                {threatenedTomorrow.map((tc, i) => (
+                                    <div key={i} className="bg-yellow-950/20 border border-yellow-900/20 rounded-lg p-2 flex flex-col gap-0.5">
+                                        <span className="text-sm font-bold text-yellow-200">⏳ {tc.consequence.description}</span>
+                                        <span className="text-[10px] text-yellow-400/80">{getTomorrowTriggerSummary(tc)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

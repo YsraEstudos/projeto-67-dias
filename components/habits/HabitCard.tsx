@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import {
-    CheckCircle2, XCircle, Ban, ListChecks, Pencil, Trash2, Flame, Plus
+    CheckCircle2, XCircle, Ban, ListChecks, Pencil, Trash2, Flame, Plus, AlertTriangle, Clock
 } from 'lucide-react';
 import { Habit } from '../../types';
 import { getCategoryColor } from '../../utils/styling';
@@ -358,6 +358,41 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                                             }`}>{sub.title}</span>
                                     </div>
                                 )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Consequências cadastradas neste Hábito */}
+                    {habit.consequences && habit.consequences.length > 0 && (
+                        <div className="mt-4 ml-10 space-y-1.5 border-l-2 border-amber-500/30 pl-4 py-1">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                ⚡ Consequência se falhar:
+                            </div>
+                            {habit.consequences.map(cons => {
+                                // Determinar se esta consequência específica está ativada neste momento (hoje)
+                                // Para hábitos negativos: ativa se foi marcado (completed: true)
+                                // Para hábitos positivos: ativa se NÃO foi marcado (completed: false)
+                                const isTriggered = habit.isNegative ? log.completed : !log.completed;
+                                return (
+                                    <div 
+                                        key={cons.id} 
+                                        className={`text-xs p-2 rounded border transition-all ${
+                                            isTriggered
+                                                ? 'bg-red-500/10 border-red-500/30 text-red-300 font-medium'
+                                                : 'bg-slate-900/40 border-slate-800 text-slate-400'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            {isTriggered ? <AlertTriangle size={12} className="text-red-400 animate-pulse" /> : <Clock size={12} className="text-slate-500" />}
+                                            <span>{cons.description}</span>
+                                            {isTriggered && (
+                                                <span className="text-[9px] bg-red-500/20 text-red-400 px-1 rounded ml-auto">
+                                                    ATIVADA
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
                             })}
                         </div>
                     )}

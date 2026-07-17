@@ -525,7 +525,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       {/* Footer Version */}
       <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
         <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão 1.17.0
+          versão 1.17.1
         </span>
       </footer>
 
