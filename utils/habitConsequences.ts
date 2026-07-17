@@ -6,11 +6,16 @@
  */
 import { Habit, HabitConsequence } from '../types';
 
+export interface TriggerInfo {
+    title: string;
+    isNegative: boolean;
+}
+
 export interface ActiveConsequence {
     consequence: HabitConsequence;
     sourceHabitId: string;
     sourceHabitTitle: string;
-    triggeredBy: string[];  // Titles of habits that were marked yesterday
+    triggeredBy: TriggerInfo[];  // Habits that triggered this consequence yesterday
 }
 
 /**
@@ -27,19 +32,30 @@ function getYesterday(todayStr: string): string {
 }
 
 /**
- * Check if a habit was marked (completed) on a specific date.
+ * Check if a habit failed yesterday.
+ * - Negative habit (avoid): fails if it WAS marked (completed: true)
+ * - Positive habit (do): fails if it WAS NOT marked (completed: false)
  */
-function wasHabitMarked(habit: Habit, dateKey: string): boolean {
-    return habit.history[dateKey]?.completed === true;
+function didHabitFailYesterday(habit: Habit, dateKey: string): boolean {
+    const log = habit.history[dateKey];
+    const completed = log ? log.completed : false;
+    
+    if (habit.isNegative) {
+        // Negative habit: marking it is a failure
+        return completed === true;
+    } else {
+        // Positive habit: not completing it is a failure
+        return completed === false;
+    }
 }
 
 /**
  * Get all active consequences for today based on yesterday's habits.
  * 
  * For each habit that has consequences defined:
- * - Check if the condition habits were marked YESTERDAY
- * - ALL_MARKED: all condition habits must be marked
- * - ANY_MARKED: at least one condition habit must be marked
+ * - Check if the condition habits failed YESTERDAY
+ * - ALL_MARKED: all condition habits must have failed
+ * - ANY_MARKED: at least one condition habit must have failed
  * - If conditions are met, the consequence is active TODAY
  * 
  * @param habits - All habits in the system
@@ -63,7 +79,7 @@ export function getActiveConsequences(habits: Habit[], today: string): ActiveCon
         for (const consequence of habit.consequences) {
             if (consequence.conditionHabitIds.length === 0) continue;
 
-            const triggeredHabits: string[] = [];
+            const triggeredHabits: TriggerInfo[] = [];
             let conditionMet = false;
 
             if (consequence.conditionType === 'ALL_MARKED') {
@@ -71,17 +87,25 @@ export function getActiveConsequences(habits: Habit[], today: string): ActiveCon
                 const allMet = consequence.conditionHabitIds.every(condId => {
                     const condHabit = habitMap.get(condId);
                     if (!condHabit) return false;
-                    const marked = wasHabitMarked(condHabit, yesterday);
-                    if (marked) triggeredHabits.push(condHabit.title);
-                    return marked;
+                    const failed = didHabitFailYesterday(condHabit, yesterday);
+                    if (failed) {
+                        triggeredHabits.push({
+                            title: condHabit.title,
+                            isNegative: !!condHabit.isNegative
+                        });
+                    }
+                    return failed;
                 });
                 conditionMet = allMet;
             } else {
                 // ANY condition must be met
                 consequence.conditionHabitIds.forEach(condId => {
                     const condHabit = habitMap.get(condId);
-                    if (condHabit && wasHabitMarked(condHabit, yesterday)) {
-                        triggeredHabits.push(condHabit.title);
+                    if (condHabit && didHabitFailYesterday(condHabit, yesterday)) {
+                        triggeredHabits.push({
+                            title: condHabit.title,
+                            isNegative: !!condHabit.isNegative
+                        });
                     }
                 });
                 conditionMet = triggeredHabits.length > 0;
@@ -105,9 +129,16 @@ export function getActiveConsequences(habits: Habit[], today: string): ActiveCon
  * Get a human-readable summary of why a consequence was triggered.
  */
 export function getConsequenceSummary(ac: ActiveConsequence): string {
-    if (ac.triggeredBy.length === 1) {
-        return `Porque "${ac.triggeredBy[0]}" foi marcado ontem`;
+    const descriptions = ac.triggeredBy.map(t => {
+        return t.isNegative 
+            ? `"${t.title}" foi marcado (falha)` 
+            : `"${t.title}" não foi realizado`;
+    });
+
+    if (descriptions.length === 1) {
+        return `Ativado porque ${descriptions[0]} ontem.`;
     }
-    const names = ac.triggeredBy.map(n => `"${n}"`).join(' e ');
-    return `Porque ${names} foram marcados ontem`;
+    
+    const connector = ac.consequence.conditionType === 'ALL_MARKED' ? ' E ' : ' OU ';
+    return `Ativado porque ontem: ${descriptions.join(connector)}.`;
 }

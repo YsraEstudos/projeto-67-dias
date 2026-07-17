@@ -15,6 +15,7 @@ interface HabitModalProps {
 }
 
 const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, allHabits = [], onClose, onSave }) => {
+    const [habitId] = useState(() => habit?.id || `h_${Date.now()}`);
     const [title, setTitle] = useState(habit?.title || '');
     const [category, setCategory] = useState(habit?.category || 'Saúde');
 
@@ -103,7 +104,7 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, allHabits = 
         if (!title.trim()) return;
 
         const newHabit: Habit = {
-            id: habit?.id || Date.now().toString(),
+            id: habitId,
             title,
             category,
             // Novos Campos
@@ -317,7 +318,9 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, allHabits = 
                             consequences={consequences}
                             onChange={setConsequences}
                             allHabits={allHabits}
-                            currentHabitId={habit?.id}
+                            currentHabitId={habitId}
+                            currentHabitTitle={title}
+                            isNegative={goalType === 'BOOLEAN' ? isNegative : false}
                         />
 
                         {/* PLANO PROGRESSIVO 67 DIAS */}
