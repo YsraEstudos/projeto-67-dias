@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ShieldAlert, Ban, Target, ListChecks, Plus, Save } from 'lucide-react';
-import { Habit } from '../../types';
+import { Habit, HabitConsequence, ProgressivePlan } from '../../types';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
+import ConsequenceEditor from './ConsequenceEditor';
+import ProgressivePlanSetup from './ProgressivePlanSetup';
 
 interface HabitModalProps {
     categories: string[];
     habit?: Habit | null;
+    allHabits?: Habit[];  // All habits for consequence condition selection
     onClose: () => void;
     onSave: (habit: Habit) => void;
 }
 
-const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onSave }) => {
+const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, allHabits = [], onClose, onSave }) => {
     const [title, setTitle] = useState(habit?.title || '');
     const [category, setCategory] = useState(habit?.category || 'Saúde');
 
@@ -25,6 +28,12 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
     const [currentSub, setCurrentSub] = useState('');
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
+    // Consequências
+    const [consequences, setConsequences] = useState<HabitConsequence[]>(habit?.consequences || []);
+
+    // Plano Progressivo 67 Dias
+    const [progressivePlan, setProgressivePlan] = useState<ProgressivePlan | undefined>(habit?.progressivePlan);
+
     // Memoize initial values for comparison
     const initialValues = useMemo(() => ({
         title: habit?.title || '',
@@ -34,12 +43,14 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
         targetValue: habit?.targetValue || 0,
         isNegative: habit?.isNegative || false,
         subHabits: habit?.subHabits?.map(s => s.title) || [],
+        consequences: habit?.consequences || [],
+        progressivePlan: habit?.progressivePlan,
     }), []);
 
     // Track unsaved changes
     const { hasChanges } = useUnsavedChanges({
         initialValue: initialValues,
-        currentValue: { title, category, goalType, frequency, targetValue, isNegative, subHabits },
+        currentValue: { title, category, goalType, frequency, targetValue, isNegative, subHabits, consequences, progressivePlan },
     });
 
     // Intercept close to check for unsaved changes
@@ -61,6 +72,8 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
             setTargetValue(habit.targetValue || 0);
             setIsNegative(habit.isNegative || false);
             setSubHabits(habit.subHabits?.map(s => s.title) || []);
+            setConsequences(habit.consequences || []);
+            setProgressivePlan(habit.progressivePlan);
         } else {
             // Defaults for new habit
             setTitle('');
@@ -70,6 +83,8 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
             setTargetValue(0);
             setIsNegative(false);
             setSubHabits([]);
+            setConsequences([]);
+            setProgressivePlan(undefined);
         }
     }, [habit]);
 
@@ -100,7 +115,11 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
             subHabits: subHabits.map((t, i) => ({ id: `sh_${Date.now()}_${i}`, title: t })),
             history: habit?.history || {},
             createdAt: habit?.createdAt || Date.now(),
-            archived: habit?.archived || false
+            archived: habit?.archived || false,
+            // Consequências
+            consequences: consequences.length > 0 ? consequences : undefined,
+            // Plano Progressivo
+            progressivePlan,
         };
         onSave(newHabit);
     };
@@ -292,6 +311,20 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, onClose, onS
                                 </>
                             )}
                         </div>
+
+                        {/* CONSEQUÊNCIAS */}
+                        <ConsequenceEditor
+                            consequences={consequences}
+                            onChange={setConsequences}
+                            allHabits={allHabits}
+                            currentHabitId={habit?.id}
+                        />
+
+                        {/* PLANO PROGRESSIVO 67 DIAS */}
+                        <ProgressivePlanSetup
+                            plan={progressivePlan}
+                            onChange={setProgressivePlan}
+                        />
                     </div>
 
                     <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex gap-3">

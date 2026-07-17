@@ -1,9 +1,10 @@
 import React, { memo, useMemo } from 'react';
 import {
-    CheckCircle2, XCircle, Ban, ListChecks, Pencil, Trash2
+    CheckCircle2, XCircle, Ban, ListChecks, Pencil, Trash2, Flame, Plus
 } from 'lucide-react';
 import { Habit } from '../../types';
 import { getCategoryColor } from '../../utils/styling';
+import { getSessionInfo, isDayScheduled, isPlanCompleted } from '../../utils/habitProgressiveCalc';
 
 interface HabitCardProps {
     habit: Habit;
@@ -30,6 +31,22 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
     const isNegativeHabit = habit.isNegative;
     const isTimeHabit = habit.goalType === 'MAX_TIME' || habit.goalType === 'MIN_TIME';
     const isCounterHabit = habit.goalType === 'COUNTER';
+
+    // Progressive plan session info
+    const sessionInfo = useMemo(() => {
+        if (!habit.progressivePlan) return null;
+        return getSessionInfo(habit.progressivePlan, dateKey);
+    }, [habit.progressivePlan, dateKey]);
+
+    const isProgressivePlanDay = useMemo(() => {
+        if (!habit.progressivePlan) return false;
+        return isDayScheduled(habit.progressivePlan, dateKey);
+    }, [habit.progressivePlan, dateKey]);
+
+    const isPlanDone = useMemo(() => {
+        if (!habit.progressivePlan) return false;
+        return isPlanCompleted(habit.progressivePlan, dateKey);
+    }, [habit.progressivePlan, dateKey]);
 
     // Calculate Progress Logic
     const { currentValue, target, progressPercent, isOverLimit } = useMemo(() => {
@@ -196,6 +213,45 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                                     {habit.category}
                                 </span>
                             </div>
+
+                            {/* PROGRESSIVE PLAN BADGE */}
+                            {habit.progressivePlan && !isPlanDone && (
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border tracking-wider uppercase bg-orange-500/10 text-orange-400 border-orange-500/20 flex items-center gap-1">
+                                        <Flame size={10} />
+                                        {sessionInfo
+                                            ? `DIA ${sessionInfo.dayNumber}/67 • META: ${sessionInfo.targetMinutes}min`
+                                            : isProgressivePlanDay ? 'Dia de Treino' : 'Dia de Descanso'
+                                        }
+                                    </span>
+                                </div>
+                            )}
+                            {habit.progressivePlan && isPlanDone && (
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1">
+                                        🏆 67 DIAS COMPLETOS!
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* PROGRESSIVE PLAN PROGRESS BAR */}
+                            {sessionInfo && !isPlanDone && (
+                                <div className="mt-2 bg-orange-900/20 rounded-lg p-2 border border-orange-500/20">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-[10px] text-orange-300 font-bold">Progresso 67 Dias</span>
+                                        <span className="text-[10px] text-orange-400">{sessionInfo.progressPercent}%</span>
+                                    </div>
+                                    <div className="bg-slate-900 rounded-full h-1.5 w-full overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full bg-gradient-to-r from-orange-600 to-orange-400 transition-all duration-500"
+                                            style={{ width: `${sessionInfo.progressPercent}%` }}
+                                        />
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 mt-1">
+                                        Sessão {sessionInfo.sessionNumber}/{sessionInfo.totalSessions}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* PROGRESS BAR FOR TIME HABITS AND COUNTER HABITS */}
                             {(isTimeHabit || (isCounterHabit && target > 0)) && (

@@ -9,6 +9,22 @@ export interface HabitLog {
   subHabitsCompleted: string[];
 }
 
+/** Consequência ativada no dia seguinte quando condições de hábitos são atendidas */
+export interface HabitConsequence {
+  id: string;
+  description: string;              // Ex: "Não jogar videogame"
+  conditionHabitIds: string[];      // IDs dos hábitos que precisam ser marcados
+  conditionType: 'ALL_MARKED' | 'ANY_MARKED'; // Lógica AND ou OR
+}
+
+/** Configuração do plano progressivo de 67 dias */
+export interface ProgressivePlan {
+  startDate: string;               // Data de início (YYYY-MM-DD)
+  targetMinutes: number;           // Meta final em minutos por sessão
+  daysPerWeek: number;             // Quantas vezes por semana (1-7)
+  scheduledDays: number[];         // Dias da semana (0=Dom, 1=Seg, ..., 6=Sáb)
+}
+
 export interface Habit {
   id: string;
   title: string;
@@ -24,4 +40,10 @@ export interface Habit {
   history: Record<string, HabitLog>;
   createdAt: number;
   archived: boolean;
+
+  // Sistema de consequências
+  consequences?: HabitConsequence[];
+
+  // Plano progressivo de 67 dias
+  progressivePlan?: ProgressivePlan;
 }

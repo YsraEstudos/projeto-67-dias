@@ -1,8 +1,9 @@
-import React, { Suspense } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, CheckCircle2 } from 'lucide-react';
+import React, { Suspense, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useHabitsManager } from './hooks/useHabitsManager';
 import { WaterTracker } from '../../habits/WaterTracker';
 import HabitCard from '../../habits/HabitCard';
+import { getActiveConsequences, getConsequenceSummary } from '../../../utils/habitConsequences';
 
 const HabitModal = React.lazy(() => import('../../habits/HabitModal'));
 
@@ -31,6 +32,13 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
         handleSaveHabit
     } = manager;
 
+    // Calculate active consequences for the selected date
+    const dateKey = selectedDate.toISOString().split('T')[0];
+    const activeConsequences = useMemo(
+        () => getActiveConsequences(habits, dateKey),
+        [habits, dateKey]
+    );
+
     return (
         <div className="flex flex-col gap-6">
             {/* WATER TRACKER */}
@@ -55,6 +63,31 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
                     <ChevronRight size={24} />
                 </button>
             </div>
+
+            {/* CONSEQUENCES BANNER */}
+            {activeConsequences.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 shadow-lg animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={18} className="text-amber-400" />
+                        <span className="text-sm font-bold text-amber-300 uppercase tracking-wide">
+                            Consequências Ativas Hoje
+                        </span>
+                    </div>
+                    <div className="space-y-2">
+                        {activeConsequences.map((ac, i) => (
+                            <div key={i} className="flex items-start gap-2 bg-amber-900/20 rounded-lg p-2.5">
+                                <span className="text-amber-400 font-bold text-sm">⚡</span>
+                                <div>
+                                    <div className="text-sm font-bold text-amber-200">{ac.consequence.description}</div>
+                                    <div className="text-xs text-amber-400/70 mt-0.5">
+                                        {getConsequenceSummary(ac)}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-4">
                 {habits.length === 0 && (
@@ -83,6 +116,7 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
                     <HabitModal
                         categories={categories}
                         habit={editingHabit}
+                        allHabits={habits}
                         onClose={() => { setIsHabitModalOpen(false); setEditingHabit(null); }}
                         onSave={handleSaveHabit}
                     />
