@@ -304,6 +304,15 @@ export interface ShellUiState {
   mobilePinnedNav: string[];
 }
 
+export interface SnapshotConflict {
+  id: string;
+  path: string;
+  baseValue: any;
+  localValue: any;
+  remoteValue: any;
+  detectedAt: number;
+}
+
 export interface AppState {
   schemaVersion: number;
   planSettings: PlanSettings;
@@ -320,6 +329,7 @@ export interface AppState {
   ankiConfig: AnkiConfig;
   ankiStats: AnkiStats;
   meta: MetaState;
+  conflicts?: SnapshotConflict[];
 }
 
 export interface AppSnapshot {

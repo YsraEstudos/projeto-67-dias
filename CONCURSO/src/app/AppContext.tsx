@@ -17,6 +17,7 @@ import {
   subscribeCloudAuthChanges,
   subscribeCloudSnapshotChanges,
 } from './cloudStorage';
+import { mergeSnapshots, resolveSnapshotConflict as applyConflictResolution } from './snapshotMerge';
 import { AUTO_BACKUP_INTERVAL_MINUTES, END_DATE } from './constants';
 import {
   downloadSnapshot,
@@ -1260,6 +1261,7 @@ interface AppContextValue {
   };
   connectGoogleCloud: () => Promise<void>;
   syncToCloudNow: () => Promise<void>;
+  resolveSnapshotConflict: (conflictId: string, resolution: 'local' | 'remote') => void;
 }
 
 type AppStateContextValue = Pick<AppContextValue, 'state'>;
@@ -1269,7 +1271,7 @@ type AppPlanContextValue = Pick<
 >;
 type AppSyncContextValue = Pick<
   AppContextValue,
-  'cloudSync' | 'connectGoogleCloud' | 'syncToCloudNow'
+  'cloudSync' | 'connectGoogleCloud' | 'syncToCloudNow' | 'resolveSnapshotConflict'
 >;
 type AppActionsContextValue = Omit<
   AppContextValue,
@@ -1543,16 +1545,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const localChangedAt = localState.meta.lastChangedAt ?? null;
         const remoteChangedAt = remote.lastChangedAt;
 
-        if (
-          remote.snapshot?.appState &&
-          remoteChangedAt &&
-          (!localChangedAt || remoteChangedAt > localChangedAt)
-        ) {
-          const normalizedRemoteState = normalizeStateForCurrentPlan(remote.snapshot.appState);
-          dispatch({ type: 'import-state', state: normalizedRemoteState });
-          stateRef.current = normalizedRemoteState;
-          lastCloudSavedTokenRef.current = normalizedRemoteState.meta.changeToken;
-          lastCloudSavedAtRef.current = remote.snapshot.exportedAt;
+        if (remote.snapshot?.appState) {
+          const localSnapshot = buildSnapshot(localState);
+          const { merged } = mergeSnapshots(null, localSnapshot, remote.snapshot);
+          const normalizedMergedState = normalizeStateForCurrentPlan(merged.appState);
+          dispatch({ type: 'import-state', state: normalizedMergedState });
+          stateRef.current = normalizedMergedState;
+          lastCloudSavedTokenRef.current = normalizedMergedState.meta.changeToken;
+          lastCloudSavedAtRef.current = merged.exportedAt;
         } else {
           lastCloudSavedTokenRef.current = localState.meta.changeToken;
         }
@@ -2024,6 +2024,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           });
           throw error;
         }
+      },
+      resolveSnapshotConflict: (conflictId: string, resolution: 'local' | 'remote') => {
+        const currentSnapshot = buildSnapshot(stateRef.current);
+        const resolved = applyConflictResolution(currentSnapshot, conflictId, resolution);
+        const normalized = normalizeStateForCurrentPlan(resolved.appState);
+        dispatch({ type: 'import-state', state: normalized });
+        void syncSnapshotToCloud(normalized);
       },
     }),
     [cloudSync, syncSnapshotToCloud],

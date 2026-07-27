@@ -63,6 +63,7 @@ const BatchProbe = () => {
 const ActionsOnlyProbe = () => {
   const renders = useRef(0);
   const { setDailyNote } = useAppActionsContext();
+  // eslint-disable-next-line react-hooks/refs
   renders.current += 1;
 
   return (
@@ -70,6 +71,7 @@ const ActionsOnlyProbe = () => {
       <button type="button" onClick={() => setDailyNote('2026-03-15', 'nota rapida')}>
         salvar nota
       </button>
+      {/* eslint-disable-next-line react-hooks/refs */}
       <p data-testid="actions-only-renders">{renders.current}</p>
     </>
   );
