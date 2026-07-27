@@ -123,6 +123,9 @@ export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
             } else {
                 // Toggle main habit
                 log.completed = !log.completed;
+                if (habit.subHabits && habit.subHabits.length > 0) {
+                    log.subHabitsCompleted = log.completed ? habit.subHabits.map(s => s.id) : [];
+                }
             }
         });
         get()._syncToFirestore();

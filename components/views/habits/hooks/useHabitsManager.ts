@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Habit } from '../../../../types';
 import { useHabitActions, useHabits } from '../../../../stores/selectors';
 import { useStreakTracking } from '../../../../hooks/useStreakTracking';
+import { formatDateISO } from '../../../../utils/dateUtils';
 
 export const useHabitsManager = () => {
     // Global State
@@ -21,7 +22,7 @@ export const useHabitsManager = () => {
     const { trackActivity } = useStreakTracking();
 
     // Computed
-    const dateKey = selectedDate.toISOString().split('T')[0];
+    const dateKey = formatDateISO(selectedDate);
 
     // Handlers
     const changeDay = useCallback((days: number) => {
@@ -57,32 +58,9 @@ export const useHabitsManager = () => {
     }, [editingHabit, updateHabit, addHabit]);
 
     const handleToggleHabitCompletion = useCallback((habitId: string, subHabitId?: string) => {
-        // Use store action
         toggleHabitCompletion(habitId, dateKey, subHabitId);
-
-        // Special handling for parent toggle with sub-habits (Mark all sub-habits as done if parent is done)
-        if (!subHabitId) {
-            const habit = habits.find(h => h.id === habitId);
-
-            if (habit && habit.subHabits.length > 0) {
-                const currentLog = habit.history[dateKey] || { completed: false, subHabitsCompleted: [] };
-                const willBeComplete = !currentLog.completed;
-
-                updateHabit(habitId, {
-                    history: {
-                        ...habit.history,
-                        [dateKey]: {
-                            ...currentLog,
-                            completed: willBeComplete,
-                            subHabitsCompleted: willBeComplete ? habit.subHabits.map(sh => sh.id) : []
-                        }
-                    }
-                });
-            }
-        }
-
         trackActivity();
-    }, [habits, dateKey, toggleHabitCompletion, updateHabit, trackActivity]);
+    }, [dateKey, toggleHabitCompletion, trackActivity]);
 
     const handleLogValue = useCallback((habitId: string, value: number) => {
         const habit = habits.find(h => h.id === habitId);
