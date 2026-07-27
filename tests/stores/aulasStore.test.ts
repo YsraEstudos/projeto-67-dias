@@ -250,4 +250,96 @@ describe('aulasStore', () => {
         expect(stats?.history[0].sessionId).toBe('session-1');
         expect(useAulasStore.getState().reviewSessions).toHaveLength(1);
     });
+
+    it('merges books at chapter level without losing local offline chapters', () => {
+        // Local state has Book 1 with Chapter 1 (newer local edit) and Chapter 2 (local only)
+        useAulasStore.setState({
+            books: [{
+                id: 'book-1',
+                folderId: 'f-1',
+                title: 'Book 1',
+                coverImage: null,
+                targetDate: null,
+                position: 0,
+                updatedAt: 200,
+                chapters: [
+                    { id: 'ch-1', title: 'Chapter 1 Local', content: 'Local Content', attachments: {}, position: 0, updatedAt: 200 },
+                    { id: 'ch-2', title: 'Chapter 2 Local Only', content: 'Content 2', attachments: {}, position: 1, updatedAt: 200 },
+                ],
+            }],
+        });
+
+        // Remote payload has Book 1 with Chapter 1 (older remote version) and Chapter 3 (remote only)
+        const remoteBooks = [{
+            id: 'book-1',
+            folderId: 'f-1',
+            title: 'Book 1 Remote Title',
+            coverImage: null,
+            targetDate: null,
+            position: 0,
+            updatedAt: 100,
+            chapters: [
+                { id: 'ch-1', title: 'Chapter 1 Remote Stale', content: 'Stale Content', attachments: {}, position: 0, updatedAt: 100 },
+                { id: 'ch-3', title: 'Chapter 3 Remote Only', content: 'Content 3', attachments: {}, position: 2, updatedAt: 100 },
+            ],
+        }];
+
+        useAulasStore.getState()._hydrateBooksFromSubcollection(remoteBooks);
+
+        const mergedBook = useAulasStore.getState().books.find(b => b.id === 'book-1')!;
+        expect(mergedBook).toBeDefined();
+        // Book metadata (updatedAt: 200 vs 100) -> local title kept
+        expect(mergedBook.title).toBe('Book 1');
+
+        // Chapters should contain ch-1 (newer local), ch-2 (local only), and ch-3 (remote only)
+        expect(mergedBook.chapters).toHaveLength(3);
+        const ch1 = mergedBook.chapters.find(c => c.id === 'ch-1')!;
+        expect(ch1.title).toBe('Chapter 1 Local');
+        expect(ch1.content).toBe('Local Content');
+
+        expect(mergedBook.chapters.map(c => c.id)).toContain('ch-2');
+        expect(mergedBook.chapters.map(c => c.id)).toContain('ch-3');
+    });
+
+    it('handles chapter conflicts, timestamp ties, and deletedAt tombstones correctly', () => {
+        // Local has Chapter 1 (deleted tombstone), Chapter 2 (timestamp tie)
+        useAulasStore.setState({
+            books: [{
+                id: 'book-1',
+                folderId: 'f-1',
+                title: 'Book 1',
+                coverImage: null,
+                targetDate: null,
+                position: 0,
+                updatedAt: 300,
+                chapters: [
+                    { id: 'ch-deleted', title: 'Deleted Chapter', content: '', attachments: {}, position: 0, updatedAt: 150, deletedAt: 200 },
+                    { id: 'ch-tie', title: 'Tie Chapter Local', content: 'Local Tie', attachments: {}, position: 1, updatedAt: 100 },
+                ],
+            }],
+        });
+
+        // Remote tries to resurrect ch-deleted with an older timestamp (100) and supplies ch-tie with equal timestamp (100)
+        const remoteBooks = [{
+            id: 'book-1',
+            folderId: 'f-1',
+            title: 'Book 1',
+            coverImage: null,
+            targetDate: null,
+            position: 0,
+            updatedAt: 100,
+            chapters: [
+                { id: 'ch-deleted', title: 'Deleted Chapter Resurrect Attempt', content: 'Old', attachments: {}, position: 0, updatedAt: 100 },
+                { id: 'ch-tie', title: 'Tie Chapter Remote', content: 'Remote Tie', attachments: {}, position: 1, updatedAt: 100 },
+            ],
+        }];
+
+        useAulasStore.getState()._hydrateBooksFromSubcollection(remoteBooks);
+
+        const mergedBook = useAulasStore.getState().books.find(b => b.id === 'book-1')!;
+        expect(mergedBook.chapters.map(c => c.id)).not.toContain('ch-deleted');
+
+        const chTie = mergedBook.chapters.find(c => c.id === 'ch-tie')!;
+        expect(chTie.title).toBe('Tie Chapter Local');
+    });
 });

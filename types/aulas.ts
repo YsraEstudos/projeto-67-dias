@@ -80,6 +80,8 @@ export interface AulaChapter {
   timerSeconds?: number;
   comments?: AulaChapterComment[];
   questionAttempts?: Record<string, QuestionStats>;
+  updatedAt?: number;
+  deletedAt?: number;
 }
 
 export interface RecentlyStudiedItem {
@@ -98,6 +100,8 @@ export interface AulaBook {
   targetDate: string | null; // Data ISO
   position: number;
   chapters: AulaChapter[];
+  updatedAt?: number;
+  deletedAt?: number;
 }
 
 export interface AulaAppState {

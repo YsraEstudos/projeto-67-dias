@@ -36,15 +36,177 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     });
 };
 
-const mergeBooksByRecency = (baseBooks: AulaBook[], incomingBooks: AulaBook[]): AulaBook[] => {
-    const merged = new Map<string, AulaBook>();
-    baseBooks.forEach(b => merged.set(b.id, b));
-    
-    // In this simple strategy, we take the incoming book as whole since chapters are complex arrays
-    incomingBooks.forEach(b => {
-        merged.set(b.id, b);
+const getEntityTimestamp = (entity: { updatedAt?: number; readAt?: string }, defaultTimestamp = 0): number => {
+    if (typeof entity.updatedAt === 'number' && !isNaN(entity.updatedAt)) {
+        return entity.updatedAt;
+    }
+    if (entity.readAt) {
+        const parsed = Date.parse(entity.readAt);
+        if (!isNaN(parsed)) return parsed;
+    }
+    return defaultTimestamp;
+};
+
+const isEntityDeleted = (entity: { deletedAt?: number; updatedAt?: number }): boolean => {
+    if (typeof entity.deletedAt === 'number' && !isNaN(entity.deletedAt)) {
+        const updatedAt = entity.updatedAt ?? 0;
+        return entity.deletedAt >= updatedAt;
+    }
+    return false;
+};
+
+const mergeComments = (
+    base: AulaChapterComment[] = [],
+    incoming: AulaChapterComment[] = []
+): AulaChapterComment[] => {
+    const map = new Map<string, AulaChapterComment>();
+    base.forEach(c => map.set(c.id, c));
+    incoming.forEach(c => {
+        if (!map.has(c.id)) {
+            map.set(c.id, c);
+        }
     });
-    return Array.from(merged.values());
+    return Array.from(map.values());
+};
+
+const mergeQuestionAttempts = (
+    base: Record<string, QuestionStats> = {},
+    incoming: Record<string, QuestionStats> = {}
+): Record<string, QuestionStats> => {
+    const result: Record<string, QuestionStats> = { ...base };
+    for (const [qNum, incStats] of Object.entries(incoming)) {
+        if (!result[qNum]) {
+            result[qNum] = incStats;
+        } else {
+            const baseStats = result[qNum];
+            const seenHistory = new Set(baseStats.history.map(h => `${h.timestamp}_${h.status}_${h.sessionId || ''}`));
+            const mergedHistory = [...baseStats.history];
+            incStats.history.forEach(h => {
+                const key = `${h.timestamp}_${h.status}_${h.sessionId || ''}`;
+                if (!seenHistory.has(key)) {
+                    seenHistory.add(key);
+                    mergedHistory.push(h);
+                }
+            });
+            const correctCount = mergedHistory.filter(h => h.status === 'correct').length;
+            const incorrectCount = mergedHistory.filter(h => h.status === 'incorrect').length;
+            result[qNum] = {
+                total: mergedHistory.length,
+                correct: correctCount,
+                incorrect: incorrectCount,
+                history: mergedHistory,
+            };
+        }
+    }
+    return result;
+};
+
+const mergeChapters = (
+    baseChapters: AulaChapter[] = [],
+    incomingChapters: AulaChapter[] = [],
+    defaultBookTimestamp = 0
+): AulaChapter[] => {
+    const chaptersMap = new Map<string, AulaChapter>();
+
+    baseChapters.forEach(ch => {
+        const normalized = {
+            ...ch,
+            updatedAt: getEntityTimestamp(ch, defaultBookTimestamp),
+        };
+        chaptersMap.set(ch.id, normalized);
+    });
+
+    incomingChapters.forEach(incCh => {
+        const incTs = getEntityTimestamp(incCh, defaultBookTimestamp);
+        const incNormalized = { ...incCh, updatedAt: incTs };
+        const existing = chaptersMap.get(incCh.id);
+
+        if (!existing) {
+            chaptersMap.set(incCh.id, incNormalized);
+        } else {
+            const existingTs = getEntityTimestamp(existing, defaultBookTimestamp);
+
+            if (isEntityDeleted(existing) && !isEntityDeleted(incNormalized)) {
+                if (incTs > (existing.deletedAt ?? 0)) {
+                    chaptersMap.set(incCh.id, incNormalized);
+                } else {
+                    chaptersMap.set(incCh.id, existing);
+                }
+            } else if (!isEntityDeleted(existing) && isEntityDeleted(incNormalized)) {
+                if (existingTs > (incNormalized.deletedAt ?? 0)) {
+                    chaptersMap.set(incCh.id, existing);
+                } else {
+                    chaptersMap.set(incCh.id, incNormalized);
+                }
+            } else {
+                if (incTs > existingTs) {
+                    chaptersMap.set(incCh.id, incNormalized);
+                } else if (incTs < existingTs) {
+                    chaptersMap.set(incCh.id, existing);
+                } else {
+                    const mergedComments = mergeComments(existing.comments, incCh.comments);
+                    const mergedAttempts = mergeQuestionAttempts(existing.questionAttempts, incCh.questionAttempts);
+
+                    chaptersMap.set(incCh.id, {
+                        ...existing,
+                        comments: mergedComments,
+                        questionAttempts: mergedAttempts,
+                    });
+                }
+            }
+        }
+    });
+
+    return Array.from(chaptersMap.values())
+        .filter(ch => !isEntityDeleted(ch))
+        .sort((a, b) => a.position - b.position);
+};
+
+export const mergeBooksByRecency = (baseBooks: AulaBook[] = [], incomingBooks: AulaBook[] = []): AulaBook[] => {
+    const bookMap = new Map<string, AulaBook>();
+
+    baseBooks.forEach(b => {
+        const ts = getEntityTimestamp(b);
+        bookMap.set(b.id, { ...b, updatedAt: ts });
+    });
+
+    incomingBooks.forEach(incBook => {
+        const incTs = getEntityTimestamp(incBook);
+        const incNormalized = { ...incBook, updatedAt: incTs };
+        const existing = bookMap.get(incBook.id);
+
+        if (!existing) {
+            bookMap.set(incBook.id, incNormalized);
+        } else {
+            const existingTs = getEntityTimestamp(existing);
+
+            if (isEntityDeleted(existing) && !isEntityDeleted(incNormalized)) {
+                if (incTs > (existing.deletedAt ?? 0)) {
+                    bookMap.set(incBook.id, incNormalized);
+                } else {
+                    bookMap.set(incBook.id, existing);
+                }
+            } else if (!isEntityDeleted(existing) && isEntityDeleted(incNormalized)) {
+                if (existingTs > (incNormalized.deletedAt ?? 0)) {
+                    bookMap.set(incBook.id, existing);
+                } else {
+                    bookMap.set(incBook.id, incNormalized);
+                }
+            } else {
+                const primaryBook = incTs > existingTs ? incNormalized : existing;
+                const bookTs = Math.max(existingTs, incTs);
+                const mergedChapters = mergeChapters(existing.chapters, incBook.chapters, bookTs);
+
+                bookMap.set(incBook.id, {
+                    ...primaryBook,
+                    chapters: mergedChapters,
+                    updatedAt: bookTs,
+                });
+            }
+        }
+    });
+
+    return Array.from(bookMap.values()).filter(b => !isEntityDeleted(b));
 };
 
 const syncBookToSubcollection = (book?: AulaBook) => {
