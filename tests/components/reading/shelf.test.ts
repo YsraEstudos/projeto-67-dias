@@ -4,6 +4,7 @@ import { MINT_BOOK_MANIFEST, CLOTH_PALETTE, FOIL_PALETTE } from '../../../compon
 import { BookMeshGroup } from '../../../components/reading/shelf/BookMesh';
 import { ShelfMeshGroup } from '../../../components/reading/shelf/ShelfMesh';
 import { InspectionControls } from '../../../components/reading/shelf/InspectionControls';
+import { resolveBookActivation } from '../../../components/reading/shelf/CompleteShelfScene';
 
 // Mock Canvas getContext for JSDOM environment
 beforeEach(() => {
@@ -81,6 +82,22 @@ describe('mintManifest', () => {
       expect(Object.values(CLOTH_PALETTE)).toContain(item.clothColor);
       expect(validMotifs).toContain(item.foilMotif);
       expect(Object.keys(FOIL_PALETTE)).toContain(item.foilColor);
+    });
+  });
+});
+
+describe('book activation', () => {
+  it('opens the cover inspection on the first click of a book', () => {
+    expect(resolveBookActivation(0, 0, false)).toEqual({
+      selectedIndex: 0,
+      shouldOpenInspection: true,
+    });
+  });
+
+  it('keeps an open inspection focused when another book is clicked', () => {
+    expect(resolveBookActivation(2, 0, true)).toEqual({
+      selectedIndex: 2,
+      shouldOpenInspection: true,
     });
   });
 });

@@ -9,16 +9,32 @@ interface CompleteShelfSceneProps {
   userBooks: Book[];
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
+  onOpenInspection: (index: number) => void;
   isInspecting: boolean;
-  onToggleInspection: () => void;
+}
+
+export interface ShelfBookActivation {
+  selectedIndex: number;
+  shouldOpenInspection: boolean;
+}
+
+export function resolveBookActivation(
+  bookIndex: number,
+  selectedIndex: number,
+  isInspecting: boolean,
+): ShelfBookActivation {
+  return {
+    selectedIndex: bookIndex,
+    shouldOpenInspection: !isInspecting || bookIndex !== selectedIndex,
+  };
 }
 
 export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   userBooks,
   selectedIndex,
   onSelectIndex,
+  onOpenInspection,
   isInspecting,
-  onToggleInspection,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -168,10 +184,14 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (book) {
           const idx = bookGroups.findIndex((b) => b === book);
           if (idx !== -1) {
-            if (idx === selectedIndexRef.current && !isInspectingRef.current) {
-              onToggleInspection();
-            } else {
-              onSelectIndex(idx);
+            const activation = resolveBookActivation(
+              idx,
+              selectedIndexRef.current,
+              isInspectingRef.current,
+            );
+            onSelectIndex(activation.selectedIndex);
+            if (activation.shouldOpenInspection) {
+              onOpenInspection(activation.selectedIndex);
             }
           }
         }

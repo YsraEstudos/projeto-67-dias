@@ -1,235 +1,306 @@
-import React, { useState } from 'react';
-import { X, Edit3, Plus, Minus, BookOpen, CheckCircle2, Bookmark, Clock, Star, Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Minus,
+  Plus,
+  Save,
+  Sparkles,
+  Star,
+  X,
+} from 'lucide-react';
 import { Book } from '../../../types';
 
 interface BookInspectionOverlayProps {
   book: Book | null;
   isOpen: boolean;
   onClose: () => void;
-  onEditBook: (book: Book) => void;
+  onSaveBook: (bookId: string, updates: Partial<Book>) => void;
   onUpdateProgress: (bookId: string, newCurrent: number) => void;
 }
 
-const STATUS_CONFIG: Record<Book['status'], { label: string; bg: string; text: string; icon: React.FC<{ className?: string }> }> = {
-  READING: { label: 'Lendo', bg: 'bg-[#EAE2D2]', text: 'text-[#3A2317]', icon: BookOpen },
-  COMPLETED: { label: 'Concluído', bg: 'bg-[#D4E8D4]', text: 'text-[#1E4620]', icon: CheckCircle2 },
-  TO_READ: { label: 'Desejo', bg: 'bg-[#F2E8D5]', text: 'text-[#7A541E]', icon: Bookmark },
-  PAUSED: { label: 'Pausado', bg: 'bg-[#E8E4E0]', text: 'text-[#4A4744]', icon: Clock },
-  ABANDONED: { label: 'Abandonado', bg: 'bg-[#F0D5D5]', text: 'text-[#612020]', icon: X },
+type BookDraft = Pick<
+  Book,
+  'title' | 'author' | 'genre' | 'unit' | 'total' | 'current' | 'status' | 'rating' | 'coverUrl' | 'notes' | 'deadline'
+>;
+
+const STATUS_OPTIONS: Array<{ value: Book['status']; label: string }> = [
+  { value: 'READING', label: 'Lendo' },
+  { value: 'TO_READ', label: 'Quero ler' },
+  { value: 'COMPLETED', label: 'Concluído' },
+  { value: 'PAUSED', label: 'Pausado' },
+  { value: 'ABANDONED', label: 'Abandonado' },
+];
+
+const UNIT_LABELS: Record<Book['unit'], string> = {
+  PAGES: 'Páginas',
+  CHAPTERS: 'Capítulos',
+  HOURS: 'Horas',
 };
+
+const createDraft = (book: Book): BookDraft => ({
+  title: book.title,
+  author: book.author,
+  genre: book.genre,
+  unit: book.unit,
+  total: book.total,
+  current: book.current,
+  status: book.status,
+  rating: book.rating,
+  coverUrl: book.coverUrl || '',
+  notes: book.notes,
+  deadline: book.deadline || '',
+});
+
+const inputClassName =
+  'w-full rounded-xl border border-[#E2D8C6] bg-[#FFFCF7] px-3 py-2.5 text-sm text-[#1A1918] outline-none transition focus:border-[#B58A48] focus:ring-2 focus:ring-[#C5A059]/20';
+
+const labelClassName = 'mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-[#8C7A6B]';
+
+const getCoverInitials = (title: string): string => {
+  const words = title.trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || 'L';
+};
+
+const BookCover: React.FC<{ book: BookDraft }> = ({ book }) => (
+  <div className="relative mx-auto aspect-[2/3] w-full max-w-[270px] overflow-hidden rounded-[1.25rem] border border-[#6B432B] bg-[#3A2317] shadow-[0_24px_45px_rgba(33,20,12,0.35)]">
+    {book.coverUrl ? (
+      <img
+        src={book.coverUrl}
+        alt={`Capa de ${book.title || 'livro'}`}
+        className="h-full w-full object-cover"
+        onError={(event) => {
+          event.currentTarget.style.display = 'none';
+        }}
+      />
+    ) : null}
+    <div className={`absolute inset-0 flex flex-col justify-between p-6 text-[#F8EAC8] ${book.coverUrl ? 'pointer-events-none bg-[#3A2317]/20' : ''}`}>
+      <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.28em] text-[#D4AF37]">
+        <span>Estante</span>
+        <BookOpen className="h-4 w-4" />
+      </div>
+      <div>
+        {!book.coverUrl && (
+          <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-full border border-[#D4AF37]/60 text-2xl font-serif text-[#F3D274]">
+            {getCoverInitials(book.title)}
+          </div>
+        )}
+        <h2 className="break-words font-serif text-2xl font-bold leading-tight text-[#FFF5D8] drop-shadow-md">
+          {book.title || 'Novo livro'}
+        </h2>
+        <p className="mt-2 text-sm text-[#E9D7B0]">{book.author || 'Autor não informado'}</p>
+      </div>
+    </div>
+  </div>
+);
 
 export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
   book,
   isOpen,
   onClose,
-  onEditBook,
+  onSaveBook,
   onUpdateProgress,
 }) => {
-  const [customDelta, setCustomDelta] = useState<number>(5);
+  const [draft, setDraft] = useState<BookDraft | null>(() => (book ? createDraft(book) : null));
+  const [isSaved, setIsSaved] = useState(false);
 
-  if (!isOpen || !book) return null;
+  useEffect(() => {
+    if (book) {
+      setDraft(createDraft(book));
+      setIsSaved(false);
+    } else {
+      setDraft(null);
+    }
+  }, [book?.id]);
 
-  const totalPages = book.total > 0 ? book.total : 1;
-  const currentPages = Math.min(book.current, totalPages);
-  const percentage = Math.min(100, Math.round((currentPages / totalPages) * 100));
+  const progress = useMemo(() => {
+    if (!draft) return { current: 0, total: 0, percentage: 0 };
+    const total = Math.max(0, draft.total);
+    const current = Math.max(0, draft.current);
+    return {
+      current,
+      total,
+      percentage: total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0,
+    };
+  }, [draft]);
 
-  const statusInfo = STATUS_CONFIG[book.status] || STATUS_CONFIG.TO_READ;
-  const StatusIcon = statusInfo.icon;
+  if (!isOpen || !book || !draft) return null;
 
-  const handleIncrement = (amount: number) => {
-    const nextVal = Math.min(book.total || 9999, Math.max(0, book.current + amount));
-    onUpdateProgress(book.id, nextVal);
+  const updateDraft = <K extends keyof BookDraft>(field: K, value: BookDraft[K]) => {
+    setDraft((currentDraft) => currentDraft ? { ...currentDraft, [field]: value } : currentDraft);
+    setIsSaved(false);
   };
 
-  const handleDecrement = (amount: number) => {
-    const nextVal = Math.max(0, book.current - amount);
-    onUpdateProgress(book.id, nextVal);
+  const handleProgressChange = (nextCurrent: number) => {
+    const boundedCurrent = Math.max(0, draft.total > 0 ? Math.min(draft.total, nextCurrent) : nextCurrent);
+    updateDraft('current', boundedCurrent);
+    onUpdateProgress(book.id, boundedCurrent);
+  };
+
+  const handleSave = () => {
+    const total = Math.max(0, draft.total);
+    const current = Math.max(0, total > 0 ? Math.min(total, draft.current) : draft.current);
+
+    onSaveBook(book.id, {
+      ...draft,
+      title: draft.title.trim() || book.title,
+      author: draft.author.trim(),
+      genre: draft.genre.trim(),
+      coverUrl: draft.coverUrl?.trim() || undefined,
+      notes: draft.notes.trim(),
+      deadline: draft.deadline || undefined,
+      total,
+      current,
+      rating: Math.max(0, Math.min(5, draft.rating)),
+    });
+    setDraft((currentDraft) => currentDraft ? { ...currentDraft, total, current } : currentDraft);
+    setIsSaved(true);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-[#1A1918]/40 backdrop-blur-xs transition-opacity duration-300 animate-fadeIn">
-      
-      {/* Backdrop Click */}
-      <div className="absolute inset-0" onClick={onClose} />
-
-      {/* Inspection Drawer Card */}
-      <div className="relative z-10 w-full max-w-md h-full md:h-[92vh] md:my-auto md:mr-6 bg-[#FDFBF7] text-[#1A1918] md:rounded-3xl shadow-2xl border border-[#E6DFD3] flex flex-col overflow-hidden animate-slideInRight">
-        
-        {/* Drawer Header */}
-        <div className="px-6 py-5 border-b border-[#E6DFD3] flex items-center justify-between bg-[#F5F0E6]/60">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#C5A059]" />
-            <span className="text-xs uppercase tracking-[0.2em] font-bold text-[#8C7A6B]">
-              Inspeção Detalhada
-            </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1817]/75 p-3 backdrop-blur-sm md:p-6">
+      <div className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-[#E6DFD3] bg-[#FDFBF7] text-[#1A1918] shadow-[0_30px_80px_rgba(0,0,0,0.38)]">
+        <header className="flex items-center justify-between border-b border-[#E6DFD3] bg-[#F5F0E6]/80 px-5 py-4 md:px-7">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#6E5A4B] transition hover:bg-[#EAE2D2]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar para a estante
+          </button>
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#A18455]">
+            <Sparkles className="h-4 w-4" />
+            Detalhes do volume
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-[#EAE2D2] text-[#5C5248] transition-colors cursor-pointer"
-            aria-label="Fechar Inspeção"
+            className="rounded-full p-2 text-[#6E5A4B] transition hover:bg-[#EAE2D2]"
+            aria-label="Fechar detalhes do livro"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        {/* Content Body */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6 scrollbar-thin">
-          
-          {/* Cover & Main Details Banner */}
-          <div className="flex gap-5 items-start">
-            {book.coverUrl ? (
-              <img
-                src={book.coverUrl}
-                alt={book.title}
-                className="w-24 h-36 object-cover rounded-xl shadow-md border border-[#E2D8C6] flex-shrink-0"
-              />
-            ) : (
-              <div className="w-24 h-36 rounded-xl bg-[#3A2317] text-[#F3D274] flex flex-col items-center justify-center p-3 text-center shadow-md flex-shrink-0 border border-[#523321]">
-                <BookOpen className="w-8 h-8 mb-2 opacity-80" />
-                <span className="text-[10px] font-serif font-bold uppercase tracking-wider line-clamp-3">
-                  {book.title}
-                </span>
+        <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
+          <section className="flex flex-col items-center justify-center border-b border-[#E6DFD3] bg-[#EFE5D5]/45 p-6 md:border-b-0 md:border-r md:p-8">
+            <BookCover book={draft} />
+            <p className="mt-5 max-w-[270px] text-center text-[10px] uppercase tracking-[0.18em] text-[#9B8875]">
+              A capa acompanha o título, autor e imagem preenchidos ao lado
+            </p>
+          </section>
+
+          <section className="min-h-0 overflow-y-auto p-5 scrollbar-thin md:p-8">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#A18455]">Ficha de leitura</p>
+                <h2 className="font-serif text-2xl font-bold leading-tight text-[#1A1918]">Preencha os detalhes do livro</h2>
+                <p className="mt-1 text-sm text-[#7A6857]">As alterações ficam salvas na sua estante.</p>
               </div>
-            )}
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusInfo.bg} ${statusInfo.text}`}>
-                  <StatusIcon className="w-3 h-3" />
-                  {statusInfo.label}
-                </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#F5F0E6] text-[#7A6857] border border-[#E2D8C6]">
-                  {book.genre || 'Geral'}
-                </span>
+              <div className="rounded-full border border-[#E2D8C6] bg-[#F5F0E6] px-3 py-1.5 text-xs font-bold text-[#5E4738]">
+                {progress.percentage}% lido
               </div>
+            </div>
 
-              <h2 className="text-xl font-serif font-bold text-[#1A1918] leading-tight mb-1">
-                {book.title}
-              </h2>
-              <p className="text-sm text-[#7A6857] font-medium mb-3">
-                {book.author}
-              </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label htmlFor="reading-book-title" className={labelClassName}>Título</label>
+                <input id="reading-book-title" className={inputClassName} value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} />
+              </div>
+              <div>
+                <label htmlFor="reading-book-author" className={labelClassName}>Autor</label>
+                <input id="reading-book-author" className={inputClassName} value={draft.author} onChange={(event) => updateDraft('author', event.target.value)} />
+              </div>
+              <div>
+                <label htmlFor="reading-book-genre" className={labelClassName}>Gênero</label>
+                <input id="reading-book-genre" className={inputClassName} value={draft.genre} onChange={(event) => updateDraft('genre', event.target.value)} placeholder="Ex.: Filosofia" />
+              </div>
+              <div>
+                <label htmlFor="reading-book-status" className={labelClassName}>Status</label>
+                <select id="reading-book-status" className={inputClassName} value={draft.status} onChange={(event) => updateDraft('status', event.target.value as Book['status'])}>
+                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="reading-book-deadline" className={labelClassName}>Meta / prazo</label>
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#A18455]" />
+                  <input id="reading-book-deadline" type="date" className={`${inputClassName} pl-9`} value={draft.deadline || ''} onChange={(event) => updateDraft('deadline', event.target.value)} />
+                </div>
+              </div>
+            </div>
 
-              {/* Rating stars if available */}
-              {book.rating !== undefined && book.rating > 0 && (
-                <div className="flex items-center gap-1 text-[#C5A059]">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-3.5 h-3.5 ${i < book.rating ? 'fill-[#C5A059]' : 'text-[#DCD2C4]'}`}
-                    />
+            <div className="mt-5 rounded-2xl border border-[#E2D8C6] bg-[#F5F0E6]/60 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#5E4738]">
+                  <CheckCircle2 className="h-4 w-4 text-[#A18455]" />
+                  Progresso de leitura
+                </div>
+                <span className="text-xs font-bold text-[#5E4738]">{progress.current} / {progress.total || '—'} {UNIT_LABELS[draft.unit].toLowerCase()}</span>
+              </div>
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-[#E2D8C6]">
+                <div className="h-full rounded-full bg-[#3A2317] transition-all" style={{ width: `${progress.percentage}%` }} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="reading-book-unit" className={labelClassName}>Unidade</label>
+                  <select id="reading-book-unit" className={inputClassName} value={draft.unit} onChange={(event) => updateDraft('unit', event.target.value as Book['unit'])}>
+                    {Object.entries(UNIT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="reading-book-current" className={labelClassName}>Atual</label>
+                  <input id="reading-book-current" type="number" min="0" className={inputClassName} value={draft.current} onChange={(event) => updateDraft('current', Number(event.target.value))} />
+                </div>
+                <div>
+                  <label htmlFor="reading-book-total" className={labelClassName}>Total</label>
+                  <input id="reading-book-total" type="number" min="0" className={inputClassName} value={draft.total} onChange={(event) => updateDraft('total', Number(event.target.value))} />
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="mr-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8C7A6B]"><Clock className="h-3.5 w-3.5" /> Registro rápido</span>
+                {[-5, -1, 1, 5, 10].map((amount) => (
+                  <button key={amount} type="button" onClick={() => handleProgressChange(progress.current + amount)} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${amount > 0 ? 'bg-[#3A2317] text-[#FAF6EE] hover:bg-[#2C1A10]' : 'border border-[#E2D8C6] bg-[#FFFCF7] text-[#5E4738] hover:bg-[#EAE2D2]'}`}>
+                    {amount > 0 ? <Plus className="mr-1 inline h-3 w-3 text-[#F3D274]" /> : <Minus className="mr-1 inline h-3 w-3" />}{Math.abs(amount)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="reading-book-cover" className={labelClassName}>URL da capa</label>
+                <input id="reading-book-cover" type="url" className={inputClassName} value={draft.coverUrl || ''} onChange={(event) => updateDraft('coverUrl', event.target.value)} placeholder="https://..." />
+              </div>
+              <div>
+                <span className={labelClassName}>Minha avaliação</span>
+                <div className="flex h-[42px] items-center gap-1 rounded-xl border border-[#E2D8C6] bg-[#FFFCF7] px-3">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button key={star} type="button" onClick={() => updateDraft('rating', star === draft.rating ? 0 : star)} aria-label={`Avaliar com ${star} estrelas`} className="rounded p-0.5 transition hover:scale-110">
+                      <Star className={`h-5 w-5 ${star <= draft.rating ? 'fill-[#C5A059] text-[#C5A059]' : 'text-[#D6C8B7]'}`} />
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Reading Progress Section */}
-          <div className="p-4 rounded-2xl bg-[#F5F0E6] border border-[#E2D8C6] space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-[#3A2317] tracking-wide uppercase text-[11px]">
-                Progresso de Leitura
-              </span>
-              <span className="font-bold text-[#3A2317]">
-                {percentage}% ({book.current} / {book.total || '?'} {book.unit === 'CHAPTERS' ? 'caps' : 'págs'})
-              </span>
-            </div>
-
-            {/* Custom Progress Bar */}
-            <div className="w-full h-3 rounded-full bg-[#E2D8C6] overflow-hidden p-0.5">
-              <div
-                className="h-full rounded-full bg-[#3A2317] transition-all duration-500 shadow-xs"
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-
-            {/* Quick Log +/- Buttons */}
-            <div className="pt-2 flex flex-col gap-2">
-              <span className="text-[11px] font-medium text-[#7A6857]">
-                Registro Rápido de Leitura:
-              </span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => handleDecrement(1)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE2D2] text-[#3A2317] text-xs font-bold border border-[#E2D8C6] flex items-center gap-1 transition-all cursor-pointer"
-                >
-                  <Minus className="w-3 h-3" /> 1 pág
-                </button>
-                <button
-                  onClick={() => handleDecrement(5)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE2D2] text-[#3A2317] text-xs font-bold border border-[#E2D8C6] transition-all cursor-pointer"
-                >
-                  -5
-                </button>
-                <button
-                  onClick={() => handleIncrement(1)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#3A2317] hover:bg-[#2C1A10] text-[#FAF6EE] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
-                >
-                  <Plus className="w-3 h-3 text-[#F3D274]" /> +1 pág
-                </button>
-                <button
-                  onClick={() => handleIncrement(5)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#3A2317] hover:bg-[#2C1A10] text-[#FAF6EE] text-xs font-bold transition-all cursor-pointer"
-                >
-                  +5
-                </button>
-                <button
-                  onClick={() => handleIncrement(10)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#3A2317] hover:bg-[#2C1A10] text-[#FAF6EE] text-xs font-bold transition-all cursor-pointer"
-                >
-                  +10
-                </button>
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="reading-book-notes" className={labelClassName}>Notas e reflexões</label>
+                <textarea id="reading-book-notes" className={`${inputClassName} min-h-[130px] resize-y`} value={draft.notes} onChange={(event) => updateDraft('notes', event.target.value)} placeholder="Registre suas ideias, citações e aprendizados..." />
               </div>
             </div>
-          </div>
-
-          {/* Notes / Description */}
-          {book.notes && (
-            <div className="p-4 rounded-2xl bg-[#F5F0E6]/50 border border-[#E2D8C6]">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#8C7A6B] mb-1.5">
-                Notas & Reflexões
-              </h4>
-              <p className="text-xs text-[#4A443E] leading-relaxed italic font-serif whitespace-pre-wrap">
-                "{book.notes}"
-              </p>
-            </div>
-          )}
-
-          {/* Metadata */}
-          <div className="grid grid-cols-2 gap-3 text-xs text-[#7A6857]">
-            <div className="p-3 rounded-xl bg-[#F5F0E6]/40 border border-[#E2D8C6]/60">
-              <span className="block text-[10px] text-[#A39281] uppercase font-bold">Unidade</span>
-              <span className="font-semibold text-[#1A1918]">
-                {book.unit === 'CHAPTERS' ? 'Capítulos' : book.unit === 'HOURS' ? 'Horas' : 'Páginas'}
-              </span>
-            </div>
-            <div className="p-3 rounded-xl bg-[#F5F0E6]/40 border border-[#E2D8C6]/60">
-              <span className="block text-[10px] text-[#A39281] uppercase font-bold">Adicionado em</span>
-              <span className="font-semibold text-[#1A1918]">
-                {book.addedAt ? new Date(book.addedAt).toLocaleDateString('pt-BR') : 'Hoje'}
-              </span>
-            </div>
-          </div>
-
+          </section>
         </div>
 
-        {/* Drawer Footer Actions */}
-        <div className="p-4 border-t border-[#E6DFD3] bg-[#F5F0E6]/40 flex items-center justify-between gap-3">
-          <button
-            onClick={() => onEditBook(book)}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-[#F5F0E6] hover:bg-[#EAE2D2] text-[#3A2317] border border-[#E2D8C6] text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <Edit3 className="w-4 h-4" /> Editar Livro
+        <footer className="flex flex-col-reverse gap-3 border-t border-[#E6DFD3] bg-[#F5F0E6]/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <p className="text-xs text-[#8C7A6B]">Você pode voltar à estante a qualquer momento.</p>
+          <button type="button" onClick={handleSave} className="flex items-center justify-center gap-2 rounded-xl bg-[#3A2317] px-5 py-3 text-sm font-bold text-[#FAF6EE] shadow-lg shadow-[#3A2317]/20 transition hover:bg-[#2C1A10]">
+            <Save className="h-4 w-4 text-[#F3D274]" />
+            {isSaved ? 'Alterações salvas' : 'Salvar detalhes'}
           </button>
-
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-[#3A2317] hover:bg-[#2C1A10] text-[#FAF6EE] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            Fechar Inspeção
-          </button>
-        </div>
-
+        </footer>
       </div>
     </div>
   );

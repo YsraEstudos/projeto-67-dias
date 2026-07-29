@@ -141,6 +141,11 @@ export const ReadingView: React.FC = () => {
     setIsInspecting((prev) => !prev);
   }, []);
 
+  const handleOpenInspection = useCallback((index: number) => {
+    setSelectedIndex(index);
+    setIsInspecting(true);
+  }, []);
+
   return (
     <div className="w-full h-full flex flex-col bg-[#1A1817] text-[#1A1918] overflow-x-hidden overflow-y-auto scrollbar-thin">
       
@@ -167,8 +172,8 @@ export const ReadingView: React.FC = () => {
               userBooks={filteredBooks}
               selectedIndex={selectedIndex}
               onSelectIndex={setSelectedIndex}
+              onOpenInspection={handleOpenInspection}
               isInspecting={isInspecting}
-              onToggleInspection={handleToggleInspection}
             />
 
             {/* Bottom HUD Controller */}
@@ -187,7 +192,7 @@ export const ReadingView: React.FC = () => {
               book={currentBook}
               isOpen={isInspecting}
               onClose={() => setIsInspecting(false)}
-              onEditBook={(b) => setEditingBook(b)}
+              onSaveBook={(bookId, updates) => updateBook(bookId, updates)}
               onUpdateProgress={handleUpdateProgress}
             />
           </div>
