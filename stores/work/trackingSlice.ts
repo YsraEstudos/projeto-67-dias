@@ -4,18 +4,16 @@
  * Auto-reset: currentCount and preBreakCount reset automatically when day changes
  */
 import { StateCreator } from 'zustand';
+import { getOperationalDateISO } from '../../utils/dateUtils';
 
 export type PaceMode = '10m' | '25m';
 
 /**
- * Returns today's date as YYYY-MM-DD
+ * Returns today's operational date as YYYY-MM-DD
+ * Hours 00:00-05:59 count towards the shift started on the previous day.
  */
 function getTodayDate(): string {
-    // IMPORTANT: Do NOT use toISOString() here — it returns UTC time.
-    // At 21:00 local (GMT-3) that's 00:00 UTC the NEXT day, causing the
-    // system to think it's a new day and incorrectly reset currentCount.
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return getOperationalDateISO(new Date());
 }
 
 export interface TrackingSlice {

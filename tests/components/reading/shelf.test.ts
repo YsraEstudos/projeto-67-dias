@@ -1,0 +1,174 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as THREE from 'three';
+import { MINT_BOOK_MANIFEST, CLOTH_PALETTE, FOIL_PALETTE } from '../../../components/reading/shelf/mintManifest';
+import { BookMeshGroup } from '../../../components/reading/shelf/BookMesh';
+import { ShelfMeshGroup } from '../../../components/reading/shelf/ShelfMesh';
+import { InspectionControls } from '../../../components/reading/shelf/InspectionControls';
+
+// Mock Canvas getContext for JSDOM environment
+beforeEach(() => {
+  HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation((contextId: string) => {
+    if (contextId === '2d') {
+      return {
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        font: '',
+        textAlign: '',
+        textBaseline: '',
+        fillRect: vi.fn(),
+        strokeRect: vi.fn(),
+        fillText: vi.fn(),
+        strokeText: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        arc: vi.fn(),
+        ellipse: vi.fn(),
+        bezierCurveTo: vi.fn(),
+        quadraticCurveTo: vi.fn(),
+        closePath: vi.fn(),
+        stroke: vi.fn(),
+        fill: vi.fn(),
+        save: vi.fn(),
+        restore: vi.fn(),
+        translate: vi.fn(),
+        rotate: vi.fn(),
+        measureText: vi.fn().mockReturnValue({ width: 50 }),
+        getImageData: vi.fn().mockReturnValue({
+          data: new Uint8ClampedArray(256 * 256 * 4),
+        }),
+        putImageData: vi.fn(),
+        createImageData: vi.fn().mockImplementation((w: number, h: number) => ({
+          data: new Uint8ClampedArray(w * h * 4),
+        })),
+        createLinearGradient: vi.fn().mockReturnValue({
+          addColorStop: vi.fn(),
+        }),
+      } as unknown as CanvasRenderingContext2D;
+    }
+    return null;
+  });
+});
+
+describe('mintManifest', () => {
+  it('should define exactly 19 clothbound hardcover books', () => {
+    expect(MINT_BOOK_MANIFEST).toHaveLength(19);
+  });
+
+  it('should enforce varied dimensions within defined prompt constraints', () => {
+    MINT_BOOK_MANIFEST.forEach((item) => {
+      expect(item.height).toBeGreaterThanOrEqual(2.2);
+      expect(item.height).toBeLessThanOrEqual(3.4);
+
+      expect(item.width).toBeGreaterThanOrEqual(1.4);
+      expect(item.width).toBeLessThanOrEqual(2.2);
+
+      expect(item.thickness).toBeGreaterThanOrEqual(0.25);
+      expect(item.thickness).toBeLessThanOrEqual(0.75);
+    });
+  });
+
+  it('should contain valid cloth palette colors and foil motifs', () => {
+    const validMotifs = [
+      'constellation',
+      'abstract geometric',
+      'botanical foliage',
+      'radial sunburst',
+      'minimalist serif initials',
+    ];
+    MINT_BOOK_MANIFEST.forEach((item) => {
+      expect(Object.values(CLOTH_PALETTE)).toContain(item.clothColor);
+      expect(validMotifs).toContain(item.foilMotif);
+      expect(Object.keys(FOIL_PALETTE)).toContain(item.foilColor);
+    });
+  });
+});
+
+describe('mint-assets.json', () => {
+  it('should exist and map asset keys for 19 clothbound hardcover items', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const assetsPath = path.join(process.cwd(), 'mint-assets.json');
+    expect(fs.existsSync(assetsPath)).toBe(true);
+
+    const jsonContent = JSON.parse(fs.readFileSync(assetsPath, 'utf-8'));
+    expect(jsonContent.name).toBe('The Complete Shelf Asset Pack');
+    expect(jsonContent.assets).toHaveLength(19);
+
+    jsonContent.assets.forEach((asset: any, idx: number) => {
+      expect(asset.assetKey).toBe(`clothbound-hardcover-${String(idx + 1).padStart(2, '0')}`);
+      expect(asset.title).toBeTruthy();
+      expect(asset.author).toBeTruthy();
+      expect(asset.proportions).toBeDefined();
+    });
+  });
+});
+
+describe('BookMesh', () => {
+  it('should construct a procedural BookMeshGroup instance', () => {
+    const bookItem = MINT_BOOK_MANIFEST[0];
+    const initialPos = new THREE.Vector3(1.0, 0, 0);
+    const bookMesh = new BookMeshGroup(bookItem, initialPos);
+
+    expect(bookMesh.group).toBeInstanceOf(THREE.Group);
+    expect(bookMesh.group.position.x).toBe(1.0);
+    expect(bookMesh.isHovered).toBe(false);
+
+    bookMesh.setHovered(true);
+    expect(bookMesh.isHovered).toBe(true);
+
+    bookMesh.setSelected(true);
+    expect(bookMesh.isSelected).toBe(true);
+
+    bookMesh.dispose();
+  });
+});
+
+describe('ShelfMesh', () => {
+  it('should create a walnut shelf group with support brackets and shadow plane', () => {
+    const shelf = new ShelfMeshGroup({
+      width: 15,
+      depth: 3,
+      thickness: 0.3,
+    });
+
+    expect(shelf.group).toBeInstanceOf(THREE.Group);
+    expect(shelf.group.children.length).toBeGreaterThan(0);
+
+    shelf.dispose();
+  });
+});
+
+describe('InspectionControls', () => {
+  it('should handle camera lerping and mode switching', () => {
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    const domElement = document.createElement('div');
+
+    const controls = new InspectionControls({
+      camera,
+      domElement,
+      minX: 0,
+      maxX: 10,
+    });
+
+    expect(controls.mode).toBe('shelf');
+
+    controls.scrollToX(5.0);
+    expect(controls.getTargetShelfX()).toBe(5.0);
+
+    const bookItem = MINT_BOOK_MANIFEST[0];
+    const bookMesh = new BookMeshGroup(bookItem, new THREE.Vector3(2.0, 0, 0));
+
+    controls.selectBook(bookMesh);
+    expect(controls.mode).toBe('inspecting');
+    expect(controls.selectedBook).toBe(bookMesh);
+
+    controls.deselectBook();
+    expect(controls.mode).toBe('shelf');
+    expect(controls.selectedBook).toBeNull();
+
+    bookMesh.dispose();
+    controls.dispose();
+  });
+});

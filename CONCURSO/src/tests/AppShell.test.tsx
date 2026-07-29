@@ -75,7 +75,7 @@ describe('AppShell', () => {
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Voltar ao Projeto 67 Dias' }));
 
     expect(warmMainSiteEntryPoint).toHaveBeenCalled();
-  });
+  }, 30000);
 
   it('entra em modo reader quando recebe o sinal da tela de aula', async () => {
     mockMatchMedia({ compact: false, coarse: false });

@@ -6,6 +6,7 @@
 import { create, StateCreator } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { writeToFirestore } from './firestoreSync';
+import { getOperationalDateISO } from '../utils/dateUtils';
 
 // Import slices
 import {
@@ -123,7 +124,7 @@ const createSyncedStore: StateCreator<WorkState> = (set, get, store) => {
             if (data) {
                 // Check if day changed - reset counters if so
                 const now = new Date();
-                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const today = getOperationalDateISO(now);
                 const savedDate = data.lastActiveDate ?? null;
                 const isNewDay = savedDate !== null && savedDate !== today;
 

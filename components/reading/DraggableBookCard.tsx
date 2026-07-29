@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useDraggable } from '@dnd-kit/core';
 import { Book as IBook } from '../../types';
 import ProgressBar from './ProgressBar';
-import { Book, MoreVertical, Edit2, Move, Trash2, Play, PauseCircle, CheckCircle2, Calendar, Minus, Plus } from 'lucide-react';
+import { Book, MoreVertical, Edit2, Move, Trash2, Play, PauseCircle, CheckCircle2, Calendar, Minus, Plus, GripVertical } from 'lucide-react';
 
 interface DraggableBookCardProps {
     book: IBook;
     viewMode: 'grid' | 'list';
-    onDragStart: (e: React.DragEvent, id: string) => void;
     onUpdateProgress: (id: string, d: number) => void;
     onUpdateStatus: (id: string, s: IBook['status']) => void;
     onEdit: (b: IBook) => void;
@@ -67,68 +67,218 @@ const StatusBadge: React.FC<{ status: IBook['status'] }> = ({ status }) => {
     return <div className={className}>{label}</div>;
 };
 
-// Compact Card for Mobile
+// Unified Context Menu Component
+const BookContextMenu: React.FC<{
+    book: IBook;
+    menuPos: { x: number; y: number };
+    onClose: () => void;
+    onEdit: (b: IBook) => void;
+    onMove: (b: IBook) => void;
+    onDelete: (id: string) => void;
+    onPlan?: (b: IBook) => void;
+}> = ({ book, menuPos, onClose, onEdit, onMove, onDelete, onPlan }) => createPortal(
+    <>
+        <div className="fixed inset-0 z-[100]" onClick={onClose} />
+        <div
+            className="fixed w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-2 z-[101] animate-scale-in"
+            style={{ left: Math.min(menuPos.x, window.innerWidth - 208), top: Math.min(menuPos.y, window.innerHeight - 208) }}
+        >
+            <button onClick={() => { onClose(); onEdit(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
+                <Edit2 size={16} /> Editar
+            </button>
+            <button onClick={() => { onClose(); onMove(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
+                <Move size={16} /> Mover
+            </button>
+            {onPlan && (
+                <button onClick={() => { onClose(); onPlan(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-amber-400 flex items-center gap-3 rounded-xl touch-target-book">
+                    <Calendar size={16} /> Ver Plano
+                </button>
+            )}
+            <div className="h-px bg-slate-700/50 my-1.5" />
+            <button onClick={() => { onClose(); onDelete(book.id); }} className="w-full text-left px-4 py-3 text-sm hover:bg-red-900/30 text-red-400 flex items-center gap-3 rounded-xl touch-target-book">
+                <Trash2 size={16} /> Remover
+            </button>
+        </div>
+    </>,
+    document.body
+);
+
+// Swipe Actions Hook for Mobile Cards
+const useSwipeActions = (onSwipeLeft?: () => void, onSwipeRight?: () => void) => {
+    const startX = useRef(0);
+    const currentX = useRef(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const isSwiping = useRef(false);
+    const [swipeOffset, setSwipeOffset] = useState(0);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        startX.current = e.touches[0].clientX;
+        currentX.current = startX.current;
+        isSwiping.current = false;
+    }, []);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        currentX.current = e.touches[0].clientX;
+        const diff = currentX.current - startX.current;
+
+        // Only trigger swipe after 10px threshold, and only to the left
+        if (Math.abs(diff) > 10) {
+            isSwiping.current = true;
+            const clampedDiff = Math.max(-120, Math.min(0, diff));
+            setSwipeOffset(clampedDiff);
+            if (contentRef.current) {
+                contentRef.current.style.transform = `translateX(${clampedDiff}px)`;
+                contentRef.current.style.transition = 'none';
+            }
+        }
+    }, []);
+
+    const handleTouchEnd = useCallback(() => {
+        if (!isSwiping.current) return;
+        const diff = currentX.current - startX.current;
+
+        if (contentRef.current) {
+            contentRef.current.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+            if (diff < -60) {
+                // Keep actions revealed
+                contentRef.current.style.transform = 'translateX(-100px)';
+                setSwipeOffset(-100);
+            } else {
+                // Snap back
+                contentRef.current.style.transform = 'translateX(0)';
+                setSwipeOffset(0);
+            }
+        }
+        isSwiping.current = false;
+    }, []);
+
+    const resetSwipe = useCallback(() => {
+        if (contentRef.current) {
+            contentRef.current.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+            contentRef.current.style.transform = 'translateX(0)';
+        }
+        setSwipeOffset(0);
+    }, []);
+
+    return {
+        containerRef, contentRef, swipeOffset,
+        handleTouchStart, handleTouchMove, handleTouchEnd,
+        resetSwipe, isSwiping: isSwiping.current
+    };
+};
+
+// Compact Card for Mobile — Enhanced with swipe actions and drag handle
 const CompactBookCard: React.FC<{
     book: IBook;
     percentage: number;
+    isDragging: boolean;
+    dragHandleProps: Record<string, unknown>;
     onSelect: () => void;
     onMenuClick: (e: React.MouseEvent) => void;
-}> = React.memo(({ book, percentage, onSelect, onMenuClick }) => (
-    <div
-        onClick={onSelect}
-        className="book-card-premium book-card-compact rounded-xl cursor-pointer touch-manipulation"
-    >
-        {/* Cover */}
-        <div className="book-cover relative overflow-hidden rounded-l-xl">
-            {book.coverUrl ? (
-                <img
-                    src={book.coverUrl}
-                    alt={book.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                />
-            ) : (
-                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-600">
-                    <Book size={24} />
-                </div>
-            )}
-            <div className="absolute inset-0 book-cover-overlay pointer-events-none" />
-        </div>
+    onUpdateStatus: (id: string, s: IBook['status']) => void;
+    onDelete: (id: string) => void;
+}> = React.memo(({ book, percentage, isDragging, dragHandleProps, onSelect, onMenuClick, onUpdateStatus, onDelete }) => {
+    const {
+        containerRef, contentRef, swipeOffset,
+        handleTouchStart, handleTouchMove, handleTouchEnd, resetSwipe
+    } = useSwipeActions();
 
-        {/* Content */}
-        <div className="book-content">
-            <div className="flex justify-between items-start gap-2">
-                <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-slate-200 text-sm leading-tight break-words">
-                        {book.title}
-                    </h4>
-                    <p className="text-xs text-slate-500 truncate">{book.author}</p>
-                </div>
+    return (
+        <div
+            ref={containerRef}
+            className={`swipe-container rounded-xl ${isDragging ? 'book-card-dragging' : ''}`}
+        >
+            {/* Swipe Actions (revealed behind the card) */}
+            <div className="swipe-actions swipe-actions-right gap-2">
+                {book.status === 'READING' && (
+                    <button
+                        onClick={() => { resetSwipe(); onUpdateStatus(book.id, 'COMPLETED'); }}
+                        className={`swipe-action-btn swipe-action-complete ${swipeOffset < -50 ? 'revealed' : ''}`}
+                        aria-label="Concluir"
+                    >
+                        <CheckCircle2 size={20} />
+                    </button>
+                )}
                 <button
-                    onClick={(e) => { e.stopPropagation(); onMenuClick(e); }}
-                    className="text-slate-500 hover:text-white p-3 -m-1 rounded touch-target-book"
-                    aria-label="Menu do livro"
+                    onClick={() => { resetSwipe(); onDelete(book.id); }}
+                    className={`swipe-action-btn swipe-action-delete ${swipeOffset < -50 ? 'revealed' : ''}`}
+                    aria-label="Remover"
                 >
-                    <MoreVertical size={16} />
+                    <Trash2 size={20} />
                 </button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 mt-auto">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <ProgressRing progress={percentage} size={32} strokeWidth={3} />
-                    <div className="min-w-0">
-                        <div className="text-sm font-bold text-white">{percentage}%</div>
-                        <div className="text-[10px] text-slate-500">
-                            {book.current}/{book.total}
+            {/* Main Card Content */}
+            <div
+                ref={contentRef}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={(e) => { if (swipeOffset !== 0) { e.preventDefault(); resetSwipe(); return; } onSelect(); }}
+                className="swipe-content book-card-premium book-card-compact-enhanced rounded-xl cursor-pointer touch-manipulation"
+            >
+                {/* Drag Handle */}
+                <div {...dragHandleProps} className="drag-handle-mobile">
+                    <GripVertical size={16} />
+                </div>
+
+                {/* Cover */}
+                <div className="book-cover relative overflow-hidden">
+                    {book.coverUrl ? (
+                        <img
+                            src={book.coverUrl}
+                            alt={book.title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-600">
+                            <Book size={24} />
                         </div>
+                    )}
+                    <div className="absolute inset-0 book-cover-overlay pointer-events-none" />
+                </div>
+
+                {/* Content */}
+                <div className="book-content">
+                    <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-slate-200 text-sm leading-tight break-words">
+                                {book.title}
+                            </h4>
+                            <p className="text-xs text-slate-500 truncate">{book.author}</p>
+                        </div>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onMenuClick(e); }}
+                            className="text-slate-500 hover:text-white p-3 -m-1 rounded touch-target-book"
+                            aria-label="Menu do livro"
+                        >
+                            <MoreVertical size={16} />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 mt-auto">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <ProgressRing progress={percentage} size={32} strokeWidth={3} />
+                            <div className="min-w-0">
+                                <div className="text-sm font-bold text-white">{percentage}%</div>
+                                <div className="text-[10px] text-slate-500">
+                                    {book.current}/{book.total}
+                                </div>
+                            </div>
+                        </div>
+                        <StatusBadge status={book.status} />
                     </div>
                 </div>
-                <StatusBadge status={book.status} />
+
+                {/* Swipe hint */}
+                <div className="swipe-hint" />
             </div>
         </div>
-    </div>
-));
+    );
+});
 
 CompactBookCard.displayName = 'CompactBookCard';
 
@@ -149,7 +299,6 @@ const useIsMobile = () => {
 const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
     book,
     viewMode,
-    onDragStart,
     onUpdateProgress,
     onUpdateStatus,
     onEdit,
@@ -159,6 +308,12 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
     onPlan
 }) => {
     const isMobile = useIsMobile();
+
+    // @dnd-kit draggable
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: book.id,
+        data: { book }
+    });
     const isGrid = viewMode === 'grid';
 
     // Local state for input to avoid store updates on every keystroke
@@ -227,54 +382,52 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
     // Use compact card on mobile
     if (isMobile && isGrid) {
         return (
-            <>
+            <div ref={setNodeRef}>
                 <CompactBookCard
                     book={book}
                     percentage={percentage}
+                    isDragging={isDragging}
+                    dragHandleProps={{ ...listeners, ...attributes }}
                     onSelect={() => { setShowMenu(false); onSelect(book); }}
                     onMenuClick={handleMenuClick}
+                    onUpdateStatus={onUpdateStatus}
+                    onDelete={onDelete}
                 />
-                {/* Context Menu Portal */}
-                {showMenu && createPortal(
-                    <>
-                        <div className="fixed inset-0 z-[100]" onClick={closeMenu} />
-                        <div
-                            className="fixed w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-2 z-[101] animate-scale-in"
-                            style={{ left: Math.min(menuPos.x, window.innerWidth - 208), top: Math.min(menuPos.y, window.innerHeight - 208) }}
-                        >
-                            <button onClick={() => { closeMenu(); onEdit(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
-                                <Edit2 size={16} /> Editar
-                            </button>
-                            <button onClick={() => { closeMenu(); onMove(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
-                                <Move size={16} /> Mover
-                            </button>
-                            {onPlan && (
-                                <button onClick={() => { closeMenu(); onPlan(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-amber-400 flex items-center gap-3 rounded-xl touch-target-book">
-                                    <Calendar size={16} /> Ver Plano
-                                </button>
-                            )}
-                            <div className="h-px bg-slate-700/50 my-1.5" />
-                            <button onClick={() => { closeMenu(); onDelete(book.id); }} className="w-full text-left px-4 py-3 text-sm hover:bg-red-900/30 text-red-400 flex items-center gap-3 rounded-xl touch-target-book">
-                                <Trash2 size={16} /> Remover
-                            </button>
-                        </div>
-                    </>,
-                    document.body
+                {showMenu && (
+                    <BookContextMenu
+                        book={book}
+                        menuPos={menuPos}
+                        onClose={closeMenu}
+                        onEdit={onEdit}
+                        onMove={onMove}
+                        onDelete={onDelete}
+                        onPlan={onPlan}
+                    />
                 )}
-            </>
+            </div>
         );
     }
 
     return (
         <>
             <div
-                draggable={!isMobile}
-                onDragStart={(e) => onDragStart(e, book.id)}
+                ref={setNodeRef}
                 onClick={() => { setShowMenu(false); onSelect(book); }}
                 onContextMenu={handleContextMenu}
-                className={`group book-card-premium rounded-2xl shadow-lg cursor-pointer active:cursor-grabbing flex touch-manipulation ${isGrid ? 'flex-col h-full' : 'flex-row h-32 items-center'
+                className={`group book-card-premium rounded-2xl shadow-lg cursor-pointer flex touch-manipulation transition-all ${isDragging ? 'book-card-dragging' : ''} ${isGrid ? 'flex-col h-full' : 'flex-row h-32 items-center'
                     }`}
             >
+                {/* Drag Handle for desktop */}
+                {!isMobile && (
+                    <div
+                        {...listeners}
+                        {...attributes}
+                        className="absolute top-2 right-10 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400 hover:bg-slate-700/50 z-10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <GripVertical size={16} />
+                    </div>
+                )}
                 {/* Cover */}
                 <div className={`bg-slate-900 flex-shrink-0 overflow-hidden relative ${isGrid ? 'aspect-[2/3] w-full max-h-[300px] border-b border-slate-700/30 rounded-t-2xl' : 'h-full aspect-[2/3] border-r border-slate-700/30 rounded-l-2xl'
                     }`}>
@@ -396,6 +549,16 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                                         <Plus size={16} />
                                     </button>
                                 </div>
+                                {/* Quick +5 button for faster progress on mobile */}
+                                {isMobile && (
+                                    <button
+                                        onClick={() => onUpdateProgress(book.id, 5)}
+                                        className="stepper-quick-increment"
+                                        title="+5 páginas"
+                                    >
+                                        +5
+                                    </button>
+                                )}
 
                                 <button
                                     onClick={() => onUpdateStatus(book.id, 'COMPLETED')}
@@ -419,33 +582,17 @@ const DraggableBookCard: React.FC<DraggableBookCardProps> = React.memo(({
                 </div>
             </div>
 
-            {/* Context Menu Portal - Rendered outside card to avoid overflow clipping */}
-            {showMenu && createPortal(
-                <>
-                    {/* Overlay to close menu */}
-                    <div className="fixed inset-0 z-[100]" onClick={closeMenu} />
-                    <div
-                        className="fixed w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-2 z-[101] animate-scale-in"
-                        style={{ left: Math.min(menuPos.x, window.innerWidth - 208), top: Math.min(menuPos.y, window.innerHeight - 208) }}
-                    >
-                        <button onClick={() => { closeMenu(); onEdit(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
-                            <Edit2 size={16} /> Editar
-                        </button>
-                        <button onClick={() => { closeMenu(); onMove(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-slate-300 flex items-center gap-3 rounded-xl touch-target-book">
-                            <Move size={16} /> Mover
-                        </button>
-                        {onPlan && (
-                            <button onClick={() => { closeMenu(); onPlan(book); }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 text-amber-400 flex items-center gap-3 rounded-xl touch-target-book">
-                                <Calendar size={16} /> Ver Plano
-                            </button>
-                        )}
-                        <div className="h-px bg-slate-700/50 my-1.5" />
-                        <button onClick={() => { closeMenu(); onDelete(book.id); }} className="w-full text-left px-4 py-3 text-sm hover:bg-red-900/30 text-red-400 flex items-center gap-3 rounded-xl touch-target-book">
-                            <Trash2 size={16} /> Remover
-                        </button>
-                    </div>
-                </>,
-                document.body
+            {/* Context Menu */}
+            {showMenu && (
+                <BookContextMenu
+                    book={book}
+                    menuPos={menuPos}
+                    onClose={closeMenu}
+                    onEdit={onEdit}
+                    onMove={onMove}
+                    onDelete={onDelete}
+                    onPlan={onPlan}
+                />
             )}
         </>
     );

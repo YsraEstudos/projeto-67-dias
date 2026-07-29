@@ -35,6 +35,18 @@ export const parseDate = (dateStr: string): Date => parseISO(dateStr);
 export const formatDateISO = (date: Date): string => format(date, 'yyyy-MM-dd');
 
 /**
+ * Get operational date ISO string (YYYY-MM-DD).
+ * For domains like Work tracking, hours between 00:00 and (cutoffHour - 1):59
+ * belong to the operational shift that started on the previous calendar day.
+ * Default cutoff is 6 (06:00 AM).
+ */
+export const getOperationalDateISO = (date: Date = new Date(), cutoffHour = 6): string => {
+    const hours = date.getHours();
+    const targetDate = hours < cutoffHour ? addDays(date, -1) : date;
+    return formatDateISO(targetDate);
+};
+
+/**
  * Get today's date as YYYY-MM-DD string.
  * Uses startOfDay to normalize to midnight.
  */

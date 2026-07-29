@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, CalendarDays } from 'lucide-react';
 import { RestActivity } from '../../types';
 import { createRestSeries } from '../../utils/restActivityUtils';
+import { formatDateISO } from '../../utils/dateUtils';
 
 interface RestActivityInputProps {
     selectedDate: Date;
@@ -25,7 +26,7 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
         if (!title.trim()) return;
         if (type === 'WEEKLY' && selectedWeekDays.length === 0) return;
 
-        const dateString = selectedDate.toISOString().split('T')[0];
+        const dateString = formatDateISO(selectedDate);
 
         onAdd({
             title,

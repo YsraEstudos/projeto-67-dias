@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, Plus, Minus, BookOpen } from 'lucide-react';
 import { Book as IBook } from '../../../types';
 
@@ -47,7 +47,7 @@ const QuickLogItem: React.FC<{
   const isCompleted = book.current >= book.total;
 
   return (
-    <div className="flex items-center justify-between gap-3 p-3 bg-slate-800/80 rounded-xl border border-slate-700/50 mb-3 last:mb-0">
+    <div className="relative overflow-hidden flex items-center justify-between gap-3 p-3 bg-slate-800/80 rounded-xl border border-slate-700/50 mb-3 last:mb-0">
       {/* Cover / Title */}
       <div className="flex items-center gap-3 overflow-hidden flex-1">
         <div className="w-10 h-14 bg-slate-900 rounded overflow-hidden flex-shrink-0 shadow-inner">
@@ -100,6 +100,12 @@ const QuickLogItem: React.FC<{
           <Plus size={18} />
         </button>
       </div>
+
+      {/* Background progress indicator */}
+      <div 
+          className="absolute bottom-0 left-0 h-0.5 bg-indigo-500/30 rounded-full transition-all duration-500"
+          style={{ width: `${Math.round((book.current / (book.total || 1)) * 100)}%` }}
+      />
     </div>
   );
 };
@@ -111,6 +117,42 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
   onUpdateProgress,
   onSetProgress 
 }) => {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const startY = useRef(0);
+  const currentY = useRef(0);
+  const isDraggingSheet = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+      startY.current = e.touches[0].clientY;
+      currentY.current = e.touches[0].clientY;
+      isDraggingSheet.current = true;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+      if (!isDraggingSheet.current) return;
+      currentY.current = e.touches[0].clientY;
+      const diff = currentY.current - startY.current;
+      if (diff > 0 && sheetRef.current) {
+          sheetRef.current.style.transform = `translateY(${diff}px)`;
+          sheetRef.current.style.transition = 'none';
+      }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+      if (!isDraggingSheet.current) return;
+      isDraggingSheet.current = false;
+      const diff = currentY.current - startY.current;
+      if (sheetRef.current) {
+          sheetRef.current.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+          if (diff > 100) {
+              sheetRef.current.style.transform = `translateY(100%)`;
+              setTimeout(onClose, 300);
+          } else {
+              sheetRef.current.style.transform = 'translateY(0)';
+          }
+      }
+  }, [onClose]);
+
   // Only show books currently being read
   const readingBooks = books.filter(b => b.status === 'READING');
 
@@ -135,11 +177,20 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
       />
       
       {/* Bottom Sheet */}
-      <div className="relative w-full bg-slate-900 border-t border-slate-700/50 rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
+      <div 
+        ref={sheetRef}
+        className="bottom-sheet animate-sheet-up flex flex-col max-h-[85vh]"
+      >
         
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2 cursor-pointer touch-none" onClick={onClose}>
-          <div className="w-12 h-1.5 bg-slate-700 rounded-full" />
+        <div 
+          className="flex justify-center pt-3 pb-2 cursor-pointer touch-manipulation" 
+          onClick={onClose}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="bottom-sheet-handle" />
         </div>
 
         {/* Header */}
@@ -179,7 +230,7 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
         </div>
 
         {/* Safe Area Footer Spacer for iOS */}
-        <div className="h-6 w-full" />
+        <div className="pb-safe w-full" />
       </div>
     </div>
   );

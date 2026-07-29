@@ -3,6 +3,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { useJournalStore } from '../../stores/journalStore';
 import { Mood, MOOD_CONFIG } from '../../types';
 import { TrendingUp, Smile, Frown } from 'lucide-react';
+import { formatDateISO } from '../../utils/dateUtils';
 
 export const MoodEvolutionChart: React.FC<{ dayCount: number }> = ({ dayCount }) => {
     const { entries } = useJournalStore();
@@ -27,7 +28,7 @@ export const MoodEvolutionChart: React.FC<{ dayCount: number }> = ({ dayCount })
             const date = new Date(today);
             date.setDate(today.getDate() - i);
 
-            const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            const dateStr = formatDateISO(date); // YYYY-MM-DD
             const entry = entriesMap.get(dateStr);
 
             let value = 0; // 0 = No Data

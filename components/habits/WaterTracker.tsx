@@ -1,6 +1,7 @@
 import React, { useEffect, useState, memo, Suspense } from 'react';
 import { useWaterData, useWaterActions } from '../../stores/selectors';
 import { Minus, Droplets, Settings } from 'lucide-react';
+import { getTodayISO } from '../../utils/dateUtils';
 
 const BottleManagerModal = React.lazy(() => import('./BottleManagerModal').then(module => ({ default: module.BottleManagerModal })));
 
@@ -12,11 +13,11 @@ export const WaterTracker: React.FC = memo(() => {
 
     // Ensure we are tracking for the correct day on mount
     useEffect(() => {
-        checkDate(new Date().toISOString().split('T')[0]);
+        checkDate(getTodayISO());
     }, [checkDate]);
 
     const percentage = Math.min(100, Math.max(0, (currentAmount / dailyGoal) * 100));
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayISO();
 
     // Get smallest bottle amount for correction
     const smallestBottle = bottles.reduce((min, b) => b.amount < min.amount ? b : min, bottles[0]);

@@ -1,18 +1,18 @@
-import React, { useState, Suspense, useCallback, useMemo } from 'react';
+import React, { useState, Suspense, useCallback, useMemo, useEffect } from 'react';
 import { useReadingStore } from '../../stores/readingStore';
-import { useConfigStore } from '../../stores/configStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Book as IBook, Folder as IFolder } from '../../types';
-import { LayoutGrid, List as ListIcon, Loader2, Plus, Zap } from 'lucide-react';
+import { Loader2, Plus, LayoutGrid, Zap } from 'lucide-react';
 
-// Components
-import ReadingGoalSidebar from '../reading/ReadingGoalSidebar';
-import DashboardView from '../reading/DashboardView';
+// Shelf Editorial UI Components
+import EditorialHeader, { ReadingCategoryFilter } from '../reading/shelf/EditorialHeader';
+import ShelfNavigationHUD from '../reading/shelf/ShelfNavigationHUD';
+import BookInspectionOverlay from '../reading/shelf/BookInspectionOverlay';
+import CompleteShelfScene from '../reading/shelf/CompleteShelfScene';
+
+// Shared & Library View fallback
 import LibraryView from '../reading/LibraryView';
-import { LoadingSimple as Loading } from '../shared/Loading';
-import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
-import { calculateReadingProgress } from '../../utils/dailyOffensiveUtils';
-import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
+import DashboardView from '../reading/DashboardView';
 
 // Lazy Modals
 const BookDetailsModal = React.lazy(() => import('../reading/modals/BookDetailsModal'));
@@ -22,31 +22,71 @@ const MoveBookModal = React.lazy(() => import('../reading/modals/MoveBookModal')
 const ReadingDailyPlanModal = React.lazy(() => import('../reading/ReadingDailyPlanModal'));
 const QuickLogBottomSheet = React.lazy(() => import('../reading/modals/QuickLogBottomSheet'));
 
-// Actions são estáveis - obtidas fora do componente para evitar subscriptions desnecessárias
 const getReadingActions = () => useReadingStore.getState();
 
-const ReadingView: React.FC = () => {
-  // Dados reactivos com shallow comparison (1 subscription em vez de 10)
+/**
+ * Calculates consecutive active reading streak days from book logs
+ */
+function calculateReadingStreak(books: IBook[]): number {
+  const dates = new Set<string>();
+  books.forEach((b) => {
+    b.logs?.forEach((l) => {
+      if (l.pagesRead > 0 && l.date) {
+        dates.add(l.date);
+      }
+    });
+  });
+
+  if (dates.size === 0) return 0;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  const todayLogged = dates.has(todayStr);
+  const yesterdayLogged = dates.has(yesterdayStr);
+
+  if (!todayLogged && !yesterdayLogged) return 0;
+
+  let streak = 0;
+  let checkDate = new Date(todayLogged ? todayStr : yesterdayStr);
+
+  while (true) {
+    const dStr = checkDate.toISOString().split('T')[0];
+    if (dates.has(dStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export const ReadingView: React.FC = () => {
+  // Store Subscription
   const { books, folders } = useReadingStore(
     useShallow((state) => ({ books: state.books, folders: state.folders }))
   );
 
-  // Actions estáveis - referenciadas diretamente
-  const { addBook, updateBook, deleteBook: removeBook, addFolder, deleteFolder: removeFolder,
-    updateProgress, setBookStatus, moveBookToFolder } = useMemo(() => getReadingActions(), []);
+  const {
+    addBook,
+    updateBook,
+    deleteBook: removeBook,
+    addFolder,
+    deleteFolder: removeFolder,
+    updateProgress,
+    setBookStatus,
+    moveBookToFolder,
+  } = useMemo(() => getReadingActions(), []);
 
-  const config = useConfigStore((state) => state.config);
-  const offensiveConfig = config.offensiveGoals || DEFAULT_OFFENSIVE_GOALS;
-
-  // Cálculo de progresso de ofensiva para Leitura
-  const readingProgress = useMemo(() => calculateReadingProgress(books), [books]);
-  const readingOffensive = readingProgress >= offensiveConfig.minimumPercentage;
-  const showReadingOffensiveBar = offensiveConfig.enabledModules?.reading ?? true;
-
-  // Local State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'library'>('dashboard');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  // Filter & Navigation State
+  const [activeCategory, setActiveCategory] = useState<ReadingCategoryFilter>('ALL');
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [isInspecting, setIsInspecting] = useState<boolean>(false);
+  const [is3DMode, setIs3DMode] = useState<boolean>(true);
 
   // Modals State
   const [selectedBook, setSelectedBook] = useState<IBook | null>(null);
@@ -56,119 +96,138 @@ const ReadingView: React.FC = () => {
   const [planningBook, setPlanningBook] = useState<IBook | null>(null);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
+  // 2D Library Folder State
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
+  // Filtered Books List
+  const filteredBooks = useMemo(() => {
+    if (activeCategory === 'ALL') return books;
+    return books.filter((b) => b.status === activeCategory);
+  }, [books, activeCategory]);
+
+  // Keep selected index within bounds when filters change
+  useEffect(() => {
+    if (selectedIndex >= filteredBooks.length && filteredBooks.length > 0) {
+      setSelectedIndex(filteredBooks.length - 1);
+    }
+  }, [filteredBooks.length, selectedIndex]);
+
+  const currentBook = useMemo(() => {
+    if (filteredBooks.length === 0 || selectedIndex < 0 || selectedIndex >= filteredBooks.length) {
+      return null;
+    }
+    return filteredBooks[selectedIndex];
+  }, [filteredBooks, selectedIndex]);
+
+  const readingStreakDays = useMemo(() => calculateReadingStreak(books), [books]);
+
   // Handlers
-  const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('bookId', id);
+  const handleUpdateProgress = useCallback(
+    (id: string, newCurrent: number) => {
+      updateProgress(id, newCurrent);
+    },
+    [updateProgress]
+  );
+
+  const handlePrevBook = useCallback(() => {
+    setSelectedIndex((prev) => Math.max(0, prev - 1));
   }, []);
 
-  const handleDropOnStatus = useCallback((e: React.DragEvent, status: IBook['status']) => {
-    e.preventDefault();
-    const bookId = e.dataTransfer.getData('bookId');
-    if (bookId) setBookStatus(bookId, status);
-  }, [setBookStatus]);
+  const handleNextBook = useCallback(() => {
+    setSelectedIndex((prev) => Math.min(filteredBooks.length - 1, prev + 1));
+  }, [filteredBooks.length]);
 
-  const handleDropOnFolder = useCallback((e: React.DragEvent, folderId: string | null) => {
-    e.preventDefault();
-    const bookId = e.dataTransfer.getData('bookId');
-    if (bookId) moveBookToFolder(bookId, folderId);
-  }, [moveBookToFolder]);
-
-  // Handler que converte delta -> valor absoluto para o store
-  const handleUpdateProgress = useCallback((id: string, delta: number) => {
-    const book = books.find(b => b.id === id);
-    if (book) {
-      const newProgress = Math.max(0, Math.min(book.total, book.current + delta));
-      updateProgress(id, newProgress);
-    }
-  }, [books, updateProgress]);
-
-  const handleSetProgressAbsolute = useCallback((id: string, absoluteValue: number) => {
-    updateProgress(id, absoluteValue);
-  }, [updateProgress]);
-
-  // Folder Logic
-  const handleCreateFolder = useCallback(() => {
-    const name = prompt("Nome da nova pasta:");
-    if (name) addFolder({ id: Date.now().toString(), name, parentId: currentFolderId, createdAt: new Date() });
-  }, [addFolder, currentFolderId]);
-
-  const handleDeleteFolder = useCallback((id: string) => {
-    if (confirm('Tem certeza? Livros dentro da pasta serão movidos para o nível superior.')) {
-      removeFolder(id);
-    }
-  }, [removeFolder]);
-
-  // Breadcrumbs
-  const getBreadcrumbs = useCallback((folderId: string | null): IFolder[] => {
-    if (!folderId) return [];
-    const folder = folders.find(f => f.id === folderId);
-    return folder ? [...getBreadcrumbs(folder.parentId || null), folder] : [];
-  }, [folders]);
-
-  const breadcrumbs = getBreadcrumbs(currentFolderId);
+  const handleToggleInspection = useCallback(() => {
+    setIsInspecting((prev) => !prev);
+  }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-6 p-6 overflow-y-auto scrollbar-thin">
+    <div className="w-full h-full flex flex-col bg-[#1A1817] text-[#1A1918] overflow-x-hidden overflow-y-auto scrollbar-thin">
+      
+      {/* Editorial Top Bar */}
+      <EditorialHeader
+        activeCategory={activeCategory}
+        onSelectCategory={(cat) => {
+          setActiveCategory(cat);
+          setSelectedIndex(0);
+        }}
+        totalBooksCount={books.length}
+        readingStreakDays={readingStreakDays}
+        onOpenAddBook={() => setIsAddModalOpen(true)}
+        is3DMode={is3DMode}
+        onToggleViewMode={() => setIs3DMode(!is3DMode)}
+      />
 
-      {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Leitura & Estudos</h1>
-          <p className="text-slate-400">Gerencie seus livros, acompanhe o progresso e atinja metas.</p>
-        </div>
+      {/* Main Experience Body */}
+      <main className="flex-1 relative flex flex-col min-h-0 bg-[#1A1817]">
+        {is3DMode ? (
+          /* 3D Shelf Scene & Floating Overlay Controls */
+          <div className="relative w-full flex-1 flex flex-col min-h-[500px]">
+            <CompleteShelfScene
+              userBooks={filteredBooks}
+              selectedIndex={selectedIndex}
+              onSelectIndex={setSelectedIndex}
+              isInspecting={isInspecting}
+              onToggleInspection={handleToggleInspection}
+            />
 
-        <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700/50">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('library')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'library' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-          >
-            Biblioteca
-          </button>
-        </div>
-      </div>
+            {/* Bottom HUD Controller */}
+            <ShelfNavigationHUD
+              books={filteredBooks}
+              selectedIndex={selectedIndex}
+              onSelectIndex={setSelectedIndex}
+              isInspecting={isInspecting}
+              onToggleInspection={handleToggleInspection}
+              onPrevBook={handlePrevBook}
+              onNextBook={handleNextBook}
+            />
 
-      <ReadingGoalSidebar books={books} projectConfig={config} />
+            {/* Inspection Drawer Overlay */}
+            <BookInspectionOverlay
+              book={currentBook}
+              isOpen={isInspecting}
+              onClose={() => setIsInspecting(false)}
+              onEditBook={(b) => setEditingBook(b)}
+              onUpdateProgress={handleUpdateProgress}
+            />
+          </div>
+        ) : (
+          /* 2D Library Grid Fallback Mode */
+          <div className="p-6 max-w-7xl mx-auto w-full bg-[#FDFBF7] flex-1">
+            <DashboardView
+              books={filteredBooks}
+              viewMode="grid"
+              onUpdateProgress={(id, delta) => {
+                const b = books.find((x) => x.id === id);
+                if (b) updateProgress(id, Math.max(0, Math.min(b.total, b.current + delta)));
+              }}
+              onUpdateStatus={setBookStatus}
+              onEdit={setEditingBook}
+              onDelete={removeBook}
+              onMove={setMovingBook}
+              onSelect={setSelectedBook}
+              onPlan={setPlanningBook}
+            />
+          </div>
+        )}
+      </main>
 
-      {/* Barra de Ofensiva de Leitura */}
-      {showReadingOffensiveBar && (
-        <ModuleOffensiveBar
-          progress={readingProgress}
-          isOffensive={readingOffensive}
-          label="Ofensiva de Leitura"
-          accentColor="yellow"
-        />
-      )}
-
-      {/* Toolbar */}
-      <div className="flex justify-between items-center gap-4">
-        <div className="flex gap-2">
-          <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-            <LayoutGrid size={20} />
-          </button>
-          <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-            <ListIcon size={20} />
-          </button>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setIsAddModalOpen(true)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-colors shadow-lg shadow-indigo-900/20 flex items-center gap-2">
-            <Plus size={20} /> Novo Livro
-          </button>
-        </div>
-      </div>
-
-      {/* Helper para renderizar modais com Suspense */}
-      <Suspense fallback={<div className="fixed bottom-4 right-4 bg-slate-800 p-2 rounded-full shadow-lg"><Loader2 className="animate-spin text-white" /></div>}>
+      {/* Lazy Loaded Modals */}
+      <Suspense
+        fallback={
+          <div className="fixed bottom-4 right-4 bg-[#3A2317] p-2 rounded-full shadow-lg z-50">
+            <Loader2 className="animate-spin text-[#F3D274]" />
+          </div>
+        }
+      >
         {selectedBook && (
           <BookDetailsModal
             book={selectedBook}
             onClose={() => setSelectedBook(null)}
-            onEdit={() => { setSelectedBook(null); setEditingBook(selectedBook); }}
+            onEdit={() => {
+              setSelectedBook(null);
+              setEditingBook(selectedBook);
+            }}
           />
         )}
         {isAddModalOpen && (
@@ -182,7 +241,10 @@ const ReadingView: React.FC = () => {
           <EditBookModal
             book={editingBook}
             onClose={() => setEditingBook(null)}
-            onSave={(b) => { updateBook(b.id, b); setEditingBook(null); }}
+            onSave={(b) => {
+              updateBook(b.id, b);
+              setEditingBook(null);
+            }}
           />
         )}
         {movingBook && (
@@ -190,7 +252,10 @@ const ReadingView: React.FC = () => {
             book={movingBook}
             folders={folders}
             onClose={() => setMovingBook(null)}
-            onMove={(bookId, folderId) => { moveBookToFolder(bookId, folderId); setMovingBook(null); }}
+            onMove={(bookId, folderId) => {
+              moveBookToFolder(bookId, folderId);
+              setMovingBook(null);
+            }}
           />
         )}
         {planningBook && (
@@ -204,60 +269,14 @@ const ReadingView: React.FC = () => {
             isOpen={isQuickLogOpen}
             onClose={() => setIsQuickLogOpen(false)}
             books={books}
-            onUpdateProgress={handleUpdateProgress}
-            onSetProgress={handleSetProgressAbsolute}
+            onUpdateProgress={(id, delta) => {
+              const b = books.find((x) => x.id === id);
+              if (b) updateProgress(id, Math.max(0, Math.min(b.total, b.current + delta)));
+            }}
+            onSetProgress={(id, absVal) => updateProgress(id, absVal)}
           />
         )}
       </Suspense>
-
-      {/* Main Content */}
-      <div className="flex-1 min-h-0">
-        {activeTab === 'dashboard' ? (
-          <DashboardView
-            books={books}
-            viewMode={viewMode}
-            onDragStart={handleDragStart}
-            onDropOnStatus={handleDropOnStatus}
-            onUpdateProgress={handleUpdateProgress}
-            onUpdateStatus={setBookStatus}
-            onEdit={setEditingBook}
-            onDelete={removeBook}
-            onMove={setMovingBook}
-            onSelect={setSelectedBook}
-            onPlan={setPlanningBook}
-          />
-        ) : (
-          <LibraryView
-            books={books}
-            folders={folders}
-            currentFolderId={currentFolderId}
-            viewMode={viewMode}
-            breadcrumbs={breadcrumbs}
-            onNavigate={setCurrentFolderId}
-            onCreateFolder={handleCreateFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onDragStart={handleDragStart}
-            onDropOnFolder={handleDropOnFolder}
-            onUpdateProgress={handleUpdateProgress}
-            onUpdateStatus={setBookStatus}
-            onEdit={setEditingBook}
-            onDelete={removeBook}
-            onMove={setMovingBook}
-            onSelect={setSelectedBook}
-            onPlan={setPlanningBook}
-          />
-        )}
-      </div>
-
-      {/* FAB - Floating Action Button for Quick Log (Mobile Only) */}
-      <button 
-        onClick={() => setIsQuickLogOpen(true)}
-        className="md:hidden fixed bottom-[5rem] right-4 sm:bottom-6 sm:right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center z-40 hover:bg-indigo-500 active:scale-95 transition-all"
-        aria-label="Registro Rápido de Leitura"
-      >
-        <Zap size={24} className="fill-indigo-300/30" />
-      </button>
-
     </div>
   );
 };

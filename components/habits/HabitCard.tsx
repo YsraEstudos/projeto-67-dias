@@ -5,6 +5,7 @@ import {
 import { Habit } from '../../types';
 import { getCategoryColor } from '../../utils/styling';
 import { getSessionInfo, isDayScheduled, isPlanCompleted } from '../../utils/habitProgressiveCalc';
+import { formatDateISO } from '../../utils/dateUtils';
 
 interface HabitCardProps {
     habit: Habit;
@@ -23,7 +24,7 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
     onEdit,
     onDelete
 }) => {
-    const dateKey = useMemo(() => selectedDate.toISOString().split('T')[0], [selectedDate]);
+    const dateKey = useMemo(() => formatDateISO(selectedDate), [selectedDate]);
     const log = useMemo(() => habit.history[dateKey] || { completed: false, subHabitsCompleted: [], value: 0 }, [habit.history, dateKey]);
 
     const hasSubHabits = habit.subHabits.length > 0;

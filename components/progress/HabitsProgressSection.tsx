@@ -5,16 +5,11 @@ import {
 } from 'lucide-react';
 import { Habit } from '../../types';
 import { getCategoryColor } from '../../utils/styling';
+import { formatDateISO, getTodayISO } from '../../utils/dateUtils';
 
 interface HabitsProgressSectionProps {
     habits: Habit[];
 }
-
-interface HabitsProgressSectionProps {
-    habits: Habit[];
-}
-
-// Get last 7 days as array of date keys
 
 // Get last 7 days as array of date keys
 const getLast7Days = (): string[] => {
@@ -22,7 +17,7 @@ const getLast7Days = (): string[] => {
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        days.push(d.toISOString().split('T')[0]);
+        days.push(formatDateISO(d));
     }
     return days;
 };
@@ -44,7 +39,7 @@ export const HabitsProgressSection: React.FC<HabitsProgressSectionProps> = ({ ha
         let currentStreak = 0;
         let longestStreak = 0;
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayISO();
 
         // Calculate consistency for last 7 days
         last7Days.forEach(dateKey => {
@@ -69,7 +64,7 @@ export const HabitsProgressSection: React.FC<HabitsProgressSectionProps> = ({ ha
             for (let i = 0; i < 30; i++) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                const dateKey = d.toISOString().split('T')[0];
+                const dateKey = formatDateISO(d);
 
                 const log = habit.history[dateKey];
                 const success = habit.isNegative ? !log?.completed : log?.completed;

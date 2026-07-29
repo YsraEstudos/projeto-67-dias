@@ -4,6 +4,7 @@ import { useHabitsManager } from './hooks/useHabitsManager';
 import { WaterTracker } from '../../habits/WaterTracker';
 import HabitCard from '../../habits/HabitCard';
 import { getActiveConsequences, getConsequenceSummary, getConsequencesForTomorrow, getTomorrowTriggerSummary } from '../../../utils/habitConsequences';
+import { formatDateISO } from '../../../utils/dateUtils';
 
 const HabitModal = React.lazy(() => import('../../habits/HabitModal'));
 
@@ -33,7 +34,7 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
     } = manager;
 
     // Calculate active consequences for the selected date
-    const dateKey = selectedDate.toISOString().split('T')[0];
+    const dateKey = formatDateISO(selectedDate);
     const activeConsequences = useMemo(
         () => getActiveConsequences(habits, dateKey),
         [habits, dateKey]

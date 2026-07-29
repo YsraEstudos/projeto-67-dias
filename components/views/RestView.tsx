@@ -6,6 +6,7 @@ import { useRestStore } from '../../stores';
 import { RestActivity } from '../../types';
 import RestActivityItem from './RestActivityItem';
 import RestActivityInput from './RestActivityInput';
+import { formatDateISO } from '../../utils/dateUtils';
 
 // Lazy load modals
 const NextTwoHoursModal = React.lazy(() => import('./modals/NextTwoHoursModal'));
@@ -36,7 +37,7 @@ const RestView: React.FC = () => {
     // --- FILTERING LOGIC ---
     const filteredActivities = useMemo(() => {
         const dayOfWeek = selectedDate.getDay();
-        const dateString = selectedDate.toISOString().split('T')[0];
+        const dateString = formatDateISO(selectedDate);
 
         return activities
             .filter(act => {
@@ -74,7 +75,7 @@ const RestView: React.FC = () => {
     }, [activities, selectedDate]);
 
     const nextTwoHoursActivities = useMemo(() => {
-        const dateString = selectedDate.toISOString().split('T')[0];
+        const dateString = formatDateISO(selectedDate);
         return nextTwoHoursIds
             .map(id => {
                 const act = activities.find(a => a.id === id);
@@ -90,12 +91,12 @@ const RestView: React.FC = () => {
 
 
     const toggleComplete = useCallback((id: string) => {
-        const dateString = selectedDate.toISOString().split('T')[0];
+        const dateString = formatDateISO(selectedDate);
         toggleActivityComplete(id, dateString);
     }, [toggleActivityComplete, selectedDate]);
 
     const toggleSeries = useCallback((activityId: string, seriesId: string) => {
-        const dateString = selectedDate.toISOString().split('T')[0];
+        const dateString = formatDateISO(selectedDate);
         toggleActivitySeries(activityId, seriesId, dateString);
     }, [toggleActivitySeries, selectedDate]);
 

@@ -33,6 +33,7 @@ import {
 import { HabitsProgressSection } from '../progress/HabitsProgressSection';
 import { TasksProgressSection } from '../progress/TasksProgressSection';
 import { DailyOffensiveProgress } from '../progress/DailyOffensiveProgress';
+import { formatDateISO } from '../../utils/dateUtils';
 
 // Lazy load heavy components
 const EvolutionChart = React.lazy(() => import('../progress/EvolutionChart').then(module => ({ default: module.EvolutionChart })));
@@ -150,7 +151,7 @@ const ProgressView: React.FC = () => {
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            const dateKey = d.toISOString().split('T')[0];
+            const dateKey = formatDateISO(d);
             const dayName = d.toLocaleDateString('pt-BR', { weekday: 'short' });
 
             let dailyCount = 0;
@@ -177,7 +178,7 @@ const ProgressView: React.FC = () => {
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            const dateKey = d.toISOString().split('T')[0];
+            const dateKey = formatDateISO(d);
             const dayName = d.toLocaleDateString('pt-BR', { weekday: 'short' });
 
             let dailyTotal = 0;

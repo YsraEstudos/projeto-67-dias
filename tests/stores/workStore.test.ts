@@ -59,4 +59,28 @@ describe('workStore', () => {
         expect(useWorkStore.getState().preBreakCount).toBe(4);
         expect(writeToFirestore).not.toHaveBeenCalled();
     });
+
+    it('uses 06:00 operational cutoff for daily work reset', () => {
+        // At 05:30 on April 21, operational date is still April 20
+        vi.setSystemTime(new Date(2026, 3, 21, 5, 30, 0));
+        useWorkStore.setState({
+            currentCount: 15,
+            lastActiveDate: '2026-04-20',
+            _initialized: true,
+        } as any);
+
+        const changed = useWorkStore.getState().ensureCurrentDay();
+
+        expect(changed).toBe(false);
+        expect(useWorkStore.getState().currentCount).toBe(15);
+        expect(useWorkStore.getState().lastActiveDate).toBe('2026-04-20');
+
+        // At 06:01 on April 21, operational date rolls over to April 21
+        vi.setSystemTime(new Date(2026, 3, 21, 6, 1, 0));
+        const changedAfterCutoff = useWorkStore.getState().ensureCurrentDay();
+
+        expect(changedAfterCutoff).toBe(true);
+        expect(useWorkStore.getState().currentCount).toBe(0);
+        expect(useWorkStore.getState().lastActiveDate).toBe('2026-04-21');
+    });
 });
