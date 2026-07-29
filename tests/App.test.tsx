@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from '../App';
 import type { User } from '../types';
 import { warmConcursoEntryPoint } from '../utils/concursoPrefetch';
+import { APP_VERSION } from '../constants/appVersion';
 
 // Mock lazy loaded components
 vi.mock('../components/views/WorkView', () => ({ default: () => <div data-testid="work-view">Work View</div> }));
@@ -29,7 +30,7 @@ vi.mock('../WorkspaceApp', () => ({
             <div data-testid="workspace-app">
                 <h1>Projeto 67 Dias</h1>
                 <p>{user.name}</p>
-                <p>versão 1.17.1</p>
+                <p>versão {APP_VERSION}</p>
                 <section>
                     <div>Trabalho</div>
                     <div>Leitura</div>
@@ -252,7 +253,7 @@ describe('App Component', () => {
         await waitForApp(() => {
             expect(screen.getByText('Projeto 67 Dias')).toBeInTheDocument();
             expect(screen.getByText('Test User')).toBeInTheDocument();
-            expect(screen.getByText('versão 1.17.1')).toBeInTheDocument();
+            expect(screen.getByText(`versão ${APP_VERSION}`)).toBeInTheDocument();
         });
     });
 

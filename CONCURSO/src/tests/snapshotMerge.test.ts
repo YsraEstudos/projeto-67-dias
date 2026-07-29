@@ -43,7 +43,7 @@ describe('snapshotMerge 3-way merge', () => {
         id: 'proj-local',
         name: 'Local Project',
         status: 'em_andamento',
-        technologyKeys: ['react' as any],
+        technologyKeys: ['javascript_typescript'],
         tags: [],
         requirements: [],
         createdAt: '2026-07-01T10:00:00Z',

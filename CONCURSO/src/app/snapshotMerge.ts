@@ -1,10 +1,30 @@
 import type { AppSnapshot, AppState, SnapshotConflict } from './types';
 
-function isObject(val: unknown): val is Record<string, any> {
+type ObjectRecord = Record<string, unknown>;
+type EntityRecord = ObjectRecord & { id: string; updatedAt?: string };
+
+function isObject(val: unknown): val is ObjectRecord {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
-function deepEqual(a: any, b: any): boolean {
+function isEntityRecord(val: unknown): val is EntityRecord {
+  return isObject(val) && typeof val.id === 'string';
+}
+
+function asMap(val: unknown): ObjectRecord {
+  return isObject(val) ? val : {};
+}
+
+function asEntityArray(val: unknown): EntityRecord[] {
+  return Array.isArray(val) ? val.filter(isEntityRecord) : [];
+}
+
+function getTimestamp(val: unknown): number {
+  if (!isObject(val) || typeof val.updatedAt !== 'string') return 0;
+  return Date.parse(val.updatedAt);
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
   if (isObject(a) && isObject(b)) {
@@ -45,9 +65,9 @@ export function mergeSnapshots(
   ];
 
   for (const domain of mapDomains) {
-    const baseMap = (baseState?.[domain] as Record<string, any>) || {};
-    const localMap = (localState[domain] as Record<string, any>) || {};
-    const remoteMap = (remoteState[domain] as Record<string, any>) || {};
+    const baseMap = asMap(baseState?.[domain]);
+    const localMap = asMap(localState[domain]);
+    const remoteMap = asMap(remoteState[domain]);
 
     const allKeys = new Set([
       ...Object.keys(baseMap),
@@ -55,7 +75,7 @@ export function mergeSnapshots(
       ...Object.keys(remoteMap),
     ]);
 
-    const mergedMap: Record<string, any> = {};
+    const mergedMap: ObjectRecord = {};
 
     for (const key of allKeys) {
       const bVal = baseMap[key];
@@ -83,8 +103,8 @@ export function mergeSnapshots(
           mergedMap[key] = lVal;
         } else {
           // Divergence! Compare timestamps or deterministic fallback
-          const lTime = lVal?.updatedAt ? Date.parse(lVal.updatedAt) : 0;
-          const rTime = rVal?.updatedAt ? Date.parse(rVal.updatedAt) : 0;
+          const lTime = getTimestamp(lVal);
+          const rTime = getTimestamp(rVal);
 
           if (lTime > rTime) {
             mergedMap[key] = lVal;
@@ -104,7 +124,7 @@ export function mergeSnapshots(
       }
     }
 
-    (mergedState as any)[domain] = mergedMap;
+    Object.assign(mergedState, { [domain]: mergedMap });
   }
 
   // 2. Merge Array domains
@@ -116,9 +136,9 @@ export function mergeSnapshots(
   ];
 
   for (const domain of arrayDomains) {
-    const baseArr = (baseState?.[domain] as any[]) || [];
-    const localArr = (localState[domain] as any[]) || [];
-    const remoteArr = (remoteState[domain] as any[]) || [];
+    const baseArr = asEntityArray(baseState?.[domain]);
+    const localArr = asEntityArray(localState[domain]);
+    const remoteArr = asEntityArray(remoteState[domain]);
 
     const baseMap = new Map(baseArr.map((item) => [item.id, item]));
     const localMap = new Map(localArr.map((item) => [item.id, item]));
@@ -130,7 +150,7 @@ export function mergeSnapshots(
       ...remoteMap.keys(),
     ]);
 
-    const mergedArray: any[] = [];
+    const mergedArray: EntityRecord[] = [];
 
     for (const id of allIds) {
       const bItem = baseMap.get(id);
@@ -153,8 +173,8 @@ export function mergeSnapshots(
         } else if (bItem && deepEqual(rItem, bItem)) {
           mergedArray.push(lItem);
         } else {
-          const lTime = lItem.updatedAt ? Date.parse(lItem.updatedAt) : 0;
-          const rTime = rItem.updatedAt ? Date.parse(rItem.updatedAt) : 0;
+          const lTime = getTimestamp(lItem);
+          const rTime = getTimestamp(rItem);
 
           if (lTime >= rTime) {
             mergedArray.push(lItem);
@@ -174,7 +194,7 @@ export function mergeSnapshots(
       }
     }
 
-    (mergedState as any)[domain] = mergedArray;
+    Object.assign(mergedState, { [domain]: mergedArray });
   }
 
   // 3. Scalar/Config domains
@@ -186,13 +206,13 @@ export function mergeSnapshots(
     const rVal = remoteState[domain];
 
     if (deepEqual(lVal, rVal)) {
-      (mergedState as any)[domain] = lVal;
+      Object.assign(mergedState, { [domain]: lVal });
     } else if (bVal !== undefined && deepEqual(lVal, bVal)) {
-      (mergedState as any)[domain] = rVal;
+      Object.assign(mergedState, { [domain]: rVal });
     } else if (bVal !== undefined && deepEqual(rVal, bVal)) {
-      (mergedState as any)[domain] = lVal;
+      Object.assign(mergedState, { [domain]: lVal });
     } else {
-      (mergedState as any)[domain] = lVal;
+      Object.assign(mergedState, { [domain]: lVal });
       conflicts.push({
         id: `conflict-${domain}`,
         path: `appState.${domain}`,
@@ -245,14 +265,16 @@ export function resolveSnapshotConflict(
   if (pathParts.length === 3) {
     const domain = pathParts[1] as keyof AppState;
     const key = pathParts[2];
-    const currentDomainObj = (nextAppState[domain] as Record<string, any>) || {};
-    (nextAppState as Record<string, any>)[domain] = {
-      ...currentDomainObj,
-      [key]: chosenValue,
-    };
+    const currentDomainObj = asMap(nextAppState[domain]);
+    Object.assign(nextAppState, {
+      [domain]: {
+        ...currentDomainObj,
+        [key]: chosenValue,
+      },
+    });
   } else if (pathParts.length === 2) {
     const domain = pathParts[1] as keyof AppState;
-    (nextAppState as Record<string, any>)[domain] = chosenValue;
+    Object.assign(nextAppState, { [domain]: chosenValue });
   }
 
   nextAppState.conflicts = conflicts.filter((c) => c.id !== conflictId);

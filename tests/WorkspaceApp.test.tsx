@@ -7,6 +7,7 @@ import { useUIStore, useConfigStore, useWorkStore, useHabitsStore } from '../sto
 import { useTabStore } from '../stores/tabStore';
 import { calculateCurrentDay, getDaysUntilStart } from '../services/weeklySnapshot';
 import { useDashboardStats } from '../hooks/useDashboardStats';
+import { APP_VERSION } from '../constants/appVersion';
 
 
 // ---------------------------------------------------------------------------
@@ -348,7 +349,7 @@ describe('WorkspaceApp', () => {
     it('renders footer with version number', async () => {
         render(<WorkspaceApp user={mockUser} onLogout={onLogout} />);
         await waitFor(() => {
-            expect(screen.getByText(/versão \d+\.\d+\.\d+/)).toBeInTheDocument();
+            expect(screen.getByText(`versão ${APP_VERSION}`)).toBeInTheDocument();
         });
     });
 

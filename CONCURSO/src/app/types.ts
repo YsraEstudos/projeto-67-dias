@@ -307,9 +307,9 @@ export interface ShellUiState {
 export interface SnapshotConflict {
   id: string;
   path: string;
-  baseValue: any;
-  localValue: any;
-  remoteValue: any;
+  baseValue: unknown;
+  localValue: unknown;
+  remoteValue: unknown;
   detectedAt: number;
 }
 
