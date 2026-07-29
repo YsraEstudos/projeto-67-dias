@@ -5,6 +5,25 @@ import { ShelfMeshGroup } from './ShelfMesh';
 import { MINT_BOOK_MANIFEST, ShelfBookManifestItem } from './mintManifest';
 import { Book } from '../../../types';
 
+const SHELF_CAMERA_FOV = 38;
+const SHELF_CAMERA_MIN_DISTANCE = 8.5;
+const SHELF_CONTENT_HEIGHT = 4.2;
+
+export function calculateShelfCameraDistance(
+  viewportWidth: number,
+  viewportHeight: number,
+  shelfWidth: number,
+): number {
+  const safeWidth = Math.max(viewportWidth, 1);
+  const safeHeight = Math.max(viewportHeight, 1);
+  const aspect = safeWidth / safeHeight;
+  const halfFovRadians = THREE.MathUtils.degToRad(SHELF_CAMERA_FOV / 2);
+  const horizontalDistance = (shelfWidth * 1.12) / (2 * Math.tan(halfFovRadians) * Math.max(aspect, 0.1));
+  const verticalDistance = (SHELF_CONTENT_HEIGHT * 1.12) / (2 * Math.tan(halfFovRadians));
+
+  return Math.max(SHELF_CAMERA_MIN_DISTANCE, horizontalDistance, verticalDistance);
+}
+
 interface CompleteShelfSceneProps {
   userBooks: Book[];
   selectedIndex: number;
@@ -48,6 +67,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   const shelfMeshRef = useRef<ShelfMeshGroup | null>(null);
   const selectedIndexRef = useRef<number>(selectedIndex);
   const isInspectingRef = useRef<boolean>(isInspecting);
+  const baseCameraDistanceRef = useRef<number>(SHELF_CAMERA_MIN_DISTANCE);
 
   selectedIndexRef.current = selectedIndex;
   isInspectingRef.current = isInspecting;
@@ -82,14 +102,17 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
     try {
       scene = new THREE.Scene();
       sceneRef.current = scene;
-      scene.background = new THREE.Color('#1A1817');
+      scene.background = new THREE.Color('#080B10');
 
-      const width = containerRef.current.clientWidth || window.innerWidth;
-      const height = containerRef.current.clientHeight || 500;
+      const width = Math.max(containerRef.current.clientWidth, 1);
+      const height = Math.max(containerRef.current.clientHeight, 1);
+      const totalWidth = shelfItems.reduce((acc, item) => acc + item.thickness + 0.08, 0) + 1.2;
+      const shelfWidth = Math.max(12, totalWidth);
+      baseCameraDistanceRef.current = calculateShelfCameraDistance(width, height, shelfWidth);
 
-      camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
+      camera = new THREE.PerspectiveCamera(SHELF_CAMERA_FOV, width / height, 0.1, 100);
       cameraRef.current = camera;
-      camera.position.set(0, 2.2, 8.5);
+      camera.position.set(0, 2.2, baseCameraDistanceRef.current);
       camera.lookAt(0, 1.2, 0);
 
       renderer = new THREE.WebGLRenderer({
@@ -99,8 +122,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         powerPreference: 'high-performance',
       });
       rendererRef.current = renderer;
-      renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(width, height, false);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -121,9 +144,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       scene.add(fillLight);
 
       // Shelf Group
-      const totalWidth = shelfItems.reduce((acc, item) => acc + item.thickness + 0.08, 0) + 1.2;
       const shelfGroup = new ShelfMeshGroup({
-        width: Math.max(12, totalWidth),
+        width: shelfWidth,
         depth: 3.2,
         thickness: 0.35,
       });
@@ -149,6 +171,34 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       });
 
       bookMeshesRef.current = bookGroups;
+
+      const updateViewport = () => {
+        if (!containerRef.current || !renderer || !camera) return;
+
+        const viewportWidth = containerRef.current.clientWidth;
+        const viewportHeight = containerRef.current.clientHeight;
+        if (viewportWidth <= 0 || viewportHeight <= 0) return;
+
+        camera.aspect = viewportWidth / viewportHeight;
+        camera.updateProjectionMatrix();
+        baseCameraDistanceRef.current = calculateShelfCameraDistance(viewportWidth, viewportHeight, shelfWidth);
+        renderer.setSize(viewportWidth, viewportHeight, false);
+      };
+
+      let resizeFrameId: number | null = null;
+      const scheduleViewportUpdate = () => {
+        if (resizeFrameId !== null) cancelAnimationFrame(resizeFrameId);
+        resizeFrameId = requestAnimationFrame(() => {
+          resizeFrameId = null;
+          updateViewport();
+        });
+      };
+
+      const resizeObserver = typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(scheduleViewportUpdate)
+        : null;
+      resizeObserver?.observe(containerRef.current);
+      updateViewport();
 
       // Interaction Raycasting
       const raycaster = new THREE.Raycaster();
@@ -224,20 +274,19 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         // Camera Smooth Focus target
         const selectedBook = bookGroups[selectedIndexRef.current];
         if (selectedBook) {
-          const targetPosition = isInspectingRef.current
-            ? selectedBook.getFocusPosition()
-            : selectedBook.getBasePosition();
-          const targetCamX = targetPosition.x;
-          const targetCamY = isInspectingRef.current
+          const isFocused = isInspectingRef.current;
+          const targetPosition = isFocused ? selectedBook.getFocusPosition() : null;
+          const targetCamX = targetPosition?.x ?? 0;
+          const targetCamY = targetPosition
             ? targetPosition.y + selectedBook.item.height / 2 + 0.2
             : 2.2;
-          const targetCamZ = isInspectingRef.current
+          const targetCamZ = targetPosition
             ? targetPosition.z + 4.8
-            : 8.5;
-          const lookAtY = isInspectingRef.current
+            : baseCameraDistanceRef.current;
+          const lookAtY = targetPosition
             ? targetPosition.y + selectedBook.item.height / 2
             : 1.2;
-          const lookAtZ = isInspectingRef.current ? targetPosition.z : 0;
+          const lookAtZ = targetPosition?.z ?? 0;
 
           camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, delta * 4);
           camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, delta * 4);
@@ -251,20 +300,12 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
       animate(performance.now());
 
-      // Resize Handler
-      const handleResize = () => {
-        if (!containerRef.current || !renderer || !camera) return;
-        const w = containerRef.current.clientWidth;
-        const h = containerRef.current.clientHeight || 500;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
-      };
-
-      window.addEventListener('resize', handleResize);
+      window.addEventListener('resize', scheduleViewportUpdate);
 
       return () => {
-        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('resize', scheduleViewportUpdate);
+        resizeObserver?.disconnect();
+        if (resizeFrameId !== null) cancelAnimationFrame(resizeFrameId);
         if (domElement) {
           domElement.removeEventListener('mousemove', handlePointerMove);
           domElement.removeEventListener('click', handlePointerDown);

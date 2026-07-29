@@ -4,7 +4,10 @@ import { MINT_BOOK_MANIFEST, CLOTH_PALETTE, FOIL_PALETTE } from '../../../compon
 import { BookMeshGroup } from '../../../components/reading/shelf/BookMesh';
 import { ShelfMeshGroup } from '../../../components/reading/shelf/ShelfMesh';
 import { InspectionControls } from '../../../components/reading/shelf/InspectionControls';
-import { resolveBookActivation } from '../../../components/reading/shelf/CompleteShelfScene';
+import {
+  calculateShelfCameraDistance,
+  resolveBookActivation,
+} from '../../../components/reading/shelf/CompleteShelfScene';
 
 // Mock Canvas getContext for JSDOM environment
 beforeEach(() => {
@@ -99,6 +102,16 @@ describe('book activation', () => {
       selectedIndex: 2,
       shouldOpenInspection: true,
     });
+  });
+});
+
+describe('shelf camera framing', () => {
+  it('moves the camera farther away for narrow viewports so the shelf stays visible', () => {
+    const wideViewportDistance = calculateShelfCameraDistance(1920, 1080, 12);
+    const narrowViewportDistance = calculateShelfCameraDistance(800, 600, 12);
+
+    expect(narrowViewportDistance).toBeGreaterThan(wideViewportDistance);
+    expect(wideViewportDistance).toBeGreaterThanOrEqual(8.5);
   });
 });
 
