@@ -12,7 +12,7 @@
     "test:ci": "vitest --run",
     "check:root": "npm run test:ci && npm run build",
     "check:concurso": "npm --prefix CONCURSO run lint && npm --prefix CONCURSO run test && npm --prefix CONCURSO run build",
-    "check:concurso:published": "npm --prefix CONCURSO run build && node scripts/publish-concurso.mjs && git diff --exit-code -- public/concurso",
+    "check:concurso:published": "npm --prefix CONCURSO run build && node scripts/check-concurso-published.mjs",
     "check:main": "npm run check:root && npm run check:concurso && npm run check:concurso:published",
     "preview": "vite preview",
     "test": "vitest"
