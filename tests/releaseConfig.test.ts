@@ -16,14 +16,14 @@ describe('main release configuration', () => {
     );
   });
 
-  test('published CONCURSO contract checks only generated sync drift', () => {
+  test('published CONCURSO contract checks the generated fingerprint and shell assets', () => {
     const packageJson = JSON.parse(readText('package.json')) as {
       scripts: Record<string, string>;
     };
     const workflow = readText('.github/workflows/main-readiness.yml');
 
     expect(packageJson.scripts['check:concurso:published']).toBe(
-      'npm --prefix CONCURSO run build && node scripts/publish-concurso.mjs && git diff --exit-code -- public/concurso',
+      'npm --prefix CONCURSO run build && node scripts/check-concurso-published.mjs',
     );
     expect(workflow).toContain('Install CONCURSO dependencies');
     expect(workflow).toContain('npm --prefix CONCURSO ci');
