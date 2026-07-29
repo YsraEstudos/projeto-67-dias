@@ -718,6 +718,34 @@ export class BookMeshGroup {
     }
   }
 
+  public setBasePosition(position: THREE.Vector3) {
+    this.basePosition.copy(position);
+    this.focusPosition.set(position.x, position.y, 1.8);
+
+    if (!this.isSelected && !this.isHovered) {
+      this.targetPosition.copy(this.basePosition);
+    }
+  }
+
+  public setDragPreview(position: THREE.Vector3) {
+    this.targetPosition.copy(position);
+    this.targetRotation.set(0, 0, 0);
+    this.targetScale.setScalar(1.03);
+  }
+
+  public clearDragPreview() {
+    if (this.isSelected) {
+      this.targetPosition.copy(this.focusPosition);
+      this.targetRotation.copy(this.focusRotation);
+      this.targetScale.setScalar(this.focusScale);
+      return;
+    }
+
+    this.targetPosition.copy(this.basePosition);
+    this.targetRotation.copy(this.baseRotation);
+    this.targetScale.setScalar(1);
+  }
+
   public setSelected(selected: boolean) {
     this.isSelected = selected;
     if (selected) {

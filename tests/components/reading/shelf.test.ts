@@ -6,6 +6,7 @@ import { ShelfMeshGroup } from '../../../components/reading/shelf/ShelfMesh';
 import { InspectionControls } from '../../../components/reading/shelf/InspectionControls';
 import {
   calculateShelfCameraDistance,
+  getShelfLevelFromPointer,
   resolveBookActivation,
 } from '../../../components/reading/shelf/CompleteShelfScene';
 
@@ -113,6 +114,18 @@ describe('shelf camera framing', () => {
     expect(narrowViewportDistance).toBeGreaterThan(wideViewportDistance);
     expect(wideViewportDistance).toBeGreaterThanOrEqual(8.5);
   });
+
+  it('maps the captured pointer position to the correct visual shelf level', () => {
+    const levels = [
+      { id: 'bottom', name: 'Base', position: 0 },
+      { id: 'middle', name: 'Meio', position: 1 },
+      { id: 'top', name: 'Topo', position: 2 },
+    ];
+
+    expect(getShelfLevelFromPointer(50, { top: 0, height: 300 }, levels)?.id).toBe('top');
+    expect(getShelfLevelFromPointer(150, { top: 0, height: 300 }, levels)?.id).toBe('middle');
+    expect(getShelfLevelFromPointer(299, { top: 0, height: 300 }, levels)?.id).toBe('bottom');
+  });
 });
 
 describe('mint-assets.json', () => {
@@ -184,6 +197,21 @@ describe('ShelfMesh', () => {
 
     expect(shelf.group).toBeInstanceOf(THREE.Group);
     expect(shelf.group.children.length).toBeGreaterThan(0);
+
+    shelf.dispose();
+  });
+
+  it('reuses shelf geometry while creating every named level', () => {
+    const shelf = new ShelfMeshGroup({
+      width: 15,
+      depth: 3,
+      thickness: 0.3,
+      levelCount: 4,
+    });
+
+    const shelfBoards = shelf.group.children.filter((child) => child instanceof THREE.Mesh);
+    expect(shelfBoards.length).toBeGreaterThanOrEqual(4);
+    expect((shelfBoards[0] as THREE.Mesh).geometry).toBe((shelfBoards[1] as THREE.Mesh).geometry);
 
     shelf.dispose();
   });

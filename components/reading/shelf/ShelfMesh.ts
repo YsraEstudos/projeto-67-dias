@@ -58,12 +58,15 @@ export interface ShelfMeshOptions {
   width: number;
   depth: number;
   thickness: number;
+  levelCount?: number;
+  levelSpacing?: number;
 }
 
 export class ShelfMeshGroup {
   public group: THREE.Group;
   private texturesToDispose: THREE.Texture[] = [];
   private materialsToDispose: THREE.Material[] = [];
+  private geometriesToDispose: THREE.BufferGeometry[] = [];
 
   constructor(options: ShelfMeshOptions) {
     this.group = new THREE.Group();
@@ -71,7 +74,14 @@ export class ShelfMeshGroup {
   }
 
   private buildShelf(options: ShelfMeshOptions) {
-    const { width, depth, thickness } = options;
+    const {
+      width,
+      depth,
+      thickness,
+      levelCount = 1,
+      levelSpacing = 3.9,
+    } = options;
+    const safeLevelCount = Math.max(1, levelCount);
     const woodTexture = createWalnutWoodTexture();
     this.texturesToDispose.push(woodTexture);
 
@@ -108,15 +118,18 @@ export class ShelfMeshGroup {
     };
 
     const shelfGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    this.geometriesToDispose.push(shelfGeo);
     // Center the extrusion along X axis
     shelfGeo.translate(0, 0, -width / 2);
     shelfGeo.rotateY(Math.PI / 2);
 
-    const shelfMesh = new THREE.Mesh(shelfGeo, walnutMat);
-    shelfMesh.position.set(0, 0, 0);
-    shelfMesh.receiveShadow = true;
-    shelfMesh.castShadow = true;
-    this.group.add(shelfMesh);
+    for (let levelIndex = 0; levelIndex < safeLevelCount; levelIndex += 1) {
+      const shelfMesh = new THREE.Mesh(shelfGeo, walnutMat);
+      shelfMesh.position.set(0, levelIndex * levelSpacing, 0);
+      shelfMesh.receiveShadow = true;
+      shelfMesh.castShadow = true;
+      this.group.add(shelfMesh);
+    }
 
     // Brass End Support Brackets
     const bracketMat = new THREE.MeshStandardMaterial({
@@ -128,19 +141,25 @@ export class ShelfMeshGroup {
 
     const bracketWidth = 0.15;
     const bracketGeo = new THREE.BoxGeometry(bracketWidth, thickness * 1.5, depth * 1.05);
+    this.geometriesToDispose.push(bracketGeo);
 
-    const leftBracket = new THREE.Mesh(bracketGeo, bracketMat);
-    leftBracket.position.set(-width / 2 - bracketWidth / 2, -thickness * 0.25, 0);
-    leftBracket.castShadow = true;
-    this.group.add(leftBracket);
+    for (let levelIndex = 0; levelIndex < safeLevelCount; levelIndex += 1) {
+      const levelY = levelIndex * levelSpacing;
+      const leftBracket = new THREE.Mesh(bracketGeo, bracketMat);
+      leftBracket.position.set(-width / 2 - bracketWidth / 2, levelY - thickness * 0.25, 0);
+      leftBracket.castShadow = true;
+      this.group.add(leftBracket);
 
-    const rightBracket = new THREE.Mesh(bracketGeo, bracketMat);
-    rightBracket.position.set(width / 2 + bracketWidth / 2, -thickness * 0.25, 0);
-    rightBracket.castShadow = true;
-    this.group.add(rightBracket);
+      const rightBracket = new THREE.Mesh(bracketGeo, bracketMat);
+      rightBracket.position.set(width / 2 + bracketWidth / 2, levelY - thickness * 0.25, 0);
+      rightBracket.castShadow = true;
+      this.group.add(rightBracket);
+    }
 
     // Shadow Catching & Warm Background Back Wall
-    const wallGeo = new THREE.PlaneGeometry(width * 1.5, 12);
+    const wallHeight = Math.max(12, (safeLevelCount - 1) * levelSpacing + 7);
+    const wallGeo = new THREE.PlaneGeometry(width * 1.5, wallHeight);
+    this.geometriesToDispose.push(wallGeo);
     const wallMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#111827'), // Deep blue-black alcove wall
       roughness: 0.9,
@@ -149,12 +168,13 @@ export class ShelfMeshGroup {
     this.materialsToDispose.push(wallMat);
 
     const wallMesh = new THREE.Mesh(wallGeo, wallMat);
-    wallMesh.position.set(0, 4, -depth / 2 - 0.05);
+    wallMesh.position.set(0, wallHeight / 2 - thickness, -depth / 2 - 0.05);
     wallMesh.receiveShadow = true;
     this.group.add(wallMesh);
 
     // Subtle contact shadow plane beneath the shelf
     const shadowGeo = new THREE.PlaneGeometry(width * 1.2, depth * 1.4);
+    this.geometriesToDispose.push(shadowGeo);
     const shadowMat = new THREE.ShadowMaterial({
       opacity: 0.4,
     });
@@ -170,10 +190,6 @@ export class ShelfMeshGroup {
   public dispose() {
     this.texturesToDispose.forEach((t) => t.dispose());
     this.materialsToDispose.forEach((m) => m.dispose());
-    this.group.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
-      }
-    });
+    this.geometriesToDispose.forEach((geometry) => geometry.dispose());
   }
 }

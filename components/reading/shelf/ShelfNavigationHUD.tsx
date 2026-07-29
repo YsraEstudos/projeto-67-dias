@@ -26,6 +26,11 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
     : null;
 
   const totalCount = books.length;
+  const markerLimit = 80;
+  const markerStart = totalCount <= markerLimit
+    ? 0
+    : Math.min(Math.max(selectedIndex - Math.floor(markerLimit / 2), 0), totalCount - markerLimit);
+  const markerBooks = books.slice(markerStart, markerStart + markerLimit);
 
   return (
     <div className="absolute bottom-4 left-1/2 z-30 w-[min(92%,680px)] -translate-x-1/2 pointer-events-auto transition-all">
@@ -36,13 +41,15 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
           <div className="w-full mb-3 flex items-center justify-between gap-1 px-1">
             <span className="font-mono text-[10px] text-slate-500">01</span>
             <div className="flex-1 flex items-center justify-center gap-1 mx-2 overflow-hidden h-3">
-              {books.map((b, idx) => {
+              {markerBooks.map((b, markerIndex) => {
+                const idx = markerStart + markerIndex;
                 const isActive = idx === selectedIndex;
                 return (
                   <button
                     key={b.id || idx}
                     onClick={() => onSelectIndex(idx)}
                     title={`${b.title} (${idx + 1}/${totalCount})`}
+                    aria-label={`${b.title} (${idx + 1}/${totalCount})`}
                     className={`h-2 rounded-full transition-all cursor-pointer ${
                       isActive
                         ? 'w-6 bg-[#D4AF37] ring-2 ring-[#D4AF37]/30'

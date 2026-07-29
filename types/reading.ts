@@ -30,6 +30,10 @@ export interface Book {
   notes: string;
   addedAt: string | Date; // Permite string ISO para persistência fácil
 
+  // Single shelf layout
+  shelfLevelId?: string;
+  shelfPosition?: number;
+
   // Daily Progress Tracking
   dailyGoal?: number; // Meta diária (páginas/capítulos)
   logs?: ReadingLog[];
@@ -39,4 +43,10 @@ export interface Book {
   distributionType?: 'LINEAR' | 'EXPONENTIAL';    // LINEAR = padrão
   excludedDays?: number[];                        // 0=dom, 1=seg, ..., 6=sáb
   exponentialIntensity?: number;                  // 0.0-1.0 intensidade da curva
+}
+
+export interface ReadingShelfLevel {
+  id: string;
+  name: string;
+  position: number;
 }

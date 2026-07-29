@@ -9,6 +9,9 @@ import EditorialHeader, { ReadingCategoryFilter } from '../reading/shelf/Editori
 import ShelfNavigationHUD from '../reading/shelf/ShelfNavigationHUD';
 import BookInspectionOverlay from '../reading/shelf/BookInspectionOverlay';
 import CompleteShelfScene from '../reading/shelf/CompleteShelfScene';
+import ShelfLevelRail from '../reading/shelf/ShelfLevelRail';
+import { MINT_BOOK_MANIFEST } from '../reading/shelf/mintManifest';
+import { buildShelfLayout, countBooksByShelfLevel } from '../../utils/readingShelfLayout';
 
 // Shared & Library View fallback
 import LibraryView from '../reading/LibraryView';
@@ -71,8 +74,8 @@ function calculateReadingStreak(books: IBook[]): number {
 
 export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
   // Store Subscription
-  const { books, folders } = useReadingStore(
-    useShallow((state) => ({ books: state.books, folders: state.folders }))
+  const { books, folders, shelfLevels } = useReadingStore(
+    useShallow((state) => ({ books: state.books, folders: state.folders, shelfLevels: state.shelfLevels }))
   );
 
   const {
@@ -84,6 +87,10 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
     updateProgress,
     setBookStatus,
     moveBookToFolder,
+    addShelfLevel,
+    updateShelfLevel,
+    deleteShelfLevel,
+    moveBookToShelfLevel,
   } = useMemo(() => getReadingActions(), []);
 
   // Filter & Navigation State
@@ -91,6 +98,9 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isInspecting, setIsInspecting] = useState<boolean>(false);
   const [is3DMode, setIs3DMode] = useState<boolean>(true);
+  const [activeShelfLevelId, setActiveShelfLevelId] = useState<string | null>(null);
+  const [draggingBookId, setDraggingBookId] = useState<string | null>(null);
+  const [dragTargetLevelId, setDragTargetLevelId] = useState<string | null>(null);
 
   // Modals State
   const [selectedBook, setSelectedBook] = useState<IBook | null>(null);
@@ -109,12 +119,64 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
     return books.filter((b) => b.status === activeCategory);
   }, [books, activeCategory]);
 
+  const shelfBookSignature = filteredBooks
+    .map((book) => [book.id, book.title, book.author, book.coverUrl ?? '', book.total, book.genre].join('~'))
+    .join('|');
+  const shelfAssignmentSignature = filteredBooks
+    .map((book) => [book.id, book.shelfLevelId ?? '', book.shelfPosition ?? ''].join('~'))
+    .join('|');
+  const shelfLevelLayoutSignature = shelfLevels.map((level) => `${level.id}:${level.position}`).join('|');
+
+  const shelfItems = useMemo(() => {
+    if (filteredBooks.length === 0) return MINT_BOOK_MANIFEST;
+    return filteredBooks.map((book, index) => {
+      const manifestTemplate = MINT_BOOK_MANIFEST[index % MINT_BOOK_MANIFEST.length];
+      return {
+        ...manifestTemplate,
+        id: book.id,
+        title: book.title || manifestTemplate.title,
+        author: book.author || manifestTemplate.author,
+        coverUrl: book.coverUrl || undefined,
+        pages: book.total || manifestTemplate.pages,
+        genre: book.genre || manifestTemplate.genre,
+      };
+    });
+  }, [shelfBookSignature]);
+
+  const shelfLayout = useMemo(() => {
+    const booksById = new Map(filteredBooks.map((book) => [book.id, book]));
+    const layoutBooks = shelfItems.map((item) => {
+      const book = booksById.get(item.id);
+      return {
+        id: item.id,
+        shelfLevelId: book?.shelfLevelId,
+        shelfPosition: book?.shelfPosition,
+        width: item.width,
+        thickness: item.thickness,
+        height: item.height,
+      };
+    });
+    return buildShelfLayout(layoutBooks, shelfLevels);
+  }, [shelfAssignmentSignature, shelfBookSignature, shelfItems, shelfLevelLayoutSignature, shelfLevels]);
+
+  const shelfBookCounts = useMemo(() => countBooksByShelfLevel(filteredBooks, shelfLevels), [filteredBooks, shelfLevels]);
+
   // Keep selected index within bounds when filters change
   useEffect(() => {
     if (selectedIndex >= filteredBooks.length && filteredBooks.length > 0) {
       setSelectedIndex(filteredBooks.length - 1);
     }
   }, [filteredBooks.length, selectedIndex]);
+
+  useEffect(() => {
+    if (shelfLevels.length === 0) {
+      setActiveShelfLevelId(null);
+      return;
+    }
+    if (!activeShelfLevelId || !shelfLevels.some((level) => level.id === activeShelfLevelId)) {
+      setActiveShelfLevelId(shelfLevels[0].id);
+    }
+  }, [activeShelfLevelId, shelfLevels]);
 
   const currentBook = useMemo(() => {
     if (filteredBooks.length === 0 || selectedIndex < 0 || selectedIndex >= filteredBooks.length) {
@@ -150,6 +212,31 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
     setIsInspecting(true);
   }, []);
 
+  const handleDragStateChange = useCallback((bookId: string | null, levelId: string | null) => {
+    setDraggingBookId(bookId);
+    setDragTargetLevelId(levelId);
+  }, []);
+
+  const handleMoveBookToShelfLevel = useCallback((bookId: string, levelId: string, position?: number) => {
+    moveBookToShelfLevel(bookId, levelId, position);
+  }, [moveBookToShelfLevel]);
+
+  const updateShelfLevelName = useCallback((levelId: string, name: string) => {
+    updateShelfLevel(levelId, { name });
+  }, [updateShelfLevel]);
+
+  const handleAddShelfLevel = useCallback(() => {
+    const newLevelId = addShelfLevel();
+    setActiveShelfLevelId(newLevelId);
+  }, [addShelfLevel]);
+
+  const handleDeleteShelfLevel = useCallback((levelId: string) => {
+    deleteShelfLevel(levelId);
+    if (activeShelfLevelId === levelId) {
+      setActiveShelfLevelId(shelfLevels.find((level) => level.id !== levelId)?.id ?? null);
+    }
+  }, [activeShelfLevelId, deleteShelfLevel, shelfLevels]);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#080B10] text-slate-100">
       
@@ -174,11 +261,27 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
           /* 3D Shelf Scene & Floating Overlay Controls */
           <div className="relative flex min-h-0 w-full flex-1 flex-col">
             <CompleteShelfScene
-              userBooks={filteredBooks}
+              shelfItems={shelfItems}
+              shelfLevels={shelfLevels}
+              shelfLayout={shelfLayout}
               selectedIndex={selectedIndex}
               onSelectIndex={setSelectedIndex}
               onOpenInspection={handleOpenInspection}
+              onMoveBookToShelfLevel={handleMoveBookToShelfLevel}
+              onDragStateChange={handleDragStateChange}
               isInspecting={isInspecting}
+            />
+
+            <ShelfLevelRail
+              levels={shelfLevels}
+              bookCounts={shelfBookCounts}
+              activeLevelId={activeShelfLevelId}
+              draggingBookId={draggingBookId}
+              dragTargetLevelId={dragTargetLevelId}
+              onSelectLevel={setActiveShelfLevelId}
+              onRenameLevel={updateShelfLevelName}
+              onAddLevel={handleAddShelfLevel}
+              onDeleteLevel={handleDeleteShelfLevel}
             />
 
             {/* Bottom HUD Controller */}

@@ -10,6 +10,7 @@
     "build:deploy": "npm --prefix CONCURSO install --prefer-offline --no-audit --progress=false && npm --prefix CONCURSO run build && node scripts/publish-concurso.mjs && vite build",
     "build:concurso:published": "npm run build:deploy",
     "test:ci": "vitest --run",
+    "test:perf": "vitest tests/performance --run",
     "check:root": "npm run test:ci && npm run build",
     "check:concurso": "npm --prefix CONCURSO run lint && npm --prefix CONCURSO run test && npm --prefix CONCURSO run build",
     "check:concurso:published": "npm --prefix CONCURSO run build && node scripts/check-concurso-published.mjs",
