@@ -518,8 +518,12 @@ export class BookMeshGroup {
 
   private basePosition: THREE.Vector3;
   private baseRotation: THREE.Euler;
+  private focusPosition: THREE.Vector3;
+  private focusRotation: THREE.Euler;
+  private focusScale: number = 1.14;
   private targetPosition: THREE.Vector3;
   private targetRotation: THREE.Euler;
+  private targetScale: THREE.Vector3;
 
   private clothMaterials: THREE.MeshStandardMaterial[] = [];
   private glowMesh: THREE.Mesh | null = null;
@@ -530,8 +534,11 @@ export class BookMeshGroup {
     this.group = new THREE.Group();
     this.basePosition = position.clone();
     this.baseRotation = new THREE.Euler(0, 0, 0);
+    this.focusPosition = position.clone();
+    this.focusRotation = new THREE.Euler(0, 0, 0);
     this.targetPosition = position.clone();
     this.targetRotation = new THREE.Euler(0, 0, 0);
+    this.targetScale = new THREE.Vector3(1, 1, 1);
 
     this.group.position.copy(position);
     this.buildGeometryAndMaterials();
@@ -601,15 +608,16 @@ export class BookMeshGroup {
     paperMesh.receiveShadow = true;
     this.group.add(paperMesh);
 
-    // Front Cover (+X side)
+    // Front Cover (+X side). The selected pose rotates this broad face toward
+    // the camera so inspection shows a real cover instead of the book's edge.
     const coverGeo = new THREE.BoxGeometry(boardThickness, height, width);
     const frontCoverMesh = new THREE.Mesh(coverGeo, [
-      baseClothMat,  // +X (front cover face)
+      frontCoverMat, // +X front cover canvas
       baseClothMat,  // -X
       baseClothMat,  // +Y top
       baseClothMat,  // -Y bottom
-      frontCoverMat, // +Z front cover canvas
-      baseClothMat,  // -Z back
+      baseClothMat,  // +Z edge
+      baseClothMat,  // -Z edge
     ]);
     frontCoverMesh.position.set(thickness / 2 - boardThickness / 2, height / 2, 0);
     frontCoverMesh.castShadow = true;
@@ -664,24 +672,42 @@ export class BookMeshGroup {
     }
   }
 
+  public setFocusPose(position: THREE.Vector3, rotation: THREE.Euler, scale: number = 1.14) {
+    this.focusPosition.copy(position);
+    this.focusRotation.copy(rotation);
+    this.focusScale = scale;
+
+    if (this.isSelected) {
+      this.targetPosition.copy(this.focusPosition);
+      this.targetRotation.copy(this.focusRotation);
+      this.targetScale.setScalar(this.focusScale);
+    }
+  }
+
   public setSelected(selected: boolean) {
     this.isSelected = selected;
-    if (!selected) {
+    if (selected) {
+      this.isHovered = false;
+      this.targetPosition.copy(this.focusPosition);
+      this.targetRotation.copy(this.focusRotation);
+      this.targetScale.setScalar(this.focusScale);
+    } else {
       this.isHovered = false;
       this.targetPosition.copy(this.basePosition);
       this.targetRotation.copy(this.baseRotation);
+      this.targetScale.setScalar(1);
     }
   }
 
   public update(delta: number) {
-    if (!this.isSelected) {
-      // Lerp position & rotation for smooth hover transition
-      const lerpSpeed = delta * 10;
-      this.group.position.lerp(this.targetPosition, lerpSpeed);
-      this.group.rotation.x = THREE.MathUtils.lerp(this.group.rotation.x, this.targetRotation.x, lerpSpeed);
-      this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, this.targetRotation.y, lerpSpeed);
-      this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, this.targetRotation.z, lerpSpeed);
-    }
+    // Lerp position, rotation and scale so focus visibly pulls the book out
+    // of the shelf before the details panel is used.
+    const lerpSpeed = Math.min(1, delta * 10);
+    this.group.position.lerp(this.targetPosition, lerpSpeed);
+    this.group.rotation.x = THREE.MathUtils.lerp(this.group.rotation.x, this.targetRotation.x, lerpSpeed);
+    this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, this.targetRotation.y, lerpSpeed);
+    this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, this.targetRotation.z, lerpSpeed);
+    this.group.scale.lerp(this.targetScale, lerpSpeed);
 
     // Glow pulse animation
     if (this.glowMesh) {
@@ -693,6 +719,10 @@ export class BookMeshGroup {
 
   public getBasePosition(): THREE.Vector3 {
     return this.basePosition.clone();
+  }
+
+  public getFocusPosition(): THREE.Vector3 {
+    return this.focusPosition.clone();
   }
 
   public dispose() {

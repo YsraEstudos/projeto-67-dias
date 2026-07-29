@@ -137,6 +137,11 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         const posX = currentX + item.thickness / 2;
         const pos = new THREE.Vector3(posX, 0.17, 0);
         const bookMesh = new BookMeshGroup(item, pos);
+        bookMesh.setFocusPose(
+          new THREE.Vector3(posX, 0.17, 1.8),
+          new THREE.Euler(0, -Math.PI / 2, 0),
+          1.14,
+        );
         scene.add(bookMesh.group);
         bookGroups.push(bookMesh);
         currentX += item.thickness + 0.08;
@@ -218,16 +223,26 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         // Camera Smooth Focus target
         const selectedBook = bookGroups[selectedIndexRef.current];
         if (selectedBook) {
-          const basePos = selectedBook.getBasePosition();
-          let targetCamX = basePos.x;
-          let targetCamY = isInspectingRef.current ? 1.8 : 2.2;
-          let targetCamZ = isInspectingRef.current ? 4.5 : 8.5;
+          const targetPosition = isInspectingRef.current
+            ? selectedBook.getFocusPosition()
+            : selectedBook.getBasePosition();
+          const targetCamX = targetPosition.x;
+          const targetCamY = isInspectingRef.current
+            ? targetPosition.y + selectedBook.item.height / 2 + 0.2
+            : 2.2;
+          const targetCamZ = isInspectingRef.current
+            ? targetPosition.z + 4.8
+            : 8.5;
+          const lookAtY = isInspectingRef.current
+            ? targetPosition.y + selectedBook.item.height / 2
+            : 1.2;
+          const lookAtZ = isInspectingRef.current ? targetPosition.z : 0;
 
           camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, delta * 4);
           camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, delta * 4);
           camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, delta * 4);
 
-          camera.lookAt(targetCamX, 1.2, 0);
+          camera.lookAt(targetCamX, lookAtY, lookAtZ);
         }
 
         renderer.render(scene, camera);

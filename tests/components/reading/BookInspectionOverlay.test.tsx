@@ -32,6 +32,7 @@ describe('BookInspectionOverlay', () => {
       />,
     );
 
+    expect(screen.getByTestId('book-inspection-panel')).toHaveClass('absolute');
     expect(screen.getByRole('heading', { name: 'Preencha os detalhes do livro' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Livro teste' })).toBeInTheDocument();
 

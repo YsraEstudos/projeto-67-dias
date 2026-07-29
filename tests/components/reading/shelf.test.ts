@@ -140,6 +140,21 @@ describe('BookMesh', () => {
 
     bookMesh.dispose();
   });
+
+  it('should pull the selected book forward and turn its broad cover toward the camera', () => {
+    const bookMesh = new BookMeshGroup(MINT_BOOK_MANIFEST[0], new THREE.Vector3(1.0, 0.17, 0));
+
+    bookMesh.setFocusPose(new THREE.Vector3(1.0, 0.17, 1.8), new THREE.Euler(0, -Math.PI / 2, 0), 1.14);
+    bookMesh.setSelected(true);
+    bookMesh.update(1);
+
+    expect(bookMesh.group.position.z).toBeCloseTo(1.8);
+    expect(bookMesh.group.rotation.y).toBeCloseTo(-Math.PI / 2);
+    expect(bookMesh.group.scale.x).toBeCloseTo(1.14);
+    expect(bookMesh.getFocusPosition().z).toBeCloseTo(1.8);
+
+    bookMesh.dispose();
+  });
 });
 
 describe('ShelfMesh', () => {

@@ -65,8 +65,8 @@ const getCoverInitials = (title: string): string => {
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || 'L';
 };
 
-const BookCover: React.FC<{ book: BookDraft }> = ({ book }) => (
-  <div className="relative mx-auto aspect-[2/3] w-full max-w-[270px] overflow-hidden rounded-[1.25rem] border border-[#6B432B] bg-[#3A2317] shadow-[0_24px_45px_rgba(33,20,12,0.35)]">
+const BookCover: React.FC<{ book: BookDraft; compact?: boolean }> = ({ book, compact = false }) => (
+  <div className={`relative overflow-hidden border border-[#6B432B] bg-[#3A2317] shadow-[0_24px_45px_rgba(33,20,12,0.35)] ${compact ? 'h-24 w-16 shrink-0 rounded-lg' : 'mx-auto aspect-[2/3] w-full max-w-[270px] rounded-[1.25rem]'}`}>
     {book.coverUrl ? (
       <img
         src={book.coverUrl}
@@ -77,21 +77,21 @@ const BookCover: React.FC<{ book: BookDraft }> = ({ book }) => (
         }}
       />
     ) : null}
-    <div className={`absolute inset-0 flex flex-col justify-between p-6 text-[#F8EAC8] ${book.coverUrl ? 'pointer-events-none bg-[#3A2317]/20' : ''}`}>
-      <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.28em] text-[#D4AF37]">
-        <span>Estante</span>
-        <BookOpen className="h-4 w-4" />
+    <div className={`absolute inset-0 flex flex-col justify-between text-[#F8EAC8] ${compact ? 'p-2' : 'p-6'} ${book.coverUrl ? 'pointer-events-none bg-[#3A2317]/20' : ''}`}>
+      <div className={`flex items-center justify-between font-bold uppercase text-[#D4AF37] ${compact ? 'text-[6px] tracking-[0.16em]' : 'text-[9px] tracking-[0.28em]'}`}>
+        <span>{compact ? '3D' : 'Estante'}</span>
+        <BookOpen className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
       </div>
       <div>
-        {!book.coverUrl && (
+        {!book.coverUrl && !compact && (
           <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-full border border-[#D4AF37]/60 text-2xl font-serif text-[#F3D274]">
             {getCoverInitials(book.title)}
           </div>
         )}
-        <h2 className="break-words font-serif text-2xl font-bold leading-tight text-[#FFF5D8] drop-shadow-md">
+        <h2 className={`break-words font-serif font-bold leading-tight text-[#FFF5D8] drop-shadow-md ${compact ? 'text-[9px]' : 'text-2xl'}`}>
           {book.title || 'Novo livro'}
         </h2>
-        <p className="mt-2 text-sm text-[#E9D7B0]">{book.author || 'Autor não informado'}</p>
+        <p className={`${compact ? 'mt-0.5 text-[7px]' : 'mt-2 text-sm'} text-[#E9D7B0]`}>{book.author || 'Autor não informado'}</p>
       </div>
     </div>
   </div>
@@ -161,8 +161,8 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1817]/75 p-3 backdrop-blur-sm md:p-6">
-      <div className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-[#E6DFD3] bg-[#FDFBF7] text-[#1A1918] shadow-[0_30px_80px_rgba(0,0,0,0.38)]">
+    <div className="pointer-events-none absolute inset-0 z-40">
+      <div data-testid="book-inspection-panel" className="pointer-events-auto absolute bottom-3 left-3 right-3 top-auto flex max-h-[62%] flex-col overflow-hidden rounded-[1.25rem] border border-[#E6DFD3] bg-[#FDFBF7] text-[#1A1918] shadow-[0_30px_80px_rgba(0,0,0,0.38)] sm:bottom-3 sm:left-auto sm:right-3 sm:top-3 sm:max-h-none sm:w-[min(430px,calc(100%-1.5rem))]">
         <header className="flex items-center justify-between border-b border-[#E6DFD3] bg-[#F5F0E6]/80 px-5 py-4 md:px-7">
           <button
             type="button"
@@ -186,15 +186,18 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
           </button>
         </header>
 
-        <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
-          <section className="flex flex-col items-center justify-center border-b border-[#E6DFD3] bg-[#EFE5D5]/45 p-6 md:border-b-0 md:border-r md:p-8">
-            <BookCover book={draft} />
-            <p className="mt-5 max-w-[270px] text-center text-[10px] uppercase tracking-[0.18em] text-[#9B8875]">
-              A capa acompanha o título, autor e imagem preenchidos ao lado
-            </p>
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+          <section className="border-b border-[#E6DFD3] bg-[#EFE5D5]/45 p-4">
+            <div className="flex items-center gap-3">
+              <BookCover book={draft} compact />
+              <div className="min-w-0">
+                <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[#A18455]">Capa em 3D</p>
+                <p className="text-xs leading-relaxed text-[#7A6857]">O livro selecionado permanece visível na cena enquanto você preenche os detalhes.</p>
+              </div>
+            </div>
           </section>
 
-          <section className="min-h-0 overflow-y-auto p-5 scrollbar-thin md:p-8">
+          <section className="min-h-0 p-5 md:p-6">
             <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#A18455]">Ficha de leitura</p>
