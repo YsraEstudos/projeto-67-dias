@@ -424,9 +424,9 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const debouncedGlobalSearchQuery = useDebounce(globalSearchQuery, 250);
   const globalSearchIndex = useMemo(() => buildBookshelfSearchIndex(books), [books]);
 
-  // Em telas pequenas (< sm) o modo shelf3d nao e utilizavel: forca grid.
+  // Em telas pequenas o shelf3d continua disponivel, porem adaptado
+  // (lombadas menores e menos livros por prateleira) via renderShelves.
   const isSmallScreen = useIsSmallScreen();
-  const effectiveShelfViewMode: "grid" | "shelf3d" = isSmallScreen ? "grid" : shelfViewMode;
 
   const setRandomQuestionStatus = (
     question: RandomQuestionItem,
@@ -513,28 +513,35 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
   // Render shelves view
   const renderShelves = () => {
-    const shelfSize = 6;
+    const shelfSize = isSmallScreen ? 3 : 6;
     const shelvesCount = Math.ceil(visibleBooks.length / shelfSize);
     const shelves = [];
     for (let i = 0; i < shelvesCount; i++) {
       shelves.push(visibleBooks.slice(i * shelfSize, (i + 1) * shelfSize));
     }
 
+    const shelfHeight = isSmallScreen ? "h-44" : "h-60";
+
     return (
-      <div className="space-y-16 py-8">
+      <div className="space-y-8 sm:space-y-16 py-4 sm:py-8">
         {shelves.map((shelfBooks, shelfIdx) => (
-          <div key={shelfIdx} className="relative pb-6 border-b-8 border-amber-950 shadow-[0_12px_16px_rgba(0,0,0,0.5)]">
-            {/* Shelf Wood Plank Visual (Glow/3D Effect) */}
-            <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-r from-amber-900 via-amber-950 to-amber-900 border-t border-[#8B5A2B]/40 shadow-inner z-10 animate-in fade-in duration-300" />
-            
-            {/* Books container */}
-            <div className="flex items-end gap-2 lg:gap-3 px-3 lg:px-6 h-60 relative z-0 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+          <div key={shelfIdx} className="relative pb-5 sm:pb-8 shadow-[0_12px_16px_rgba(0,0,0,0.5)]">
+            {/* Shelf Wood Plank Visual - prateleira de madeira com textura */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-b from-amber-800 via-amber-950 to-amber-950 border-t-2 border-[#8B5A2B] shadow-[0_-2px_8px_rgba(0,0,0,0.4)] z-10">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-900/30 to-transparent opacity-60" />
+              <div className="absolute top-0 left-0 right-0 h-px bg-amber-700/50" />
+            </div>
+
+            {/* Books container - livros apoiados na prateleira */}
+            <div className={`flex items-end gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-4 md:px-6 ${shelfHeight} relative z-0`}>
               {shelfBooks.map((book) => {
-                const { height, width } = getBookDimensions(book.id);
+                const baseDims = getBookDimensions(book.id);
+                const height = isSmallScreen ? Math.round(baseDims.height * 0.7) : baseDims.height;
+                const width = isSmallScreen ? Math.round(baseDims.width * 0.72) : baseDims.width;
                 const colorClasses = getBookColor(book.id);
-                
+
                 return (
-                  <div key={book.id} className="relative group/spine">
+                  <div key={book.id} className="relative group/spine shrink-0">
                     <SortableBookSpine 
                       book={book} 
                       height={height}
@@ -913,7 +920,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                       : collections?.find((c) => c.id === currentView?.id)?.name}
                   </h2>
                   {/* View Mode Toggle - oculto em telas pequenas (mobile usa apenas grid) */}
-                  {currentBooks.length > 0 && !isSmallScreen && (
+                  {currentBooks.length > 0 && (
                     <div className="flex items-center bg-slate-950 border border-slate-850 p-0.5 rounded ml-2">
                       <button
                         type="button"
@@ -989,7 +996,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
               ) : (
                 <>
                   <SortableContext items={visibleBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
-                    {effectiveShelfViewMode === "shelf3d" ? (
+                    {shelfViewMode === "shelf3d" ? (
                       renderShelves()
                     ) : (
                       <div data-testid="book-grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
@@ -1040,7 +1047,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           <DragOverlay dropAnimation={null}>
             {activeDragId ? (
               <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">
-                {effectiveShelfViewMode === "shelf3d" ? (
+                {shelfViewMode === "shelf3d" ? (
                   <div style={{ height: "200px", width: "60px" }}>
                     <BookSpine 
                       book={books.find((b) => b.id === activeDragId)!} 

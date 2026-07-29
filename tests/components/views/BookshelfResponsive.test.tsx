@@ -57,11 +57,11 @@ describe("Bookshelf responsiveness", () => {
     expect(grid!.className).toContain("lg:grid-cols-4");
   });
 
-  it("hides the shelf3d toggle on small screens (< sm)", () => {
+  it("shows the shelf3d toggle on small screens (adaptado, nao desativado)", () => {
     viewportWidth = 375;
     seedShelf(1);
     render(<Bookshelf onSelectBook={() => {}} />);
-    expect(screen.queryByTitle("Exibição em Prateleira 3D")).toBeNull();
+    expect(screen.queryByTitle("Exibição em Prateleira 3D")).not.toBeNull();
   });
 
   it("shows the shelf3d toggle on desktop", () => {
