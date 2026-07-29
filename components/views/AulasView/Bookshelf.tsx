@@ -480,12 +480,12 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const getBookColor = (id: string) => {
     const colors = [
       "from-rose-800 to-rose-950 border-rose-700 text-rose-100",
-      "from-emerald-850 to-emerald-950 border-emerald-800 text-emerald-100",
-      "from-cyan-850 to-cyan-950 border-cyan-800 text-cyan-100",
-      "from-amber-900 to-amber-980 border-amber-800 text-amber-100",
-      "from-violet-900 to-violet-980 border-violet-850 text-violet-100",
-      "from-slate-800 to-slate-950 border-slate-750 text-slate-100",
-      "from-amber-950 to-orange-950 border-amber-900 text-amber-100",
+      "from-emerald-800 to-emerald-950 border-emerald-700 text-emerald-100",
+      "from-cyan-800 to-cyan-950 border-cyan-700 text-cyan-100",
+      "from-amber-800 to-amber-950 border-amber-700 text-amber-100",
+      "from-violet-800 to-violet-950 border-violet-700 text-violet-100",
+      "from-slate-700 to-slate-950 border-slate-600 text-slate-100",
+      "from-amber-900 to-orange-950 border-amber-800 text-amber-100",
     ];
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
@@ -525,12 +525,15 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     return (
       <div className="space-y-8 sm:space-y-16 py-4 sm:py-8">
         {shelves.map((shelfBooks, shelfIdx) => (
-          <div key={shelfIdx} className="relative pb-5 sm:pb-8 shadow-[0_12px_16px_rgba(0,0,0,0.5)]">
-            {/* Shelf Wood Plank Visual - prateleira de madeira com textura */}
-            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-b from-amber-800 via-amber-950 to-amber-950 border-t-2 border-[#8B5A2B] shadow-[0_-2px_8px_rgba(0,0,0,0.4)] z-10">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-900/30 to-transparent opacity-60" />
-              <div className="absolute top-0 left-0 right-0 h-px bg-amber-700/50" />
+          <div key={shelfIdx} className="relative pb-5 sm:pb-8 border-b-8 border-amber-950 shadow-[0_12px_16px_rgba(0,0,0,0.5)]">
+            {/* Shelf Wood Plank - prateleira de madeira com textura e veios */}
+            <div className="absolute bottom-[-8px] left-0 right-0 h-7 bg-gradient-to-b from-amber-700 via-amber-900 to-amber-950 border-t-2 border-[#8B5A2B] shadow-[0_-2px_8px_rgba(0,0,0,0.5)] z-20 rounded-b-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-950/0 via-amber-600/20 to-amber-950/0 opacity-70" />
+              <div className="absolute top-1 left-2 right-2 h-px bg-amber-600/40" />
+              <div className="absolute bottom-1.5 left-3 right-3 h-px bg-black/30" />
             </div>
+            {/* Topo da prateleira (borda alta) */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#6B3A1A] z-30" />
 
             {/* Books container - livros apoiados na prateleira */}
             <div className={`flex items-end gap-1.5 sm:gap-2 md:gap-3 px-2 sm:px-4 md:px-6 ${shelfHeight} relative z-0`}>
