@@ -28,13 +28,13 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
   const totalCount = books.length;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-2xl pointer-events-auto transition-all">
-      <div className="bg-[#FDFBF7]/95 backdrop-blur-md border border-[#E6DFD3] rounded-2xl shadow-xl p-3 md:p-4 text-[#1A1918]">
+    <div className="absolute bottom-4 left-1/2 z-30 w-[min(92%,680px)] -translate-x-1/2 pointer-events-auto transition-all">
+      <div className="rounded-2xl border border-slate-700/80 bg-[#0D121A]/92 p-3 text-slate-100 shadow-2xl backdrop-blur-md md:p-4">
         
         {/* Continuous Position Markers Track */}
         {totalCount > 0 && (
           <div className="w-full mb-3 flex items-center justify-between gap-1 px-1">
-            <span className="text-[10px] font-mono text-[#8C7A6B]">01</span>
+            <span className="font-mono text-[10px] text-slate-500">01</span>
             <div className="flex-1 flex items-center justify-center gap-1 mx-2 overflow-hidden h-3">
               {books.map((b, idx) => {
                 const isActive = idx === selectedIndex;
@@ -45,14 +45,14 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
                     title={`${b.title} (${idx + 1}/${totalCount})`}
                     className={`h-2 rounded-full transition-all cursor-pointer ${
                       isActive
-                        ? 'w-6 bg-[#3A2317] ring-2 ring-[#C5A059]'
-                        : 'w-1.5 bg-[#DCD2C4] hover:bg-[#A39281]'
+                        ? 'w-6 bg-[#D4AF37] ring-2 ring-[#D4AF37]/30'
+                        : 'w-1.5 bg-slate-700 hover:bg-slate-500'
                     }`}
                   />
                 );
               })}
             </div>
-            <span className="text-[10px] font-mono text-[#8C7A6B]">
+            <span className="font-mono text-[10px] text-slate-500">
               {String(totalCount).padStart(2, '0')}
             </span>
           </div>
@@ -66,7 +66,7 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
             <button
               onClick={onPrevBook}
               disabled={totalCount === 0 || selectedIndex <= 0}
-              className="p-2 rounded-xl bg-[#F5F0E6] hover:bg-[#EAE2D2] disabled:opacity-40 disabled:cursor-not-allowed text-[#3A2317] transition-all cursor-pointer"
+              className="cursor-pointer rounded-xl border border-slate-700 bg-slate-800/80 p-2 text-slate-200 transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Livro Anterior"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -75,7 +75,7 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
             <button
               onClick={onNextBook}
               disabled={totalCount === 0 || selectedIndex >= totalCount - 1}
-              className="p-2 rounded-xl bg-[#F5F0E6] hover:bg-[#EAE2D2] disabled:opacity-40 disabled:cursor-not-allowed text-[#3A2317] transition-all cursor-pointer"
+              className="cursor-pointer rounded-xl border border-slate-700 bg-slate-800/80 p-2 text-slate-200 transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Próximo Livro"
             >
               <ChevronRight className="w-4 h-4" />
@@ -83,15 +83,15 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
           </div>
 
           {/* Active Book Title & Author Pill */}
-          <div className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-[#F5F0E6]/80 border border-[#E2D8C6] flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#3A2317] flex-shrink-0 flex items-center justify-center text-[#F3D274]">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-1.5">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#D4AF37]/15 text-[#F3D274]">
               <BookIcon className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-xs font-serif font-bold text-[#1A1918] truncate">
+              <h3 className="truncate font-serif text-xs font-bold text-slate-100">
                 {currentBook ? currentBook.title : 'Nenhum livro selecionado'}
               </h3>
-              <p className="text-[11px] text-[#7A6857] truncate">
+              <p className="truncate text-[11px] text-slate-400">
                 {currentBook ? currentBook.author : 'Selecione um volume'}
               </p>
             </div>
@@ -100,10 +100,10 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
           {/* Drag Hint & Inspection Toggle Button */}
           <div className="flex items-center gap-2">
             <div 
-              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#F5F0E6]/50 text-[#8C7A6B] text-[11px]"
+              className="hidden items-center gap-1 rounded-xl bg-slate-900/70 px-2.5 py-1.5 text-[11px] text-slate-400 md:flex"
               title="Arraste na cena 3D para rotacionar ou mudar vista"
             >
-              <Grab className="w-3.5 h-3.5 text-[#A39281]" />
+              <Grab className="h-3.5 w-3.5 text-slate-500" />
               <span>Arraste a estante</span>
             </div>
 
@@ -112,11 +112,11 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
               disabled={!currentBook}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-xs ${
                 isInspecting
-                  ? 'bg-[#C5A059] text-[#1A1918] ring-2 ring-[#3A2317]'
-                  : 'bg-[#3A2317] hover:bg-[#2C1A10] text-[#FAF6EE]'
+                  ? 'bg-[#D4AF37] text-[#080B10] ring-2 ring-[#D4AF37]/30'
+                  : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <Eye className="w-4 h-4 text-[#F3D274]" />
+              <Eye className="h-4 w-4 text-[#F3D274]" />
               <span className="hidden sm:inline">
                 {isInspecting ? 'Ver Estante' : 'Inspecionar'}
               </span>

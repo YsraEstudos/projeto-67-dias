@@ -62,6 +62,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           id: uBook.id,
           title: uBook.title || manifestTemplate.title,
           author: uBook.author || manifestTemplate.author,
+          coverUrl: uBook.coverUrl || undefined,
           pages: uBook.total || manifestTemplate.pages,
           genre: uBook.genre || manifestTemplate.genre,
         };
@@ -289,7 +290,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-[65vh] min-h-[420px] bg-[#1A1817] overflow-hidden select-none">
+      <div ref={containerRef} className="relative h-full min-h-0 w-full flex-1 overflow-hidden bg-[#080B10] select-none">
       <canvas ref={canvasRef} className="w-full h-full block touch-none" />
     </div>
   );

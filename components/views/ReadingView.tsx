@@ -147,7 +147,7 @@ export const ReadingView: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#1A1817] text-[#1A1918] overflow-x-hidden overflow-y-auto scrollbar-thin">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#080B10] text-slate-100">
       
       {/* Editorial Top Bar */}
       <EditorialHeader
@@ -164,10 +164,10 @@ export const ReadingView: React.FC = () => {
       />
 
       {/* Main Experience Body */}
-      <main className="flex-1 relative flex flex-col min-h-0 bg-[#1A1817]">
+      <main className="relative flex min-h-0 flex-1 flex-col bg-[#080B10]">
         {is3DMode ? (
           /* 3D Shelf Scene & Floating Overlay Controls */
-          <div className="relative w-full flex-1 flex flex-col min-h-[500px]">
+          <div className="relative flex min-h-0 w-full flex-1 flex-col">
             <CompleteShelfScene
               userBooks={filteredBooks}
               selectedIndex={selectedIndex}

@@ -11,6 +11,7 @@ export interface ShelfBookManifestItem {
   id: string;
   title: string;
   author: string;
+  coverUrl?: string;
   year: number;
   genre: string;
   pages: number;

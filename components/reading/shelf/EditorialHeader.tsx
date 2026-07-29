@@ -31,25 +31,25 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
   onToggleViewMode,
 }) => {
   return (
-    <header className="w-full bg-[#FDFBF7] text-[#1A1918] border-b border-[#E6DFD3] px-6 py-5 shadow-xs transition-all">
+    <header className="w-full border-b border-slate-800 bg-[#0B0F16] px-4 py-3 text-slate-100 shadow-lg transition-all md:px-6">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
         
         {/* Title & Brand Section */}
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-[#3A2317] flex items-center justify-center text-[#F3D274] shadow-md border border-[#523321]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#F3D274] shadow-md">
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] tracking-[0.2em] uppercase font-semibold text-[#8C7A6B]">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                 Biblioteca Editorial
               </span>
               <span className="inline-block w-1 h-1 rounded-full bg-[#C5A059]" />
-              <span className="text-[10px] tracking-wider uppercase font-medium text-[#A39281]">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
                 Coleção Privada
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-serif font-bold text-[#1A1918] tracking-tight">
+            <h1 className="font-serif text-2xl font-bold tracking-tight text-slate-100 md:text-3xl">
               The Complete Shelf
             </h1>
           </div>
@@ -59,7 +59,7 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
         <div className="flex flex-wrap items-center gap-3 md:gap-6">
           {/* Reading Streak Counter */}
           <div 
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F5F0E6] border border-[#E2D8C6] text-[#3A2317]"
+            className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-3.5 py-1.5 text-slate-200"
             title={`${readingStreakDays} dias seguidos de leitura`}
           >
             <Flame className="w-4 h-4 text-[#D96B27] fill-[#D96B27]/20 animate-pulse" />
@@ -69,10 +69,10 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
           </div>
 
           {/* Total Books Badge */}
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F5F0E6] border border-[#E2D8C6] text-[#1A1918]">
-            <Layers className="w-4 h-4 text-[#7A6857]" />
+          <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-3.5 py-1.5 text-slate-200">
+            <Layers className="h-4 w-4 text-slate-400" />
             <span className="text-xs font-medium">
-              <strong className="font-bold text-[#3A2317]">{totalBooksCount}</strong> {totalBooksCount === 1 ? 'volume' : 'volumes'}
+              <strong className="font-bold text-[#F3D274]">{totalBooksCount}</strong> {totalBooksCount === 1 ? 'volume' : 'volumes'}
             </span>
           </div>
 
@@ -80,7 +80,7 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
           {onToggleViewMode && (
             <button
               onClick={onToggleViewMode}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border border-[#E2D8C6] bg-[#FDFBF7] hover:bg-[#F5F0E6] text-[#3A2317] transition-all flex items-center gap-1.5"
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition-all hover:bg-slate-800"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
               {is3DMode ? 'Modo 2D' : 'Modo 3D Shelf'}
@@ -90,7 +90,7 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
           {/* New Book Action Button */}
           <button
             onClick={onOpenAddBook}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#3A2317] hover:bg-[#2C1A10] text-[#FAF6EE] text-xs font-semibold tracking-wide shadow-md hover:shadow-lg transition-all active:scale-98 cursor-pointer"
+            className="flex cursor-pointer items-center gap-2 rounded-full bg-[#D4AF37] px-4 py-2 text-xs font-semibold tracking-wide text-[#080B10] shadow-md transition-all hover:bg-[#E1BE4A] hover:shadow-lg active:scale-98"
           >
             <Plus className="w-4 h-4 text-[#F3D274]" />
             <span>+ Novo Livro</span>
@@ -99,7 +99,7 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
       </div>
 
       {/* Category Filter Chips Bar */}
-      <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-[#E6DFD3]/60 flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="mx-auto mt-3 flex max-w-7xl items-center gap-2 overflow-x-auto border-t border-slate-800 pt-3 scrollbar-none">
         {(Object.keys(CATEGORY_LABELS) as ReadingCategoryFilter[]).map((catKey) => {
           const isSelected = activeCategory === catKey;
           return (
@@ -108,8 +108,8 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
               onClick={() => onSelectCategory(catKey)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                 isSelected
-                  ? 'bg-[#3A2317] text-[#FAF6EE] font-semibold shadow-xs border border-[#3A2317]'
-                  : 'bg-[#F5F0E6]/80 hover:bg-[#EFE7D8] text-[#5C5248] border border-[#E2D8C6]'
+                  ? 'border border-[#D4AF37] bg-[#D4AF37]/15 font-semibold text-[#F3D274] shadow-xs'
+                  : 'border border-slate-700 bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
               {CATEGORY_LABELS[catKey].label}

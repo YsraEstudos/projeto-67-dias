@@ -32,7 +32,9 @@ describe('BookInspectionOverlay', () => {
       />,
     );
 
-    expect(screen.getByTestId('book-inspection-panel')).toHaveClass('absolute');
+    const panel = screen.getByTestId('book-inspection-panel');
+    expect(panel).toHaveClass('absolute');
+    expect(panel.className).toContain('bg-[#0B0F16]/98');
     expect(screen.getByRole('heading', { name: 'Preencha os detalhes do livro' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Livro teste' })).toBeInTheDocument();
 

@@ -132,6 +132,10 @@ describe('BookMesh', () => {
     expect(bookMesh.group.position.x).toBe(1.0);
     expect(bookMesh.isHovered).toBe(false);
 
+    const frontCoverMesh = bookMesh.group.children[1] as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
+    expect(frontCoverMesh.material[0].map).not.toBeNull();
+    expect(frontCoverMesh.material[4].map).toBeNull();
+
     bookMesh.setHovered(true);
     expect(bookMesh.isHovered).toBe(true);
 

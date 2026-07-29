@@ -526,8 +526,10 @@ export class BookMeshGroup {
   private targetScale: THREE.Vector3;
 
   private clothMaterials: THREE.MeshStandardMaterial[] = [];
+  private frontCoverMaterial: THREE.MeshStandardMaterial | null = null;
   private glowMesh: THREE.Mesh | null = null;
   private texturesToDispose: THREE.Texture[] = [];
+  private isDisposed: boolean = false;
 
   constructor(item: ShelfBookManifestItem, position: THREE.Vector3) {
     this.item = item;
@@ -592,6 +594,7 @@ export class BookMeshGroup {
     });
 
     this.clothMaterials.push(baseClothMat, frontCoverMat, spineMat);
+    this.frontCoverMaterial = frontCoverMat;
 
     // 2. Geometries
     const boardThickness = 0.04;
@@ -623,6 +626,9 @@ export class BookMeshGroup {
     frontCoverMesh.castShadow = true;
     frontCoverMesh.receiveShadow = true;
     this.group.add(frontCoverMesh);
+    if (this.item.coverUrl) {
+      this.loadCoverTexture(this.item.coverUrl);
+    }
 
     // Back Cover (-X side)
     const backCoverMesh = new THREE.Mesh(coverGeo, baseClothMat);
@@ -658,6 +664,34 @@ export class BookMeshGroup {
     this.group.traverse((child) => {
       child.userData = { bookId: this.item.id, instance: this };
     });
+  }
+
+  private loadCoverTexture(coverUrl: string) {
+    new THREE.TextureLoader().load(
+      coverUrl,
+      (texture) => {
+        if (this.isDisposed || !this.frontCoverMaterial) {
+          texture.dispose();
+          return;
+        }
+
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        this.frontCoverMaterial.map = texture;
+        this.frontCoverMaterial.roughnessMap = null;
+        this.frontCoverMaterial.metalnessMap = null;
+        this.frontCoverMaterial.roughness = 0.72;
+        this.frontCoverMaterial.metalness = 0.05;
+        this.frontCoverMaterial.color.set('#FFFFFF');
+        this.frontCoverMaterial.needsUpdate = true;
+        this.texturesToDispose.push(texture);
+      },
+      undefined,
+      () => {
+        // Keep the procedural cover when a remote image is unavailable.
+      },
+    );
   }
 
   public setHovered(hovered: boolean) {
@@ -726,6 +760,7 @@ export class BookMeshGroup {
   }
 
   public dispose() {
+    this.isDisposed = true;
     this.clothMaterials.forEach((m) => m.dispose());
     this.texturesToDispose.forEach((t) => t.dispose());
     this.group.traverse((child) => {

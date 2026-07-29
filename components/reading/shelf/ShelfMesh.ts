@@ -142,7 +142,7 @@ export class ShelfMeshGroup {
     // Shadow Catching & Warm Background Back Wall
     const wallGeo = new THREE.PlaneGeometry(width * 1.5, 12);
     const wallMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#1A1817'), // Deep alcove shadow wall
+      color: new THREE.Color('#111827'), // Deep blue-black alcove wall
       roughness: 0.9,
       metalness: 0.0,
     });
