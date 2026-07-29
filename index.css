@@ -1517,3 +1517,10 @@ html {
 .fab-bounce {
     animation: fabBounce 0.5s ease-out;
 }
+
+/* The reading shelf owns the viewport while its immersive shell is active. */
+.reading-focus-shell > main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}

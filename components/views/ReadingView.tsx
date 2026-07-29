@@ -24,6 +24,10 @@ const QuickLogBottomSheet = React.lazy(() => import('../reading/modals/QuickLogB
 
 const getReadingActions = () => useReadingStore.getState();
 
+interface ReadingViewProps {
+  onExit?: () => void;
+}
+
 /**
  * Calculates consecutive active reading streak days from book logs
  */
@@ -65,7 +69,7 @@ function calculateReadingStreak(books: IBook[]): number {
   return streak;
 }
 
-export const ReadingView: React.FC = () => {
+export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
   // Store Subscription
   const { books, folders } = useReadingStore(
     useShallow((state) => ({ books: state.books, folders: state.folders }))
@@ -161,6 +165,7 @@ export const ReadingView: React.FC = () => {
         onOpenAddBook={() => setIsAddModalOpen(true)}
         is3DMode={is3DMode}
         onToggleViewMode={() => setIs3DMode(!is3DMode)}
+        onExit={onExit}
       />
 
       {/* Main Experience Body */}

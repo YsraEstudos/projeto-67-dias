@@ -723,6 +723,20 @@ describe('WorkspaceApp', () => {
         expect(screen.queryByTestId('task-notification-widget')).not.toBeInTheDocument();
     });
 
+    it('uses an immersive full-viewport shell for the reading view', async () => {
+        setActiveView(ViewState.READING);
+
+        render(<WorkspaceApp user={mockUser} onLogout={onLogout} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('reading-view')).toBeInTheDocument();
+        });
+
+        expect(screen.getByTestId('workspace-shell')).toHaveClass('reading-focus-shell', 'h-screen', 'overflow-hidden');
+        expect(screen.getByTestId('workspace-main')).toHaveClass('w-full', 'max-w-none', 'flex-1');
+        expect(screen.queryByText(`versão ${APP_VERSION}`)).not.toBeInTheDocument();
+    });
+
     it('renders "View not found" for an unknown ViewState value (default branch)', async () => {
         uiState.activeView = 'UNKNOWN_VIEW' as ViewState;
         vi.mocked(useUIStore).mockImplementation(
@@ -771,12 +785,13 @@ describe('WorkspaceApp', () => {
     // -----------------------------------------------------------------------
     // headerTitle on non-dashboard views
     // -----------------------------------------------------------------------
-    it('header shows the card title when on a non-dashboard view', async () => {
+    it('hides the global header while the reading view owns the viewport', async () => {
         setActiveView(ViewState.READING);
         render(<WorkspaceApp user={mockUser} onLogout={onLogout} />);
         await waitFor(() => {
-            expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Leitura');
+            expect(screen.getByTestId('reading-view')).toBeInTheDocument();
         });
+        expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
     });
 
     it('header falls back to "Configurações" text for SETTINGS view', async () => {

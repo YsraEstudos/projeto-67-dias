@@ -363,7 +363,7 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       case ViewState.WORK: content = <WorkView />; break;
       case ViewState.REST: content = <RestView />; break;
       case ViewState.TOOLS: content = <ToolsView />; break;
-      case ViewState.READING: content = <ReadingView />; break;
+      case ViewState.READING: content = <ReadingView onExit={handleBack} />; break;
       case ViewState.PROGRESS: content = <ProgressView />; break;
       case ViewState.HABITS: content = <HabitsView />; break;
       case ViewState.JOURNAL: content = <JournalView />; break;
@@ -386,11 +386,19 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
     return card ? card.title : 'Configurações';
   }, [activeView, dashboardCards]);
 
+  const isReadingFocusMode = activeView === ViewState.READING;
+
   // --- Render ---
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30">
+    <div
+      data-testid="workspace-shell"
+      className={`${isReadingFocusMode
+        ? 'reading-focus-shell flex h-screen min-h-0 w-full flex-col overflow-hidden bg-[#080B10]'
+        : 'min-h-screen bg-slate-950'} text-slate-200 font-sans selection:bg-cyan-500/30`}
+    >
 
       {/* Top Navigation / Header */}
+      {!isReadingFocusMode && (
       <header className="sticky top-0 z-50 glass-strong border-b border-slate-800/50 transition-all duration-300">
         {/* Tab Bar (only shown when tabs exist) */}
         <TabBar />
@@ -486,9 +494,15 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
           </div>
         </div>
       </header>
+      )}
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8 md:py-12 animate-in fade-in duration-500 relative">
+      <main
+        data-testid="workspace-main"
+        className={isReadingFocusMode
+          ? 'relative flex min-h-0 w-full max-w-none flex-1 animate-in fade-in duration-500'
+          : 'relative mx-auto max-w-7xl px-3 py-4 animate-in fade-in duration-500 sm:px-4 sm:py-8 md:py-12'}
+      >
         {renderContent()}
       </main>
 
@@ -524,11 +538,13 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       />
 
       {/* Footer Version */}
-      <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
-        <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
-          versão {APP_VERSION}
-        </span>
-      </footer>
+      {!isReadingFocusMode && (
+        <footer className="w-full py-4 text-center text-slate-600 text-xs tracking-wider">
+          <span title="Atualizações são feitas todo mês" className="cursor-help hover:text-slate-500 transition-colors">
+            versão {APP_VERSION}
+          </span>
+        </footer>
+      )}
 
       {/* Conflict Resolution Modal (PWA offline sync) */}
       <ConflictModal />

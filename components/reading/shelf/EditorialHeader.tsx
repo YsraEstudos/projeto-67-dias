@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Flame, BookOpen, Layers, Sparkles } from 'lucide-react';
+import { Plus, Flame, BookOpen, Layers, Sparkles, ArrowLeft } from 'lucide-react';
 import { Book } from '../../../types';
 
 export type ReadingCategoryFilter = 'ALL' | 'READING' | 'COMPLETED' | 'TO_READ';
@@ -12,6 +12,7 @@ interface EditorialHeaderProps {
   onOpenAddBook: () => void;
   is3DMode?: boolean;
   onToggleViewMode?: () => void;
+  onExit?: () => void;
 }
 
 const CATEGORY_LABELS: Record<ReadingCategoryFilter, { label: string; countKey?: Book['status'] }> = {
@@ -29,13 +30,24 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
   onOpenAddBook,
   is3DMode = true,
   onToggleViewMode,
+  onExit,
 }) => {
   return (
     <header className="w-full border-b border-slate-800 bg-[#0B0F16] px-4 py-3 text-slate-100 shadow-lg transition-all md:px-6">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
         
         {/* Title & Brand Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {onExit && (
+            <button
+              type="button"
+              onClick={onExit}
+              aria-label="Voltar ao painel principal"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-300 transition hover:border-[#D4AF37]/60 hover:bg-slate-800 hover:text-[#F3D274]"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#F3D274] shadow-md">
             <BookOpen className="w-5 h-5" />
           </div>
