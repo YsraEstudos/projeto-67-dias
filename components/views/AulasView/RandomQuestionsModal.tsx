@@ -697,7 +697,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
         </header>
         <main data-testid="random-questions-content" className="p-3 md:p-4 min-h-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">{screen === "setup" ? setup : screen === "session" ? session : screen === "report" ? reportView : history}</main>
         {screen === "setup" && (
-          <footer className="shrink-0 border-t border-slate-800 bg-slate-950/80 px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+          <footer className="shrink-0 border-t border-slate-800 bg-slate-950/80 px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between pb-safe">
             <p className="text-[11px] text-slate-505">
               {preview.length ? `${preview.length} questões prontas para revisar hoje.` : "Cadastre questões nas aulas para iniciar uma revisão."}
             </p>

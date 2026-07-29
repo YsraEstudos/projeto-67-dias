@@ -97,24 +97,27 @@ const FolderNode = React.memo(function FolderNode({
         <button
           type="button"
           onClick={() => onCreateFolder(folder.id)}
-          className="p-1 opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
+          className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
           title="Adicionar Subpasta"
+          aria-label="Adicionar Subpasta"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           onClick={() => onRenameFolder({ id: folder.id, name: folder.name })}
-          className="p-1 opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
+          className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#D4AF37] text-slate-400 transition-opacity"
           title="Renomear Pasta"
+          aria-label="Renomear Pasta"
         >
           <Edit2 className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           onClick={() => onDeleteFolder(folder.id)}
-          className="p-1 pr-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
+          className="p-1.5 sm:p-1 pr-2 sm:pr-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
           title="Excluir Pasta"
+          aria-label="Excluir Pasta"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -177,8 +180,9 @@ export default function FolderManager({
         <button
           type="button"
           onClick={() => onCreateFolder()}
-          className="opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] transition-opacity"
+          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#D4AF37] transition-opacity"
           title="Adicionar Pasta Raiz"
+          aria-label="Adicionar Pasta Raiz"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>

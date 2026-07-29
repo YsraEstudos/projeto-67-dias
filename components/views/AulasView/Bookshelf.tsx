@@ -11,6 +11,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -82,6 +83,51 @@ const EMPTY_SEARCH_INDEX: BookshelfSearchIndex = {
 const INITIAL_RENDERED_BOOKS = 24;
 const RENDERED_BOOKS_INCREMENT = 24;
 const LARGE_LIBRARY_THRESHOLD = 48;
+
+// Breakpoint abaixo do qual o modo prateleira 3D (shelf3d) e o toggle de
+// exibicao sao ocultados; em telas pequenas o modo grid passa a ser o unico.
+const SHELF3D_MIN_WIDTH = 640;
+
+// Configuracao do TouchSensor: exige um "long press" (~200ms) com pequena
+// tolerancia de movimento antes de iniciar o arraste, evitando conflitar com
+// o scroll vertical da pagina ao toque simples.
+export const TOUCH_SENSOR_OPTIONS = {
+  activationConstraint: { delay: 200, tolerance: 8 },
+} as const;
+
+export const POINTER_SENSOR_OPTIONS = {
+  activationConstraint: { distance: 5 },
+} as const;
+
+// Hook reutilizavel para detectar telas pequenas via matchMedia.
+// Retorna true quando a largura e inferior ao breakpoint sm (mobile/touch).
+export function useIsSmallScreen(minWidth: number = SHELF3D_MIN_WIDTH): boolean {
+  const [isSmall, setIsSmall] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return !window.matchMedia(`(min-width: ${minWidth}px)`).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mql = window.matchMedia(`(min-width: ${minWidth}px)`);
+    const handler = (event: MediaQueryListEvent) => setIsSmall(!event.matches);
+    setIsSmall(!mql.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [minWidth]);
+
+  return isSmall;
+}
+
+// Sensores de DnD compartilhados (Pointer + Touch + Keyboard).
+// Exportado para permitir teste da presenca do TouchSensor.
+export function useAulasSensors() {
+  return useSensors(
+    useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
+    useSensor(TouchSensor, TOUCH_SENSOR_OPTIONS),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+}
 
 const normalizeSearchText = (...parts: Array<string | number | null | undefined>): string =>
   parts
@@ -241,7 +287,7 @@ const BookCard = React.memo(function BookCard({
               e.stopPropagation();
               onOpenMoveModal(book);
             }}
-            className="absolute top-3 right-3 bg-slate-950/90 hover:bg-[#D4AF37] text-slate-400 hover:text-slate-950 p-2 rounded-full backdrop-blur-sm transition-all duration-300 z-20 shadow-xl opacity-0 group-hover:opacity-100 focus:opacity-100 scale-90 hover:scale-105 active:scale-95 touch-none"
+            className="absolute top-3 right-3 bg-slate-950/90 hover:bg-[#D4AF37] text-slate-400 hover:text-slate-950 p-2 rounded-full backdrop-blur-sm transition-all duration-300 z-20 shadow-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 scale-90 hover:scale-105 active:scale-95 touch-none"
             title="Mover curso"
           >
             <FolderSymlink className="w-4 h-4" />
@@ -378,6 +424,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const debouncedGlobalSearchQuery = useDebounce(globalSearchQuery, 250);
   const globalSearchIndex = useMemo(() => buildBookshelfSearchIndex(books), [books]);
 
+  // Em telas pequenas (< sm) o modo shelf3d nao e utilizavel: forca grid.
+  const isSmallScreen = useIsSmallScreen();
+  const effectiveShelfViewMode: "grid" | "shelf3d" = isSmallScreen ? "grid" : shelfViewMode;
+
   const setRandomQuestionStatus = (
     question: RandomQuestionItem,
     status: "correct" | "incorrect" | "pending",
@@ -478,7 +528,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
             <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-r from-amber-900 via-amber-950 to-amber-900 border-t border-[#8B5A2B]/40 shadow-inner z-10 animate-in fade-in duration-300" />
             
             {/* Books container */}
-            <div className="flex items-end gap-3 px-6 h-60 relative z-0">
+            <div className="flex items-end gap-2 lg:gap-3 px-3 lg:px-6 h-60 relative z-0 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
               {shelfBooks.map((book) => {
                 const { height, width } = getBookDimensions(book.id);
                 const colorClasses = getBookColor(book.id);
@@ -503,10 +553,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
     );
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  const sensors = useAulasSensors();
 
   if (isLoading) {
     return <div className="p-12 text-center text-slate-400">Carregando estante...</div>;
@@ -865,8 +912,8 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                       ? folders.find((f) => f.id === currentView?.id)?.name
                       : collections?.find((c) => c.id === currentView?.id)?.name}
                   </h2>
-                  {/* View Mode Toggle */}
-                  {currentBooks.length > 0 && (
+                  {/* View Mode Toggle - oculto em telas pequenas (mobile usa apenas grid) */}
+                  {currentBooks.length > 0 && !isSmallScreen && (
                     <div className="flex items-center bg-slate-950 border border-slate-850 p-0.5 rounded ml-2">
                       <button
                         type="button"
@@ -942,10 +989,10 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
               ) : (
                 <>
                   <SortableContext items={visibleBooks.map((b) => b.id)} strategy={rectSortingStrategy}>
-                    {shelfViewMode === "shelf3d" ? (
+                    {effectiveShelfViewMode === "shelf3d" ? (
                       renderShelves()
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      <div data-testid="book-grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                         <AnimatePresence mode="popLayout">
                           {visibleBooks.map((book) => {
                             const card = (
@@ -993,7 +1040,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
           <DragOverlay dropAnimation={null}>
             {activeDragId ? (
               <div className="opacity-90 scale-105 rotate-2 cursor-grabbing pointer-events-none shadow-2xl rounded-lg overflow-hidden ring-2 ring-[#D4AF37]/50">
-                {shelfViewMode === "shelf3d" ? (
+                {effectiveShelfViewMode === "shelf3d" ? (
                   <div style={{ height: "200px", width: "60px" }}>
                     <BookSpine 
                       book={books.find((b) => b.id === activeDragId)!} 
@@ -1014,7 +1061,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {globalSearchOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[70vh] relative">
+          <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80dvh] sm:h-[70vh] relative pb-safe">
             <button
               onClick={() => {
                 setGlobalSearchOpen(false);
@@ -1037,11 +1084,14 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
             <div className="relative group w-full mb-6 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-[#D4AF37] transition-colors" />
               <input
-                type="text"
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
                 placeholder="Digite o termo de busca..."
                 value={globalSearchQuery}
                 onChange={(e) => setGlobalSearchQuery(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-10 py-2.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-sm text-slate-100 font-sans w-full transition-all"
+                className="bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-10 py-2.5 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none text-base sm:text-sm text-slate-100 font-sans w-full transition-all"
                 autoFocus
               />
               {globalSearchQuery && (
@@ -1178,7 +1228,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {folderDialogOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <form onSubmit={submitFolder} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl">
+          <form onSubmit={submitFolder} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl pb-safe">
             <h3 className="text-xl font-serif italic text-slate-100 mb-4">Nova Pasta</h3>
             <input
               autoFocus
@@ -1217,7 +1267,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {editFolderDialogOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <form onSubmit={submitEditFolder} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl">
+          <form onSubmit={submitEditFolder} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl pb-safe">
             <h3 className="text-xl font-serif italic text-slate-100 mb-4">Renomear Pasta</h3>
             <input
               autoFocus
@@ -1248,7 +1298,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {bookDialogOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <form onSubmit={submitBook} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl">
+          <form onSubmit={submitBook} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl pb-safe">
             <h3 className="text-xl font-serif italic text-slate-100 mb-4">Novo Curso</h3>
             <input
               autoFocus
@@ -1279,7 +1329,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {collectionDialogOpen && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <form onSubmit={submitCollection} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl">
+          <form onSubmit={submitCollection} className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl pb-safe">
             <h3 className="text-xl font-serif italic text-slate-100 mb-4">Nova Coleção</h3>
             <input
               autoFocus
@@ -1310,7 +1360,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {collectionAddBookDialogOpen && isCollectionView && currentView && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-md shadow-2xl flex flex-col h-[70vh]">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-md shadow-2xl flex flex-col h-[70vh] pb-safe">
             <h3 className="text-xl font-serif italic text-slate-100 mb-4">Adicionar à Coleção</h3>
             <div className="flex-1 overflow-y-auto space-y-2 pr-2">
               {books.map((b) => {
@@ -1358,7 +1408,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {deleteConfirm && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-sm shadow-2xl pb-safe">
             <h3 className="text-xl font-serif italic text-slate-100 mb-4">Confirmar Exclusão</h3>
             <p className="text-slate-400 text-sm mb-6">{deleteConfirm.message}</p>
             <div className="flex justify-end gap-3">
@@ -1392,7 +1442,7 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
 
       {moveBookTarget && (
         <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-slate-900/95 border border-slate-800 p-6 rounded-lg w-full max-w-md shadow-2xl flex flex-col max-h-[80vh] overflow-hidden backdrop-blur-md">
+          <div className="bg-slate-900/95 border border-slate-800 p-6 rounded-lg w-full max-w-md shadow-2xl flex flex-col max-h-[80vh] overflow-hidden backdrop-blur-md pb-safe">
             <div className="mb-4">
               <h3 className="text-xl font-serif italic text-slate-100 flex items-center gap-2">
                 <FolderSymlink className="w-5 h-5 text-[#D4AF37]" />

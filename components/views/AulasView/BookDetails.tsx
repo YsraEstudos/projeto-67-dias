@@ -25,6 +25,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -89,7 +90,7 @@ const SortableChapterItem = React.memo(function SortableChapterItem({
           type="button"
           {...attributes}
           {...listeners}
-          className="mr-3 p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-350 cursor-grab active:cursor-grabbing shrink-0"
+          className="mr-3 p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-350 cursor-grab active:cursor-grabbing shrink-0 touch-none"
           title="Arrastar para reordenar"
         >
           <GripVertical className="w-4 h-4" />
@@ -277,8 +278,11 @@ export default function BookDetails({ bookId, onBack, onSelectChapter }: BookDet
   const folder = book ? folders.find((f) => f.id === book.folderId) : null;
   const otherBooks = books.filter((b) => b.id !== bookId);
 
+  // Touch + Pointer: o TouchSensor exige long-press (~200ms) para nao
+  // conflitar com o scroll vertical ao toque simples.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 

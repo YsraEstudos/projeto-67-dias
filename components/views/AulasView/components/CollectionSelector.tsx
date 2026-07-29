@@ -29,8 +29,9 @@ export default function CollectionSelector({
         <button
           type="button"
           onClick={onCreateCollection}
-          className="opacity-0 group-hover:opacity-100 hover:text-[#D4AF37] transition-opacity"
+          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#D4AF37] transition-opacity"
           title="Criar Coleção"
+          aria-label="Criar Coleção"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>
@@ -54,8 +55,9 @@ export default function CollectionSelector({
               <button
                 type="button"
                 onClick={() => onDeleteCollection(col.id)}
-                className="p-1 pr-2 opacity-0 group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
+                className="p-1.5 sm:p-1 pr-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 text-slate-400 transition-opacity"
                 title="Excluir Coleção"
+                aria-label="Excluir Coleção"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
