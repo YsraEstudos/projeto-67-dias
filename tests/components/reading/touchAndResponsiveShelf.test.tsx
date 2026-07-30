@@ -170,6 +170,31 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     expect(screen.queryByRole('dialog', { name: 'Andares da Estante' })).not.toBeInTheDocument();
   });
 
+  it('ShelfLevelRail renders Quick Floor Assignment Bar on mobile when dragging a book and moves on 1-tap', () => {
+    const onMove = vi.fn();
+    render(
+      <ShelfLevelRail
+        levels={sampleLevels}
+        bookCounts={new Map([['level-1', 1], ['level-2', 1]])}
+        activeLevelId="level-1"
+        draggingBookId="book-1"
+        dragTargetLevelId="level-2"
+        onSelectLevel={vi.fn()}
+        onRenameLevel={vi.fn()}
+        onAddLevel={vi.fn()}
+        onDeleteLevel={vi.fn()}
+        onMoveBookToShelfLevel={onMove}
+      />,
+    );
+
+    const moveLevel2Btn = screen.getByRole('button', { name: 'Mover para Primeiro Andar' });
+    expect(moveLevel2Btn).toBeInTheDocument();
+    expect(moveLevel2Btn.className).toContain('min-h-[44px]');
+
+    fireEvent.click(moveLevel2Btn);
+    expect(onMove).toHaveBeenCalledWith('book-1', 'level-2');
+  });
+
   it('ShelfNavigationHUD provides accessible 44x44px touch targets for navigation and inspection', () => {
     const onPrev = vi.fn();
     const onNext = vi.fn();

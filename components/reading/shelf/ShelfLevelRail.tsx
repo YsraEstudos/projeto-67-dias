@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Layers, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Layers, Pencil, Plus, Trash2, X, Sparkles } from 'lucide-react';
 import type { ReadingShelfLevel } from '../../../types';
 
 interface ShelfLevelRailProps {
@@ -12,6 +12,7 @@ interface ShelfLevelRailProps {
   onRenameLevel: (levelId: string, name: string) => void;
   onAddLevel: () => void;
   onDeleteLevel: (levelId: string) => void;
+  onMoveBookToShelfLevel?: (bookId: string, levelId: string) => void;
 }
 
 export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
@@ -24,6 +25,7 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
   onRenameLevel,
   onAddLevel,
   onDeleteLevel,
+  onMoveBookToShelfLevel,
 }) => {
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -57,14 +59,14 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
     return (
       <div
         key={level.id}
-        className={`flex items-center gap-2 rounded-xl border p-2 transition-all ${
-          isMobile ? 'w-full' : 'min-w-[168px]'
+        className={`flex items-center gap-3 rounded-2xl border p-3 transition-all ${
+          isMobile ? 'w-full' : 'min-w-[172px]'
         } ${
           isDropTarget
-            ? 'border-[#F3D274] bg-[#D4AF37]/20 shadow-[0_0_24px_rgba(212,175,55,0.24)]'
+            ? 'border-[#F3D274] bg-[#D4AF37]/20 shadow-[0_0_24px_rgba(212,175,55,0.25)] ring-2 ring-[#D4AF37]/40'
             : isActive
-              ? 'border-[#D4AF37]/70 bg-[#111827]/95'
-              : 'border-slate-700/80 bg-[#0D121A]/85'
+              ? 'border-[#D4AF37]/70 bg-[#111827]/95 shadow-md'
+              : 'border-slate-800 bg-[#0D121A]/90 hover:border-slate-700'
         }`}
       >
         <button
@@ -73,7 +75,7 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
             onSelectLevel(level.id);
             if (isMobile) setIsMobileDrawerOpen(false);
           }}
-          className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[#D4AF37]/45 bg-[#D4AF37]/10 text-xs font-bold text-[#F3D274] hover:bg-[#D4AF37]/20 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+          className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border border-[#D4AF37]/45 bg-[#D4AF37]/10 text-xs font-bold text-[#F3D274] hover:bg-[#D4AF37]/20 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
           aria-label={`Selecionar ${level.name}`}
         >
           {String(level.position + 1).padStart(2, '0')}
@@ -90,7 +92,7 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
                 if (event.key === 'Enter') commitName();
                 if (event.key === 'Escape') setEditingLevelId(null);
               }}
-              className="h-11 min-h-[44px] w-full rounded-md border border-[#D4AF37] bg-[#080B10] px-2 py-1 text-xs text-slate-100 outline-none"
+              className="h-11 min-h-[44px] w-full rounded-lg border border-[#D4AF37] bg-[#080B10] px-2.5 py-1 text-xs text-slate-100 outline-none"
               aria-label={`Nome de ${level.name}`}
             />
           ) : (
@@ -104,7 +106,7 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
               <span className="truncate">{level.name}</span>
             </button>
           )}
-          <span className="block text-[10px] font-sans font-normal text-slate-500">{count} {count === 1 ? 'livro' : 'livros'}</span>
+          <span className="block text-[11px] font-sans font-normal text-slate-400">{count} {count === 1 ? 'livro' : 'livros'}</span>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -112,7 +114,7 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
             <button
               type="button"
               onClick={() => startEditing(level)}
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
               aria-label={`Renomear ${level.name}`}
             >
               <Pencil className="h-4 w-4" />
@@ -122,7 +124,7 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
             <button
               type="button"
               onClick={() => onDeleteLevel(level.id)}
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-md p-2 text-slate-400 hover:bg-red-950/70 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-red-950/70 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/50"
               aria-label={`Excluir ${level.name}`}
             >
               <Trash2 className="h-4 w-4" />
@@ -135,28 +137,65 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
 
   return (
     <>
-      {/* Mobile (<768px): Compact Floating Button */}
-      <div className="pointer-events-auto absolute left-[max(0.75rem,env(safe-area-inset-left))] top-16 z-20 md:hidden">
+      {/* Mobile (<768px): Floating Level Trigger Button */}
+      <div className="pointer-events-auto absolute left-[max(1rem,env(safe-area-inset-left))] top-20 z-20 md:hidden">
         <button
           type="button"
           onClick={() => setIsMobileDrawerOpen(true)}
           aria-label="Abrir gaveta de andares"
-          className="flex h-11 min-h-[44px] min-w-[44px] items-center gap-2 rounded-full border border-slate-700/90 bg-[#0D121A]/95 px-3.5 py-2 text-xs font-bold text-slate-100 shadow-xl backdrop-blur-md transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 active:scale-95"
+          className="flex h-11 min-h-[44px] min-w-[44px] items-center gap-2.5 rounded-full border border-slate-700/90 bg-[#0D121A]/95 px-4 py-2 text-xs font-bold text-slate-100 shadow-2xl backdrop-blur-xl transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 active:scale-95"
         >
           <Layers className="h-4 w-4 text-[#F3D274]" />
-          <span className="max-w-[120px] truncate">{activeLevel ? activeLevel.name : 'Andares'}</span>
-          <span className="rounded-full bg-[#D4AF37]/20 px-1.5 py-0.5 text-[10px] text-[#F3D274]">
+          <span className="max-w-[130px] truncate">{activeLevel ? activeLevel.name : 'Andares'}</span>
+          <span className="rounded-full bg-[#D4AF37]/20 px-2 py-0.5 text-[10px] font-bold text-[#F3D274]">
             {levels.length}
           </span>
         </button>
       </div>
+
+      {/* Mobile Quick Floor Assignment Bar (Touch Drag Overhaul) */}
+      {draggingBookId && (
+        <div className="pointer-events-auto fixed bottom-24 left-4 right-4 z-40 flex flex-col gap-2 rounded-2xl border border-[#D4AF37]/60 bg-[#0D121A]/98 p-3 shadow-2xl backdrop-blur-2xl md:hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between text-xs font-bold text-[#F3D274]">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-[#D4AF37]" />
+              Mover para andar (toque rápido):
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 touch-pan-x scrollbar-none snap-x">
+            {orderedLevels.map((lvl) => (
+              <button
+                key={lvl.id}
+                type="button"
+                onClick={() => {
+                  onSelectLevel(lvl.id);
+                  if (onMoveBookToShelfLevel && draggingBookId) {
+                    onMoveBookToShelfLevel(draggingBookId, lvl.id);
+                  }
+                }}
+                className={`flex min-h-[44px] min-w-[44px] shrink-0 snap-start items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
+                  dragTargetLevelId === lvl.id
+                    ? 'border-[#F3D274] bg-[#D4AF37]/30 text-[#F3D274] shadow-[0_0_16px_rgba(212,175,55,0.4)]'
+                    : 'border-slate-700 bg-slate-900/90 text-slate-200 hover:border-[#D4AF37] hover:text-[#F3D274]'
+                }`}
+                aria-label={`Mover para ${lvl.name}`}
+              >
+                <span className="rounded-md bg-[#D4AF37]/20 px-1.5 py-0.5 text-[10px] text-[#F3D274]">
+                  {String(lvl.position + 1).padStart(2, '0')}
+                </span>
+                <span className="truncate">{lvl.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Sheet / Drawer */}
       {isMobileDrawerOpen && (
         <div className="pointer-events-auto fixed inset-0 z-50 md:hidden">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileDrawerOpen(false)}
             aria-hidden="true"
           />
@@ -165,14 +204,14 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
           <div
             role="dialog"
             aria-label="Andares da Estante"
-            className="fixed bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-3xl border-t border-slate-700 bg-[#0D121A]/98 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-slate-100 shadow-2xl backdrop-blur-xl"
+            className="fixed bottom-0 left-0 right-0 max-h-[82vh] overflow-y-auto rounded-t-[2.25rem] border-t border-slate-700 bg-[#0D121A]/98 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-slate-100 shadow-2xl backdrop-blur-2xl"
           >
             {/* Drag Handle Bar */}
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-700" />
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-700" />
 
-            <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#F3D274]">
-                <Layers className="h-4 w-4 text-[#D4AF37]" />
+            <div className="mb-5 flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.16em] text-[#F3D274]">
+                <Layers className="h-4.5 w-4.5 text-[#D4AF37]" />
                 Andares da Estante
               </div>
               <button
@@ -185,32 +224,26 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
               </button>
             </div>
 
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               {orderedLevels.map((level) => renderLevelCard(level, true))}
 
               <button
                 type="button"
                 onClick={onAddLevel}
                 aria-label="Novo andar"
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-[#0D121A]/75 px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition hover:border-[#D4AF37] hover:text-[#F3D274]"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-600 bg-[#0D121A]/75 px-4 py-3.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-300 transition hover:border-[#D4AF37] hover:text-[#F3D274]"
               >
                 <Plus className="h-4 w-4" />
                 Novo andar
               </button>
-
-              {draggingBookId && (
-                <div className="rounded-lg border border-[#D4AF37]/30 bg-[#0D121A]/90 p-2.5 text-center text-xs text-[#F3D274] shadow-xl">
-                  Solte sobre um andar {dragTargetLevelId ? 'destacado' : ''}
-                </div>
-              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Desktop / Tablet (>=768px): Sleek Side Rail */}
-      <aside className="pointer-events-auto absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 md:flex">
-        <div className="mb-1 rounded-xl border border-slate-700/80 bg-[#0D121A]/90 px-2.5 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 shadow-xl backdrop-blur-md">
+      <aside className="pointer-events-auto absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2.5 md:flex">
+        <div className="mb-1 rounded-xl border border-slate-700/80 bg-[#0D121A]/90 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 shadow-xl backdrop-blur-md">
           Andares
         </div>
 

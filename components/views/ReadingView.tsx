@@ -284,6 +284,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
               onRenameLevel={updateShelfLevelName}
               onAddLevel={handleAddShelfLevel}
               onDeleteLevel={handleDeleteShelfLevel}
+              onMoveBookToShelfLevel={handleMoveBookToShelfLevel}
             />
 
             {/* Bottom HUD Controller */}
