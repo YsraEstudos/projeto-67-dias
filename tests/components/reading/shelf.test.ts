@@ -6,6 +6,7 @@ import { ShelfMeshGroup } from '../../../components/reading/shelf/ShelfMesh';
 import { InspectionControls } from '../../../components/reading/shelf/InspectionControls';
 import {
   calculateShelfCameraDistance,
+  getShelfCameraVerticalTarget,
   getShelfLevelFromPointer,
   resolveBookActivation,
 } from '../../../components/reading/shelf/CompleteShelfScene';
@@ -126,6 +127,15 @@ describe('shelf camera framing', () => {
     expect(getShelfLevelFromPointer(50, { top: 0, height: 300 }, levels)?.id).toBe('top');
     expect(getShelfLevelFromPointer(150, { top: 0, height: 300 }, levels)?.id).toBe('middle');
     expect(getShelfLevelFromPointer(299, { top: 0, height: 300 }, levels)?.id).toBe('bottom');
+  });
+
+  it('centers the camera on the active level instead of panning horizontally', () => {
+    const levels = createDefaultShelfLevels();
+    const bottom = getShelfCameraVerticalTarget(levels, levels[0].id);
+    const top = getShelfCameraVerticalTarget(levels, levels[2].id);
+
+    expect(top.cameraY).toBeGreaterThan(bottom.cameraY);
+    expect(top.lookAtY).toBeGreaterThan(bottom.lookAtY);
   });
 });
 

@@ -37,6 +37,26 @@ export function getShelfLevelFromPointer(
   return levels[visualIndex] ?? null;
 }
 
+export function getShelfCameraVerticalTarget(
+  levels: ReadingShelfLevel[],
+  activeLevelId: string | null,
+  contentHeight = SHELF_CONTENT_HEIGHT,
+): { cameraY: number; lookAtY: number } {
+  const activeLevel = levels.find((level) => level.id === activeLevelId);
+  if (!activeLevel) {
+    return {
+      cameraY: contentHeight / 2,
+      lookAtY: contentHeight / 2 - 0.5,
+    };
+  }
+
+  const levelY = activeLevel.position * SHELF_LEVEL_SPACING;
+  return {
+    cameraY: levelY + 2.1,
+    lookAtY: levelY + 1.6,
+  };
+}
+
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 3.0;
 const DRAG_LEVEL_THRESHOLD = 60;
@@ -104,11 +124,15 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
   const selectedIndexRef = useRef(selectedIndex);
   const isInspectingRef = useRef(isInspecting);
+  const activeLevelIdRef = useRef(activeLevelId);
+  const shelfLevelsRef = useRef(shelfLevels);
   const layoutRef = useRef(shelfLayout);
   const bookMeshesByIdRef = useRef(new Map<string, BookMeshGroup>());
 
   selectedIndexRef.current = selectedIndex;
   isInspectingRef.current = isInspecting;
+  activeLevelIdRef.current = activeLevelId;
+  shelfLevelsRef.current = shelfLevels;
   layoutRef.current = shelfLayout;
 
   const levelCount = Math.max(1, shelfLevels.length);
@@ -389,15 +413,15 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         }
 
         // Vertical-drag level navigation (no book was being dragged)
-        if (panStartRef.current && !dragState && onNavigateLevel && shelfLevels.length > 0) {
+        if (panStartRef.current && !dragState && onNavigateLevel && shelfLevelsRef.current.length > 0) {
           const absDy = Math.abs(dragDyAccRef.current);
           const absDx = Math.abs(event.clientX - panStartRef.current.x);
           if (absDy > DRAG_LEVEL_THRESHOLD && absDx < DRAG_PAN_HORIZONTAL_THRESHOLD + absDy * 0.5) {
             const direction = dragDyAccRef.current > 0 ? 1 : -1;
-            const activeIndex = shelfLevels.findIndex((level) => level.id === activeLevelId);
-            const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevels.length - 1);
+            const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
+            const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
             if (targetIndex !== activeIndex) {
-              onNavigateLevel(shelfLevels[targetIndex].id);
+              onNavigateLevel(shelfLevelsRef.current[targetIndex].id);
             }
           }
           panStartRef.current = null;
@@ -456,17 +480,17 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           return;
         }
         // Natural vertical scroll = navigate between levels
-        if (!onNavigateLevel || shelfLevels.length < 2) return;
+        if (!onNavigateLevel || shelfLevelsRef.current.length < 2) return;
         scrollAccRef.current += event.deltaY;
         if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
         scrollTimerRef.current = setTimeout(() => { scrollAccRef.current = 0; }, 400);
         if (Math.abs(scrollAccRef.current) < SCROLL_LEVEL_THRESHOLD) return;
         const direction = scrollAccRef.current > 0 ? 1 : -1;
         scrollAccRef.current %= SCROLL_LEVEL_THRESHOLD;
-        const activeIndex = shelfLevels.findIndex((level) => level.id === activeLevelId);
-        const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevels.length - 1);
+        const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
+        const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
         if (targetIndex !== activeIndex) {
-          onNavigateLevel(shelfLevels[targetIndex].id);
+          onNavigateLevel(shelfLevelsRef.current[targetIndex].id);
         }
       };
 
@@ -511,11 +535,20 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         const panX = panXRef.current;
         const zoom = zoomScaleRef.current;
         const effectiveCamZ = shelfCameraDistance * zoom;
+        const shelfCameraTarget = getShelfCameraVerticalTarget(
+          shelfLevelsRef.current,
+          activeLevelIdRef.current,
+          contentHeight,
+        );
         const targetCamX = targetPosition ? targetPosition.x + panX : panX;
-        const targetCamY = targetPosition ? targetPosition.y + selectedBook!.item.height / 2 + 0.2 : contentHeight / 2;
+        const targetCamY = targetPosition
+          ? targetPosition.y + selectedBook!.item.height / 2 + 0.2
+          : shelfCameraTarget.cameraY;
         const targetCamZ = targetPosition ? targetPosition.z + 4.8 : effectiveCamZ;
         const lookAtX = targetPosition ? targetPosition.x : panX;
-        const lookAtY = targetPosition ? targetPosition.y + selectedBook!.item.height / 2 : contentHeight / 2 - 0.5;
+        const lookAtY = targetPosition
+          ? targetPosition.y + selectedBook!.item.height / 2
+          : shelfCameraTarget.lookAtY;
         const lookAtZ = targetPosition?.z ?? 0;
 
         camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, delta * 4);
