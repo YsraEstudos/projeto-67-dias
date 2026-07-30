@@ -52,19 +52,33 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
           <div className="flex h-10 w-10 min-h-[40px] min-w-[40px] shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#F3D274] shadow-md">
             <BookOpen className="h-5 w-5" />
           </div>
-          <h1 className="truncate font-serif text-lg font-bold tracking-tight text-slate-100">
+          <h1 className="truncate font-serif text-base min-[360px]:text-lg font-bold tracking-tight text-slate-100">
             The Complete Shelf
           </h1>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsOptionsOpen(true)}
-          aria-label="Abrir menu de opções"
-          className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-300 transition hover:border-[#D4AF37]/60 hover:bg-slate-800 hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
-        >
-          <MoreVertical className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onToggleViewMode && (
+            <button
+              type="button"
+              onClick={onToggleViewMode}
+              aria-label={is3DMode ? 'Alternar para Modo 2D' : 'Alternar para Modo 3D Shelf'}
+              className="flex h-11 min-h-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/15 px-3.5 py-2 text-xs font-bold text-[#F3D274] transition-all hover:bg-[#D4AF37]/25 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 active:scale-95 shadow-sm"
+            >
+              <Sparkles className="h-4 w-4 shrink-0 text-[#F3D274]" />
+              <span>{is3DMode ? 'Modo 2D' : 'Modo 3D'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsOptionsOpen(true)}
+            aria-label="Abrir menu de opções"
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-300 transition hover:border-[#D4AF37]/60 hover:bg-slate-800 hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile Options Bottom Sheet */}
