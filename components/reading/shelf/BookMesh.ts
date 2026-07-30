@@ -733,6 +733,12 @@ export class BookMeshGroup {
     this.targetScale.setScalar(1.03);
   }
 
+  public setOrbitRotation(rotX: number, rotY: number) {
+    this.targetRotation.x = rotX;
+    this.targetRotation.y = rotY;
+    this.targetRotation.z = 0;
+  }
+
   public clearDragPreview() {
     if (this.isSelected) {
       this.targetPosition.copy(this.focusPosition);

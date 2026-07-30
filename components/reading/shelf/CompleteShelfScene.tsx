@@ -96,6 +96,12 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   const scrollAccRef = useRef(0);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const inspectRotXRef = useRef(0);
+  const inspectRotYRef = useRef(Math.PI / 2);
+  const orbitPointerRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null);
+  const lastInspectingRef = useRef(false);
+  const lastSelectedIndexRef = useRef(selectedIndex);
+
   const selectedIndexRef = useRef(selectedIndex);
   const isInspectingRef = useRef(isInspecting);
   const layoutRef = useRef(shelfLayout);
@@ -276,6 +282,23 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       };
 
       const handlePointerMove = (event: PointerEvent) => {
+        // Orbit in inspection mode (book is selected, pointer dragging on it)
+        if (orbitPointerRef.current && orbitPointerRef.current.pointerId === event.pointerId) {
+          const dx = event.clientX - orbitPointerRef.current.lastX;
+          const dy = event.clientY - orbitPointerRef.current.lastY;
+          const orbitSensitivity = 0.01;
+          inspectRotYRef.current += dx * orbitSensitivity;
+          inspectRotXRef.current = THREE.MathUtils.clamp(
+            inspectRotXRef.current + dy * orbitSensitivity,
+            -Math.PI / 3,
+            Math.PI / 3,
+          );
+          orbitPointerRef.current.lastX = event.clientX;
+          orbitPointerRef.current.lastY = event.clientY;
+          domElement.style.cursor = 'grabbing';
+          return;
+        }
+
         if (dragState) {
           const distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
           if (!dragState.moved && distance < 6) return;
@@ -327,6 +350,15 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       const handlePointerDown = (event: PointerEvent) => {
         if (event.button !== 0) return;
         const book = getIntersectedBook(event);
+
+        // Inspection mode + book under pointer = orbit, not drag-to-move
+        if (isInspectingRef.current && book) {
+          orbitPointerRef.current = { pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY };
+          domElement.setPointerCapture(event.pointerId);
+          event.preventDefault();
+          return;
+        }
+
         if (!book) {
           // Free space: start pan / vertical-drag for level navigation
           panStartRef.current = { x: event.clientX, y: event.clientY };
@@ -348,6 +380,14 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       };
 
       const handlePointerUp = (event: PointerEvent) => {
+        // Orbit release in inspection mode
+        if (orbitPointerRef.current && orbitPointerRef.current.pointerId === event.pointerId) {
+          orbitPointerRef.current = null;
+          if (domElement.hasPointerCapture(event.pointerId)) domElement.releasePointerCapture(event.pointerId);
+          domElement.style.cursor = 'default';
+          return;
+        }
+
         // Vertical-drag level navigation (no book was being dragged)
         if (panStartRef.current && !dragState && onNavigateLevel && shelfLevels.length > 0) {
           const absDy = Math.abs(dragDyAccRef.current);
@@ -387,16 +427,19 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (domElement.hasPointerCapture(event.pointerId)) domElement.releasePointerCapture(event.pointerId);
       };
 
-      const handlePointerCancel = () => clearDragState();
+      const handlePointerCancel = () => {
+        orbitPointerRef.current = null;
+        clearDragState();
+      };
 
       const SCROLL_LEVEL_THRESHOLD = 80;
 
       const handleWheel = (event: WheelEvent) => {
         event.preventDefault();
         if (event.ctrlKey || event.metaKey) {
-          // Ctrl+scroll or pinch = zoom
+          // Ctrl+scroll or pinch = zoom. Scroll UP (negative deltaY) = zoom IN.
           zoomScaleRef.current = THREE.MathUtils.clamp(
-            zoomScaleRef.current - event.deltaY * 0.002,
+            zoomScaleRef.current + event.deltaY * 0.002,
             ZOOM_MIN,
             ZOOM_MAX,
           );
@@ -446,6 +489,24 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         });
 
         const selectedBook = bookGroups[selectedIndexRef.current];
+        const indexChanged = lastSelectedIndexRef.current !== selectedIndexRef.current;
+        const inspectionStarted = !lastInspectingRef.current && isInspectingRef.current;
+        lastSelectedIndexRef.current = selectedIndexRef.current;
+        lastInspectingRef.current = isInspectingRef.current;
+
+        if (inspectionStarted || indexChanged) {
+          inspectRotXRef.current = 0;
+          inspectRotYRef.current = Math.PI / 2;
+        }
+
+        if (isInspectingRef.current && selectedBook) {
+          selectedBook.setOrbitRotation(inspectRotXRef.current, inspectRotYRef.current);
+        } else {
+          // Reset orbit state when leaving inspection mode
+          inspectRotXRef.current = 0;
+          inspectRotYRef.current = Math.PI / 2;
+        }
+
         const targetPosition = isInspectingRef.current && selectedBook ? selectedBook.getFocusPosition() : null;
         const panX = panXRef.current;
         const zoom = zoomScaleRef.current;
