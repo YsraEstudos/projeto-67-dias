@@ -511,37 +511,108 @@ function createSpineTextures(item: ShelfBookManifestItem): {
 }
 
 /**
- * Extracts dominant color from cover image canvas or HTMLImageElement
+ * Dynamic book dimension scaling by page count
  */
-export function extractDominantColor(img: HTMLImageElement): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = 32;
-  canvas.height = 32;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '#162238';
+export function getBookDimensionsByPageCount(pages?: number, item?: Partial<ShelfBookManifestItem>): {
+  thickness: number;
+  height: number;
+  width: number;
+} {
+  if (typeof pages === 'number' && pages > 0) {
+    if (pages <= 150) {
+      return { thickness: 0.30, height: 2.1, width: 1.4 };
+    }
+    if (pages <= 500) {
+      return { thickness: 0.50, height: 2.6, width: 1.7 };
+    }
+    return { thickness: 0.85, height: 3.1, width: 2.0 };
+  }
+  return {
+    thickness: item?.thickness ?? 0.50,
+    height: item?.height ?? 2.6,
+    width: item?.width ?? 1.7,
+  };
+}
 
-  ctx.drawImage(img, 0, 0, 32, 32);
-  const data = ctx.getImageData(0, 0, 32, 32).data;
-  let rSum = 0, gSum = 0, bSum = 0, count = 0;
+/**
+ * Deterministic color fallback hash based on string key (e.g. title or coverUrl)
+ */
+export function getDeterministicColorHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  const saturation = 45 + (Math.abs(hash >> 8) % 30);
+  const lightness = 25 + (Math.abs(hash >> 16) % 25);
 
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-    if (a < 128) continue;
-    const brightness = (r + g + b) / 3;
-    if (brightness > 245 || brightness < 15) continue;
-    rSum += r;
-    gSum += g;
-    bSum += b;
-    count++;
+  const h = hue / 360;
+  const s = saturation / 100;
+  const l = lightness / 100;
+
+  let r: number, g: number, b: number;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const hue2rgb = (t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    r = hue2rgb(h + 1 / 3);
+    g = hue2rgb(h);
+    b = hue2rgb(h - 1 / 3);
   }
 
-  if (count === 0) return '#162238';
+  const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
 
-  const avgR = Math.round(rSum / count);
-  const avgG = Math.round(gSum / count);
-  const avgB = Math.round(bSum / count);
+/**
+ * Extracts dominant color from cover image canvas or HTMLImageElement with CORS resilience
+ */
+export function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement, fallbackKey = 'book'): string {
+  try {
+    if (img instanceof HTMLImageElement) {
+      img.crossOrigin = 'anonymous';
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return getDeterministicColorHash(fallbackKey);
 
-  return `#${((1 << 24) + (avgR << 16) + (avgG << 8) + avgB).toString(16).slice(1)}`;
+    ctx.drawImage(img, 0, 0, 32, 32);
+    const data = ctx.getImageData(0, 0, 32, 32).data;
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+      if (a < 128) continue;
+      const brightness = (r + g + b) / 3;
+      if (brightness > 245 || brightness < 15) continue;
+      rSum += r;
+      gSum += g;
+      bSum += b;
+      count++;
+    }
+
+    if (count === 0) return getDeterministicColorHash(fallbackKey);
+
+    const avgR = Math.round(rSum / count);
+    const avgG = Math.round(gSum / count);
+    const avgB = Math.round(bSum / count);
+
+    return `#${((1 << 24) + (avgR << 16) + (avgG << 8) + avgB).toString(16).slice(1)}`;
+  } catch {
+    return getDeterministicColorHash(fallbackKey);
+  }
 }
 
 /**
@@ -663,13 +734,20 @@ export class BookMeshGroup {
   private clothMaterials: THREE.MeshStandardMaterial[] = [];
   private frontCoverMaterial: THREE.MeshStandardMaterial | null = null;
   private backCoverMaterial: THREE.MeshStandardMaterial | null = null;
+  private spineMaterial: THREE.MeshStandardMaterial | null = null;
   private baseClothMaterial: THREE.MeshStandardMaterial | null = null;
   private glowMesh: THREE.Mesh | null = null;
   private texturesToDispose: THREE.Texture[] = [];
   private isDisposed: boolean = false;
 
   constructor(item: ShelfBookManifestItem, position: THREE.Vector3) {
-    this.item = item;
+    const dynamicDims = getBookDimensionsByPageCount(item.pages, item);
+    this.item = {
+      ...item,
+      thickness: dynamicDims.thickness,
+      height: dynamicDims.height,
+      width: dynamicDims.width,
+    };
     this.group = new THREE.Group();
     this.basePosition = position.clone();
     this.baseRotation = new THREE.Euler(0, 0, 0);
@@ -744,6 +822,7 @@ export class BookMeshGroup {
     this.clothMaterials.push(baseClothMat, frontCoverMat, spineMat, backCoverMat);
     this.frontCoverMaterial = frontCoverMat;
     this.backCoverMaterial = backCoverMat;
+    this.spineMaterial = spineMat;
     this.baseClothMaterial = baseClothMat;
 
     // 2. Closed Book Geometry Assembly
@@ -839,6 +918,22 @@ export class BookMeshGroup {
     });
   }
 
+  public updateBindingColor(hexColor: string) {
+    const color = new THREE.Color(hexColor);
+    if (this.baseClothMaterial) {
+      this.baseClothMaterial.color.copy(color);
+      this.baseClothMaterial.needsUpdate = true;
+    }
+    if (this.spineMaterial) {
+      this.spineMaterial.color.copy(color);
+      this.spineMaterial.needsUpdate = true;
+    }
+    if (this.backCoverMaterial) {
+      this.backCoverMaterial.color.copy(color);
+      this.backCoverMaterial.needsUpdate = true;
+    }
+  }
+
   private loadCoverTexture(coverUrl: string) {
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
@@ -863,20 +958,22 @@ export class BookMeshGroup {
         this.texturesToDispose.push(texture);
 
         // Dominant Color Extraction if customColor is not specified
-        if (!this.item.customColor && texture.image && texture.image instanceof HTMLImageElement) {
-          try {
-            const dominantHex = extractDominantColor(texture.image);
-            if (this.baseClothMaterial) {
-              this.baseClothMaterial.color.set(dominantHex);
-            }
-          } catch {
-            // Ignore CORS canvas sampling restrictions safely
+        if (!this.item.customColor) {
+          const fallbackKey = coverUrl || this.item.title || this.item.id;
+          let dominantHex = getDeterministicColorHash(fallbackKey);
+          if (texture.image && (texture.image instanceof HTMLImageElement || texture.image instanceof HTMLCanvasElement)) {
+            dominantHex = extractDominantColor(texture.image, fallbackKey);
           }
+          this.updateBindingColor(dominantHex);
         }
       },
       undefined,
       () => {
-        // Keep procedural cover when remote image fails
+        if (!this.item.customColor) {
+          const fallbackKey = coverUrl || this.item.title || this.item.id;
+          const fallbackHex = getDeterministicColorHash(fallbackKey);
+          this.updateBindingColor(fallbackHex);
+        }
       },
     );
   }

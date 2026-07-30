@@ -240,9 +240,11 @@ describe('ShelfMesh', () => {
       levelCount: 4,
     });
 
-    const shelfBoards = shelf.group.children.filter((child) => child instanceof THREE.Mesh);
+    const shelfBoards = shelf.group.children.filter(
+      (child): child is THREE.Mesh => child instanceof THREE.Mesh && child.geometry instanceof THREE.ExtrudeGeometry,
+    );
     expect(shelfBoards.length).toBeGreaterThanOrEqual(4);
-    expect((shelfBoards[0] as THREE.Mesh).geometry).toBe((shelfBoards[1] as THREE.Mesh).geometry);
+    expect(shelfBoards[0].geometry).toBe(shelfBoards[1].geometry);
 
     shelf.dispose();
   });

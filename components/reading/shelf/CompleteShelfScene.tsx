@@ -251,6 +251,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         thickness: 0.35,
         levelCount,
         levelSpacing: SHELF_LEVEL_SPACING,
+        levels: shelfLevels,
       });
       scene.add(shelfGroup.group);
 
@@ -416,15 +417,15 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
       const handlePointerDown = (event: PointerEvent) => {
         if (event.pointerType === 'touch' || event.button !== 0) return;
-        const book = getIntersectedBook(event);
 
-        if (isInspectingRef.current && book) {
+        if (isInspectingRef.current) {
           orbitPointerRef.current = { pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY };
           domElement.setPointerCapture(event.pointerId);
           event.preventDefault();
           return;
         }
 
+        const book = getIntersectedBook(event);
         if (!book) {
           panStartRef.current = { x: event.clientX, y: event.clientY };
           dragDyAccRef.current = 0;
@@ -459,7 +460,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           const absDy = Math.abs(dragDyAccRef.current);
           const absDx = Math.abs(event.clientX - panStartRef.current.x);
           if (absDy > DRAG_LEVEL_THRESHOLD && absDx < DRAG_PAN_HORIZONTAL_THRESHOLD + absDy * 0.5) {
-            const direction = dragDyAccRef.current > 0 ? 1 : -1;
+            const direction = dragDyAccRef.current < 0 ? 1 : -1;
             const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
             const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
             if (targetIndex !== activeIndex) {
@@ -517,7 +518,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
           const book = getIntersectedBookFromCoords(x, y);
 
-          if (isInspectingRef.current && book) {
+          if (isInspectingRef.current) {
             touchStateRef.current.touchDragBook = null;
           } else if (!isInspectingRef.current && book) {
             touchStateRef.current.touchDragBook = {
@@ -676,7 +677,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           } else if (startPos && !isInspectingRef.current && onNavigateLevel && shelfLevelsRef.current.length > 0) {
             const absDy = Math.abs(dragDyAcc);
             if (absDy > DRAG_LEVEL_THRESHOLD) {
-              const direction = dragDyAcc > 0 ? 1 : -1;
+              const direction = dragDyAcc < 0 ? 1 : -1;
               const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
               const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
               if (targetIndex !== activeIndex) {
@@ -749,7 +750,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
         scrollTimerRef.current = setTimeout(() => { scrollAccRef.current = 0; }, 400);
         if (Math.abs(scrollAccRef.current) < SCROLL_LEVEL_THRESHOLD) return;
-        const direction = scrollAccRef.current > 0 ? 1 : -1;
+        const direction = scrollAccRef.current < 0 ? 1 : -1;
         scrollAccRef.current %= SCROLL_LEVEL_THRESHOLD;
         const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
         const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);

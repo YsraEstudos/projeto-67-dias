@@ -72,6 +72,16 @@ function calculateReadingStreak(books: IBook[]): number {
   return streak;
 }
 
+export function calculateBookDimensions(pages: number) {
+  if (pages <= 150) {
+    return { pages, thickness: 0.30, height: 2.1, width: 1.4 };
+  }
+  if (pages <= 500) {
+    return { pages, thickness: 0.50, height: 2.6, width: 1.7 };
+  }
+  return { pages, thickness: 0.85, height: 3.1, width: 2.0 };
+}
+
 export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
   // Store Subscription
   const { books, folders, shelfLevels } = useReadingStore(
@@ -131,13 +141,18 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
     if (filteredBooks.length === 0) return MINT_BOOK_MANIFEST;
     return filteredBooks.map((book, index) => {
       const manifestTemplate = MINT_BOOK_MANIFEST[index % MINT_BOOK_MANIFEST.length];
+      const pageCount = book.total || manifestTemplate.pages;
+      const dims = calculateBookDimensions(pageCount);
       return {
         ...manifestTemplate,
         id: book.id,
         title: book.title || manifestTemplate.title,
         author: book.author || manifestTemplate.author,
         coverUrl: book.coverUrl || undefined,
-        pages: book.total || manifestTemplate.pages,
+        pages: dims.pages,
+        height: dims.height,
+        width: dims.width,
+        thickness: dims.thickness,
         genre: book.genre || manifestTemplate.genre,
         customColor: book.customColor || undefined,
         notes: book.notes || '',
@@ -303,6 +318,9 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
                 setActiveCategory(cat);
                 setSelectedIndex(0);
               }}
+              shelfLevels={shelfLevels}
+              activeLevelId={activeShelfLevelId}
+              onNavigateLevel={setActiveShelfLevelId}
             />
 
             {/* Inspection Drawer Overlay */}

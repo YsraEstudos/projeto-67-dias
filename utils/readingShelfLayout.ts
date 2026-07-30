@@ -50,15 +50,21 @@ export function normalizeShelfLevels(levels?: ReadingShelfLevel[] | null): Readi
     .map((level, index) => ({ ...level, position: index }));
 }
 
-type IndexedShelfBook<T extends ShelfLayoutBook> = T & { sourceIndex: number };
+export interface ShelfBookAssignment {
+  id: string;
+  shelfLevelId?: string;
+  shelfPosition?: number;
+}
 
-function compareShelfBooks<T extends ShelfLayoutBook>(a: IndexedShelfBook<T>, b: IndexedShelfBook<T>) {
+type IndexedShelfBook<T extends ShelfBookAssignment> = T & { sourceIndex: number };
+
+function compareShelfBooks<T extends ShelfBookAssignment>(a: IndexedShelfBook<T>, b: IndexedShelfBook<T>) {
   const aPosition = Number.isFinite(a.shelfPosition) ? a.shelfPosition! : Number.POSITIVE_INFINITY;
   const bPosition = Number.isFinite(b.shelfPosition) ? b.shelfPosition! : Number.POSITIVE_INFINITY;
   return aPosition - bPosition || a.sourceIndex - b.sourceIndex;
 }
 
-export function normalizeBookShelfAssignments<T extends ShelfLayoutBook>(
+export function normalizeBookShelfAssignments<T extends ShelfBookAssignment>(
   books: T[],
   levels: ReadingShelfLevel[],
 ): T[] {
@@ -133,7 +139,7 @@ export function buildShelfLayout<T extends ShelfLayoutBook>(
   return layout;
 }
 
-export function moveBookToShelfLevel<T extends ShelfLayoutBook>(
+export function moveBookToShelfLevel<T extends ShelfBookAssignment>(
   books: T[],
   bookId: string,
   targetLevelId: string,
@@ -177,7 +183,7 @@ export function moveBookToShelfLevel<T extends ShelfLayoutBook>(
   }));
 }
 
-export function countBooksByShelfLevel(books: ShelfLayoutBook[], levels: ReadingShelfLevel[]) {
+export function countBooksByShelfLevel(books: { shelfLevelId?: string }[], levels: ReadingShelfLevel[]) {
   const counts = new Map(normalizeShelfLevels(levels).map((level) => [level.id, 0]));
   books.forEach((book) => {
     const levelId = book.shelfLevelId ?? DEFAULT_SHELF_LEVEL_ID;

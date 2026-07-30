@@ -16,6 +16,7 @@ import EditorialHeader from '../../../components/reading/shelf/EditorialHeader';
 import ShelfLevelRail from '../../../components/reading/shelf/ShelfLevelRail';
 import ShelfNavigationHUD from '../../../components/reading/shelf/ShelfNavigationHUD';
 import BookInspectionOverlay from '../../../components/reading/shelf/BookInspectionOverlay';
+import { calculateBookDimensions } from '../../../components/views/ReadingView';
 import type { Book, ReadingShelfLevel } from '../../../types';
 
 const sampleBooks: Book[] = [
@@ -325,5 +326,71 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     const mockImg = document.createElement('img');
     const hex = extractDominantColor(mockImg);
     expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+
+  it('calculates page-count based book dimensions correctly across all tiers', () => {
+    // <= 150 pages tier
+    expect(calculateBookDimensions(100)).toEqual({ pages: 100, thickness: 0.30, height: 2.1, width: 1.4 });
+    expect(calculateBookDimensions(150)).toEqual({ pages: 150, thickness: 0.30, height: 2.1, width: 1.4 });
+
+    // 151 - 500 pages tier
+    expect(calculateBookDimensions(151)).toEqual({ pages: 151, thickness: 0.50, height: 2.6, width: 1.7 });
+    expect(calculateBookDimensions(500)).toEqual({ pages: 500, thickness: 0.50, height: 2.6, width: 1.7 });
+
+    // > 500 pages tier
+    expect(calculateBookDimensions(501)).toEqual({ pages: 501, thickness: 0.85, height: 3.1, width: 2.0 });
+    expect(calculateBookDimensions(1000)).toEqual({ pages: 1000, thickness: 0.85, height: 3.1, width: 2.0 });
+  });
+
+  it('ShelfNavigationHUD inverted controls move Up (▲) to previous level index and Down (▼) to next level index', () => {
+    const onNavigateLevel = vi.fn();
+
+    // Render with active level at index 1 ('level-2')
+    const { unmount } = render(
+      <ShelfNavigationHUD
+        books={sampleBooks}
+        selectedIndex={0}
+        onSelectIndex={vi.fn()}
+        isInspecting={false}
+        onToggleInspection={vi.fn()}
+        onPrevBook={vi.fn()}
+        onNextBook={vi.fn()}
+        shelfLevels={sampleLevels}
+        activeLevelId="level-2"
+        onNavigateLevel={onNavigateLevel}
+      />,
+    );
+
+    // Up (▲) button moves to previous/higher level index (index 0: 'level-1')
+    const upButton = screen.getByRole('button', { name: 'Andar Anterior (▲)' });
+    expect(upButton).toBeInTheDocument();
+    expect(upButton.className).toContain('min-h-[44px]');
+    fireEvent.click(upButton);
+    expect(onNavigateLevel).toHaveBeenCalledWith('level-1');
+
+    unmount();
+
+    // Render with active level at index 0 ('level-1')
+    render(
+      <ShelfNavigationHUD
+        books={sampleBooks}
+        selectedIndex={0}
+        onSelectIndex={vi.fn()}
+        isInspecting={false}
+        onToggleInspection={vi.fn()}
+        onPrevBook={vi.fn()}
+        onNextBook={vi.fn()}
+        shelfLevels={sampleLevels}
+        activeLevelId="level-1"
+        onNavigateLevel={onNavigateLevel}
+      />,
+    );
+
+    // Down (▼) button moves to next/lower level index (index 1: 'level-2')
+    const downButton = screen.getByRole('button', { name: 'Próximo Andar (▼)' });
+    expect(downButton).toBeInTheDocument();
+    expect(downButton.className).toContain('min-h-[44px]');
+    fireEvent.click(downButton);
+    expect(onNavigateLevel).toHaveBeenCalledWith('level-2');
   });
 });

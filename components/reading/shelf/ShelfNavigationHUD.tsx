@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, Grab, Book as BookIcon, Layers, Filter, X } from 'lucide-react';
-import { Book } from '../../../types';
+import { ChevronLeft, ChevronRight, Eye, Grab, Book as BookIcon, Layers, Filter, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Book, ReadingShelfLevel } from '../../../types';
 import type { ReadingCategoryFilter } from './EditorialHeader';
 
 interface ShelfNavigationHUDProps {
@@ -15,6 +15,9 @@ interface ShelfNavigationHUDProps {
   onSelectCategory?: (category: ReadingCategoryFilter) => void;
   onToggleShelfLevels?: () => void;
   onOpenShelfLevels?: () => void;
+  shelfLevels?: ReadingShelfLevel[];
+  activeLevelId?: string | null;
+  onNavigateLevel?: (levelId: string) => void;
 }
 
 const CATEGORY_LABELS: Record<ReadingCategoryFilter, string> = {
@@ -36,6 +39,9 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
   onSelectCategory,
   onToggleShelfLevels,
   onOpenShelfLevels,
+  shelfLevels,
+  activeLevelId,
+  onNavigateLevel,
 }) => {
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
@@ -56,6 +62,26 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
   const currentBook = books.length > 0 && selectedIndex >= 0 && selectedIndex < books.length
     ? books[selectedIndex]
     : null;
+
+  const activeLevelIndex = shelfLevels && activeLevelId
+    ? shelfLevels.findIndex((l) => l.id === activeLevelId)
+    : 0;
+
+  const handlePrevLevel = () => {
+    if (!shelfLevels || !onNavigateLevel || shelfLevels.length === 0) return;
+    const targetIndex = Math.max(0, activeLevelIndex - 1);
+    if (targetIndex !== activeLevelIndex && shelfLevels[targetIndex]) {
+      onNavigateLevel(shelfLevels[targetIndex].id);
+    }
+  };
+
+  const handleNextLevel = () => {
+    if (!shelfLevels || !onNavigateLevel || shelfLevels.length === 0) return;
+    const targetIndex = Math.min(shelfLevels.length - 1, activeLevelIndex + 1);
+    if (targetIndex !== activeLevelIndex && shelfLevels[targetIndex]) {
+      onNavigateLevel(shelfLevels[targetIndex].id);
+    }
+  };
 
   const totalCount = books.length;
   const markerLimit = windowWidth < 360 ? 12 : windowWidth < 480 ? 20 : windowWidth < 768 ? 36 : 80;
@@ -264,6 +290,34 @@ export const ShelfNavigationHUD: React.FC<ShelfNavigationHUDProps> = ({
             
             {/* Navigation Arrows */}
             <div className="flex items-center gap-1">
+              {shelfLevels && shelfLevels.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrevLevel}
+                    disabled={activeLevelIndex <= 0}
+                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-slate-200 transition-all hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Andar Anterior (▲)"
+                    title="Andar Anterior (▲)"
+                  >
+                    <ChevronUp className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNextLevel}
+                    disabled={activeLevelIndex >= shelfLevels.length - 1}
+                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-slate-200 transition-all hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Próximo Andar (▼)"
+                    title="Próximo Andar (▼)"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </button>
+
+                  <div className="mx-1 h-5 w-[1px] bg-slate-700/80" />
+                </>
+              )}
+
               <button
                 type="button"
                 onClick={onPrevBook}
