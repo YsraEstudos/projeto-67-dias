@@ -93,6 +93,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   const zoomScaleRef = useRef(1.0);
   const panStartRef = useRef<{ x: number; y: number } | null>(null);
   const dragDyAccRef = useRef(0);
+  const scrollAccRef = useRef(0);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedIndexRef = useRef(selectedIndex);
   const isInspectingRef = useRef(isInspecting);
@@ -387,6 +389,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
       const handlePointerCancel = () => clearDragState();
 
+      const SCROLL_LEVEL_THRESHOLD = 80;
+
       const handleWheel = (event: WheelEvent) => {
         event.preventDefault();
         if (event.ctrlKey || event.metaKey) {
@@ -396,14 +400,30 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
             ZOOM_MIN,
             ZOOM_MAX,
           );
-        } else {
-          // Plain scroll = horizontal pan
+          return;
+        }
+        if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+          // Shift+scroll or natural horizontal scroll = horizontal pan
           const panDelta = (event.deltaY || event.deltaX) * 0.004;
           panXRef.current = THREE.MathUtils.clamp(
             panXRef.current - panDelta,
             -shelfWidth,
             shelfWidth,
           );
+          return;
+        }
+        // Natural vertical scroll = navigate between levels
+        if (!onNavigateLevel || shelfLevels.length < 2) return;
+        scrollAccRef.current += event.deltaY;
+        if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+        scrollTimerRef.current = setTimeout(() => { scrollAccRef.current = 0; }, 400);
+        if (Math.abs(scrollAccRef.current) < SCROLL_LEVEL_THRESHOLD) return;
+        const direction = scrollAccRef.current > 0 ? 1 : -1;
+        scrollAccRef.current %= SCROLL_LEVEL_THRESHOLD;
+        const activeIndex = shelfLevels.findIndex((level) => level.id === activeLevelId);
+        const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevels.length - 1);
+        if (targetIndex !== activeIndex) {
+          onNavigateLevel(shelfLevels[targetIndex].id);
         }
       };
 
@@ -449,6 +469,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       animate(performance.now());
 
       return () => {
+        if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
         window.removeEventListener('blur', handlePointerCancel);
         domElement.removeEventListener('pointermove', handlePointerMove);
         domElement.removeEventListener('pointerdown', handlePointerDown);
