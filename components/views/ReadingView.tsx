@@ -296,6 +296,11 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
               onToggleInspection={handleToggleInspection}
               onPrevBook={handlePrevBook}
               onNextBook={handleNextBook}
+              activeCategory={activeCategory}
+              onSelectCategory={(cat) => {
+                setActiveCategory(cat);
+                setSelectedIndex(0);
+              }}
             />
 
             {/* Inspection Drawer Overlay */}

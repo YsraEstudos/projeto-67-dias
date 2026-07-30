@@ -128,7 +128,7 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
       />,
     );
 
-    const navBackButton = screen.getByRole('button', { name: 'Voltar ao painel principal' });
+    const navBackButton = screen.getAllByRole('button', { name: 'Voltar ao painel principal' })[0];
     expect(navBackButton).toBeInTheDocument();
     expect(navBackButton.className).toContain('min-h-[44px]');
 
@@ -212,16 +212,87 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
       />,
     );
 
-    const prevBtn = screen.getByRole('button', { name: 'Livro Anterior' });
-    const nextBtn = screen.getByRole('button', { name: 'Próximo Livro' });
-    const inspectBtn = screen.getByRole('button', { name: 'Inspecionar detalhes do livro' });
+    const prevBtns = screen.getAllByRole('button', { name: 'Livro Anterior' });
+    const nextBtns = screen.getAllByRole('button', { name: 'Próximo Livro' });
+    const inspectBtns = screen.getAllByRole('button', { name: 'Inspecionar detalhes do livro' });
 
-    expect(prevBtn.className).toContain('min-h-[44px]');
-    expect(nextBtn.className).toContain('min-h-[44px]');
-    expect(inspectBtn.className).toContain('min-h-[44px]');
+    expect(prevBtns[0].className).toContain('min-h-[44px]');
+    expect(nextBtns[0].className).toContain('min-h-[44px]');
+    expect(inspectBtns[0].className).toContain('min-h-[44px]');
 
-    fireEvent.click(inspectBtn);
+    fireEvent.click(inspectBtns[0]);
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('EditorialHeader opens MobileOptionsSheet with accessible 44x44px controls', () => {
+    const onAdd = vi.fn();
+    const onToggleMode = vi.fn();
+
+    render(
+      <EditorialHeader
+        activeCategory="ALL"
+        onSelectCategory={vi.fn()}
+        totalBooksCount={12}
+        readingStreakDays={5}
+        onOpenAddBook={onAdd}
+        is3DMode
+        onToggleViewMode={onToggleMode}
+      />,
+    );
+
+    const optionsBtn = screen.getByRole('button', { name: 'Abrir menu de opções' });
+    expect(optionsBtn).toBeInTheDocument();
+    expect(optionsBtn.className).toContain('min-h-[44px]');
+
+    fireEvent.click(optionsBtn);
+
+    const sheetDialog = screen.getByRole('dialog', { name: 'Menu de opções da estante' });
+    expect(sheetDialog).toBeInTheDocument();
+
+    expect(screen.getByText('Ofensiva de Leitura')).toBeInTheDocument();
+    expect(screen.getByText('Total de Livros')).toBeInTheDocument();
+
+    const toggleBtn = screen.getAllByRole('button', { name: 'Alternar para Modo 2D' });
+    fireEvent.click(toggleBtn[0]);
+    expect(onToggleMode).toHaveBeenCalledTimes(1);
+  });
+
+  it('ShelfNavigationHUD renders Unified Mobile Control Hub and opens CategoryBottomSheet with exact chip styling', () => {
+    const onSelectCat = vi.fn();
+
+    render(
+      <ShelfNavigationHUD
+        books={sampleBooks}
+        selectedIndex={0}
+        onSelectIndex={vi.fn()}
+        isInspecting={false}
+        onToggleInspection={vi.fn()}
+        onPrevBook={vi.fn()}
+        onNextBook={vi.fn()}
+        activeCategory="ALL"
+        onSelectCategory={onSelectCat}
+      />,
+    );
+
+    const andaresBtn = screen.getByRole('button', { name: 'Abrir gaveta de andares' });
+    expect(andaresBtn).toBeInTheDocument();
+    expect(andaresBtn.className).toContain('min-h-[44px]');
+
+    const filtrosBtn = screen.getByRole('button', { name: 'Abrir filtros de categoria' });
+    expect(filtrosBtn).toBeInTheDocument();
+    expect(filtrosBtn.className).toContain('min-h-[44px]');
+
+    fireEvent.click(filtrosBtn);
+
+    const sheetDialog = screen.getByRole('dialog', { name: 'Filtros de Categoria' });
+    expect(sheetDialog).toBeInTheDocument();
+
+    const selectedChip = screen.getByRole('button', { name: 'Filtrar por Todos' });
+    expect(selectedChip.className).toContain('border border-[#D4AF37] bg-[#D4AF37]/15 font-semibold text-[#F3D274] shadow-xs');
+
+    const readingChip = screen.getByRole('button', { name: 'Filtrar por Lendo' });
+    fireEvent.click(readingChip);
+    expect(onSelectCat).toHaveBeenCalledWith('READING');
   });
 
   it('BookInspectionOverlay renders drag handle and touch-friendly progress buttons on mobile overlay', () => {
