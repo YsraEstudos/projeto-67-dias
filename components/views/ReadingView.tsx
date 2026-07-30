@@ -264,11 +264,13 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
               shelfItems={shelfItems}
               shelfLevels={shelfLevels}
               shelfLayout={shelfLayout}
+              activeLevelId={activeShelfLevelId}
               selectedIndex={selectedIndex}
               onSelectIndex={setSelectedIndex}
               onOpenInspection={handleOpenInspection}
               onMoveBookToShelfLevel={handleMoveBookToShelfLevel}
               onDragStateChange={handleDragStateChange}
+              onNavigateLevel={setActiveShelfLevelId}
               isInspecting={isInspecting}
             />
 

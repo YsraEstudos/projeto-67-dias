@@ -37,15 +37,22 @@ export function getShelfLevelFromPointer(
   return levels[visualIndex] ?? null;
 }
 
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 3.0;
+const DRAG_LEVEL_THRESHOLD = 60;
+const DRAG_PAN_HORIZONTAL_THRESHOLD = 40;
+
 interface CompleteShelfSceneProps {
   shelfItems: ShelfBookManifestItem[];
   shelfLevels: ReadingShelfLevel[];
   shelfLayout: ShelfLayoutEntry[];
+  activeLevelId: string | null;
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
   onOpenInspection: (index: number) => void;
   onMoveBookToShelfLevel: (bookId: string, shelfLevelId: string, position?: number) => void;
   onDragStateChange?: (bookId: string | null, shelfLevelId: string | null) => void;
+  onNavigateLevel?: (levelId: string) => void;
   isInspecting: boolean;
 }
 
@@ -69,16 +76,23 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   shelfItems,
   shelfLevels,
   shelfLayout,
+  activeLevelId,
   selectedIndex,
   onSelectIndex,
   onOpenInspection,
   onMoveBookToShelfLevel,
   onDragStateChange,
+  onNavigateLevel,
   isInspecting,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [webGLError, setWebGLError] = useState(false);
+
+  const panXRef = useRef(0);
+  const zoomScaleRef = useRef(1.0);
+  const panStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragDyAccRef = useRef(0);
 
   const selectedIndexRef = useRef(selectedIndex);
   const isInspectingRef = useRef(isInspecting);
@@ -286,13 +300,39 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           hoveredMesh = book;
           hoveredMesh?.setHovered(true);
         }
-        domElement.style.cursor = book ? 'grab' : 'default';
+
+        if (book) {
+          domElement.style.cursor = 'grab';
+          return;
+        }
+
+        // No book under pointer: pan horizontally + accumulate vertical drag for level change
+        if (panStartRef.current) {
+          const dx = event.clientX - panStartRef.current.x;
+          const dy = event.clientY - panStartRef.current.y;
+          panXRef.current = THREE.MathUtils.clamp(
+            panXRef.current - dx * 0.006,
+            -shelfWidth,
+            shelfWidth,
+          );
+          dragDyAccRef.current += dy;
+          domElement.style.cursor = 'grabbing';
+        } else {
+          domElement.style.cursor = 'default';
+        }
       };
 
       const handlePointerDown = (event: PointerEvent) => {
         if (event.button !== 0) return;
         const book = getIntersectedBook(event);
-        if (!book) return;
+        if (!book) {
+          // Free space: start pan / vertical-drag for level navigation
+          panStartRef.current = { x: event.clientX, y: event.clientY };
+          dragDyAccRef.current = 0;
+          domElement.setPointerCapture(event.pointerId);
+          event.preventDefault();
+          return;
+        }
         dragState = {
           book,
           pointerId: event.pointerId,
@@ -306,6 +346,28 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       };
 
       const handlePointerUp = (event: PointerEvent) => {
+        // Vertical-drag level navigation (no book was being dragged)
+        if (panStartRef.current && !dragState && onNavigateLevel && shelfLevels.length > 0) {
+          const absDy = Math.abs(dragDyAccRef.current);
+          const absDx = Math.abs(event.clientX - panStartRef.current.x);
+          if (absDy > DRAG_LEVEL_THRESHOLD && absDx < DRAG_PAN_HORIZONTAL_THRESHOLD + absDy * 0.5) {
+            const direction = dragDyAccRef.current > 0 ? 1 : -1;
+            const activeIndex = shelfLevels.findIndex((level) => level.id === activeLevelId);
+            const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevels.length - 1);
+            if (targetIndex !== activeIndex) {
+              onNavigateLevel(shelfLevels[targetIndex].id);
+            }
+          }
+          panStartRef.current = null;
+          dragDyAccRef.current = 0;
+          if (domElement.hasPointerCapture(event.pointerId)) domElement.releasePointerCapture(event.pointerId);
+          domElement.style.cursor = 'default';
+          return;
+        }
+
+        panStartRef.current = null;
+        dragDyAccRef.current = 0;
+
         if (!dragState || dragState.pointerId !== event.pointerId) return;
         const completedDrag = dragState.moved && dragState.targetLevelId;
         const book = dragState.book;
@@ -324,10 +386,32 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       };
 
       const handlePointerCancel = () => clearDragState();
+
+      const handleWheel = (event: WheelEvent) => {
+        event.preventDefault();
+        if (event.ctrlKey || event.metaKey) {
+          // Ctrl+scroll or pinch = zoom
+          zoomScaleRef.current = THREE.MathUtils.clamp(
+            zoomScaleRef.current - event.deltaY * 0.002,
+            ZOOM_MIN,
+            ZOOM_MAX,
+          );
+        } else {
+          // Plain scroll = horizontal pan
+          const panDelta = (event.deltaY || event.deltaX) * 0.004;
+          panXRef.current = THREE.MathUtils.clamp(
+            panXRef.current - panDelta,
+            -shelfWidth,
+            shelfWidth,
+          );
+        }
+      };
+
       domElement.addEventListener('pointermove', handlePointerMove);
       domElement.addEventListener('pointerdown', handlePointerDown);
       domElement.addEventListener('pointerup', handlePointerUp);
       domElement.addEventListener('pointercancel', handlePointerCancel);
+      domElement.addEventListener('wheel', handleWheel, { passive: false });
       window.addEventListener('blur', handlePointerCancel);
 
       let lastTime = performance.now();
@@ -343,16 +427,22 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
         const selectedBook = bookGroups[selectedIndexRef.current];
         const targetPosition = isInspectingRef.current && selectedBook ? selectedBook.getFocusPosition() : null;
-        const targetCamX = targetPosition?.x ?? 0;
+        const panX = panXRef.current;
+        const zoom = zoomScaleRef.current;
+        const effectiveCamZ = shelfCameraDistance * zoom;
+        const targetCamX = targetPosition ? targetPosition.x + panX : panX;
         const targetCamY = targetPosition ? targetPosition.y + selectedBook!.item.height / 2 + 0.2 : contentHeight / 2;
-        const targetCamZ = targetPosition ? targetPosition.z + 4.8 : shelfCameraDistance;
+        const targetCamZ = targetPosition ? targetPosition.z + 4.8 : effectiveCamZ;
+        const lookAtX = targetPosition ? targetPosition.x : panX;
         const lookAtY = targetPosition ? targetPosition.y + selectedBook!.item.height / 2 : contentHeight / 2 - 0.5;
         const lookAtZ = targetPosition?.z ?? 0;
 
         camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, delta * 4);
         camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, delta * 4);
         camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, delta * 4);
-        camera.lookAt(targetCamX, lookAtY, lookAtZ);
+        camera.lookAt(lookAtX, lookAtY, lookAtZ);
+        camera.far = Math.max(effectiveCamZ * 8, 80);
+        camera.updateProjectionMatrix();
         renderer.render(scene, camera);
       };
 
@@ -364,6 +454,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         domElement.removeEventListener('pointerdown', handlePointerDown);
         domElement.removeEventListener('pointerup', handlePointerUp);
         domElement.removeEventListener('pointercancel', handlePointerCancel);
+        domElement.removeEventListener('wheel', handleWheel);
         resizeObserver?.disconnect();
         if (resizeFrameId !== null) cancelAnimationFrame(resizeFrameId);
         cancelAnimationFrame(animationFrameId);
