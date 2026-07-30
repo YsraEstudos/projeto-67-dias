@@ -314,7 +314,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
           </div>
         ) : (
           /* 2D Library Grid Fallback Mode */
-          <div className="p-6 max-w-7xl mx-auto w-full bg-[#FDFBF7] flex-1">
+          <div className="mx-auto w-full max-w-7xl flex-1 overflow-y-auto bg-[#080B10] p-4 sm:p-6 pb-20">
             <DashboardView
               books={filteredBooks}
               viewMode="grid"
