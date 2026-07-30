@@ -86,6 +86,60 @@ export interface ShelfMeshOptions {
   levels?: { id: string; name: string; position?: number }[];
 }
 
+const cachedNameplateTextures = new Map<string, THREE.CanvasTexture>();
+
+function getNameplateTexture(name: string): THREE.CanvasTexture {
+  const key = name.toUpperCase();
+  const cached = cachedNameplateTextures.get(key);
+  if (cached) return cached;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  if (ctx) {
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, 128);
+    bgGrad.addColorStop(0, '#FFFFFF');
+    bgGrad.addColorStop(0.5, '#FDFBF7');
+    bgGrad.addColorStop(1, '#F3EEE3');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 512, 128);
+
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(8, 8, 496, 112);
+
+    ctx.strokeStyle = '#9A7B2C';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(14, 14, 484, 100);
+
+    ctx.fillStyle = '#D4AF37';
+    const rivets = [
+      [24, 24],
+      [488, 24],
+      [24, 104],
+      [488, 104],
+    ];
+    rivets.forEach(([x, y]) => {
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.fillStyle = '#1A1817';
+    ctx.font = 'bold 32px "Cinzel", "Georgia", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(key, 256, 64);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  cachedNameplateTextures.set(key, texture);
+  return texture;
+}
+
 export class ShelfNameplateMesh {
   public mesh: THREE.Mesh;
   public texture: THREE.CanvasTexture;
@@ -94,53 +148,7 @@ export class ShelfNameplateMesh {
   private brassMaterial: THREE.MeshStandardMaterial;
 
   constructor(name: string, width = 2.4, height = 0.32, depth = 0.02) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-
-    if (ctx) {
-      // Cream/White enamel plaque background
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, 128);
-      bgGrad.addColorStop(0, '#FFFFFF');
-      bgGrad.addColorStop(0.5, '#FDFBF7');
-      bgGrad.addColorStop(1, '#F3EEE3');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, 512, 128);
-
-      // Polished gold border trim
-      ctx.strokeStyle = '#D4AF37';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(8, 8, 496, 112);
-
-      ctx.strokeStyle = '#9A7B2C';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(14, 14, 484, 100);
-
-      // Corner rivet accent dots
-      ctx.fillStyle = '#D4AF37';
-      const rivets = [
-        [24, 24],
-        [488, 24],
-        [24, 104],
-        [488, 104],
-      ];
-      rivets.forEach(([x, y]) => {
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // Crisp serif text displaying level name
-      ctx.fillStyle = '#1A1817';
-      ctx.font = 'bold 32px "Cinzel", "Georgia", serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(name.toUpperCase(), 256, 64);
-    }
-
-    this.texture = new THREE.CanvasTexture(canvas);
-    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.texture = getNameplateTexture(name);
 
     this.geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -171,7 +179,7 @@ export class ShelfNameplateMesh {
   }
 
   public dispose() {
-    this.texture.dispose();
+    // texture is cached/shared — do NOT dispose it here
     this.geometry.dispose();
     this.material.dispose();
     this.brassMaterial.dispose();
@@ -258,7 +266,7 @@ export class ShelfMeshGroup {
       );
       nameplate.mesh.position.set(0, levelY - thickness / 2, depth / 2 + 0.02);
       this.group.add(nameplate.mesh);
-      this.texturesToDispose.push(nameplate.texture);
+      // nameplate texture is cached — do NOT add to texturesToDispose
       this.materialsToDispose.push(nameplate.material);
       this.geometriesToDispose.push(nameplate.geometry);
     }
