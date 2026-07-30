@@ -9,16 +9,16 @@ function createWalnutWoodTexture(): THREE.CanvasTexture {
   canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
 
-  // Base deep walnut brown background
+  // Keep the procedural grain visible under the scene's warm lights.
   const baseGrad = ctx.createLinearGradient(0, 0, 512, 512);
-  baseGrad.addColorStop(0, '#3D261A');
-  baseGrad.addColorStop(0.5, '#2C1A10');
-  baseGrad.addColorStop(1, '#452B1E');
+  baseGrad.addColorStop(0, '#8B5A2B');
+  baseGrad.addColorStop(0.5, '#5A321B');
+  baseGrad.addColorStop(1, '#9A6534');
   ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, 512, 512);
 
   // Wood grain rings and swirl lines
-  ctx.strokeStyle = '#1F1109';
+  ctx.strokeStyle = '#2B160B';
   ctx.lineWidth = 1.5;
   for (let i = 0; i < 40; i++) {
     const y = Math.random() * 512;
@@ -34,7 +34,7 @@ function createWalnutWoodTexture(): THREE.CanvasTexture {
   }
 
   // Fine fiber highlights
-  ctx.strokeStyle = '#5A3D2B';
+  ctx.strokeStyle = '#D09A5B';
   ctx.lineWidth = 0.8;
   for (let i = 0; i < 30; i++) {
     const y = Math.random() * 512;
@@ -90,7 +90,7 @@ export class ShelfMeshGroup {
       map: woodTexture,
       roughness: 0.45,
       metalness: 0.05,
-      color: new THREE.Color('#3A2317'),
+      color: new THREE.Color('#B7773D'),
     });
     this.materialsToDispose.push(walnutMat);
 

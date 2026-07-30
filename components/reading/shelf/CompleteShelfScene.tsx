@@ -178,7 +178,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       shelfItems.forEach((item, index) => {
         const entry = layoutById.get(item.id);
         const fallbackX = index * (item.thickness + 0.08) - shelfWidth / 2 + item.thickness / 2 + 0.6;
-        const position = new THREE.Vector3(entry?.x ?? fallbackX, entry?.y ?? item.height / 2 + 0.18, 0);
+        const position = new THREE.Vector3(entry?.x ?? fallbackX, entry?.y ?? 0.18, 0);
         const bookMesh = new BookMeshGroup(item, position);
         bookMesh.setFocusPose(
           new THREE.Vector3(position.x, position.y, 1.8),
@@ -271,7 +271,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
             const targetIndex = shelfLevels.findIndex((level) => level.id === targetLevel.id);
             dragState.book.setDragPreview(new THREE.Vector3(
               dragState.book.getBasePosition().x,
-              targetIndex * SHELF_LEVEL_SPACING + dragState.book.item.height / 2 + 0.18,
+              targetIndex * SHELF_LEVEL_SPACING + 0.18,
               0.55,
             ));
           }

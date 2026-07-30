@@ -120,7 +120,8 @@ export function buildShelfLayout<T extends ShelfLayoutBook>(
         shelfPosition,
         levelIndex,
         x: cursor,
-        y: level.position * SHELF_LEVEL_SPACING + book.height / 2 + 0.18,
+        // BookMeshGroup uses the bottom of the book as its local origin.
+        y: level.position * SHELF_LEVEL_SPACING + 0.18,
         width: book.width,
         thickness: book.thickness,
         height: book.height,

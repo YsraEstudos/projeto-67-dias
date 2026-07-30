@@ -9,6 +9,7 @@ import {
   getShelfLevelFromPointer,
   resolveBookActivation,
 } from '../../../components/reading/shelf/CompleteShelfScene';
+import { buildShelfLayout, createDefaultShelfLevels } from '../../../utils/readingShelfLayout';
 
 // Mock Canvas getContext for JSDOM environment
 beforeEach(() => {
@@ -125,6 +126,26 @@ describe('shelf camera framing', () => {
     expect(getShelfLevelFromPointer(50, { top: 0, height: 300 }, levels)?.id).toBe('top');
     expect(getShelfLevelFromPointer(150, { top: 0, height: 300 }, levels)?.id).toBe('middle');
     expect(getShelfLevelFromPointer(299, { top: 0, height: 300 }, levels)?.id).toBe('bottom');
+  });
+});
+
+describe('shelf book placement', () => {
+  it('places each book base just above the shelf surface', () => {
+    const book = MINT_BOOK_MANIFEST[0];
+    const levels = createDefaultShelfLevels();
+    const layout = buildShelfLayout([
+      {
+        id: book.id,
+        shelfLevelId: levels[1].id,
+        shelfPosition: 0,
+        width: book.width,
+        thickness: book.thickness,
+        height: book.height,
+      },
+    ], levels);
+
+    expect(layout[0].y).toBeCloseTo(3.9 + 0.18);
+    expect(layout[0].y).not.toBeCloseTo(3.9 + book.height / 2 + 0.18);
   });
 });
 
