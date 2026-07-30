@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Book, ReadingShelfLevel } from '../../../types';
+import { ReadingShelfLevel } from '../../../types';
 import { ShelfLayoutEntry, SHELF_LEVEL_SPACING } from '../../../utils/readingShelfLayout';
 import { BookMeshGroup } from './BookMesh';
 import { ShelfMeshGroup } from './ShelfMesh';
@@ -19,12 +19,14 @@ export function calculateShelfCameraDistance(
   const safeWidth = Math.max(viewportWidth, 1);
   const safeHeight = Math.max(viewportHeight, 1);
   const aspect = safeWidth / safeHeight;
+  const safeAspect = Math.max(aspect, 0.1);
   const halfFovRadians = THREE.MathUtils.degToRad(SHELF_CAMERA_FOV / 2);
-  const horizontalDistance = (shelfWidth * 1.12) / (2 * Math.tan(halfFovRadians) * Math.max(aspect, 0.1));
+  const horizontalDistance = (shelfWidth * 1.12) / (2 * Math.tan(halfFovRadians) * safeAspect);
   const verticalDistance = (contentHeight * 1.12) / (2 * Math.tan(halfFovRadians));
 
   return Math.max(SHELF_CAMERA_MIN_DISTANCE, horizontalDistance, verticalDistance);
 }
+
 
 export function getShelfLevelFromPointer(
   clientY: number,
@@ -74,6 +76,7 @@ interface CompleteShelfSceneProps {
   onDragStateChange?: (bookId: string | null, shelfLevelId: string | null) => void;
   onNavigateLevel?: (levelId: string) => void;
   isInspecting: boolean;
+  onSwitchTo2D?: () => void;
 }
 
 export interface ShelfBookActivation {
@@ -104,10 +107,12 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   onDragStateChange,
   onNavigateLevel,
   isInspecting,
+  onSwitchTo2D,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [webGLError, setWebGLError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const panXRef = useRef(0);
   const zoomScaleRef = useRef(1.0);
@@ -128,6 +133,29 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   const shelfLevelsRef = useRef(shelfLevels);
   const layoutRef = useRef(shelfLayout);
   const bookMeshesByIdRef = useRef(new Map<string, BookMeshGroup>());
+
+  // Multi-touch tracking refs
+  const touchStateRef = useRef<{
+    lastDist: number | null;
+    lastCenter: { x: number; y: number } | null;
+    lastSingleTouch: { x: number; y: number } | null;
+    touchStartPos: { x: number; y: number } | null;
+    touchDragDyAcc: number;
+    touchDragBook: {
+      book: BookMeshGroup;
+      startX: number;
+      startY: number;
+      moved: boolean;
+      targetLevelId: string | null;
+    } | null;
+  }>({
+    lastDist: null,
+    lastCenter: null,
+    lastSingleTouch: null,
+    touchStartPos: null,
+    touchDragDyAcc: 0,
+    touchDragBook: null,
+  });
 
   selectedIndexRef.current = selectedIndex;
   isInspectingRef.current = isInspecting;
@@ -190,7 +218,14 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         alpha: false,
         powerPreference: 'high-performance',
       });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      const applyDpr = () => {
+        const isMobile = window.innerWidth < 768;
+        const maxDpr = isMobile ? 1.5 : 2.0;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
+      };
+
+      applyDpr();
       renderer.setSize(width, height, false);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -219,8 +254,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       });
       scene.add(shelfGroup.group);
 
-      const layoutById = new Map(layoutRef.current.map((entry) => [entry.bookId, entry]));
       const bookGroups: BookMeshGroup[] = [];
+      const layoutById = new Map(layoutRef.current.map((entry) => [entry.bookId, entry]));
       shelfItems.forEach((item, index) => {
         const entry = layoutById.get(item.id);
         const fallbackX = index * (item.thickness + 0.08) - shelfWidth / 2 + item.thickness / 2 + 0.6;
@@ -241,6 +276,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         const viewportWidth = containerRef.current.clientWidth;
         const viewportHeight = containerRef.current.clientHeight;
         if (viewportWidth <= 0 || viewportHeight <= 0) return;
+
+        applyDpr();
         camera.aspect = viewportWidth / viewportHeight;
         shelfCameraDistance = calculateShelfCameraDistance(viewportWidth, viewportHeight, shelfWidth, contentHeight);
         camera.far = Math.max(camera.far, shelfCameraDistance * 4 + shelfWidth);
@@ -260,6 +297,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         ? new ResizeObserver(scheduleViewportUpdate)
         : null;
       resizeObserver?.observe(containerRef.current);
+      window.addEventListener('resize', scheduleViewportUpdate);
+      window.addEventListener('orientationchange', scheduleViewportUpdate);
       updateViewport();
 
       const raycaster = new THREE.Raycaster();
@@ -274,10 +313,11 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         targetLevelId: string | null;
       } | null = null;
 
-      const getIntersectedBook = (event: PointerEvent): BookMeshGroup | null => {
+      const getIntersectedBookFromCoords = (clientX: number, clientY: number): BookMeshGroup | null => {
         const rect = domElement.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(scene.children, true);
 
@@ -291,11 +331,13 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         return null;
       };
 
-      const getTargetLevel = (event: PointerEvent) => getShelfLevelFromPointer(
-        event.clientY,
-        domElement.getBoundingClientRect(),
-        shelfLevels,
-      );
+      const getIntersectedBook = (event: PointerEvent): BookMeshGroup | null =>
+        getIntersectedBookFromCoords(event.clientX, event.clientY);
+
+      const getTargetLevelFromCoords = (clientY: number) =>
+        getShelfLevelFromPointer(clientY, domElement.getBoundingClientRect(), shelfLevelsRef.current);
+
+      const getTargetLevel = (event: PointerEvent) => getTargetLevelFromCoords(event.clientY);
 
       const clearDragState = () => {
         if (!dragState) return;
@@ -305,8 +347,10 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         domElement.style.cursor = 'default';
       };
 
+      // Pointer event handlers (for mouse / desktop)
       const handlePointerMove = (event: PointerEvent) => {
-        // Orbit in inspection mode (book is selected, pointer dragging on it)
+        if (event.pointerType === 'touch') return;
+
         if (orbitPointerRef.current && orbitPointerRef.current.pointerId === event.pointerId) {
           const dx = event.clientX - orbitPointerRef.current.lastX;
           const dy = event.clientY - orbitPointerRef.current.lastY;
@@ -331,7 +375,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           const targetLevel = getTargetLevel(event);
           dragState.targetLevelId = targetLevel?.id ?? null;
           if (targetLevel) {
-            const targetIndex = shelfLevels.findIndex((level) => level.id === targetLevel.id);
+            const targetIndex = shelfLevelsRef.current.findIndex((level) => level.id === targetLevel.id);
             dragState.book.setDragPreview(new THREE.Vector3(
               dragState.book.getBasePosition().x,
               targetIndex * SHELF_LEVEL_SPACING + 0.18,
@@ -355,7 +399,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           return;
         }
 
-        // No book under pointer: pan horizontally + accumulate vertical drag for level change
         if (panStartRef.current) {
           const dx = event.clientX - panStartRef.current.x;
           const dy = event.clientY - panStartRef.current.y;
@@ -372,10 +415,9 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       };
 
       const handlePointerDown = (event: PointerEvent) => {
-        if (event.button !== 0) return;
+        if (event.pointerType === 'touch' || event.button !== 0) return;
         const book = getIntersectedBook(event);
 
-        // Inspection mode + book under pointer = orbit, not drag-to-move
         if (isInspectingRef.current && book) {
           orbitPointerRef.current = { pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY };
           domElement.setPointerCapture(event.pointerId);
@@ -384,13 +426,13 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         }
 
         if (!book) {
-          // Free space: start pan / vertical-drag for level navigation
           panStartRef.current = { x: event.clientX, y: event.clientY };
           dragDyAccRef.current = 0;
           domElement.setPointerCapture(event.pointerId);
           event.preventDefault();
           return;
         }
+
         dragState = {
           book,
           pointerId: event.pointerId,
@@ -404,7 +446,8 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       };
 
       const handlePointerUp = (event: PointerEvent) => {
-        // Orbit release in inspection mode
+        if (event.pointerType === 'touch') return;
+
         if (orbitPointerRef.current && orbitPointerRef.current.pointerId === event.pointerId) {
           orbitPointerRef.current = null;
           if (domElement.hasPointerCapture(event.pointerId)) domElement.releasePointerCapture(event.pointerId);
@@ -412,7 +455,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           return;
         }
 
-        // Vertical-drag level navigation (no book was being dragged)
         if (panStartRef.current && !dragState && onNavigateLevel && shelfLevelsRef.current.length > 0) {
           const absDy = Math.abs(dragDyAccRef.current);
           const absDx = Math.abs(event.clientX - panStartRef.current.x);
@@ -451,9 +493,234 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (domElement.hasPointerCapture(event.pointerId)) domElement.releasePointerCapture(event.pointerId);
       };
 
-      const handlePointerCancel = () => {
+      const handlePointerCancel = (event?: PointerEvent) => {
+        if (event && event.pointerType === 'touch') return;
         orbitPointerRef.current = null;
         clearDragState();
+      };
+
+      // Dedicated Touch Gesture Handlers (1 finger orbit/pan/nav, 2 fingers pinch-to-zoom & pan, 3+ fingers graceful filtering)
+      const handleTouchStart = (e: TouchEvent) => {
+        e.preventDefault();
+        const touches = e.touches;
+
+        if (touches.length === 1) {
+          const t0 = touches[0];
+          const x = t0.clientX;
+          const y = t0.clientY;
+
+          touchStateRef.current.lastSingleTouch = { x, y };
+          touchStateRef.current.lastDist = null;
+          touchStateRef.current.lastCenter = null;
+          touchStateRef.current.touchStartPos = { x, y };
+          touchStateRef.current.touchDragDyAcc = 0;
+
+          const book = getIntersectedBookFromCoords(x, y);
+
+          if (isInspectingRef.current && book) {
+            touchStateRef.current.touchDragBook = null;
+          } else if (!isInspectingRef.current && book) {
+            touchStateRef.current.touchDragBook = {
+              book,
+              startX: x,
+              startY: y,
+              moved: false,
+              targetLevelId: null,
+            };
+          } else {
+            touchStateRef.current.touchDragBook = null;
+          }
+        } else if (touches.length === 2) {
+          if (touchStateRef.current.touchDragBook) {
+            touchStateRef.current.touchDragBook.book.clearDragPreview();
+            touchStateRef.current.touchDragBook = null;
+            onDragStateChange?.(null, null);
+          }
+          touchStateRef.current.touchStartPos = null;
+          touchStateRef.current.touchDragDyAcc = 0;
+          touchStateRef.current.lastSingleTouch = null;
+
+          const t0 = touches[0];
+          const t1 = touches[1];
+          const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+          const center = {
+            x: (t0.clientX + t1.clientX) / 2,
+            y: (t0.clientY + t1.clientY) / 2,
+          };
+          touchStateRef.current.lastDist = dist;
+          touchStateRef.current.lastCenter = center;
+        } else {
+          // 3+ fingers: handle gracefully without camera jitter or state corruption
+          if (touchStateRef.current.touchDragBook) {
+            touchStateRef.current.touchDragBook.book.clearDragPreview();
+            touchStateRef.current.touchDragBook = null;
+            onDragStateChange?.(null, null);
+          }
+          touchStateRef.current.lastDist = null;
+          touchStateRef.current.lastCenter = null;
+          touchStateRef.current.lastSingleTouch = null;
+          touchStateRef.current.touchStartPos = null;
+          touchStateRef.current.touchDragDyAcc = 0;
+        }
+      };
+
+      const handleTouchMove = (e: TouchEvent) => {
+        e.preventDefault();
+        const touches = e.touches;
+
+        if (touches.length === 1) {
+          const t0 = touches[0];
+          const x = t0.clientX;
+          const y = t0.clientY;
+
+          const last = touchStateRef.current.lastSingleTouch;
+          const dx = last ? x - last.x : 0;
+          const dy = last ? y - last.y : 0;
+          touchStateRef.current.lastSingleTouch = { x, y };
+
+          if (isInspectingRef.current) {
+            const orbitSensitivity = 0.01;
+            inspectRotYRef.current += dx * orbitSensitivity;
+            inspectRotXRef.current = THREE.MathUtils.clamp(
+              inspectRotXRef.current + dy * orbitSensitivity,
+              -Math.PI / 3,
+              Math.PI / 3,
+            );
+          } else if (touchStateRef.current.touchDragBook) {
+            const dragBook = touchStateRef.current.touchDragBook;
+            const totalDist = Math.hypot(x - dragBook.startX, y - dragBook.startY);
+            if (!dragBook.moved && totalDist >= 6) {
+              dragBook.moved = true;
+            }
+            if (dragBook.moved) {
+              const targetLevel = getTargetLevelFromCoords(y);
+              dragBook.targetLevelId = targetLevel?.id ?? null;
+              if (targetLevel) {
+                const targetIndex = shelfLevelsRef.current.findIndex((l) => l.id === targetLevel.id);
+                dragBook.book.setDragPreview(
+                  new THREE.Vector3(
+                    dragBook.book.getBasePosition().x,
+                    targetIndex * SHELF_LEVEL_SPACING + 0.18,
+                    0.55,
+                  )
+                );
+              }
+              onDragStateChange?.(dragBook.book.item.id, dragBook.targetLevelId);
+            }
+          } else {
+            panXRef.current = THREE.MathUtils.clamp(
+              panXRef.current - dx * 0.006,
+              -shelfWidth,
+              shelfWidth,
+            );
+            touchStateRef.current.touchDragDyAcc += dy;
+          }
+        } else if (touches.length === 2) {
+          const t0 = touches[0];
+          const t1 = touches[1];
+          const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+          const center = {
+            x: (t0.clientX + t1.clientX) / 2,
+            y: (t0.clientY + t1.clientY) / 2,
+          };
+
+          if (touchStateRef.current.lastDist !== null && touchStateRef.current.lastCenter !== null) {
+            const distDelta = dist - touchStateRef.current.lastDist;
+            zoomScaleRef.current = THREE.MathUtils.clamp(
+              zoomScaleRef.current - distDelta * 0.005,
+              ZOOM_MIN,
+              ZOOM_MAX,
+            );
+
+            const centerDx = center.x - touchStateRef.current.lastCenter.x;
+            panXRef.current = THREE.MathUtils.clamp(
+              panXRef.current - centerDx * 0.006,
+              -shelfWidth,
+              shelfWidth,
+            );
+          }
+
+          touchStateRef.current.lastDist = dist;
+          touchStateRef.current.lastCenter = center;
+        } else {
+          // 3+ fingers: ignore movements to avoid jitter
+          touchStateRef.current.lastDist = null;
+          touchStateRef.current.lastCenter = null;
+          touchStateRef.current.lastSingleTouch = null;
+        }
+      };
+
+      const handleTouchEnd = (e: TouchEvent) => {
+        e.preventDefault();
+        const touches = e.touches;
+
+        if (touches.length === 0) {
+          const dragBook = touchStateRef.current.touchDragBook;
+          const startPos = touchStateRef.current.touchStartPos;
+          const dragDyAcc = touchStateRef.current.touchDragDyAcc;
+
+          if (dragBook) {
+            const completedDrag = dragBook.moved && dragBook.targetLevelId;
+            const bookIndex = bookGroups.findIndex((candidate) => candidate === dragBook.book);
+
+            if (completedDrag) {
+              onMoveBookToShelfLevel(dragBook.book.item.id, dragBook.targetLevelId!);
+            } else if (bookIndex !== -1) {
+              const activation = resolveBookActivation(bookIndex, selectedIndexRef.current, isInspectingRef.current);
+              onSelectIndex(activation.selectedIndex);
+              if (activation.shouldOpenInspection) onOpenInspection(activation.selectedIndex);
+            }
+            dragBook.book.clearDragPreview();
+            touchStateRef.current.touchDragBook = null;
+            onDragStateChange?.(null, null);
+          } else if (startPos && !isInspectingRef.current && onNavigateLevel && shelfLevelsRef.current.length > 0) {
+            const absDy = Math.abs(dragDyAcc);
+            if (absDy > DRAG_LEVEL_THRESHOLD) {
+              const direction = dragDyAcc > 0 ? 1 : -1;
+              const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
+              const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
+              if (targetIndex !== activeIndex) {
+                onNavigateLevel(shelfLevelsRef.current[targetIndex].id);
+              }
+            }
+          }
+
+          touchStateRef.current.lastDist = null;
+          touchStateRef.current.lastCenter = null;
+          touchStateRef.current.lastSingleTouch = null;
+          touchStateRef.current.touchStartPos = null;
+          touchStateRef.current.touchDragDyAcc = 0;
+        } else if (touches.length === 1) {
+          const t0 = touches[0];
+          touchStateRef.current.lastSingleTouch = { x: t0.clientX, y: t0.clientY };
+          touchStateRef.current.lastDist = null;
+          touchStateRef.current.lastCenter = null;
+          touchStateRef.current.touchStartPos = null;
+          touchStateRef.current.touchDragDyAcc = 0;
+        } else if (touches.length === 2) {
+          const t0 = touches[0];
+          const t1 = touches[1];
+          touchStateRef.current.lastDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+          touchStateRef.current.lastCenter = {
+            x: (t0.clientX + t1.clientX) / 2,
+            y: (t0.clientY + t1.clientY) / 2,
+          };
+          touchStateRef.current.lastSingleTouch = null;
+        }
+      };
+
+      const handleTouchCancel = (e: TouchEvent) => {
+        e.preventDefault();
+        if (touchStateRef.current.touchDragBook) {
+          touchStateRef.current.touchDragBook.book.clearDragPreview();
+          touchStateRef.current.touchDragBook = null;
+          onDragStateChange?.(null, null);
+        }
+        touchStateRef.current.lastDist = null;
+        touchStateRef.current.lastCenter = null;
+        touchStateRef.current.lastSingleTouch = null;
+        touchStateRef.current.touchStartPos = null;
+        touchStateRef.current.touchDragDyAcc = 0;
       };
 
       const SCROLL_LEVEL_THRESHOLD = 80;
@@ -461,7 +728,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       const handleWheel = (event: WheelEvent) => {
         event.preventDefault();
         if (event.ctrlKey || event.metaKey) {
-          // Ctrl+scroll or pinch = zoom. Scroll UP (negative deltaY) = zoom IN.
           zoomScaleRef.current = THREE.MathUtils.clamp(
             zoomScaleRef.current + event.deltaY * 0.002,
             ZOOM_MIN,
@@ -470,7 +736,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           return;
         }
         if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-          // Shift+scroll or natural horizontal scroll = horizontal pan
           const panDelta = (event.deltaY || event.deltaX) * 0.004;
           panXRef.current = THREE.MathUtils.clamp(
             panXRef.current - panDelta,
@@ -479,7 +744,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           );
           return;
         }
-        // Natural vertical scroll = navigate between levels
         if (!onNavigateLevel || shelfLevelsRef.current.length < 2) return;
         scrollAccRef.current += event.deltaY;
         if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
@@ -494,12 +758,46 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         }
       };
 
+      // WebGL Resilience Handlers (no PII / sensitive data)
+      const handleContextLost = (event: Event) => {
+        event.preventDefault();
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = 0;
+        }
+        setWebGLError(true);
+        console.warn('[CompleteShelfScene] WebGL context lost', {
+          timestamp: new Date().toISOString(),
+          event: 'webglcontextlost',
+          component: 'CompleteShelfScene',
+        });
+      };
+
+      const handleContextRestored = () => {
+        console.info('[CompleteShelfScene] WebGL context restored', {
+          timestamp: new Date().toISOString(),
+          event: 'webglcontextrestored',
+          component: 'CompleteShelfScene',
+        });
+        setWebGLError(false);
+        setRetryCount((c) => c + 1);
+      };
+
+      domElement.addEventListener('webglcontextlost', handleContextLost, false);
+      domElement.addEventListener('webglcontextrestored', handleContextRestored, false);
+
       domElement.addEventListener('pointermove', handlePointerMove);
       domElement.addEventListener('pointerdown', handlePointerDown);
       domElement.addEventListener('pointerup', handlePointerUp);
       domElement.addEventListener('pointercancel', handlePointerCancel);
+
+      domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+      domElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+      domElement.addEventListener('touchend', handleTouchEnd, { passive: false });
+      domElement.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+
       domElement.addEventListener('wheel', handleWheel, { passive: false });
-      window.addEventListener('blur', handlePointerCancel);
+      window.addEventListener('blur', () => handlePointerCancel());
 
       let lastTime = performance.now();
       const animate = (now: number) => {
@@ -526,7 +824,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (isInspectingRef.current && selectedBook) {
           selectedBook.setOrbitRotation(inspectRotXRef.current, inspectRotYRef.current);
         } else {
-          // Reset orbit state when leaving inspection mode
           inspectRotXRef.current = 0;
           inspectRotYRef.current = Math.PI / 2;
         }
@@ -564,11 +861,23 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
       return () => {
         if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-        window.removeEventListener('blur', handlePointerCancel);
+        window.removeEventListener('blur', () => handlePointerCancel());
+        window.removeEventListener('resize', scheduleViewportUpdate);
+        window.removeEventListener('orientationchange', scheduleViewportUpdate);
+
+        domElement.removeEventListener('webglcontextlost', handleContextLost);
+        domElement.removeEventListener('webglcontextrestored', handleContextRestored);
+
         domElement.removeEventListener('pointermove', handlePointerMove);
         domElement.removeEventListener('pointerdown', handlePointerDown);
         domElement.removeEventListener('pointerup', handlePointerUp);
         domElement.removeEventListener('pointercancel', handlePointerCancel);
+
+        domElement.removeEventListener('touchstart', handleTouchStart);
+        domElement.removeEventListener('touchmove', handleTouchMove);
+        domElement.removeEventListener('touchend', handleTouchEnd);
+        domElement.removeEventListener('touchcancel', handleTouchCancel);
+
         domElement.removeEventListener('wheel', handleWheel);
         resizeObserver?.disconnect();
         if (resizeFrameId !== null) cancelAnimationFrame(resizeFrameId);
@@ -579,25 +888,96 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         renderer.dispose();
       };
     } catch (error) {
-      console.error('WebGL initialization error in CompleteShelfScene:', error);
+      console.warn('[CompleteShelfScene] WebGL initialization failed', {
+        timestamp: new Date().toISOString(),
+        event: 'webgl_init_error',
+        component: 'CompleteShelfScene',
+        error: error instanceof Error ? error.message : String(error),
+      });
       setWebGLError(true);
     }
-  }, [contentHeight, levelCount, levelLayoutSignature, onDragStateChange, onMoveBookToShelfLevel, onOpenInspection, onSelectIndex, shelfItems]);
+  }, [
+    contentHeight,
+    levelCount,
+    levelLayoutSignature,
+    onDragStateChange,
+    onMoveBookToShelfLevel,
+    onOpenInspection,
+    onSelectIndex,
+    shelfItems,
+    retryCount,
+  ]);
 
-  if (webGLError) {
-    return (
-      <div className="flex h-96 w-full flex-col items-center justify-center bg-[#1A1817] p-6 text-center text-[#F3D274]">
-        <h3 className="mb-2 font-serif text-lg font-bold">Visualização 3D Indisponível</h3>
-        <p className="text-xs text-[#A39281]">Navegando em modo 2D da estante editorial.</p>
-      </div>
-    );
-  }
+  const handleRetry = () => {
+    setWebGLError(false);
+    setRetryCount((c) => c + 1);
+  };
 
   return (
     <div ref={containerRef} className="relative h-full min-h-0 w-full flex-1 select-none overflow-hidden bg-[#080B10]">
-      <canvas ref={canvasRef} className="block h-full w-full touch-none" />
+      <canvas ref={canvasRef} className={`block h-full w-full touch-none ${webGLError ? 'hidden' : ''}`} />
+      {webGLError && (
+        <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center bg-[#1A1817]/95 p-6 text-center text-[#F3D274] z-50">
+          <h3 className="mb-2 font-serif text-lg font-bold">Visualização 3D Indisponível</h3>
+          <p className="mb-6 max-w-md text-xs text-[#A39281]">
+            O contexto WebGL foi perdido ou o navegador encontrou um problema ao renderizar a estante 3D.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="rounded border border-[#F3D274]/40 bg-[#F3D274]/10 px-4 py-2 text-xs font-medium text-[#F3D274] transition hover:bg-[#F3D274]/20 active:scale-95"
+            >
+              Tentar Novamente
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onSwitchTo2D) {
+                  onSwitchTo2D();
+                } else {
+                  onOpenInspection(selectedIndex);
+                }
+              }}
+              className="rounded border border-[#A39281]/40 bg-[#2A2421] px-4 py-2 text-xs font-medium text-[#E6D5B8] transition hover:bg-[#3A322C] active:scale-95"
+            >
+              Alternar para Modo 2D
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
+export function calculateTouchDistance(
+  t1: { clientX: number; clientY: number },
+  t2: { clientX: number; clientY: number }
+): number {
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
+export function calculateTouchCenter(
+  t1: { clientX: number; clientY: number },
+  t2: { clientX: number; clientY: number }
+): { x: number; y: number } {
+  return {
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  };
+}
+
+export function clampZoomScale(
+  currentZoom: number,
+  ratio: number,
+  minZoom: number = 0.4,
+  maxZoom: number = 3.0
+): number {
+  if (Number.isNaN(ratio) || !Number.isFinite(ratio)) return currentZoom;
+  const target = currentZoom * ratio;
+  if (Number.isNaN(target) || !Number.isFinite(target)) return currentZoom;
+  return THREE.MathUtils.clamp(target, minZoom, maxZoom);
+}
+
 export default CompleteShelfScene;
+

@@ -56,7 +56,7 @@ const createDraft = (book: Book): BookDraft => ({
 });
 
 const inputClassName =
-  'w-full rounded-xl border border-slate-700 bg-[#0D121A] px-3 py-2.5 text-sm text-slate-100 outline-none transition [color-scheme:dark] placeholder:text-slate-600 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20';
+  'w-full min-h-[44px] rounded-xl border border-slate-700 bg-[#0D121A] px-3 py-2.5 text-sm text-slate-100 outline-none transition [color-scheme:dark] placeholder:text-slate-600 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20';
 
 const labelClassName = 'mb-1.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400';
 
@@ -162,15 +162,29 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40">
-      <div data-testid="book-inspection-panel" className="pointer-events-auto absolute bottom-3 left-3 right-3 top-auto flex max-h-[62%] flex-col overflow-hidden rounded-[1.25rem] border border-slate-700 bg-[#0B0F16]/98 text-slate-100 shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:bottom-3 sm:left-auto sm:right-3 sm:top-3 sm:max-h-none sm:w-[min(430px,calc(100%-1.5rem))]">
-        <header className="flex items-center justify-between border-b border-slate-800 bg-[#111827]/90 px-5 py-4 md:px-7">
+      {/* Mobile Backdrop */}
+      <div
+        className="pointer-events-auto fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity md:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div
+        data-testid="book-inspection-panel"
+        className="pointer-events-auto absolute bottom-0 left-0 right-0 top-auto z-40 flex max-h-[85vh] flex-col overflow-hidden rounded-t-[1.5rem] border-t border-slate-700 bg-[#0B0F16]/98 pb-[max(1rem,env(safe-area-inset-bottom))] text-slate-100 shadow-[0_-20px_50px_rgba(0,0,0,0.7)] backdrop-blur-xl md:bottom-3 md:left-auto md:right-3 md:top-3 md:max-h-none md:w-[min(430px,calc(100%-1.5rem))] md:rounded-[1.25rem] md:border md:pb-0"
+      >
+        {/* Mobile Drag Handle */}
+        <div className="mx-auto mt-2.5 h-1.5 w-12 shrink-0 rounded-full bg-slate-700 md:hidden" />
+
+        <header className="flex items-center justify-between border-b border-slate-800 bg-[#111827]/90 px-4 py-3 sm:px-5 md:px-7">
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-300 transition hover:bg-slate-800"
+            aria-label="Voltar para a estante"
+            className="flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-300 transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
           >
             <ArrowLeft className="h-4 w-4" />
-            Voltar para a estante
+            <span className="hidden min-[380px]:inline">Voltar para a estante</span>
           </button>
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#F3D274]">
             <Sparkles className="h-4 w-4" />
@@ -179,8 +193,8 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-300 transition hover:bg-slate-800"
             aria-label="Fechar detalhes do livro"
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 text-slate-300 transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -197,12 +211,12 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
             </div>
           </section>
 
-          <section className="min-h-0 p-5 md:p-6">
+          <section className="min-h-0 p-4 sm:p-5 md:p-6">
             <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#F3D274]">Ficha de leitura</p>
-                <h2 className="font-serif text-2xl font-bold leading-tight text-slate-100">Preencha os detalhes do livro</h2>
-                <p className="mt-1 text-sm text-slate-400">As alterações ficam salvas na sua estante.</p>
+                <h2 className="font-serif text-xl font-bold leading-tight text-slate-100 sm:text-2xl">Preencha os detalhes do livro</h2>
+                <p className="mt-1 text-xs text-slate-400 sm:text-sm">As alterações ficam salvas na sua estante.</p>
               </div>
               <div className="rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-bold text-[#F3D274]">
                 {progress.percentage}% lido
@@ -231,7 +245,7 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
               <div>
                 <label htmlFor="reading-book-deadline" className={labelClassName}>Meta / prazo</label>
                 <div className="relative">
-                  <Calendar className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#A18455]" />
+                  <Calendar className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[#A18455]" />
                   <input id="reading-book-deadline" type="date" className={`${inputClassName} pl-9`} value={draft.deadline || ''} onChange={(event) => updateDraft('deadline', event.target.value)} />
                 </div>
               </div>
@@ -265,10 +279,23 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="mr-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400"><Clock className="h-3.5 w-3.5" /> Registro rápido</span>
+                <span className="mr-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                  <Clock className="h-3.5 w-3.5" /> Registro rápido
+                </span>
                 {[-5, -1, 1, 5, 10].map((amount) => (
-                  <button key={amount} type="button" onClick={() => handleProgressChange(progress.current + amount)} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${amount > 0 ? 'bg-[#D4AF37] text-[#080B10] hover:bg-[#E1BE4A]' : 'border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'}`}>
-                    {amount > 0 ? <Plus className="mr-1 inline h-3 w-3 text-[#F3D274]" /> : <Minus className="mr-1 inline h-3 w-3" />}{Math.abs(amount)}
+                  <button
+                    key={amount}
+                    type="button"
+                    onClick={() => handleProgressChange(progress.current + amount)}
+                    aria-label={`${amount > 0 ? 'Adicionar' : 'Subtrair'} ${Math.abs(amount)} ${UNIT_LABELS[draft.unit].toLowerCase()}`}
+                    className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 py-2 text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 ${
+                      amount > 0
+                        ? 'bg-[#D4AF37] text-[#080B10] hover:bg-[#E1BE4A]'
+                        : 'border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    {amount > 0 ? <Plus className="mr-0.5 inline h-3.5 w-3.5 text-[#080B10]" /> : <Minus className="mr-0.5 inline h-3.5 w-3.5" />}
+                    {Math.abs(amount)}
                   </button>
                 ))}
               </div>
@@ -281,9 +308,15 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
               </div>
               <div>
                 <span className={labelClassName}>Minha avaliação</span>
-                <div className="flex h-[42px] items-center gap-1 rounded-xl border border-slate-700 bg-[#0D121A] px-3">
+                <div className="flex h-[44px] min-h-[44px] items-center gap-1 rounded-xl border border-slate-700 bg-[#0D121A] px-2">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <button key={star} type="button" onClick={() => updateDraft('rating', star === draft.rating ? 0 : star)} aria-label={`Avaliar com ${star} estrelas`} className="rounded p-0.5 transition hover:scale-110">
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => updateDraft('rating', star === draft.rating ? 0 : star)}
+                      aria-label={`Avaliar com ${star} ${star === 1 ? 'estrela' : 'estrelas'}`}
+                      className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded p-1 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+                    >
                       <Star className={`h-5 w-5 ${star <= draft.rating ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-slate-700'}`} />
                     </button>
                   ))}
@@ -298,9 +331,14 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
         </div>
 
         <footer className="flex flex-col-reverse gap-3 border-t border-slate-800 bg-[#111827]/90 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-          <p className="text-xs text-slate-500">Você pode voltar à estante a qualquer momento.</p>
-          <button type="button" onClick={handleSave} className="flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-3 text-sm font-bold text-[#080B10] shadow-lg shadow-[#D4AF37]/10 transition hover:bg-[#E1BE4A]">
-            <Save className="h-4 w-4 text-[#F3D274]" />
+          <p className="text-xs text-slate-400">Você pode voltar à estante a qualquer momento.</p>
+          <button
+            type="button"
+            onClick={handleSave}
+            aria-label="Salvar detalhes"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-6 py-3 text-sm font-bold text-[#080B10] shadow-lg shadow-[#D4AF37]/10 transition hover:bg-[#E1BE4A] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/80 active:scale-98"
+          >
+            <Save className="h-4 w-4 text-[#080B10]" />
             {isSaved ? 'Alterações salvas' : 'Salvar detalhes'}
           </button>
         </footer>

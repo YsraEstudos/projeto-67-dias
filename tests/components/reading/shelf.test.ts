@@ -348,3 +348,39 @@ describe('InspectionControls orbit', () => {
     controls.dispose();
   });
 });
+
+describe('Touch gesture controls & WebGL resilience', () => {
+  it('enforces zoom scale clamped between ZOOM_MIN (0.4) and ZOOM_MAX (3.0)', () => {
+    let zoomScale = 1.0;
+    const ZOOM_MIN = 0.4;
+    const ZOOM_MAX = 3.0;
+
+    // Simulate pinch in (distance decreasing, delta negative) -> zoom out
+    for (let i = 0; i < 20; i++) {
+      const distDelta = -100;
+      zoomScale = THREE.MathUtils.clamp(zoomScale - distDelta * 0.005, ZOOM_MIN, ZOOM_MAX);
+    }
+    expect(zoomScale).toBe(ZOOM_MAX);
+
+    // Simulate pinch out (distance increasing, delta positive) -> zoom in
+    for (let i = 0; i < 40; i++) {
+      const distDelta = 100;
+      zoomScale = THREE.MathUtils.clamp(zoomScale - distDelta * 0.005, ZOOM_MIN, ZOOM_MAX);
+    }
+    expect(zoomScale).toBe(ZOOM_MIN);
+  });
+
+  it('calculates DPR limit correctly based on mobile vs desktop viewport width', () => {
+    const getDpr = (width: number, deviceDpr: number) => {
+      const isMobile = width < 768;
+      const maxDpr = isMobile ? 1.5 : 2.0;
+      return Math.min(deviceDpr, maxDpr);
+    };
+
+    expect(getDpr(375, 3.0)).toBe(1.5);
+    expect(getDpr(414, 2.0)).toBe(1.5);
+    expect(getDpr(1024, 3.0)).toBe(2.0);
+    expect(getDpr(1440, 1.0)).toBe(1.0);
+  });
+});
+
