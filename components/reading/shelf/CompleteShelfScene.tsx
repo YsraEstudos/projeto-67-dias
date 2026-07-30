@@ -134,6 +134,20 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   const layoutRef = useRef(shelfLayout);
   const bookMeshesByIdRef = useRef(new Map<string, BookMeshGroup>());
 
+  // Callback refs — keep latest without triggering effect re-runs
+  const onSelectIndexRef = useRef(onSelectIndex);
+  onSelectIndexRef.current = onSelectIndex;
+  const onOpenInspectionRef = useRef(onOpenInspection);
+  onOpenInspectionRef.current = onOpenInspection;
+  const onMoveBookToShelfLevelRef = useRef(onMoveBookToShelfLevel);
+  onMoveBookToShelfLevelRef.current = onMoveBookToShelfLevel;
+  const onDragStateChangeRef = useRef(onDragStateChange);
+  onDragStateChangeRef.current = onDragStateChange;
+  const onNavigateLevelRef = useRef(onNavigateLevel);
+  onNavigateLevelRef.current = onNavigateLevel;
+  const onSwitchTo2DRef = useRef(onSwitchTo2D);
+  onSwitchTo2DRef.current = onSwitchTo2D;
+
   // Multi-touch tracking refs
   const touchStateRef = useRef<{
     lastDist: number | null;
@@ -344,7 +358,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (!dragState) return;
         dragState.book.clearDragPreview();
         dragState = null;
-        onDragStateChange?.(null, null);
+        onDragStateChangeRef.current?.(null, null);
         domElement.style.cursor = 'default';
       };
 
@@ -383,7 +397,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
               0.55,
             ));
           }
-          onDragStateChange?.(dragState.book.item.id, dragState.targetLevelId);
+          onDragStateChangeRef.current?.(dragState.book.item.id, dragState.targetLevelId);
           domElement.style.cursor = 'grabbing';
           return;
         }
@@ -459,7 +473,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           return;
         }
 
-        if (panStartRef.current && !dragState && onNavigateLevel && shelfLevelsRef.current.length > 0) {
+        if (panStartRef.current && !dragState && onNavigateLevelRef.current && shelfLevelsRef.current.length > 0) {
           const absDy = Math.abs(dragDyAccRef.current);
           const absDx = Math.abs(event.clientX - panStartRef.current.x);
           if (absDy > DRAG_LEVEL_THRESHOLD && absDx < DRAG_PAN_HORIZONTAL_THRESHOLD + absDy * 0.5) {
@@ -467,7 +481,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
             const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
             const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
             if (targetIndex !== activeIndex) {
-              onNavigateLevel(shelfLevelsRef.current[targetIndex].id);
+              onNavigateLevelRef.current(shelfLevelsRef.current[targetIndex].id);
             }
           }
           panStartRef.current = null;
@@ -486,11 +500,11 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         const bookIndex = bookGroups.findIndex((candidate) => candidate === book);
 
         if (completedDrag) {
-          onMoveBookToShelfLevel(book.item.id, dragState.targetLevelId!);
+          onMoveBookToShelfLevelRef.current(book.item.id, dragState.targetLevelId!);
         } else if (bookIndex !== -1) {
           const activation = resolveBookActivation(bookIndex, selectedIndexRef.current, isInspectingRef.current);
-          onSelectIndex(activation.selectedIndex);
-          if (activation.shouldOpenInspection) onOpenInspection(activation.selectedIndex);
+          onSelectIndexRef.current(activation.selectedIndex);
+          if (activation.shouldOpenInspection) onOpenInspectionRef.current(activation.selectedIndex);
         }
 
         clearDragState();
@@ -538,7 +552,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           if (touchStateRef.current.touchDragBook) {
             touchStateRef.current.touchDragBook.book.clearDragPreview();
             touchStateRef.current.touchDragBook = null;
-            onDragStateChange?.(null, null);
+            onDragStateChangeRef.current?.(null, null);
           }
           touchStateRef.current.touchStartPos = null;
           touchStateRef.current.touchDragDyAcc = 0;
@@ -558,7 +572,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           if (touchStateRef.current.touchDragBook) {
             touchStateRef.current.touchDragBook.book.clearDragPreview();
             touchStateRef.current.touchDragBook = null;
-            onDragStateChange?.(null, null);
+            onDragStateChangeRef.current?.(null, null);
           }
           touchStateRef.current.lastDist = null;
           touchStateRef.current.lastCenter = null;
@@ -609,7 +623,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
                   )
                 );
               }
-              onDragStateChange?.(dragBook.book.item.id, dragBook.targetLevelId);
+              onDragStateChangeRef.current?.(dragBook.book.item.id, dragBook.targetLevelId);
             }
           } else {
             panXRef.current = THREE.MathUtils.clamp(
@@ -668,23 +682,23 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
             const bookIndex = bookGroups.findIndex((candidate) => candidate === dragBook.book);
 
             if (completedDrag) {
-              onMoveBookToShelfLevel(dragBook.book.item.id, dragBook.targetLevelId!);
+              onMoveBookToShelfLevelRef.current(dragBook.book.item.id, dragBook.targetLevelId!);
             } else if (bookIndex !== -1) {
               const activation = resolveBookActivation(bookIndex, selectedIndexRef.current, isInspectingRef.current);
-              onSelectIndex(activation.selectedIndex);
-              if (activation.shouldOpenInspection) onOpenInspection(activation.selectedIndex);
+              onSelectIndexRef.current(activation.selectedIndex);
+              if (activation.shouldOpenInspection) onOpenInspectionRef.current(activation.selectedIndex);
             }
             dragBook.book.clearDragPreview();
             touchStateRef.current.touchDragBook = null;
-            onDragStateChange?.(null, null);
-          } else if (startPos && !isInspectingRef.current && onNavigateLevel && shelfLevelsRef.current.length > 0) {
+            onDragStateChangeRef.current?.(null, null);
+          } else if (startPos && !isInspectingRef.current && onNavigateLevelRef.current && shelfLevelsRef.current.length > 0) {
             const absDy = Math.abs(dragDyAcc);
             if (absDy > DRAG_LEVEL_THRESHOLD) {
               const direction = dragDyAcc < 0 ? 1 : -1;
               const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
               const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
               if (targetIndex !== activeIndex) {
-                onNavigateLevel(shelfLevelsRef.current[targetIndex].id);
+                onNavigateLevelRef.current(shelfLevelsRef.current[targetIndex].id);
               }
             }
           }
@@ -718,7 +732,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         if (touchStateRef.current.touchDragBook) {
           touchStateRef.current.touchDragBook.book.clearDragPreview();
           touchStateRef.current.touchDragBook = null;
-          onDragStateChange?.(null, null);
+          onDragStateChangeRef.current?.(null, null);
         }
         touchStateRef.current.lastDist = null;
         touchStateRef.current.lastCenter = null;
@@ -748,7 +762,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
           );
           return;
         }
-        if (!onNavigateLevel || shelfLevelsRef.current.length < 2) return;
+        if (!onNavigateLevelRef.current || shelfLevelsRef.current.length < 2) return;
         scrollAccRef.current += event.deltaY;
         if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
         scrollTimerRef.current = setTimeout(() => { scrollAccRef.current = 0; }, 400);
@@ -758,7 +772,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         const activeIndex = shelfLevelsRef.current.findIndex((level) => level.id === activeLevelIdRef.current);
         const targetIndex = THREE.MathUtils.clamp(activeIndex + direction, 0, shelfLevelsRef.current.length - 1);
         if (targetIndex !== activeIndex) {
-          onNavigateLevel(shelfLevelsRef.current[targetIndex].id);
+          onNavigateLevelRef.current(shelfLevelsRef.current[targetIndex].id);
         }
       };
 
@@ -904,10 +918,6 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
     contentHeight,
     levelCount,
     levelLayoutSignature,
-    onDragStateChange,
-    onMoveBookToShelfLevel,
-    onOpenInspection,
-    onSelectIndex,
     shelfItems,
     retryCount,
   ]);
