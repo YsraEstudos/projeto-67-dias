@@ -205,8 +205,8 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
             <div className="flex items-center gap-3">
               <BookCover book={draft} compact />
               <div className="min-w-0">
-                <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[#F3D274]">Capa em 3D</p>
-                <p className="text-xs leading-relaxed text-slate-400">O livro selecionado permanece visível na cena enquanto você preenche os detalhes.</p>
+                <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[#F3D274]">Capa & Anotações em 3D</p>
+                <p className="text-xs leading-relaxed text-slate-300">Arraste para rotacionar o livro em 3D e ler suas notas e reflexões escritas na capa traseira!</p>
               </div>
             </div>
           </section>

@@ -25,6 +25,8 @@ export interface ShelfBookManifestItem {
   foilColor: FoilColor;
   foilHex: string;
   foilMotif: FoilMotifType;
+  customColor?: string;
+  notes?: string;
 }
 
 export const CLOTH_PALETTE = {

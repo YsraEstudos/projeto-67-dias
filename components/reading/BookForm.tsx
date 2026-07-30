@@ -20,6 +20,7 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
         current: initialData.current || 0,
         unit: initialData.unit || 'PAGES',
         coverUrl: initialData.coverUrl || '',
+        customColor: initialData.customColor || '',
         notes: initialData.notes || '',
         deadline: initialData.deadline || ''
     });
@@ -34,6 +35,7 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
         current: initialData.current || 0,
         unit: initialData.unit || 'PAGES',
         coverUrl: initialData.coverUrl || '',
+        customColor: initialData.customColor || '',
         notes: initialData.notes || '',
         deadline: initialData.deadline || ''
     }), []);
@@ -162,6 +164,43 @@ const BookForm: React.FC<BookFormProps> = React.memo(({ initialData, onSave, onC
                             />
                         )}
                     </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs text-slate-500 uppercase font-bold mb-1">Cor da Encadernação (Livro 3D)</label>
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {[
+                            { name: 'Marinho', hex: '#162238' },
+                            { name: 'Vinho', hex: '#521422' },
+                            { name: 'Esmeralda', hex: '#163E2D' },
+                            { name: 'Grafite', hex: '#282726' },
+                            { name: 'Terracota', hex: '#9E442A' },
+                            { name: 'Floresta', hex: '#183324' },
+                            { name: 'Ocre', hex: '#A36F17' },
+                            { name: 'Púrpura', hex: '#3B1647' },
+                        ].map((c) => (
+                            <button
+                                key={c.hex}
+                                type="button"
+                                title={c.name}
+                                onClick={() => setFormData({ ...formData, customColor: c.hex })}
+                                className={`h-8 w-8 rounded-full border-2 transition-all ${
+                                    formData.customColor === c.hex
+                                        ? 'border-[#F3D274] scale-110 shadow-md ring-2 ring-[#D4AF37]/50'
+                                        : 'border-slate-700 hover:scale-105'
+                                }`}
+                                style={{ backgroundColor: c.hex }}
+                            />
+                        ))}
+                        <input
+                            type="color"
+                            value={formData.customColor || '#162238'}
+                            onChange={e => setFormData({ ...formData, customColor: e.target.value })}
+                            className="h-8 w-10 cursor-pointer rounded bg-slate-900 border border-slate-700 p-0.5"
+                            title="Escolher cor personalizada"
+                        />
+                    </div>
+                    <p className="text-[10px] text-slate-500">Se deixado em branco e houver capa, a cor será extraída automaticamente da imagem.</p>
                 </div>
 
                 <div>

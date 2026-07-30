@@ -33,6 +33,7 @@ export interface Book {
   // Single shelf layout
   shelfLevelId?: string;
   shelfPosition?: number;
+  customColor?: string;
 
   // Daily Progress Tracking
   dailyGoal?: number; // Meta diária (páginas/capítulos)

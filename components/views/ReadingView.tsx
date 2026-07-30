@@ -120,7 +120,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
   }, [books, activeCategory]);
 
   const shelfBookSignature = filteredBooks
-    .map((book) => [book.id, book.title, book.author, book.coverUrl ?? '', book.total, book.genre].join('~'))
+    .map((book) => [book.id, book.title, book.author, book.coverUrl ?? '', book.total, book.genre, book.customColor ?? '', book.notes ?? ''].join('~'))
     .join('|');
   const shelfAssignmentSignature = filteredBooks
     .map((book) => [book.id, book.shelfLevelId ?? '', book.shelfPosition ?? ''].join('~'))
@@ -139,6 +139,8 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
         coverUrl: book.coverUrl || undefined,
         pages: book.total || manifestTemplate.pages,
         genre: book.genre || manifestTemplate.genre,
+        customColor: book.customColor || undefined,
+        notes: book.notes || '',
       };
     });
   }, [shelfBookSignature]);

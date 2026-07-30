@@ -319,4 +319,11 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     fireEvent.click(add5Btn);
     expect(onProgress).toHaveBeenCalledWith('book-1', 155);
   });
+
+  it('extractDominantColor helper extracts color from canvas or fallback hex', async () => {
+    const { extractDominantColor } = await import('../../../components/reading/shelf/BookMesh');
+    const mockImg = document.createElement('img');
+    const hex = extractDominantColor(mockImg);
+    expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
 });

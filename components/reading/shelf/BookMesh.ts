@@ -510,6 +510,141 @@ function createSpineTextures(item: ShelfBookManifestItem): {
   return { map, roughnessMap, metalnessMap };
 }
 
+/**
+ * Extracts dominant color from cover image canvas or HTMLImageElement
+ */
+export function extractDominantColor(img: HTMLImageElement): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '#162238';
+
+  ctx.drawImage(img, 0, 0, 32, 32);
+  const data = ctx.getImageData(0, 0, 32, 32).data;
+  let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+    if (a < 128) continue;
+    const brightness = (r + g + b) / 3;
+    if (brightness > 245 || brightness < 15) continue;
+    rSum += r;
+    gSum += g;
+    bSum += b;
+    count++;
+  }
+
+  if (count === 0) return '#162238';
+
+  const avgR = Math.round(rSum / count);
+  const avgG = Math.round(gSum / count);
+  const avgB = Math.round(bSum / count);
+
+  return `#${((1 << 24) + (avgR << 16) + (avgG << 8) + avgB).toString(16).slice(1)}`;
+}
+
+/**
+ * Creates Back Cover Textures (Map, Roughness, Metalness) with Written Notes & Reflections
+ */
+function createBackCoverTextures(item: ShelfBookManifestItem, notesText: string): {
+  map: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+  metalnessMap: THREE.CanvasTexture;
+} {
+  const width = 512;
+  const height = 768;
+
+  const canvasMap = document.createElement('canvas');
+  canvasMap.width = width;
+  canvasMap.height = height;
+  const ctx = canvasMap.getContext('2d')!;
+
+  const clothColor = item.customColor || item.clothColor;
+  ctx.fillStyle = clothColor;
+  ctx.fillRect(0, 0, width, height);
+
+  // 1. Decorative Border Frame
+  const pad = 36;
+  ctx.strokeStyle = item.foilHex;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(pad + 6, pad + 6, width - (pad + 6) * 2, height - (pad + 6) * 2);
+
+  // 2. Back Cover Header
+  ctx.fillStyle = item.foilHex;
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 22px "Cinzel", "Georgia", serif';
+  ctx.fillText('NOTAS & REFLEXÕES', width / 2, pad + 45);
+
+  ctx.beginPath();
+  ctx.moveTo(pad + 40, pad + 60);
+  ctx.lineTo(width - pad - 40, pad + 60);
+  ctx.stroke();
+
+  // 3. Notes & Reflections Written Content
+  ctx.fillStyle = '#E2E8F0';
+  ctx.textAlign = 'left';
+  ctx.font = '16px "Georgia", serif';
+
+  const text = notesText && notesText.trim() ? notesText : 'Nenhuma nota registrada para este volume.';
+  const words = text.split(/\s+/);
+  const maxTextWidth = width - pad * 2 - 36;
+  const startX = pad + 18;
+  let startY = pad + 95;
+  const lineHeight = 25;
+  let currentLine = '';
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxTextWidth) {
+      ctx.fillText(currentLine, startX, startY);
+      currentLine = words[i];
+      startY += lineHeight;
+      if (startY > height - pad - 55) {
+        ctx.fillStyle = item.foilHex;
+        ctx.fillText('... (continua na ficha do livro)', startX, startY);
+        break;
+      }
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine && startY <= height - pad - 55) {
+    ctx.fillText(currentLine, startX, startY);
+  }
+
+  // 4. Publisher Seal Footer
+  ctx.fillStyle = item.foilHex;
+  ctx.textAlign = 'center';
+  ctx.font = '12px "Georgia", serif';
+  ctx.fillText('✦ BIBLIOTECA EDITORIAL ✦', width / 2, height - pad - 20);
+
+  const map = new THREE.CanvasTexture(canvasMap);
+  map.colorSpace = THREE.SRGBColorSpace;
+
+  const roughnessCanvas = document.createElement('canvas');
+  roughnessCanvas.width = width;
+  roughnessCanvas.height = height;
+  const ctxR = roughnessCanvas.getContext('2d')!;
+  ctxR.fillStyle = '#C0C0C0';
+  ctxR.fillRect(0, 0, width, height);
+
+  const metalnessCanvas = document.createElement('canvas');
+  metalnessCanvas.width = width;
+  metalnessCanvas.height = height;
+  const ctxM = metalnessCanvas.getContext('2d')!;
+  ctxM.fillStyle = '#0C0C0C';
+  ctxM.fillRect(0, 0, width, height);
+
+  const roughnessMap = new THREE.CanvasTexture(roughnessCanvas);
+  const metalnessMap = new THREE.CanvasTexture(metalnessCanvas);
+
+  return { map, roughnessMap, metalnessMap };
+}
+
 export class BookMeshGroup {
   public group: THREE.Group;
   public item: ShelfBookManifestItem;
@@ -527,6 +662,8 @@ export class BookMeshGroup {
 
   private clothMaterials: THREE.MeshStandardMaterial[] = [];
   private frontCoverMaterial: THREE.MeshStandardMaterial | null = null;
+  private backCoverMaterial: THREE.MeshStandardMaterial | null = null;
+  private baseClothMaterial: THREE.MeshStandardMaterial | null = null;
   private glowMesh: THREE.Mesh | null = null;
   private texturesToDispose: THREE.Texture[] = [];
   private isDisposed: boolean = false;
@@ -549,21 +686,24 @@ export class BookMeshGroup {
   private buildGeometryAndMaterials() {
     const { width, height, thickness } = this.item;
     const clothNormalMap = getClothNormalMap();
+    const effectiveClothColor = this.item.customColor || this.item.clothColor;
 
     // 1. Textures
     const frontTex = createFrontCoverTextures(this.item);
     const spineTex = createSpineTextures(this.item);
+    const backTex = createBackCoverTextures(this.item, this.item.notes || '');
     const paperTex = createPaperBlockTexture();
 
     this.texturesToDispose.push(
       frontTex.map, frontTex.roughnessMap, frontTex.metalnessMap,
       spineTex.map, spineTex.roughnessMap, spineTex.metalnessMap,
+      backTex.map, backTex.roughnessMap, backTex.metalnessMap,
       paperTex
     );
 
     // Common cloth material
     const baseClothMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(this.item.clothColor),
+      color: new THREE.Color(effectiveClothColor),
       roughness: 0.7,
       metalness: 0.05,
       normalMap: clothNormalMap,
@@ -574,6 +714,14 @@ export class BookMeshGroup {
       map: frontTex.map,
       roughnessMap: frontTex.roughnessMap,
       metalnessMap: frontTex.metalnessMap,
+      normalMap: clothNormalMap,
+      normalScale: new THREE.Vector2(0.2, 0.2),
+    });
+
+    const backCoverMat = new THREE.MeshStandardMaterial({
+      map: backTex.map,
+      roughnessMap: backTex.roughnessMap,
+      metalnessMap: backTex.metalnessMap,
       normalMap: clothNormalMap,
       normalScale: new THREE.Vector2(0.2, 0.2),
     });
@@ -593,26 +741,27 @@ export class BookMeshGroup {
       color: new THREE.Color('#FAF6EE'),
     });
 
-    this.clothMaterials.push(baseClothMat, frontCoverMat, spineMat);
+    this.clothMaterials.push(baseClothMat, frontCoverMat, spineMat, backCoverMat);
     this.frontCoverMaterial = frontCoverMat;
+    this.backCoverMaterial = backCoverMat;
+    this.baseClothMaterial = baseClothMat;
 
-    // 2. Geometries
+    // 2. Closed Book Geometry Assembly
     const boardThickness = 0.04;
-    const overhang = 0.05;
+    const overhang = 0.04;
 
-    // Paper Block
-    const paperW = thickness - boardThickness * 2;
+    // Enclosed Paper Block
+    const paperW = thickness - boardThickness * 2 - 0.01;
     const paperH = height - overhang * 2;
-    const paperD = width - 0.06;
+    const paperD = width - 0.08;
     const paperGeo = new THREE.BoxGeometry(paperW, paperH, paperD);
     const paperMesh = new THREE.Mesh(paperGeo, paperMat);
-    paperMesh.position.set(0, height / 2, -0.03);
+    paperMesh.position.set(0, height / 2, -0.04);
     paperMesh.castShadow = true;
     paperMesh.receiveShadow = true;
     this.group.add(paperMesh);
 
-    // Front Cover (+X side). The selected pose rotates this broad face toward
-    // the camera so inspection shows a real cover instead of the book's edge.
+    // Front Cover (+X side)
     const coverGeo = new THREE.BoxGeometry(boardThickness, height, width);
     const frontCoverMesh = new THREE.Mesh(coverGeo, [
       frontCoverMat, // +X front cover canvas
@@ -626,12 +775,20 @@ export class BookMeshGroup {
     frontCoverMesh.castShadow = true;
     frontCoverMesh.receiveShadow = true;
     this.group.add(frontCoverMesh);
+
     if (this.item.coverUrl) {
       this.loadCoverTexture(this.item.coverUrl);
     }
 
-    // Back Cover (-X side)
-    const backCoverMesh = new THREE.Mesh(coverGeo, baseClothMat);
+    // Back Cover (-X side) with Notes & Reflections Canvas
+    const backCoverMesh = new THREE.Mesh(coverGeo, [
+      baseClothMat,  // +X
+      backCoverMat,  // -X back cover canvas with notes
+      baseClothMat,  // +Y top
+      baseClothMat,  // -Y bottom
+      baseClothMat,  // +Z edge
+      baseClothMat,  // -Z edge
+    ]);
     backCoverMesh.position.set(-thickness / 2 + boardThickness / 2, height / 2, 0);
     backCoverMesh.castShadow = true;
     backCoverMesh.receiveShadow = true;
@@ -646,6 +803,22 @@ export class BookMeshGroup {
     spineMesh.castShadow = true;
     spineMesh.receiveShadow = true;
     this.group.add(spineMesh);
+
+    // Hardcover Closed Enclosure Trim Caps (Top +Y, Bottom -Y, Fore-edge -Z)
+    const topCapGeo = new THREE.BoxGeometry(thickness, boardThickness, width);
+    const topCapMesh = new THREE.Mesh(topCapGeo, baseClothMat);
+    topCapMesh.position.set(0, height - boardThickness / 2, 0);
+    this.group.add(topCapMesh);
+
+    const bottomCapGeo = new THREE.BoxGeometry(thickness, boardThickness, width);
+    const bottomCapMesh = new THREE.Mesh(bottomCapGeo, baseClothMat);
+    bottomCapMesh.position.set(0, boardThickness / 2, 0);
+    this.group.add(bottomCapMesh);
+
+    const foreEdgeCapGeo = new THREE.BoxGeometry(thickness, height, boardThickness);
+    const foreEdgeCapMesh = new THREE.Mesh(foreEdgeCapGeo, baseClothMat);
+    foreEdgeCapMesh.position.set(0, height / 2, -width / 2 + boardThickness / 2);
+    this.group.add(foreEdgeCapMesh);
 
     // Subtle Hover Glow Wireframe/Bounding Mesh
     const glowGeo = new THREE.BoxGeometry(thickness + 0.08, height + 0.08, width + 0.08);
@@ -667,7 +840,9 @@ export class BookMeshGroup {
   }
 
   private loadCoverTexture(coverUrl: string) {
-    new THREE.TextureLoader().load(
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(
       coverUrl,
       (texture) => {
         if (this.isDisposed || !this.frontCoverMaterial) {
@@ -686,10 +861,22 @@ export class BookMeshGroup {
         this.frontCoverMaterial.color.set('#FFFFFF');
         this.frontCoverMaterial.needsUpdate = true;
         this.texturesToDispose.push(texture);
+
+        // Dominant Color Extraction if customColor is not specified
+        if (!this.item.customColor && texture.image && texture.image instanceof HTMLImageElement) {
+          try {
+            const dominantHex = extractDominantColor(texture.image);
+            if (this.baseClothMaterial) {
+              this.baseClothMaterial.color.set(dominantHex);
+            }
+          } catch {
+            // Ignore CORS canvas sampling restrictions safely
+          }
+        }
       },
       undefined,
       () => {
-        // Keep the procedural cover when a remote image is unavailable.
+        // Keep procedural cover when remote image fails
       },
     );
   }
