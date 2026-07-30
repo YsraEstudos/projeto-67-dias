@@ -1,9 +1,24 @@
 import * as THREE from 'three';
 
+let cachedWalnutTexture: THREE.CanvasTexture | null = null;
+
+/** Deterministic PRNG (mulberry32) — produces the same sequence every run */
+function mulberry32(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
- * Creates a procedural rich walnut wood grain texture
+ * Creates a procedural rich walnut wood grain texture (cached singleton)
+ * Uses a seeded PRNG so the grain pattern is identical across page refreshes.
  */
-function createWalnutWoodTexture(): THREE.CanvasTexture {
+function getWalnutWoodTexture(): THREE.CanvasTexture {
+  if (cachedWalnutTexture) return cachedWalnutTexture;
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
@@ -13,6 +28,8 @@ function createWalnutWoodTexture(): THREE.CanvasTexture {
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
+
+  const rand = mulberry32(0x57616c6e); // "waln" seed
 
   // Keep the procedural grain visible under the scene's warm lights.
   const baseGrad = ctx.createLinearGradient(0, 0, 512, 512);
@@ -26,15 +43,15 @@ function createWalnutWoodTexture(): THREE.CanvasTexture {
   ctx.strokeStyle = '#2B160B';
   ctx.lineWidth = 1.5;
   for (let i = 0; i < 40; i++) {
-    const y = Math.random() * 512;
+    const y = rand() * 512;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.bezierCurveTo(
-      150, y + (Math.random() - 0.5) * 40,
-      350, y + (Math.random() - 0.5) * 40,
-      512, y + (Math.random() - 0.5) * 20
+      150, y + (rand() - 0.5) * 40,
+      350, y + (rand() - 0.5) * 40,
+      512, y + (rand() - 0.5) * 20
     );
-    ctx.globalAlpha = 0.15 + Math.random() * 0.25;
+    ctx.globalAlpha = 0.15 + rand() * 0.25;
     ctx.stroke();
   }
 
@@ -42,11 +59,11 @@ function createWalnutWoodTexture(): THREE.CanvasTexture {
   ctx.strokeStyle = '#D09A5B';
   ctx.lineWidth = 0.8;
   for (let i = 0; i < 30; i++) {
-    const y = Math.random() * 512;
+    const y = rand() * 512;
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(512, y + (Math.random() - 0.5) * 15);
-    ctx.globalAlpha = 0.1 + Math.random() * 0.2;
+    ctx.lineTo(512, y + (rand() - 0.5) * 15);
+    ctx.globalAlpha = 0.1 + rand() * 0.2;
     ctx.stroke();
   }
   ctx.globalAlpha = 1.0;
@@ -56,6 +73,7 @@ function createWalnutWoodTexture(): THREE.CanvasTexture {
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(4, 1);
   texture.colorSpace = THREE.SRGBColorSpace;
+  cachedWalnutTexture = texture;
   return texture;
 }
 
@@ -73,6 +91,7 @@ export class ShelfNameplateMesh {
   public texture: THREE.CanvasTexture;
   public material: THREE.MeshStandardMaterial;
   public geometry: THREE.BoxGeometry;
+  private brassMaterial: THREE.MeshStandardMaterial;
 
   constructor(name: string, width = 2.4, height = 0.32, depth = 0.02) {
     const canvas = document.createElement('canvas');
@@ -132,19 +151,19 @@ export class ShelfNameplateMesh {
       metalness: 0.2,
     });
 
-    const brassSideMat = new THREE.MeshStandardMaterial({
+    this.brassMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#D4AF37'),
       roughness: 0.25,
       metalness: 0.85,
     });
 
     this.mesh = new THREE.Mesh(this.geometry, [
-      brassSideMat,
-      brassSideMat,
-      brassSideMat,
-      brassSideMat,
+      this.brassMaterial,
+      this.brassMaterial,
+      this.brassMaterial,
+      this.brassMaterial,
       frontMat,
-      brassSideMat,
+      this.brassMaterial,
     ]);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
@@ -155,6 +174,7 @@ export class ShelfNameplateMesh {
     this.texture.dispose();
     this.geometry.dispose();
     this.material.dispose();
+    this.brassMaterial.dispose();
   }
 }
 
@@ -179,8 +199,8 @@ export class ShelfMeshGroup {
       levels,
     } = options;
     const safeLevelCount = Math.max(1, levelCount);
-    const woodTexture = createWalnutWoodTexture();
-    this.texturesToDispose.push(woodTexture);
+    const woodTexture = getWalnutWoodTexture();
+    // Wood texture is a shared singleton — do NOT add to texturesToDispose
 
     // Walnut Wood Material
     const walnutMat = new THREE.MeshStandardMaterial({

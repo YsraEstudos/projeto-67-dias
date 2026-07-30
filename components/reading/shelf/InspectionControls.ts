@@ -49,6 +49,10 @@ export class InspectionControls {
   private onModeChange?: (mode: ControlMode) => void;
   private onBookSelected?: (book: BookMeshGroup | null) => void;
 
+  // Reusable vectors to avoid per-frame heap allocation
+  private readonly _inspectTargetPos = new THREE.Vector3();
+  private readonly _targetCamPos = new THREE.Vector3();
+
   constructor(options: InspectionControlsOptions) {
     this.camera = options.camera;
     this.domElement = options.domElement;
@@ -219,27 +223,18 @@ export class InspectionControls {
 
       // Selected book smooth pull-forward target center
       const bookBasePos = this.selectedBook.getBasePosition();
-      const inspectTargetPos = new THREE.Vector3(
-        bookBasePos.x,
-        1.5,
-        2.2
-      );
 
       // Move book group to inspection center position and set its 3D rotation
-      this.selectedBook.group.position.lerp(inspectTargetPos, lerpFactor);
+      this._inspectTargetPos.set(bookBasePos.x, 1.5, 2.2);
+      this.selectedBook.group.position.lerp(this._inspectTargetPos, lerpFactor);
       this.selectedBook.group.rotation.x = THREE.MathUtils.lerp(this.selectedBook.group.rotation.x, this.inspectRotationX, lerpFactor);
       this.selectedBook.group.rotation.y = THREE.MathUtils.lerp(this.selectedBook.group.rotation.y, this.inspectRotationY, lerpFactor);
       this.selectedBook.group.rotation.z = THREE.MathUtils.lerp(this.selectedBook.group.rotation.z, 0, lerpFactor);
 
       // Lerp camera to focus directly on selected book
-      const targetCamPos = new THREE.Vector3(
-        bookBasePos.x,
-        1.5,
-        2.2 + this.inspectZoom
-      );
-
-      this.camera.position.lerp(targetCamPos, lerpFactor);
-      this.camera.lookAt(new THREE.Vector3(bookBasePos.x, 1.5, 2.2));
+      this._targetCamPos.set(bookBasePos.x, 1.5, 2.2 + this.inspectZoom);
+      this.camera.position.lerp(this._targetCamPos, lerpFactor);
+      this.camera.lookAt(this._inspectTargetPos);
     }
   }
 

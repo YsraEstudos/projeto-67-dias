@@ -1,8 +1,88 @@
 import * as THREE from 'three';
 import { ShelfBookManifestItem, FoilMotifType } from './mintManifest';
+import { getBookDimensions } from '../../../utils/bookDimensions';
 
 // Static cloth texture cache to save GPU/Canvas overhead
 let cachedClothNormalMap: THREE.CanvasTexture | null = null;
+
+/**
+ * Generates PBR roughness and metalness map canvases from a foil mask canvas.
+ * Uses canvas compositing when available (browsers) and falls back to a
+ * pixel-loop for environments that do not implement drawImage (e.g. JSDOM).
+ *
+ * Foil areas  → low roughness (45/255 ≈ 0.18), high metalness (235/255 ≈ 0.92)
+ * Cloth areas → high roughness (190/255 ≈ 0.75), low metalness (12/255 ≈ 0.05)
+ */
+function buildFoilPBRMaps(
+  foilCanvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+): { roughnessMap: THREE.CanvasTexture; metalnessMap: THREE.CanvasTexture } {
+  const roughnessCanvas = document.createElement('canvas');
+  roughnessCanvas.width = width;
+  roughnessCanvas.height = height;
+  const ctxR = roughnessCanvas.getContext('2d')!;
+
+  const metalnessCanvas = document.createElement('canvas');
+  metalnessCanvas.width = width;
+  metalnessCanvas.height = height;
+  const ctxM = metalnessCanvas.getContext('2d')!;
+
+  // Try compositing path (fast, browser-native)
+  const canUseDrawImage = typeof ctxR.drawImage === 'function';
+  if (canUseDrawImage) {
+    try {
+      ctxR.fillStyle = 'rgb(190,190,190)';
+      ctxR.fillRect(0, 0, width, height);
+      ctxR.globalCompositeOperation = 'destination-out';
+      ctxR.drawImage(foilCanvas, 0, 0);
+      ctxR.globalCompositeOperation = 'destination-over';
+      ctxR.fillStyle = 'rgb(45,45,45)';
+      ctxR.fillRect(0, 0, width, height);
+      ctxR.globalCompositeOperation = 'source-over';
+
+      ctxM.fillStyle = 'rgb(12,12,12)';
+      ctxM.fillRect(0, 0, width, height);
+      ctxM.globalCompositeOperation = 'destination-out';
+      ctxM.drawImage(foilCanvas, 0, 0);
+      ctxM.globalCompositeOperation = 'destination-over';
+      ctxM.fillStyle = 'rgb(235,235,235)';
+      ctxM.fillRect(0, 0, width, height);
+      ctxM.globalCompositeOperation = 'source-over';
+
+      return {
+        roughnessMap: new THREE.CanvasTexture(roughnessCanvas),
+        metalnessMap: new THREE.CanvasTexture(metalnessCanvas),
+      };
+    } catch {
+      // fall through to pixel loop below
+    }
+  }
+
+  // Pixel-loop fallback (JSDOM / environments without drawImage support)
+  const foilCtx = foilCanvas.getContext('2d');
+  const foilImg = foilCtx?.getImageData(0, 0, width, height);
+  const rImg = ctxR.createImageData(width, height);
+  const mImg = ctxM.createImageData(width, height);
+  const total = width * height * 4;
+  for (let i = 0; i < total; i += 4) {
+    const isFoil = foilImg ? foilImg.data[i] > 100 : false;
+    const rVal = isFoil ? 45 : 190;
+    const mVal = isFoil ? 235 : 12;
+    rImg.data[i] = rImg.data[i + 1] = rImg.data[i + 2] = rVal;
+    rImg.data[i + 3] = 255;
+    mImg.data[i] = mImg.data[i + 1] = mImg.data[i + 2] = mVal;
+    mImg.data[i + 3] = 255;
+  }
+  ctxR.putImageData(rImg, 0, 0);
+  ctxM.putImageData(mImg, 0, 0);
+
+  return {
+    roughnessMap: new THREE.CanvasTexture(roughnessCanvas),
+    metalnessMap: new THREE.CanvasTexture(metalnessCanvas),
+  };
+}
+
 
 /**
  * Creates a seamless procedural crosshatch cloth normal map texture
@@ -52,7 +132,10 @@ function getClothNormalMap(): THREE.CanvasTexture {
 /**
  * Creates paper page block texture with horizontal line details
  */
-function createPaperBlockTexture(): THREE.CanvasTexture {
+let cachedPaperBlockTexture: THREE.CanvasTexture | null = null;
+
+function getPaperBlockTexture(): THREE.CanvasTexture {
+  if (cachedPaperBlockTexture) return cachedPaperBlockTexture;
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 512;
@@ -81,6 +164,7 @@ function createPaperBlockTexture(): THREE.CanvasTexture {
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
+  cachedPaperBlockTexture = texture;
   return texture;
 }
 
@@ -322,11 +406,9 @@ function createFrontCoverTextures(item: ShelfBookManifestItem): {
 
   // 5. Draw Author
   ctxMap.font = '18px "Georgia", serif';
-  ctxMap.letterSpacing = '3px';
   ctxMap.fillText(item.author.toUpperCase(), width / 2, startY + 30);
 
   ctxFoil.font = '18px "Georgia", serif';
-  ctxFoil.letterSpacing = '3px';
   ctxFoil.fillText(item.author.toUpperCase(), width / 2, startY + 30);
 
   // 6. Draw Bottom Accent
@@ -340,44 +422,7 @@ function createFrontCoverTextures(item: ShelfBookManifestItem): {
   const map = new THREE.CanvasTexture(canvasMap);
   map.colorSpace = THREE.SRGBColorSpace;
 
-  // Generate Roughness and Metalness textures from Foil Mask
-  const roughnessCanvas = document.createElement('canvas');
-  roughnessCanvas.width = width;
-  roughnessCanvas.height = height;
-  const ctxR = roughnessCanvas.getContext('2d')!;
-
-  const metalnessCanvas = document.createElement('canvas');
-  metalnessCanvas.width = width;
-  metalnessCanvas.height = height;
-  const ctxM = metalnessCanvas.getContext('2d')!;
-
-  const foilImg = ctxFoil.getImageData(0, 0, width, height);
-  const rImg = ctxR.createImageData(width, height);
-  const mImg = ctxM.createImageData(width, height);
-
-  for (let i = 0; i < foilImg.data.length; i += 4) {
-    const isFoil = foilImg.data[i] > 100;
-    // Foil: Low Roughness (0.18), High Metalness (0.92)
-    // Cloth: High Roughness (0.75), Low Metalness (0.05)
-    const rVal = isFoil ? 45 : 190;
-    const mVal = isFoil ? 235 : 12;
-
-    rImg.data[i] = rVal;
-    rImg.data[i + 1] = rVal;
-    rImg.data[i + 2] = rVal;
-    rImg.data[i + 3] = 255;
-
-    mImg.data[i] = mVal;
-    mImg.data[i + 1] = mVal;
-    mImg.data[i + 2] = mVal;
-    mImg.data[i + 3] = 255;
-  }
-
-  ctxR.putImageData(rImg, 0, 0);
-  ctxM.putImageData(mImg, 0, 0);
-
-  const roughnessMap = new THREE.CanvasTexture(roughnessCanvas);
-  const metalnessMap = new THREE.CanvasTexture(metalnessCanvas);
+  const { roughnessMap, metalnessMap } = buildFoilPBRMaps(canvasFoil, width, height);
 
   return { map, roughnessMap, metalnessMap };
 }
@@ -470,48 +515,15 @@ function createSpineTextures(item: ShelfBookManifestItem): {
   const map = new THREE.CanvasTexture(canvasMap);
   map.colorSpace = THREE.SRGBColorSpace;
 
-  // Roughness / Metalness Maps
-  const roughnessCanvas = document.createElement('canvas');
-  roughnessCanvas.width = width;
-  roughnessCanvas.height = height;
-  const ctxR = roughnessCanvas.getContext('2d')!;
-
-  const metalnessCanvas = document.createElement('canvas');
-  metalnessCanvas.width = width;
-  metalnessCanvas.height = height;
-  const ctxM = metalnessCanvas.getContext('2d')!;
-
-  const foilImg = ctxFoil.getImageData(0, 0, width, height);
-  const rImg = ctxR.createImageData(width, height);
-  const mImg = ctxM.createImageData(width, height);
-
-  for (let i = 0; i < foilImg.data.length; i += 4) {
-    const isFoil = foilImg.data[i] > 100;
-    const rVal = isFoil ? 45 : 190;
-    const mVal = isFoil ? 235 : 12;
-
-    rImg.data[i] = rVal;
-    rImg.data[i + 1] = rVal;
-    rImg.data[i + 2] = rVal;
-    rImg.data[i + 3] = 255;
-
-    mImg.data[i] = mVal;
-    mImg.data[i + 1] = mVal;
-    mImg.data[i + 2] = mVal;
-    mImg.data[i + 3] = 255;
-  }
-
-  ctxR.putImageData(rImg, 0, 0);
-  ctxM.putImageData(mImg, 0, 0);
-
-  const roughnessMap = new THREE.CanvasTexture(roughnessCanvas);
-  const metalnessMap = new THREE.CanvasTexture(metalnessCanvas);
+  const { roughnessMap, metalnessMap } = buildFoilPBRMaps(canvasFoil, width, height);
 
   return { map, roughnessMap, metalnessMap };
 }
 
 /**
- * Dynamic book dimension scaling by page count
+ * Dynamic book dimension scaling by page count.
+ * Delegates to the shared `getBookDimensions` utility.
+ * Kept for backwards compatibility with any external callers.
  */
 export function getBookDimensionsByPageCount(pages?: number, item?: Partial<ShelfBookManifestItem>): {
   thickness: number;
@@ -519,13 +531,7 @@ export function getBookDimensionsByPageCount(pages?: number, item?: Partial<Shel
   width: number;
 } {
   if (typeof pages === 'number' && pages > 0) {
-    if (pages <= 150) {
-      return { thickness: 0.30, height: 2.1, width: 1.4 };
-    }
-    if (pages <= 500) {
-      return { thickness: 0.50, height: 2.6, width: 1.7 };
-    }
-    return { thickness: 0.85, height: 3.1, width: 2.0 };
+    return getBookDimensions(pages);
   }
   return {
     thickness: item?.thickness ?? 0.50,
@@ -578,10 +584,9 @@ export function getDeterministicColorHash(str: string): string {
  * Extracts dominant color from cover image canvas or HTMLImageElement with CORS resilience
  */
 export function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement, fallbackKey = 'book'): string {
+  // Note: crossOrigin must be set BEFORE the image HTTP request is made (by TextureLoader).
+  // Setting it here after the image is loaded has no effect and is intentionally omitted.
   try {
-    if (img instanceof HTMLImageElement) {
-      img.crossOrigin = 'anonymous';
-    }
     const canvas = document.createElement('canvas');
     canvas.width = 32;
     canvas.height = 32;
@@ -770,7 +775,7 @@ export class BookMeshGroup {
     const frontTex = createFrontCoverTextures(this.item);
     const spineTex = createSpineTextures(this.item);
     const backTex = createBackCoverTextures(this.item, this.item.notes || '');
-    const paperTex = createPaperBlockTexture();
+    const paperTex = getPaperBlockTexture();
 
     this.texturesToDispose.push(
       frontTex.map, frontTex.roughnessMap, frontTex.metalnessMap,
@@ -920,16 +925,27 @@ export class BookMeshGroup {
 
   public updateBindingColor(hexColor: string) {
     const color = new THREE.Color(hexColor);
+
+    // baseClothMaterial has no map — direct color assignment is correct
     if (this.baseClothMaterial) {
       this.baseClothMaterial.color.copy(color);
       this.baseClothMaterial.needsUpdate = true;
     }
+
+    // spineMaterial and backCoverMaterial have canvas-baked textures. Their
+    // `.color` multiplies against the texture (MeshStandardMaterial default).
+    // The baked textures use `item.clothColor` as base fill, so to achieve the
+    // correct binding color we tint with WHITE on the material and rely solely
+    // on the dominant color being reflected in the baseClothMaterial which
+    // shares geometry faces without textures. For the textured faces we simply
+    // modulate: setting to white lets the texture show at full brightness;
+    // a color tint shifts the hue of the texture — chosen behavior is neutral white.
     if (this.spineMaterial) {
-      this.spineMaterial.color.copy(color);
+      this.spineMaterial.color.set('#FFFFFF');
       this.spineMaterial.needsUpdate = true;
     }
     if (this.backCoverMaterial) {
-      this.backCoverMaterial.color.copy(color);
+      this.backCoverMaterial.color.set('#FFFFFF');
       this.backCoverMaterial.needsUpdate = true;
     }
   }
@@ -961,7 +977,7 @@ export class BookMeshGroup {
         if (!this.item.customColor) {
           const fallbackKey = coverUrl || this.item.title || this.item.id;
           let dominantHex = getDeterministicColorHash(fallbackKey);
-          if (texture.image && (texture.image instanceof HTMLImageElement || texture.image instanceof HTMLCanvasElement)) {
+          if (texture.image && ((texture.image as unknown) instanceof HTMLImageElement || (texture.image as unknown) instanceof HTMLCanvasElement)) {
             dominantHex = extractDominantColor(texture.image, fallbackKey);
           }
           this.updateBindingColor(dominantHex);
@@ -1080,7 +1096,10 @@ export class BookMeshGroup {
   public dispose() {
     this.isDisposed = true;
     this.clothMaterials.forEach((m) => m.dispose());
-    this.texturesToDispose.forEach((t) => t.dispose());
+    // paper block texture is shared/cached — do NOT dispose it here
+    this.texturesToDispose
+      .filter((t) => t !== cachedPaperBlockTexture)
+      .forEach((t) => t.dispose());
     this.group.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose();

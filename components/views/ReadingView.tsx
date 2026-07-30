@@ -12,6 +12,7 @@ import CompleteShelfScene from '../reading/shelf/CompleteShelfScene';
 import ShelfLevelRail from '../reading/shelf/ShelfLevelRail';
 import { MINT_BOOK_MANIFEST } from '../reading/shelf/mintManifest';
 import { buildShelfLayout, countBooksByShelfLevel } from '../../utils/readingShelfLayout';
+import { getBookDimensions } from '../../utils/bookDimensions';
 
 // Shared & Library View fallback
 import LibraryView from '../reading/LibraryView';
@@ -73,13 +74,8 @@ function calculateReadingStreak(books: IBook[]): number {
 }
 
 export function calculateBookDimensions(pages: number) {
-  if (pages <= 150) {
-    return { pages, thickness: 0.30, height: 2.1, width: 1.4 };
-  }
-  if (pages <= 500) {
-    return { pages, thickness: 0.50, height: 2.6, width: 1.7 };
-  }
-  return { pages, thickness: 0.85, height: 3.1, width: 2.0 };
+  const dims = getBookDimensions(pages);
+  return { pages, ...dims };
 }
 
 export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {

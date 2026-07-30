@@ -409,10 +409,13 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
             shelfWidth,
           );
           dragDyAccRef.current += dy;
+          // Update origin each frame so dx/dy are per-frame deltas, not cumulative
+          panStartRef.current = { x: event.clientX, y: event.clientY };
           domElement.style.cursor = 'grabbing';
         } else {
           domElement.style.cursor = 'default';
         }
+
       };
 
       const handlePointerDown = (event: PointerEvent) => {
