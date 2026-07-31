@@ -283,30 +283,6 @@ const findNextCompatibleManualPlanIndex = (
   return -1;
 };
 
-const insertBlockWithCascade = (
-  plans: DayPlan[],
-  capacities: Map<string, number>,
-  targetIndex: number,
-  block: ManualBlock,
-): void => {
-  let pendingBlock: ManualBlock | null = block;
-  let currentIndex = targetIndex;
-
-  while (pendingBlock && currentIndex >= 0 && currentIndex < plans.length) {
-    const currentPlan = cloneManualPlan(plans[currentIndex]);
-    const manualBlocks: ManualBlock[] = [pendingBlock, ...(currentPlan.manualBlocks ?? [])];
-    const capacity = capacities.get(currentPlan.date) ?? manualBlocks.length;
-
-    pendingBlock = manualBlocks.length > capacity ? manualBlocks.pop() ?? null : null;
-    plans[currentIndex] = refreshManualChecklistSpec({
-      ...currentPlan,
-      manualBlocks,
-    });
-
-    currentIndex = pendingBlock ? findNextManualPlanIndex(plans, currentIndex) : currentIndex;
-  }
-};
-
 export const applyManualBlockReschedules = (
   dayPlans: DayPlan[],
   manualBlockReschedules: ManualBlockReschedule[] = [],
@@ -340,11 +316,26 @@ export const applyManualBlockReschedules = (
       continue;
     }
 
+    const targetPlan = cloneManualPlan(plans[nextManualIndex]);
+    const targetBlocks = targetPlan.manualBlocks ?? [];
+    const targetCapacity = capacities.get(targetPlan.date) ?? targetBlocks.length;
+
+    if (targetBlocks.length >= targetCapacity) {
+      const displacedBlock = targetBlocks.pop() ?? null;
+      if (displacedBlock) {
+        sourceBlocks.push(displacedBlock);
+      }
+    }
+    targetBlocks.unshift(failedBlock);
+
     plans[sourceIndex] = refreshManualChecklistSpec({
       ...sourcePlan,
       manualBlocks: sourceBlocks,
     });
-    insertBlockWithCascade(plans, capacities, nextManualIndex, failedBlock);
+    plans[nextManualIndex] = refreshManualChecklistSpec({
+      ...targetPlan,
+      manualBlocks: targetBlocks,
+    });
   }
 
   return plans;

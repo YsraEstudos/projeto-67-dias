@@ -195,4 +195,66 @@ describe('buildDayPlans', () => {
       '2026-03-16',
     );
   });
+
+  it('falhar a Redacao 1/38 nao desloca a Redacao extra 2/38 do dia agendado', () => {
+    const plans = buildDayPlans();
+    const source = plans.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação 1/38')),
+    );
+    expect(source).toBeDefined();
+    const failedBlock = source?.manualBlocks?.find((block) => block.title.startsWith('Redação 1/38'));
+    expect(failedBlock).toBeDefined();
+
+    const rescheduled = applyManualBlockReschedules(plans, [
+      {
+        id: 'failure-redacao-1',
+        failedAt: source?.date ?? '2026-03-14',
+        blockId: failedBlock?.id ?? '',
+        createdAt: `${source?.date ?? '2026-03-14'}T12:00:00.000Z`,
+        block: failedBlock,
+      },
+    ]);
+
+    const extraDay = rescheduled.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação extra 2/38')),
+    );
+    const baseExtraDay = plans.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação extra 2/38')),
+    );
+
+    expect(extraDay?.date).toBe(baseExtraDay?.date);
+    expect(extraDay?.date).toBe('2026-04-01');
+
+    const redacaoDay = rescheduled.find((plan) =>
+      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação 1/38')),
+    );
+    expect(redacaoDay?.date).not.toBe(source?.date);
+    expect((redacaoDay?.date ?? '').localeCompare(source?.date ?? '')).toBeGreaterThan(0);
+  });
+
+  it('mantem a capacidade original de blocos em todos os dias apos realocacoes em cadeia', () => {
+    const plans = buildDayPlans();
+    const failures = plans
+      .filter((plan) => plan.date >= '2026-05-16' && plan.date <= '2026-05-23' && !plan.isRestDay)
+      .flatMap((plan) =>
+        (plan.manualBlocks ?? []).filter((block) => !block.title.startsWith('Redação')).map((block) => ({
+          id: `failure-${block.id}`,
+          failedAt: plan.date,
+          blockId: block.id,
+          createdAt: `${plan.date}T12:00:00.000Z`,
+          block,
+        })),
+      );
+
+    const rescheduled = applyManualBlockReschedules(plans, failures);
+
+    for (const plan of plans) {
+      const originalCount = plan.manualBlocks?.length ?? 0;
+      const newPlan = rescheduled.find((candidate) => candidate.date === plan.date);
+      expect((newPlan?.manualBlocks?.length ?? 0)).toBeLessThanOrEqual(originalCount);
+    }
+
+    const allBlocks = rescheduled.flatMap((plan) => plan.manualBlocks ?? []);
+    expect(allBlocks.length).toBe(plans.flatMap((plan) => plan.manualBlocks ?? []).length);
+  });
 });
