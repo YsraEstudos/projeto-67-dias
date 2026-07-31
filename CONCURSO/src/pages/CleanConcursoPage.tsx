@@ -318,8 +318,8 @@ export const CleanConcursoPage = () => {
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
   const selectedPlan = dayPlansByDate[state.selectedDate];
   const dailyStudy = useMemo(
-    () => resolveDailyStudy(state, state.selectedDate, topics),
-    [state, state.selectedDate, topics],
+    () => resolveDailyStudy(state, state.selectedDate, topics, selectedPlan),
+    [state, state.selectedDate, topics, selectedPlan],
   );
   const reviewQueue = useMemo(
     () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate),

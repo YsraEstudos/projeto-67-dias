@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateNextSrsState, resolveDailyStudy, sortUnstudiedSubmatters } from '../app/contentSubmatters';
-import type { TopicNode, TopicSubmatter } from '../app/types';
+import type { SubjectKey, TopicNode, TopicSubmatter } from '../app/types';
 
 describe('SRS (Spaced Repetition System) SuperMemo-2 algorithm', () => {
   const baseSubmatter: TopicSubmatter = {
@@ -167,5 +167,65 @@ describe('resolveDailyStudy', () => {
     const study = resolveDailyStudy(mockState, '2026-07-08', customTopics);
     expect(study.newMatter?.topic.id).toBe('t1'); // new matter (portugues)
     expect(study.reviewMatter?.topic.id).toBe('t3'); // review skipped t2 (portugues) and chose t3 (rlm) to avoid same subject in Slot 2!
+  });
+
+  it('prioriza no Slot 1 a materia nova planejada nos blocos manuais do dia', () => {
+    const mockState = {
+      topicSubmattersByTopic: {
+        t1: [{ id: 'sub-t1', title: 'Português 1 Sub', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t2: [{ id: 'sub-t2', title: 'RLM 1 Sub', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t3: [{ id: 'sub-t3', title: 'Legis 1 Sub', grade: 'C' as const, lastReviewedAt: '2026-07-01', srsNextReview: '2026-07-15', srsInterval: 14, srsEase: 2.5, srsRepetitions: 2, errorNote: '', actionNote: '', createdAt: '2026-07-01', updatedAt: '2026-07-01' }],
+      },
+    };
+    const dayPlan = {
+      date: '2026-07-08',
+      planMode: 'manual' as const,
+      isRestDay: false,
+      subjects: ['portugues', 'rlm'] as [SubjectKey, SubjectKey],
+      workActivity: 'questoes_matematica' as const,
+      hasSimulado: false,
+      hasRedacao: false,
+      targets: { mainStudyMinutes: 60, ankiMainMinutes: 20, workAnkiMinutes: 0, workActivityMinutes: 0, objectiveQuestions: 10 },
+      monthKey: '2026-07',
+      manualBlocks: [
+        { id: 'b1', area: 'teoria', title: 'RLM 1', detail: '', contentTargets: [{ topicId: 't2', title: 'RLM 1', sourceTitle: '', sectionTitle: '', sourceRef: '', path: '' }] },
+      ],
+    };
+
+    const study = resolveDailyStudy(mockState, '2026-07-08', topics, dayPlan);
+
+    expect(study.newMatter?.topic.id).toBe('t2'); // planejado no bloco do dia, mesmo fora do topo da fila global
+  });
+
+  it('nao mostra no Slot 2 revisoes com vencimento futuro', () => {
+    const mockState = {
+      topicSubmattersByTopic: {
+        t1: [{ id: 'sub-t1', title: 'Português 1 Sub', grade: 'E' as const, lastReviewedAt: null, errorNote: '', actionNote: '', createdAt: '2026-07-08', updatedAt: '2026-07-08' }],
+        t2: [{ id: 'sub-t2', title: 'RLM 1 Sub', grade: 'E' as const, lastReviewedAt: '2026-07-01', srsNextReview: '2026-07-20', srsInterval: 19, srsEase: 2.5, srsRepetitions: 1, errorNote: '', actionNote: '', createdAt: '2026-07-01', updatedAt: '2026-07-01' }],
+        t3: [{ id: 'sub-t3', title: 'Legis 1 Sub', grade: 'A' as const, lastReviewedAt: '2026-07-01', srsNextReview: '2026-07-15', srsInterval: 14, srsEase: 2.5, srsRepetitions: 2, errorNote: '', actionNote: '', createdAt: '2026-07-01', updatedAt: '2026-07-01' }],
+      },
+    };
+
+    const study = resolveDailyStudy(mockState, '2026-07-08', topics);
+
+    expect(study.isAllRepeated).toBe(false);
+    expect(study.newMatter?.topic.id).toBe('t1');
+    expect(study.reviewMatter).toBeNull(); // nenhuma revisao vencida em 2026-07-08
+  });
+
+  it('nao preenche Slot 1 nem Slot 2 com itens nao vencidos quando tudo ja foi estudado', () => {
+    const mockState = {
+      topicSubmattersByTopic: {
+        t1: [{ id: 'sub-t1', title: 'Português 1 Sub', grade: 'C' as const, lastReviewedAt: '2026-07-02', srsNextReview: '2026-07-15', srsInterval: 13, srsEase: 2.5, srsRepetitions: 1, errorNote: '', actionNote: '', createdAt: '2026-07-02', updatedAt: '2026-07-02' }],
+        t2: [{ id: 'sub-t2', title: 'RLM 1 Sub', grade: 'E' as const, lastReviewedAt: '2026-07-07', srsNextReview: '2026-07-20', srsInterval: 13, srsEase: 2.5, srsRepetitions: 1, errorNote: '', actionNote: '', createdAt: '2026-07-07', updatedAt: '2026-07-07' }],
+        t3: [{ id: 'sub-t3', title: 'Legis 1 Sub', grade: 'A' as const, lastReviewedAt: '2026-07-01', srsNextReview: '2026-07-15', srsInterval: 14, srsEase: 2.5, srsRepetitions: 2, errorNote: '', actionNote: '', createdAt: '2026-07-01', updatedAt: '2026-07-01' }],
+      },
+    };
+
+    const study = resolveDailyStudy(mockState, '2026-07-08', topics);
+
+    expect(study.newMatter).toBeNull();
+    expect(study.reviewMatter).toBeNull();
+    expect(study.isAllRepeated).toBe(true);
   });
 });

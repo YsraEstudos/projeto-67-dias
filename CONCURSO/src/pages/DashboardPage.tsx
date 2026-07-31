@@ -74,8 +74,8 @@ export const DashboardPage = () => {
   const checklist = useMemo(() => record?.checklist ?? [], [record?.checklist]);
 
   const dailyStudy = useMemo(
-    () => resolveDailyStudy(state, state.selectedDate, topics),
-    [state, state.selectedDate, topics],
+    () => resolveDailyStudy(state, state.selectedDate, topics, plan),
+    [state, state.selectedDate, topics, plan],
   );
 
   const studyItems = useMemo(() => {

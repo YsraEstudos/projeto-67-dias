@@ -94,8 +94,8 @@ export const DailyPlanPage = () => {
   }, [state.topicSubmattersByTopic, topicById]);
 
   const dailyStudy = useMemo(
-    () => resolveDailyStudy(state, state.selectedDate, topics),
-    [state, topics],
+    () => resolveDailyStudy(state, state.selectedDate, topics, dayPlan),
+    [state, state.selectedDate, topics, dayPlan],
   );
 
   const handleSrsRate = (

@@ -1,6 +1,6 @@
 import { TOPIC_STALE_BUCKETS_DAYS } from './constants';
 import { getLocalTodayIsoDate, parseIsoDate, toIsoDate as dateToIsoStr } from './dateUtils';
-import type { SubjectKey, TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
+import type { DayPlan, SubjectKey, TopicGrade, TopicNode, TopicProgress, TopicSubmatter } from './types';
 import { getTopicDisplayTitle } from './topics';
 
 const nowIsoDate = (): string => getLocalTodayIsoDate();
@@ -530,6 +530,7 @@ export const resolveDailyStudy = (
   state: { topicSubmattersByTopic: Record<string, TopicSubmatter[]> },
   date: string,
   topics: TopicNode[],
+  dayPlan?: DayPlan | null,
 ): ResolvedDailyStudy => {
   const topicById = new Map(topics.map(t => [t.id, t]));
   const allSubmatters: StudyItem[] = [];
@@ -542,6 +543,12 @@ export const resolveDailyStudy = (
       });
     }
   });
+
+  const plannedTopicIds = new Set(
+    (dayPlan?.manualBlocks ?? []).flatMap((block) =>
+      (block.contentTargets ?? []).map((target) => target.topicId),
+    ),
+  );
 
   const unstudied = allSubmatters.filter(
     item => item.submatter.lastReviewedAt === null || !item.submatter.srsNextReview
@@ -579,14 +586,22 @@ export const resolveDailyStudy = (
   };
 
   const sortedStudied = sortStudiedByUrgency(studied);
+  const dueStudied = sortedStudied.filter(
+    (item) => (item.submatter.srsNextReview ?? '') <= date,
+  );
+
+  // Slot 1: prefer unstudied topics planned for the selected day's manual blocks.
+  const plannedUnstudied = plannedTopicIds.size > 0
+    ? sortedUnstudied.filter((item) => plannedTopicIds.has(item.topic.id))
+    : [];
 
   if (sortedUnstudied.length > 0) {
-    const newMatter = sortedUnstudied[0];
-    
+    const newMatter = (plannedUnstudied.length > 0 ? plannedUnstudied : sortedUnstudied)[0];
+
     // Find reviewMatter with a different subject than newMatter if possible
-    let reviewMatter = sortedStudied.find(item => item.topic.subject !== newMatter.topic.subject) || null;
-    if (!reviewMatter && sortedStudied.length > 0) {
-      reviewMatter = sortedStudied[0];
+    let reviewMatter = dueStudied.find(item => item.topic.subject !== newMatter.topic.subject) || null;
+    if (!reviewMatter && dueStudied.length > 0) {
+      reviewMatter = dueStudied[0];
     }
 
     return {
@@ -595,13 +610,13 @@ export const resolveDailyStudy = (
       isAllRepeated: false,
     };
   } else {
-    const newMatter = sortedStudied.length > 0 ? sortedStudied[0] : null;
+    const newMatter = dueStudied.length > 0 ? dueStudied[0] : null;
     let reviewMatter = null;
     if (newMatter) {
-      reviewMatter = sortedStudied.find(item => item.topic.subject !== newMatter.topic.subject) || null;
+      reviewMatter = dueStudied.find(item => item.topic.subject !== newMatter.topic.subject) || null;
     }
-    if (!reviewMatter && sortedStudied.length > 1) {
-      reviewMatter = sortedStudied[1];
+    if (!reviewMatter && dueStudied.length > 1) {
+      reviewMatter = dueStudied[1];
     }
 
     return {
