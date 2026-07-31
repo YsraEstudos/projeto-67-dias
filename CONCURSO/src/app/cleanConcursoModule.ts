@@ -206,29 +206,31 @@ export const findNextFailurePlanDate = (
   if (currentIndex < 0) return null;
 
   const subject = inferManualBlockSubject(block);
-  if (subject) {
-    let checkedManualDays = 0;
-    for (let index = currentIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
-      const plan = plans[index];
-      if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
-        continue;
-      }
+  if (!subject) {
+    const nextPlan = plans.find(
+      (plan, index) =>
+        index > currentIndex
+        && plan.planMode === 'manual'
+        && !plan.isRestDay
+        && (plan.manualBlocks?.length ?? 0) > 0,
+    );
+    return nextPlan?.date ?? null;
+  }
 
-      checkedManualDays += 1;
-      if (!hasManualPlanSubject(plan, subject)) {
-        return plan.date;
-      }
+  let checkedManualDays = 0;
+  for (let index = currentIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
+    const plan = plans[index];
+    if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
+      continue;
+    }
+
+    checkedManualDays += 1;
+    if (!hasManualPlanSubject(plan, subject)) {
+      return plan.date;
     }
   }
 
-  const nextPlan = plans.find(
-    (plan, index) =>
-      index > currentIndex
-      && plan.planMode === 'manual'
-      && !plan.isRestDay
-      && (plan.manualBlocks?.length ?? 0) > 0,
-  );
-  return nextPlan?.date ?? null;
+  return null;
 };
 
 export const buildPendingStudyDecisions = (

@@ -280,7 +280,7 @@ const findNextCompatibleManualPlanIndex = (
     }
   }
 
-  return findNextManualPlanIndex(plans, fromIndex);
+  return -1;
 };
 
 const insertBlockWithCascade = (
@@ -307,7 +307,7 @@ const insertBlockWithCascade = (
   }
 };
 
-const applyManualBlockReschedules = (
+export const applyManualBlockReschedules = (
   dayPlans: DayPlan[],
   manualBlockReschedules: ManualBlockReschedule[] = [],
 ): DayPlan[] => {

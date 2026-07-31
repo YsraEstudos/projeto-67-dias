@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findNextFailurePlanDate } from '../app/cleanConcursoModule';
 import { inferManualBlockSubject } from '../app/manualBlockSubjects';
-import { buildDayPlans } from '../app/schedule';
+import { applyManualBlockReschedules, buildDayPlans } from '../app/schedule';
 import type { DayPlan, ManualBlock, SubjectKey } from '../app/types';
 
 const hasSubject = (plan: DayPlan, subject: SubjectKey): boolean =>
@@ -145,7 +145,7 @@ describe('buildDayPlans', () => {
     expect(findNextFailurePlanDate(plansWithBusyTomorrow, '2026-03-16', tiBlock)).toBe('2026-03-18');
   });
 
-  it('usa o proximo dia manual quando os proximos 5 dias ja contem a mesma materia', () => {
+  it('retorna null quando os proximos 5 dias manuais ja contem a mesma materia', () => {
     const tiBlock: ManualBlock = {
       id: 'ti-fallback',
       area: 'TI',
@@ -162,6 +162,37 @@ describe('buildDayPlans', () => {
       createPlan('2026-03-23', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
     ];
 
-    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-03-16', tiBlock)).toBe('2026-03-17');
+    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-03-16', tiBlock)).toBeNull();
+  });
+
+  it('nao move o bloco para dia com a mesma materia quando os proximos 5 dias ja a contem', () => {
+    const tiBlock: ManualBlock = {
+      id: 'ti-stay',
+      area: 'TI',
+      title: 'Java',
+      detail: 'Questões de Java',
+    };
+    const plans = [
+      createPlan('2026-03-16', ['especificos', 'portugues'], [tiBlock]),
+      createPlan('2026-03-17', ['especificos', 'rlm'], [{ id: 'ti-1', area: 'TI', title: 'Web', detail: 'HTML' }]),
+      createPlan('2026-03-18', ['especificos', 'rlm'], [{ id: 'ti-2', area: 'TI', title: 'SQL', detail: 'Banco' }]),
+      createPlan('2026-03-19', ['especificos', 'rlm'], [{ id: 'ti-3', area: 'TI', title: 'Redes', detail: 'TCP' }]),
+      createPlan('2026-03-20', ['especificos', 'rlm'], [{ id: 'ti-4', area: 'TI', title: 'Docker', detail: 'Linux' }]),
+      createPlan('2026-03-21', ['especificos', 'rlm'], [{ id: 'ti-5', area: 'TI', title: 'Cloud', detail: 'AWS' }]),
+      createPlan('2026-03-23', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, [
+      {
+        id: 'failure-ti',
+        failedAt: '2026-03-16',
+        blockId: 'ti-stay',
+        createdAt: '2026-03-16T12:00:00.000Z',
+      },
+    ]);
+
+    expect(rescheduled.find((plan) => (plan.manualBlocks ?? []).some((block) => block.id === 'ti-stay'))?.date).toBe(
+      '2026-03-16',
+    );
   });
 });
