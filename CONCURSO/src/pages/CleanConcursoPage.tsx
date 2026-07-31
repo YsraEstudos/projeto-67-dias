@@ -550,7 +550,21 @@ export const CleanConcursoPage = () => {
   const dashboardStats = useMemo(() => {
     const reviewNow = pendingReviewQueue.length;
     const completedItems = planContentItems.filter((item) => pickPlanItemGrade(item.topicIds, rollups) === 'A').length;
-    const failedBlocks = state.manualBlockReschedules.length;
+    const failedBlockIds = new Set(state.manualBlockReschedules.map((item) => item.blockId));
+    const doneFailedBlockIds = new Set(
+      calendarEvents
+        .filter(
+          (event) =>
+            event.kind === 'study' && event.blockId !== null && failedBlockIds.has(event.blockId) && event.status === 'done',
+        )
+        .map((event) => event.blockId),
+    );
+    let failedBlocks = 0;
+    for (const blockId of failedBlockIds) {
+      if (!doneFailedBlockIds.has(blockId)) {
+        failedBlocks += 1;
+      }
+    }
     const progress = planContentItems.length > 0 ? Math.round((completedItems / planContentItems.length) * 100) : 0;
 
     return {
@@ -561,7 +575,7 @@ export const CleanConcursoPage = () => {
       totalPlanItems: planContentItems.length,
       calendarEvents: calendarEvents.length,
     };
-  }, [calendarEvents.length, leafTopics.length, pendingReviewQueue.length, planContentItems, rollups, state.manualBlockReschedules.length]);
+  }, [calendarEvents, leafTopics.length, pendingReviewQueue.length, planContentItems, rollups, state.manualBlockReschedules]);
 
 
   const handlePendingQuestionsChange = (eventId: string, questionsDone: number): void => {
