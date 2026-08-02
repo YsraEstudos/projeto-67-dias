@@ -71,7 +71,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     const [isVisualEditorOpen, setIsVisualEditorOpen] = useState(false);
     const [isImportExportOpen, setIsImportExportOpen] = useState(false);
     const [isBackupHistoryOpen, setIsBackupHistoryOpen] = useState(false);
-    const [isAddingTask, setIsAddingTask] = useState(false);
+    const [taskInsertIndex, setTaskInsertIndex] = useState<number | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [dividerInsertIndex, setDividerInsertIndex] = useState<number | null>(null);
     const [newDividerTitle, setNewDividerTitle] = useState('');
@@ -234,9 +234,10 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
             isCompleted: false,
             type: 'TASK'
         };
-        onUpdate([...roadmap, newTask]);
+        const idx = taskInsertIndex ?? roadmap.length;
+        onUpdate([...roadmap.slice(0, idx), newTask, ...roadmap.slice(idx)]);
         setNewTaskTitle('');
-        setIsAddingTask(false);
+        setTaskInsertIndex(null);
     };
 
     const handleAddDivider = () => {
@@ -253,27 +254,43 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
         setDividerInsertIndex(null);
     };
 
-    // Zona de inserção: faixa sutil com botão "+" circular (visível no hover em desktop, sempre em telas pequenas)
-    const renderDividerInsertZone = (position: number) => (
+    // Zona de inserção: faixa sutil com duas ações (tarefa e divisória), visível no hover em desktop e sempre em telas pequenas
+    const renderInsertZone = (position: number) => (
         <div
-            key={`divider-insert-${position}`}
+            key={`insert-zone-${position}`}
             className="group/insert relative h-6 -my-1.5 flex items-center justify-center"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
         >
             <div className="absolute inset-x-2 h-px bg-slate-700/40 group-hover/insert:bg-slate-600 transition-colors"></div>
-            <button
-                onClick={() => {
-                    setNewDividerTitle('');
-                    setDividerInsertIndex(position);
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="relative flex items-center justify-center h-5 w-5 rounded-full bg-slate-800 text-slate-500 border border-slate-700 hover:text-white hover:border-slate-500 hover:bg-slate-700 transition-all md:opacity-0 md:group-hover/insert:opacity-100"
-                title="Inserir divisória aqui"
-                aria-label="Inserir divisória aqui"
-            >
-                <Plus size={11} />
-            </button>
+            <div className="relative flex items-center gap-1.5 transition-opacity md:opacity-0 md:group-hover/insert:opacity-100">
+                <button
+                    onClick={() => {
+                        setNewTaskTitle('');
+                        setDividerInsertIndex(null);
+                        setTaskInsertIndex(position);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="flex items-center justify-center h-5 w-5 rounded-full bg-slate-800 text-slate-500 border border-slate-700 hover:text-white hover:border-slate-500 hover:bg-slate-700 transition-all"
+                    title="Inserir tarefa aqui"
+                    aria-label="Inserir tarefa aqui"
+                >
+                    <ListTodo size={11} />
+                </button>
+                <button
+                    onClick={() => {
+                        setNewDividerTitle('');
+                        setTaskInsertIndex(null);
+                        setDividerInsertIndex(position);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="flex items-center justify-center h-5 w-5 rounded-full bg-slate-800 text-slate-500 border border-slate-700 hover:text-white hover:border-slate-500 hover:bg-slate-700 transition-all"
+                    title="Inserir divisória aqui"
+                    aria-label="Inserir divisória aqui"
+                >
+                    <Layers size={11} />
+                </button>
+            </div>
         </div>
     );
 
@@ -294,6 +311,26 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                 className={`bg-slate-900 border ${variants.borderLight} rounded px-2 py-1 text-xs font-bold uppercase tracking-widest ${variants.text} outline-none w-40 text-center`}
             />
             <div className={`h-px ${variants.bgLight} flex-1`}></div>
+        </div>
+    );
+
+    // Card inline de nova tarefa, mesmo padrão visual do card do fim da lista
+    const renderTaskInput = (position: number) => (
+        <div key={`task-input-${position}`} className={`flex items-center gap-2 p-4 bg-slate-900/50 border ${variants.borderLight} rounded-xl animate-in fade-in slide-in-from-bottom-2`}>
+            <Circle size={20} className={`${variants.text} opacity-50`} />
+            <input
+                autoFocus
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddTask()}
+                onBlur={() => {
+                    setNewTaskTitle('');
+                    setTaskInsertIndex(null);
+                }}
+                placeholder="Descreva a nova tarefa..."
+                className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+            />
+            <button onClick={handleAddTask} className={`${variants.icon} hover:opacity-80`}><CheckCircle2 size={18} /></button>
         </div>
     );
 
@@ -410,14 +447,20 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                 <Maximize2 size={12} /> Editor
                             </button>
                             <button
-                                onClick={() => setDividerInsertIndex(roadmap.length)}
+                                onClick={() => {
+                                    setTaskInsertIndex(null);
+                                    setDividerInsertIndex(roadmap.length);
+                                }}
                                 className="text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1 transition-colors"
                                 title="Adicionar Separador"
                             >
                                 <Layers size={12} /> Divisória
                             </button>
                             <button
-                                onClick={() => setIsAddingTask(true)}
+                                onClick={() => {
+                                    setDividerInsertIndex(null);
+                                    setTaskInsertIndex(roadmap.length);
+                                }}
                                 className={`text-xs ${variants.bgLight} ${variants.text} ${variants.bgHover} px-3 py-1.5 rounded-lg border ${variants.borderLight} flex items-center gap-1 transition-colors`}
                                 title="Adicionar Tarefa Manualmente"
                             >
@@ -469,10 +512,12 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                             const sectionInfo = itemSectionMap[item.id];
                             const isVisible = sectionInfo ? isSectionVisible(sectionInfo.sectionId, sectionInfo.sectionIndex) : true;
 
-                            // Zona de inserção: botão "+" no hover (ou o input quando esta posição está ativa)
-                            const insertZone = dividerInsertIndex === index
-                                ? renderDividerInput(index)
-                                : renderDividerInsertZone(index);
+                            // Zona de inserção: ações de tarefa/divisória (ou o input quando esta posição está ativa)
+                            const insertZone = taskInsertIndex === index
+                                ? renderTaskInput(index)
+                                : dividerInsertIndex === index
+                                    ? renderDividerInput(index)
+                                    : renderInsertZone(index);
 
                             if (item.type === 'SECTION') {
                                 const isUnlocked = unlockedSections.includes(item.id);
@@ -669,29 +714,20 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                             ];
                         })}
 
-                        {/* Inline Add Divider (após o último item) */}
-                        {dividerInsertIndex === roadmap.length
-                            ? renderDividerInput(roadmap.length)
-                            : renderDividerInsertZone(roadmap.length)}
+                        {/* Zona de inserção (após o último item) */}
+                        {taskInsertIndex === roadmap.length
+                            ? renderTaskInput(roadmap.length)
+                            : dividerInsertIndex === roadmap.length
+                                ? renderDividerInput(roadmap.length)
+                                : renderInsertZone(roadmap.length)}
 
-                        {/* Inline Add Task */}
-                        {isAddingTask ? (
-                            <div className={`flex items-center gap-2 p-4 bg-slate-900/50 border ${variants.borderLight} rounded-xl animate-in fade-in slide-in-from-bottom-2`}>
-                                <Circle size={20} className={`${variants.text} opacity-50`} />
-                                <input
-                                    autoFocus
-                                    value={newTaskTitle}
-                                    onChange={e => setNewTaskTitle(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddTask()}
-                                    onBlur={() => setIsAddingTask(false)}
-                                    placeholder="Descreva a nova tarefa..."
-                                    className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-                                />
-                                <button onClick={handleAddTask} className={`${variants.icon} hover:opacity-80`}><CheckCircle2 size={18} /></button>
-                            </div>
-                        ) : (
+                        {/* Inline Add Task - botão principal no fim da lista */}
+                        {taskInsertIndex === roadmap.length ? null : (
                             <button
-                                onClick={() => setIsAddingTask(true)}
+                                onClick={() => {
+                                    setDividerInsertIndex(null);
+                                    setTaskInsertIndex(roadmap.length);
+                                }}
                                 className={`w-full py-3 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 ${variants.hoverBorderLight} ${variants.hoverText} hover:bg-slate-900/50 transition-all flex items-center justify-center gap-2 text-sm font-medium group`}
                             >
                                 <Plus size={16} className="group-hover:scale-110 transition-transform" /> Adicionar Tarefa
