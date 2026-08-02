@@ -88,6 +88,8 @@ export interface ShelfMeshOptions {
 }
 
 const cachedNameplateTextures = new Map<string, THREE.CanvasTexture>();
+const NAMEPLATE_DEPTH = 0.02;
+const NAMEPLATE_FRONT_CLEARANCE = 0.04;
 
 function getNameplateTexture(name: string, anisotropy = 1): THREE.CanvasTexture {
   const key = name.toUpperCase();
@@ -159,7 +161,7 @@ export class ShelfNameplateMesh {
   public geometry: THREE.BoxGeometry;
   private brassMaterial: THREE.MeshStandardMaterial;
 
-  constructor(name: string, width = 2.4, height = 0.32, depth = 0.02, anisotropy = 1) {
+  constructor(name: string, width = 2.4, height = 0.32, depth = NAMEPLATE_DEPTH, anisotropy = 1) {
     this.texture = getNameplateTexture(name, anisotropy);
 
     this.geometry = new THREE.BoxGeometry(width, height, depth);
@@ -277,10 +279,18 @@ export class ShelfMeshGroup {
         levelName,
         Math.min(2.8, width * 0.4),
         Math.min(0.32, thickness * 0.9),
-        0.02,
+        NAMEPLATE_DEPTH,
         nameplateAnisotropy,
       );
-      nameplate.mesh.position.set(0, levelY - thickness / 2, depth / 2 + 0.02);
+      // Keep the entire plaque in front of the beveled wooden face. A tiny
+      // overlap here makes the depth buffer alternate between both surfaces
+      // while the camera orbits, which makes the plaque appear to flicker in
+      // and out of the shelf.
+      nameplate.mesh.position.set(
+        0,
+        levelY - thickness / 2,
+        depth / 2 + NAMEPLATE_DEPTH / 2 + NAMEPLATE_FRONT_CLEARANCE,
+      );
       this.group.add(nameplate.mesh);
       // nameplate texture is cached — do NOT add to texturesToDispose
       this.materialsToDispose.push(nameplate.material);

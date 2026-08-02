@@ -32,6 +32,9 @@ describe('Shelf Enhancements & Dynamic Book Scaling', () => {
       ],
     });
 
+    const nameplate = shelfGroup.group.children[1] as THREE.Mesh;
+    const nameplateBounds = new THREE.Box3().setFromObject(nameplate);
+    expect(nameplateBounds.min.z).toBeGreaterThan(3.2 / 2);
     expect(shelfGroup.group.children.length).toBeGreaterThan(4);
     shelfGroup.dispose();
   });
