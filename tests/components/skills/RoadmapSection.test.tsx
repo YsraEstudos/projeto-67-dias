@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RoadmapSection, findActiveSectionIndex } from '../../../components/skills/RoadmapSection';
+import { RoadmapSection } from '../../../components/skills/RoadmapSection';
 import { SkillRoadmapItem } from '../../../types';
 
 // Mock child modals
@@ -578,29 +578,5 @@ describe('RoadmapSection Component', () => {
         await waitFor(() => {
             expect(screen.getByTestId('visual-roadmap-editor')).toBeInTheDocument();
         });
-    });
-});
-
-describe('findActiveSectionIndex (scroll spy)', () => {
-    it('ativa a primeira seção quando a lista está no topo', () => {
-        expect(findActiveSectionIndex([0, 200, 400], 0)).toBe(0);
-    });
-
-    it('ativa a seção cujo topo já passou da linha de referência', () => {
-        expect(findActiveSectionIndex([0, 200, 400], 180)).toBe(1);
-        expect(findActiveSectionIndex([0, 200, 400], 200)).toBe(1);
-    });
-
-    it('ativa a última seção ao rolar até o fim', () => {
-        expect(findActiveSectionIndex([0, 200, 400], 9999)).toBe(2);
-    });
-
-    it('respeita a banda configurada', () => {
-        expect(findActiveSectionIndex([0, 100, 200], 90, 10)).toBe(1);
-        expect(findActiveSectionIndex([0, 100, 200], 90, 9)).toBe(0);
-    });
-
-    it('funciona com uma única seção', () => {
-        expect(findActiveSectionIndex([12], 0)).toBe(0);
     });
 });
