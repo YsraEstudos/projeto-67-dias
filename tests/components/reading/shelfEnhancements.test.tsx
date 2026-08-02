@@ -13,6 +13,9 @@ describe('Shelf Enhancements & Dynamic Book Scaling', () => {
     expect(plaque.mesh).toBeDefined();
     expect(plaque.texture).toBeInstanceOf(THREE.CanvasTexture);
     expect(plaque.geometry).toBeInstanceOf(THREE.BoxGeometry);
+    expect(plaque.mesh.castShadow).toBe(false);
+    expect(plaque.mesh.receiveShadow).toBe(false);
+    expect(plaque.texture.anisotropy).toBeGreaterThanOrEqual(1);
     plaque.dispose();
   });
 

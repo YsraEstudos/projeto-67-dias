@@ -217,6 +217,8 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     const nextBtns = screen.getAllByRole('button', { name: 'Próximo Livro' });
     const inspectBtns = screen.getAllByRole('button', { name: 'Inspecionar detalhes do livro' });
 
+    expect(prevBtns).toHaveLength(1);
+    expect(nextBtns).toHaveLength(1);
     expect(prevBtns[0].className).toContain('min-h-[44px]');
     expect(nextBtns[0].className).toContain('min-h-[44px]');
     expect(inspectBtns[0].className).toContain('min-h-[44px]');
@@ -342,35 +344,7 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     expect(calculateBookDimensions(1000)).toEqual({ pages: 1000, thickness: 0.85, height: 3.1, width: 2.0 });
   });
 
-  it('ShelfNavigationHUD inverted controls move Up (▲) to previous level index and Down (▼) to next level index', () => {
-    const onNavigateLevel = vi.fn();
-
-    // Render with active level at index 1 ('level-2')
-    const { unmount } = render(
-      <ShelfNavigationHUD
-        books={sampleBooks}
-        selectedIndex={0}
-        onSelectIndex={vi.fn()}
-        isInspecting={false}
-        onToggleInspection={vi.fn()}
-        onPrevBook={vi.fn()}
-        onNextBook={vi.fn()}
-        shelfLevels={sampleLevels}
-        activeLevelId="level-2"
-        onNavigateLevel={onNavigateLevel}
-      />,
-    );
-
-    // Up (▲) button moves to previous/higher level index (index 0: 'level-1')
-    const upButton = screen.getByRole('button', { name: 'Andar Anterior (▲)' });
-    expect(upButton).toBeInTheDocument();
-    expect(upButton.className).toContain('min-h-[44px]');
-    fireEvent.click(upButton);
-    expect(onNavigateLevel).toHaveBeenCalledWith('level-1');
-
-    unmount();
-
-    // Render with active level at index 0 ('level-1')
+  it('ShelfNavigationHUD removes desktop navigation arrows and the drag hint', () => {
     render(
       <ShelfNavigationHUD
         books={sampleBooks}
@@ -380,17 +354,11 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
         onToggleInspection={vi.fn()}
         onPrevBook={vi.fn()}
         onNextBook={vi.fn()}
-        shelfLevels={sampleLevels}
-        activeLevelId="level-1"
-        onNavigateLevel={onNavigateLevel}
       />,
     );
 
-    // Down (▼) button moves to next/lower level index (index 1: 'level-2')
-    const downButton = screen.getByRole('button', { name: 'Próximo Andar (▼)' });
-    expect(downButton).toBeInTheDocument();
-    expect(downButton.className).toContain('min-h-[44px]');
-    fireEvent.click(downButton);
-    expect(onNavigateLevel).toHaveBeenCalledWith('level-2');
+    expect(screen.queryByRole('button', { name: 'Andar Anterior (▲)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Próximo Andar (▼)' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Arraste a estante')).not.toBeInTheDocument();
   });
 });

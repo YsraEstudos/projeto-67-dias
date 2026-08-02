@@ -314,9 +314,6 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
                 setActiveCategory(cat);
                 setSelectedIndex(0);
               }}
-              shelfLevels={shelfLevels}
-              activeLevelId={activeShelfLevelId}
-              onNavigateLevel={setActiveShelfLevelId}
             />
 
             {/* Inspection Drawer Overlay */}

@@ -84,14 +84,22 @@ export interface ShelfMeshOptions {
   levelCount?: number;
   levelSpacing?: number;
   levels?: { id: string; name: string; position?: number }[];
+  nameplateAnisotropy?: number;
 }
 
 const cachedNameplateTextures = new Map<string, THREE.CanvasTexture>();
 
-function getNameplateTexture(name: string): THREE.CanvasTexture {
+function getNameplateTexture(name: string, anisotropy = 1): THREE.CanvasTexture {
   const key = name.toUpperCase();
+  const requestedAnisotropy = Math.max(1, anisotropy);
   const cached = cachedNameplateTextures.get(key);
-  if (cached) return cached;
+  if (cached) {
+    if (cached.anisotropy < requestedAnisotropy) {
+      cached.anisotropy = requestedAnisotropy;
+      cached.needsUpdate = true;
+    }
+    return cached;
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -135,6 +143,10 @@ function getNameplateTexture(name: string): THREE.CanvasTexture {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.anisotropy = requestedAnisotropy;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
   texture.colorSpace = THREE.SRGBColorSpace;
   cachedNameplateTextures.set(key, texture);
   return texture;
@@ -147,8 +159,8 @@ export class ShelfNameplateMesh {
   public geometry: THREE.BoxGeometry;
   private brassMaterial: THREE.MeshStandardMaterial;
 
-  constructor(name: string, width = 2.4, height = 0.32, depth = 0.02) {
-    this.texture = getNameplateTexture(name);
+  constructor(name: string, width = 2.4, height = 0.32, depth = 0.02, anisotropy = 1) {
+    this.texture = getNameplateTexture(name, anisotropy);
 
     this.geometry = new THREE.BoxGeometry(width, height, depth);
 
@@ -173,8 +185,10 @@ export class ShelfNameplateMesh {
       frontMat,
       this.brassMaterial,
     ]);
-    this.mesh.castShadow = true;
-    this.mesh.receiveShadow = true;
+    // Small textured plaques shimmer under the shadow map while the camera moves.
+    // They do not need to cast or receive shadows to remain legible.
+    this.mesh.castShadow = false;
+    this.mesh.receiveShadow = false;
     this.material = frontMat;
   }
 
@@ -205,6 +219,7 @@ export class ShelfMeshGroup {
       levelCount = 1,
       levelSpacing = 3.9,
       levels,
+      nameplateAnisotropy = 1,
     } = options;
     const safeLevelCount = Math.max(1, levelCount);
     const woodTexture = getWalnutWoodTexture();
@@ -263,6 +278,7 @@ export class ShelfMeshGroup {
         Math.min(2.8, width * 0.4),
         Math.min(0.32, thickness * 0.9),
         0.02,
+        nameplateAnisotropy,
       );
       nameplate.mesh.position.set(0, levelY - thickness / 2, depth / 2 + 0.02);
       this.group.add(nameplate.mesh);

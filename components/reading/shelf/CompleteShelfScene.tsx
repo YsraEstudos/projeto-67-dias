@@ -266,6 +266,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         levelCount,
         levelSpacing: SHELF_LEVEL_SPACING,
         levels: shelfLevels,
+        nameplateAnisotropy: renderer.capabilities.getMaxAnisotropy(),
       });
       scene.add(shelfGroup.group);
 
@@ -994,4 +995,3 @@ export function clampZoomScale(
 }
 
 export default CompleteShelfScene;
-

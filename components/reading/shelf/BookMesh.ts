@@ -923,7 +923,54 @@ export class BookMeshGroup {
     });
   }
 
+  private replaceTextureSet(
+    material: THREE.MeshStandardMaterial | null,
+    textures: {
+      map: THREE.CanvasTexture;
+      roughnessMap: THREE.CanvasTexture;
+      metalnessMap: THREE.CanvasTexture;
+    },
+  ) {
+    if (!material) {
+      textures.map.dispose();
+      textures.roughnessMap.dispose();
+      textures.metalnessMap.dispose();
+      return;
+    }
+
+    const previousTextures = [material.map, material.roughnessMap, material.metalnessMap]
+      .filter((texture): texture is THREE.Texture => texture !== null);
+
+    material.map = textures.map;
+    material.roughnessMap = textures.roughnessMap;
+    material.metalnessMap = textures.metalnessMap;
+    material.color.set('#FFFFFF');
+    material.needsUpdate = true;
+
+    previousTextures.forEach((texture) => {
+      const trackedIndex = this.texturesToDispose.indexOf(texture);
+      if (trackedIndex !== -1) this.texturesToDispose.splice(trackedIndex, 1);
+      texture.dispose();
+    });
+
+    this.texturesToDispose.push(textures.map, textures.roughnessMap, textures.metalnessMap);
+  }
+
+  private refreshColorBoundTextures(hexColor: string) {
+    const colorBoundItem = { ...this.item, customColor: hexColor };
+    this.replaceTextureSet(
+      this.spineMaterial,
+      createSpineTextures(colorBoundItem),
+    );
+    this.replaceTextureSet(
+      this.backCoverMaterial,
+      createBackCoverTextures(colorBoundItem, this.item.notes || ''),
+    );
+  }
+
   public updateBindingColor(hexColor: string) {
+    if (this.isDisposed) return;
+
     const color = new THREE.Color(hexColor);
 
     // baseClothMaterial has no map — direct color assignment is correct
@@ -932,22 +979,9 @@ export class BookMeshGroup {
       this.baseClothMaterial.needsUpdate = true;
     }
 
-    // spineMaterial and backCoverMaterial have canvas-baked textures. Their
-    // `.color` multiplies against the texture (MeshStandardMaterial default).
-    // The baked textures use `item.clothColor` as base fill, so to achieve the
-    // correct binding color we tint with WHITE on the material and rely solely
-    // on the dominant color being reflected in the baseClothMaterial which
-    // shares geometry faces without textures. For the textured faces we simply
-    // modulate: setting to white lets the texture show at full brightness;
-    // a color tint shifts the hue of the texture — chosen behavior is neutral white.
-    if (this.spineMaterial) {
-      this.spineMaterial.color.set('#FFFFFF');
-      this.spineMaterial.needsUpdate = true;
-    }
-    if (this.backCoverMaterial) {
-      this.backCoverMaterial.color.set('#FFFFFF');
-      this.backCoverMaterial.needsUpdate = true;
-    }
+    // Rebuild the canvas-baked spine and back cover with the same color that
+    // was extracted from the original front cover.
+    this.refreshColorBoundTextures(hexColor);
   }
 
   private loadCoverTexture(coverUrl: string) {

@@ -216,6 +216,24 @@ describe('BookMesh', () => {
 
     bookMesh.dispose();
   });
+
+  it('rebuilds the back cover and spine textures when the cover dominant color is discovered', () => {
+    const bookMesh = new BookMeshGroup(MINT_BOOK_MANIFEST[0], new THREE.Vector3(1.0, 0.17, 0));
+    const backCoverMesh = bookMesh.group.children[2] as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
+    const spineMesh = bookMesh.group.children[3] as THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>;
+    const backCoverMaterial = backCoverMesh.material[1];
+    const spineMapBefore = spineMesh.material.map;
+    const backMapBefore = backCoverMaterial.map;
+
+    bookMesh.updateBindingColor('#123456');
+
+    expect(spineMesh.material.map).not.toBe(spineMapBefore);
+    expect(backCoverMaterial.map).not.toBe(backMapBefore);
+    expect(spineMesh.material.color.getHexString()).toBe('ffffff');
+    expect(backCoverMaterial.color.getHexString()).toBe('ffffff');
+
+    bookMesh.dispose();
+  });
 });
 
 describe('ShelfMesh', () => {
