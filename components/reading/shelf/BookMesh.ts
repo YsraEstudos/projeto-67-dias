@@ -1053,6 +1053,10 @@ export class BookMeshGroup {
   }
 
   public setSelected(selected: boolean) {
+    // The scene reasserts selection every frame; avoid resetting the user's
+    // orbit pose while the selected state itself has not changed.
+    if (this.isSelected === selected) return;
+
     this.isSelected = selected;
     if (selected) {
       this.isHovered = false;

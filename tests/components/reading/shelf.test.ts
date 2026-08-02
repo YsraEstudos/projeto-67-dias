@@ -298,6 +298,24 @@ describe('BookMesh orbit rotation', () => {
     bookMesh.dispose();
   });
 
+  it('preserves orbit rotation when the render loop reaffirms selection', () => {
+    const bookItem = MINT_BOOK_MANIFEST[0];
+    const bookMesh = new BookMeshGroup(bookItem, new THREE.Vector3(1.0, 0.17, 0));
+
+    bookMesh.setSelected(true);
+    bookMesh.setOrbitRotation(0.5, 1.2);
+    bookMesh.update(1);
+
+    // CompleteShelfScene calls setSelected on every animation frame.
+    bookMesh.setSelected(true);
+    bookMesh.update(1);
+
+    expect(bookMesh.group.rotation.x).toBeCloseTo(0.5);
+    expect(bookMesh.group.rotation.y).toBeCloseTo(1.2);
+
+    bookMesh.dispose();
+  });
+
   it('clearDragPreview restores focusRotation when selected, not orbit', () => {
     const bookItem = MINT_BOOK_MANIFEST[0];
     const bookMesh = new BookMeshGroup(bookItem, new THREE.Vector3(1.0, 0.17, 0));
@@ -385,4 +403,3 @@ describe('Touch gesture controls & WebGL resilience', () => {
     expect(getDpr(1440, 1.0)).toBe(1.0);
   });
 });
-
