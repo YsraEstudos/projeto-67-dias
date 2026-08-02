@@ -144,6 +144,9 @@ describe('useAppBootstrap', () => {
     });
 
     it('does NOT sync userName when config.userName is already set', () => {
+        // Freeze time to a weekday so the Sunday-reset effect does not call setConfig
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-06-08T12:00:00'));
         renderBootstrap({ userName: 'Existing Name', isDataReady: true });
         expect(mockSetConfig).not.toHaveBeenCalled();
     });
