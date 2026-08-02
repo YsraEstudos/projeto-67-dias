@@ -1,4 +1,4 @@
-import React, { useState, Suspense, useMemo } from 'react';
+import React, { useState, Suspense, useMemo, useRef, useEffect } from 'react';
 import {
     Bot, Plus, X, CheckCircle2, Circle,
     Layers, Download, Maximize2, ListTodo, Map, Loader2, Lock, History
@@ -14,6 +14,22 @@ const RoadmapBackupModal = React.lazy(() => import('./RoadmapBackupModal').then(
 
 const FullRoadmapEditor = React.lazy(() => import('./FullRoadmapEditor').then(m => ({ default: m.FullRoadmapEditor })));
 const VisualRoadmapEditor = React.lazy(() => import('./VisualRoadmapEditor').then(m => ({ default: m.VisualRoadmapEditor })));
+
+/**
+ * Índice da seção ativa no scroll spy: a última seção cujo topo já passou da
+ * "linha" de referência (topo da lista + banda). Retorna 0 para listas vazias.
+ */
+export const findActiveSectionIndex = (sectionOffsets: number[], scrollTop: number, bandOffset = 24): number => {
+    let active = 0;
+    for (let i = 0; i < sectionOffsets.length; i++) {
+        if (sectionOffsets[i] <= scrollTop + bandOffset) {
+            active = i;
+        } else {
+            break;
+        }
+    }
+    return active;
+};
 
 interface RoadmapSectionProps {
     roadmap: SkillRoadmapItem[];
@@ -76,6 +92,8 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     const [dividerInsertIndex, setDividerInsertIndex] = useState<number | null>(null);
     const [newDividerTitle, setNewDividerTitle] = useState('');
     const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+    const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+    const listRef = useRef<HTMLDivElement>(null);
 
     // Inline editing state
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -156,6 +174,56 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
         const progressTarget = Math.max(0, Math.min(100, Math.round(parsed)));
         onUpdate(roadmap.map(item => item.id === sectionId ? { ...item, progressTarget } : item));
     };
+
+    // Seções (divisórias) para a barra de navegação - sempre derivado da prop roadmap
+    const sections = roadmap.reduce<{ id: string; title: string; progress: number; target: number; visible: boolean }[]>((acc, item) => {
+        if (item.type !== 'SECTION') return acc;
+        const info = itemSectionMap[item.id];
+        acc.push({
+            id: item.id,
+            title: item.title,
+            progress: getSectionProgress(item.id),
+            target: item.progressTarget ?? defaultProgressTarget,
+            visible: info ? isSectionVisible(info.sectionId, info.sectionIndex) : true,
+        });
+        return acc;
+    }, []);
+
+    // Scroll spy: destaca na barra a seção atualmente em vista
+    const handleListScroll = () => {
+        const listEl = listRef.current;
+        if (!listEl || sections.length <= 1) return;
+        const els = Array.from(listEl.querySelectorAll<HTMLElement>('[data-roadmap-section]'));
+        if (els.length === 0) return;
+        const offsets = els.map(el => el.offsetTop);
+        const activeIndex = findActiveSectionIndex(offsets, listEl.scrollTop);
+        setActiveSectionId(els[activeIndex].getAttribute('data-roadmap-section'));
+    };
+
+    // Rola suavemente até a divisória da seção (com offset para não colar no topo)
+    const scrollToSection = (sectionId: string) => {
+        const listEl = listRef.current;
+        if (!listEl) return;
+        const target = listEl.querySelector<HTMLElement>(`[data-roadmap-section="${sectionId}"]`);
+        if (!target) return;
+        setActiveSectionId(sectionId);
+        const listRect = listEl.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const top = listEl.scrollTop + (targetRect.top - listRect.top) - 16;
+        listEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    };
+
+    // Recalcula o destaque quando a lista muda (seções adicionadas, removidas ou reordenadas)
+    useEffect(() => {
+        handleListScroll();
+    }, [roadmap, currentMode]);
+
+    // Mantém o item ativo visível na barra lateral (rola a própria sidebar se preciso)
+    useEffect(() => {
+        if (!activeSectionId) return;
+        const activeBtn = document.querySelector<HTMLElement>(`nav [data-sidebar-section="${activeSectionId}"]`);
+        activeBtn?.scrollIntoView({ block: 'nearest' });
+    }, [activeSectionId]);
 
     // Item Handlers
     const toggleRoadmapItem = (itemId: string) => {
@@ -499,8 +567,70 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                         <div className="text-right mt-1 text-xs text-purple-400 font-mono">{roadmapProgress}% Completo</div>
                     </div>
 
-                    {/* Roadmap Items */}
-                    <div className="flex-1 space-y-3 overflow-y-auto scrollbar-thin">
+                    {/* Navegação rápida entre seções (mobile: chips roláveis) */}
+                    {sections.length > 1 && (
+                        <div className="lg:hidden mb-3 -mx-1 overflow-x-auto scrollbar-thin">
+                            <div className="flex gap-1.5 px-1 w-max">
+                                {sections.map(s => {
+                                    const isActive = s.id === activeSectionId;
+                                    return (
+                                        <button
+                                            key={s.id}
+                                            onClick={() => scrollToSection(s.id)}
+                                            title={s.title}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs whitespace-nowrap border transition-all ${isActive
+                                                ? `${variants.bgLight} ${variants.text} ${variants.borderLight}`
+                                                : 'text-slate-500 border-slate-700/60 hover:text-slate-200 hover:bg-slate-800/60'} ${s.visible ? '' : 'opacity-70'}`}
+                                        >
+                                            {!s.visible && <Lock size={10} className="text-amber-500/70" />}
+                                            <span className="truncate max-w-[9rem]">{s.title}</span>
+                                            <span className="text-[10px] font-mono shrink-0">{s.progress}%</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Roadmap Items + Navegação entre Seções */}
+                    <div className="flex-1 flex gap-4 min-h-0">
+                        {sections.length > 1 && (
+                            <nav aria-label="Navegar entre seções" className="hidden lg:flex flex-col w-44 shrink-0 min-h-0 border-r border-slate-700/50 pr-3">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Seções</p>
+                                <div className="flex-1 overflow-y-auto scrollbar-thin">
+                                    <ul className="space-y-1">
+                                        {sections.map(s => {
+                                            const isActive = s.id === activeSectionId;
+                                            return (
+                                                <li key={s.id}>
+                                                    <button
+                                                        onClick={() => scrollToSection(s.id)}
+                                                        title={s.title}
+                                                        data-sidebar-section={s.id}
+                                                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs transition-all ${isActive
+                                                            ? `${variants.bgLight} ${variants.text} border ${variants.borderLight}`
+                                                            : 'text-slate-500 border border-transparent hover:text-slate-200 hover:bg-slate-800/60'} ${s.visible ? '' : 'opacity-70'}`}
+                                                    >
+                                                        {!s.visible && <Lock size={10} className="text-amber-500/70 shrink-0" />}
+                                                        <span className="flex-1 truncate font-medium">{s.title}</span>
+                                                        <svg className={`-rotate-90 h-4 w-4 shrink-0 ${isActive ? 'opacity-90' : 'opacity-60'}`} viewBox="0 0 44 44" aria-hidden="true">
+                                                            <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="5" className="text-slate-700" />
+                                                            <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round"
+                                                                strokeDasharray={2 * Math.PI * 18}
+                                                                strokeDashoffset={(2 * Math.PI * 18) * (1 - s.progress / 100)}
+                                                                className={s.progress >= s.target ? 'text-emerald-400' : variants.text}
+                                                            />
+                                                        </svg>
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            </nav>
+                        )}
+
+                        <div ref={listRef} onScroll={handleListScroll} className="relative flex-1 space-y-3 overflow-y-auto scrollbar-thin">
                         {roadmap.length === 0 && (
                             <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-60 min-h-[200px]">
                                 <ListTodo size={48} className="mb-4" />
@@ -528,6 +658,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                     (
                                         <div
                                             key={item.id}
+                                            data-roadmap-section={item.id}
                                             draggable={isVisible}
                                         onDragStart={(e) => isVisible && handleDragStart(e, item.id)}
                                         onDragOver={(e) => handleDragOver(e, item.id)}
@@ -543,7 +674,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                                 });
                                             }
                                         }}
-                                        className={`flex items-center gap-4 py-4 group ${isVisible ? 'cursor-move' : 'cursor-pointer'} ${draggedItemId === item.id ? 'opacity-50' : ''}`}
+                                        className={`flex items-center gap-4 py-4 group scroll-mt-4 ${isVisible ? 'cursor-move' : 'cursor-pointer'} ${draggedItemId === item.id ? 'opacity-50' : ''}`}
                                     >
                                         <div className={`h-px flex-1 ${isVisible ? 'bg-slate-700' : 'bg-slate-800'}`}></div>
                                         <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
@@ -733,6 +864,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                 <Plus size={16} className="group-hover:scale-110 transition-transform" /> Adicionar Tarefa
                             </button>
                         )}
+                        </div>
                     </div>
                 </>
             ) : (
