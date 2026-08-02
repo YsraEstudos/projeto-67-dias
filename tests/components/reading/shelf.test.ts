@@ -8,16 +8,23 @@ import {
   calculateShelfCameraDistance,
   getShelfCameraVerticalTarget,
   getShelfLevelFromPointer,
+  INSPECTION_INITIAL_ROTATION_Y,
   resolveBookActivation,
 } from '../../../components/reading/shelf/CompleteShelfScene';
 import { buildShelfLayout, createDefaultShelfLevels } from '../../../utils/readingShelfLayout';
 
+let canvasContexts: WeakMap<HTMLCanvasElement, { fillStyles: string[] }>;
+
 // Mock Canvas getContext for JSDOM environment
 beforeEach(() => {
-  HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation((contextId: string) => {
+  canvasContexts = new WeakMap();
+  HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation(function (this: HTMLCanvasElement, contextId: string) {
     if (contextId === '2d') {
-      return {
-        fillStyle: '',
+      const record = { fillStyles: [] as string[] };
+      let fillStyle = '';
+      const context = {
+        get fillStyle() { return fillStyle; },
+        set fillStyle(value: string) { fillStyle = value; record.fillStyles.push(value); },
         strokeStyle: '',
         lineWidth: 1,
         font: '',
@@ -53,6 +60,8 @@ beforeEach(() => {
           addColorStop: vi.fn(),
         }),
       } as unknown as CanvasRenderingContext2D;
+      canvasContexts.set(this, record);
+      return context;
     }
     return null;
   });
@@ -180,6 +189,21 @@ describe('mint-assets.json', () => {
 });
 
 describe('BookMesh', () => {
+  it('starts inspection with the front cover facing the camera at +Z', () => {
+    const frontNormal = new THREE.Vector3(1, 0, 0).applyAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      INSPECTION_INITIAL_ROTATION_Y,
+    );
+    const backNormal = new THREE.Vector3(-1, 0, 0).applyAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      INSPECTION_INITIAL_ROTATION_Y,
+    );
+
+    expect(INSPECTION_INITIAL_ROTATION_Y).toBeCloseTo(-Math.PI / 2);
+    expect(frontNormal.z).toBeGreaterThan(0.99);
+    expect(backNormal.z).toBeLessThan(-0.99);
+  });
+
   it('should construct a procedural BookMeshGroup instance', () => {
     const bookItem = MINT_BOOK_MANIFEST[0];
     const initialPos = new THREE.Vector3(1.0, 0, 0);
@@ -198,6 +222,46 @@ describe('BookMesh', () => {
 
     bookMesh.setSelected(true);
     expect(bookMesh.isSelected).toBe(true);
+
+    bookMesh.dispose();
+  });
+
+  it('uses one custom binding color across cloth edges, covers, spine, and visible page cuts', () => {
+    const bookMesh = new BookMeshGroup({ ...MINT_BOOK_MANIFEST[0], customColor: '#123456' }, new THREE.Vector3());
+    const frontCover = bookMesh.group.getObjectByName('front-cover') as THREE.Mesh;
+    const backCover = bookMesh.group.getObjectByName('back-cover') as THREE.Mesh;
+    const spine = bookMesh.group.getObjectByName('spine') as THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>;
+    const pageBlock = bookMesh.group.getObjectByName('page-block') as THREE.Mesh;
+    const pageMaterials = pageBlock.material as THREE.MeshStandardMaterial[];
+
+    expect(bookMesh.getResolvedBindingColor()).toEqual({ hex: '#123456', source: 'custom' });
+    expect(frontCover.material[0].color.getHexString()).toBe('ffffff');
+    expect(frontCover.material[4].color.getHexString()).toBe('123456');
+    expect(backCover.material[0].color.getHexString()).toBe('123456');
+    expect(spine.material.color.getHexString()).toBe('ffffff');
+    expect(canvasContexts.get((frontCover.material[0].map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
+    expect(canvasContexts.get((backCover.material[1].map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
+    expect(canvasContexts.get((spine.material.map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
+    expect(pageMaterials[2].color.getHexString()).toBe('123456');
+    expect(pageMaterials[4].color.getHexString()).toBe('123456');
+    expect(pageMaterials[4].map).toBeNull();
+    expect(pageMaterials[2].map).toBe(pageMaterials[5].map);
+    expect(pageMaterials[2].map).not.toBeNull();
+    expect(pageMaterials[5].color.getHexString()).toBe('123456');
+    expect(bookMesh.group.getObjectByName('fore-edge-cap')).toBeUndefined();
+
+    const frontMapBefore = frontCover.material[0].map;
+    const pageMapBefore = pageMaterials[2].map;
+    bookMesh.updateBindingColor('#654321');
+
+    expect(frontCover.material[0].color.getHexString()).toBe('ffffff');
+    expect(frontCover.material[0].map).not.toBe(frontMapBefore);
+    expect(canvasContexts.get((frontCover.material[0].map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#654321');
+    expect(pageMaterials[2].map).toBe(pageMapBefore);
+    expect(pageMaterials[2].color.getHexString()).toBe('654321');
+    expect(pageMaterials[4].color.getHexString()).toBe('654321');
+    expect(pageMaterials[5].color.getHexString()).toBe('654321');
+    expect(backCover.material[0].color.getHexString()).toBe('654321');
 
     bookMesh.dispose();
   });

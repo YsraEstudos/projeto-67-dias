@@ -323,11 +323,11 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     expect(onProgress).toHaveBeenCalledWith('book-1', 155);
   });
 
-  it('extractDominantColor helper extracts color from canvas or fallback hex', async () => {
+  it('extractDominantColor returns no color when canvas pixels are unavailable', async () => {
     const { extractDominantColor } = await import('../../../components/reading/shelf/BookMesh');
     const mockImg = document.createElement('img');
     const hex = extractDominantColor(mockImg);
-    expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(hex).toBeNull();
   });
 
   it('calculates page-count based book dimensions correctly across all tiers', () => {

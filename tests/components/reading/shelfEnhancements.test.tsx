@@ -4,6 +4,7 @@ import {
   getBookDimensionsByPageCount,
   getDeterministicColorHash,
   extractDominantColor,
+  resolveCoverTextureUrl,
 } from '../../../components/reading/shelf/BookMesh';
 import { ShelfNameplateMesh, ShelfMeshGroup } from '../../../components/reading/shelf/ShelfMesh';
 
@@ -63,9 +64,15 @@ describe('Shelf Enhancements & Dynamic Book Scaling', () => {
     expect(color1).not.toBe(color3);
   });
 
-  it('Requirement 5: extractDominantColor falls back gracefully to deterministic hash on error or empty canvas', () => {
+  it('Requirement 5: extractDominantColor returns no color when canvas pixels are unavailable', () => {
     const img = document.createElement('img');
     const hex = extractDominantColor(img, 'fallback-title');
-    expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(hex).toBeNull();
+  });
+
+  it('unwraps DuckDuckGo image URLs so CORS-capable originals can become textures', () => {
+    const wrappedUrl = 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimages.thalia.media%2Fbook.jpeg&f=1';
+    expect(resolveCoverTextureUrl(wrappedUrl)).toBe('https://images.thalia.media/book.jpeg');
+    expect(resolveCoverTextureUrl('https://cdn.example.com/book.jpeg')).toBe('https://cdn.example.com/book.jpeg');
   });
 });

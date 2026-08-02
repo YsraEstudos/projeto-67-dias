@@ -9,6 +9,8 @@ import { ShelfBookManifestItem } from './mintManifest';
 const SHELF_CAMERA_FOV = 38;
 const SHELF_CAMERA_MIN_DISTANCE = 8.5;
 const SHELF_CONTENT_HEIGHT = 4.2;
+// The front cover is +X; with the inspection camera at +Z, -PI/2 faces it toward the camera.
+export const INSPECTION_INITIAL_ROTATION_Y = -Math.PI / 2;
 
 export function calculateShelfCameraDistance(
   viewportWidth: number,
@@ -122,7 +124,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const inspectRotXRef = useRef(0);
-  const inspectRotYRef = useRef(Math.PI / 2);
+  const inspectRotYRef = useRef(INSPECTION_INITIAL_ROTATION_Y);
   const orbitPointerRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null);
   const lastInspectingRef = useRef(false);
   const lastSelectedIndexRef = useRef(selectedIndex);
@@ -192,7 +194,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
       bookMesh.setBasePosition(position);
       bookMesh.setFocusPose(
         new THREE.Vector3(entry.x, entry.y, 1.8),
-        new THREE.Euler(0, -Math.PI / 2, 0),
+        new THREE.Euler(0, INSPECTION_INITIAL_ROTATION_Y, 0),
         1.14,
       );
     });
@@ -279,7 +281,7 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
         const bookMesh = new BookMeshGroup(item, position);
         bookMesh.setFocusPose(
           new THREE.Vector3(position.x, position.y, 1.8),
-          new THREE.Euler(0, -Math.PI / 2, 0),
+          new THREE.Euler(0, INSPECTION_INITIAL_ROTATION_Y, 0),
           1.14,
         );
         scene.add(bookMesh.group);
@@ -837,14 +839,14 @@ export const CompleteShelfScene: React.FC<CompleteShelfSceneProps> = ({
 
         if (inspectionStarted || indexChanged) {
           inspectRotXRef.current = 0;
-          inspectRotYRef.current = Math.PI / 2;
+          inspectRotYRef.current = INSPECTION_INITIAL_ROTATION_Y;
         }
 
         if (isInspectingRef.current && selectedBook) {
           selectedBook.setOrbitRotation(inspectRotXRef.current, inspectRotYRef.current);
         } else {
           inspectRotXRef.current = 0;
-          inspectRotYRef.current = Math.PI / 2;
+          inspectRotYRef.current = INSPECTION_INITIAL_ROTATION_Y;
         }
 
         const targetPosition = isInspectingRef.current && selectedBook ? selectedBook.getFocusPosition() : null;
