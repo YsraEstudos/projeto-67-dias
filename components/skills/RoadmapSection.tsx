@@ -73,7 +73,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     const [isBackupHistoryOpen, setIsBackupHistoryOpen] = useState(false);
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [isAddingDivider, setIsAddingDivider] = useState(false);
+    const [dividerInsertIndex, setDividerInsertIndex] = useState<number | null>(null);
     const [newDividerTitle, setNewDividerTitle] = useState('');
     const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
@@ -247,10 +247,55 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
             isCompleted: false,
             type: 'SECTION'
         };
-        onUpdate([...roadmap, newSection]);
+        const idx = dividerInsertIndex ?? roadmap.length;
+        onUpdate([...roadmap.slice(0, idx), newSection, ...roadmap.slice(idx)]);
         setNewDividerTitle('');
-        setIsAddingDivider(false);
+        setDividerInsertIndex(null);
     };
+
+    // Zona de inserção: faixa sutil com botão "+" circular (visível no hover em desktop, sempre em telas pequenas)
+    const renderDividerInsertZone = (position: number) => (
+        <div
+            key={`divider-insert-${position}`}
+            className="group/insert relative h-6 -my-1.5 flex items-center justify-center"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="absolute inset-x-2 h-px bg-slate-700/40 group-hover/insert:bg-slate-600 transition-colors"></div>
+            <button
+                onClick={() => {
+                    setNewDividerTitle('');
+                    setDividerInsertIndex(position);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="relative flex items-center justify-center h-5 w-5 rounded-full bg-slate-800 text-slate-500 border border-slate-700 hover:text-white hover:border-slate-500 hover:bg-slate-700 transition-all md:opacity-0 md:group-hover/insert:opacity-100"
+                title="Inserir divisória aqui"
+                aria-label="Inserir divisória aqui"
+            >
+                <Plus size={11} />
+            </button>
+        </div>
+    );
+
+    // Input inline de nova divisória, mesmo padrão visual do input original
+    const renderDividerInput = (position: number) => (
+        <div key={`divider-input-${position}`} className="flex items-center gap-4 py-4 animate-in fade-in slide-in-from-left-4">
+            <div className={`h-px ${variants.bgLight} flex-1`}></div>
+            <input
+                autoFocus
+                value={newDividerTitle}
+                onChange={e => setNewDividerTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddDivider()}
+                onBlur={() => {
+                    setNewDividerTitle('');
+                    setDividerInsertIndex(null);
+                }}
+                placeholder="Nome da Seção..."
+                className={`bg-slate-900 border ${variants.borderLight} rounded px-2 py-1 text-xs font-bold uppercase tracking-widest ${variants.text} outline-none w-40 text-center`}
+            />
+            <div className={`h-px ${variants.bgLight} flex-1`}></div>
+        </div>
+    );
 
     // Drag and Drop Handlers
     const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -365,7 +410,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                 <Maximize2 size={12} /> Editor
                             </button>
                             <button
-                                onClick={() => setIsAddingDivider(true)}
+                                onClick={() => setDividerInsertIndex(roadmap.length)}
                                 className="text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1 transition-colors"
                                 title="Adicionar Separador"
                             >
@@ -420,18 +465,25 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                             </div>
                         )}
 
-                        {roadmap.map((item) => {
+                        {roadmap.flatMap((item, index) => {
                             const sectionInfo = itemSectionMap[item.id];
                             const isVisible = sectionInfo ? isSectionVisible(sectionInfo.sectionId, sectionInfo.sectionIndex) : true;
+
+                            // Zona de inserção: botão "+" no hover (ou o input quando esta posição está ativa)
+                            const insertZone = dividerInsertIndex === index
+                                ? renderDividerInput(index)
+                                : renderDividerInsertZone(index);
 
                             if (item.type === 'SECTION') {
                                 const isUnlocked = unlockedSections.includes(item.id);
                                 const sectionProgress = getSectionProgress(item.id);
                                 const sectionTarget = item.progressTarget ?? defaultProgressTarget;
-                                return (
-                                    <div
-                                        key={item.id}
-                                        draggable={isVisible}
+                                return [
+                                    insertZone,
+                                    (
+                                        <div
+                                            key={item.id}
+                                            draggable={isVisible}
                                         onDragStart={(e) => isVisible && handleDragStart(e, item.id)}
                                         onDragOver={(e) => handleDragOver(e, item.id)}
                                         onDragEnd={handleDragEnd}
@@ -487,15 +539,18 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                             )}
                                         </div>
                                     </div>
-                                );
+                                    )
+                                ];
                             }
 
                             // For TASK items - apply blur if section is locked
                             if (!isVisible) {
-                                return (
-                                    <div
-                                        key={item.id}
-                                        className="group/item opacity-40 blur-[2px] select-none pointer-events-none"
+                                return [
+                                    insertZone,
+                                    (
+                                        <div
+                                            key={item.id}
+                                            className="group/item opacity-40 blur-[2px] select-none pointer-events-none"
                                     >
                                         <div className="flex items-start gap-3 p-4 rounded-xl border bg-slate-900/50 border-slate-800">
                                             <Circle size={20} className="text-slate-700 mt-0.5" />
@@ -504,11 +559,14 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                             </div>
                                         </div>
                                     </div>
-                                );
+                                )
+                            ];
                             }
 
-                            return (
-                                <div key={item.id} className="group/item">
+                            return [
+                                insertZone,
+                                (
+                                    <div key={item.id} className="group/item">
                                     <div
                                         draggable
                                         onDragStart={(e) => handleDragStart(e, item.id)}
@@ -607,25 +665,14 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                         </div>
                                     )}
                                 </div>
-                            );
+                                )
+                            ];
                         })}
 
-                        {/* Inline Add Divider */}
-                        {isAddingDivider && (
-                            <div className="flex items-center gap-4 py-4 animate-in fade-in slide-in-from-left-4">
-                                <div className={`h-px ${variants.bgLight} flex-1`}></div>
-                                <input
-                                    autoFocus
-                                    value={newDividerTitle}
-                                    onChange={e => setNewDividerTitle(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddDivider()}
-                                    onBlur={() => setIsAddingDivider(false)}
-                                    placeholder="Nome da Seção..."
-                                    className={`bg-slate-900 border ${variants.borderLight} rounded px-2 py-1 text-xs font-bold uppercase tracking-widest ${variants.text} outline-none w-40 text-center`}
-                                />
-                                <div className={`h-px ${variants.bgLight} flex-1`}></div>
-                            </div>
-                        )}
+                        {/* Inline Add Divider (após o último item) */}
+                        {dividerInsertIndex === roadmap.length
+                            ? renderDividerInput(roadmap.length)
+                            : renderDividerInsertZone(roadmap.length)}
 
                         {/* Inline Add Task */}
                         {isAddingTask ? (
