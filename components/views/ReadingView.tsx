@@ -281,40 +281,46 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
               selectedIndex={selectedIndex}
               onSelectIndex={setSelectedIndex}
               onOpenInspection={handleOpenInspection}
+              onCloseInspection={() => setIsInspecting(false)}
               onMoveBookToShelfLevel={handleMoveBookToShelfLevel}
               onDragStateChange={handleDragStateChange}
               onNavigateLevel={setActiveShelfLevelId}
               isInspecting={isInspecting}
             />
 
-            <ShelfLevelRail
-              levels={shelfLevels}
-              bookCounts={shelfBookCounts}
-              activeLevelId={activeShelfLevelId}
-              draggingBookId={draggingBookId}
-              dragTargetLevelId={dragTargetLevelId}
-              onSelectLevel={setActiveShelfLevelId}
-              onRenameLevel={updateShelfLevelName}
-              onAddLevel={handleAddShelfLevel}
-              onDeleteLevel={handleDeleteShelfLevel}
-              onMoveBookToShelfLevel={handleMoveBookToShelfLevel}
-            />
+            {/* Hide shelf chrome while inspecting so the 3D book stays unobstructed */}
+            {!isInspecting && (
+              <ShelfLevelRail
+                levels={shelfLevels}
+                bookCounts={shelfBookCounts}
+                activeLevelId={activeShelfLevelId}
+                draggingBookId={draggingBookId}
+                dragTargetLevelId={dragTargetLevelId}
+                onSelectLevel={setActiveShelfLevelId}
+                onRenameLevel={updateShelfLevelName}
+                onAddLevel={handleAddShelfLevel}
+                onDeleteLevel={handleDeleteShelfLevel}
+                onMoveBookToShelfLevel={handleMoveBookToShelfLevel}
+              />
+            )}
 
             {/* Bottom HUD Controller */}
-            <ShelfNavigationHUD
-              books={filteredBooks}
-              selectedIndex={selectedIndex}
-              onSelectIndex={setSelectedIndex}
-              isInspecting={isInspecting}
-              onToggleInspection={handleToggleInspection}
-              onPrevBook={handlePrevBook}
-              onNextBook={handleNextBook}
-              activeCategory={activeCategory}
-              onSelectCategory={(cat) => {
-                setActiveCategory(cat);
-                setSelectedIndex(0);
-              }}
-            />
+            {!isInspecting && (
+              <ShelfNavigationHUD
+                books={filteredBooks}
+                selectedIndex={selectedIndex}
+                onSelectIndex={setSelectedIndex}
+                isInspecting={isInspecting}
+                onToggleInspection={handleToggleInspection}
+                onPrevBook={handlePrevBook}
+                onNextBook={handleNextBook}
+                activeCategory={activeCategory}
+                onSelectCategory={(cat) => {
+                  setActiveCategory(cat);
+                  setSelectedIndex(0);
+                }}
+              />
+            )}
 
             {/* Inspection Drawer Overlay */}
             <BookInspectionOverlay

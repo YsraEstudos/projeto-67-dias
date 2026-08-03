@@ -258,27 +258,29 @@ export const EditorialHeader: React.FC<EditorialHeaderProps> = ({
           </div>
         </div>
 
-        {/* Category Filter Chips Bar */}
-        <div className="mx-auto mt-2.5 flex max-w-7xl items-center gap-2 overflow-x-auto border-t border-slate-800/80 pt-2.5 pb-1 touch-pan-x scrollbar-none snap-x snap-mandatory">
-          {(Object.keys(CATEGORY_LABELS) as ReadingCategoryFilter[]).map((catKey) => {
-            const isSelected = activeCategory === catKey;
-            return (
-              <button
-                key={catKey}
-                type="button"
-                onClick={() => onSelectCategory(catKey)}
-                aria-label={`Filtrar por ${CATEGORY_LABELS[catKey].label}`}
-                className={`flex min-h-[44px] min-w-[44px] snap-start shrink-0 items-center justify-center rounded-full px-4 py-2 text-xs font-medium transition-all whitespace-nowrap cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 ${
-                  isSelected
-                    ? 'border border-[#D4AF37] bg-[#D4AF37]/15 font-semibold text-[#F3D274] shadow-xs'
-                    : 'border border-slate-700 bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                }`}
-              >
-                {CATEGORY_LABELS[catKey].label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Category Filter Chips Bar — only in 2D mode; the 3D shelf keeps the view unobstructed */}
+        {!is3DMode && (
+          <div className="mx-auto mt-2.5 flex max-w-7xl items-center gap-2 overflow-x-auto border-t border-slate-800/80 pt-2.5 pb-1 touch-pan-x scrollbar-none snap-x snap-mandatory">
+            {(Object.keys(CATEGORY_LABELS) as ReadingCategoryFilter[]).map((catKey) => {
+              const isSelected = activeCategory === catKey;
+              return (
+                <button
+                  key={catKey}
+                  type="button"
+                  onClick={() => onSelectCategory(catKey)}
+                  aria-label={`Filtrar por ${CATEGORY_LABELS[catKey].label}`}
+                  className={`flex min-h-[44px] min-w-[44px] snap-start shrink-0 items-center justify-center rounded-full px-4 py-2 text-xs font-medium transition-all whitespace-nowrap cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 ${
+                    isSelected
+                      ? 'border border-[#D4AF37] bg-[#D4AF37]/15 font-semibold text-[#F3D274] shadow-xs'
+                      : 'border border-slate-700 bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {CATEGORY_LABELS[catKey].label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </header>
   );

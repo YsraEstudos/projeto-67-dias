@@ -230,7 +230,8 @@ describe('BookMesh', () => {
     const bookMesh = new BookMeshGroup({ ...MINT_BOOK_MANIFEST[0], customColor: '#123456' }, new THREE.Vector3());
     const frontCover = bookMesh.group.getObjectByName('front-cover') as THREE.Mesh;
     const backCover = bookMesh.group.getObjectByName('back-cover') as THREE.Mesh;
-    const spine = bookMesh.group.getObjectByName('spine') as THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>;
+    const spine = bookMesh.group.getObjectByName('spine') as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
+    const spineFaceMaterial = spine.material[4]; // +Z visible spine face
     const pageBlock = bookMesh.group.getObjectByName('page-block') as THREE.Mesh;
     const pageMaterials = pageBlock.material as THREE.MeshStandardMaterial[];
 
@@ -238,10 +239,10 @@ describe('BookMesh', () => {
     expect(frontCover.material[0].color.getHexString()).toBe('ffffff');
     expect(frontCover.material[4].color.getHexString()).toBe('123456');
     expect(backCover.material[0].color.getHexString()).toBe('123456');
-    expect(spine.material.color.getHexString()).toBe('ffffff');
+    expect(spineFaceMaterial.color.getHexString()).toBe('ffffff');
     expect(canvasContexts.get((frontCover.material[0].map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
     expect(canvasContexts.get((backCover.material[1].map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
-    expect(canvasContexts.get((spine.material.map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
+    expect(canvasContexts.get((spineFaceMaterial.map as THREE.CanvasTexture).image as HTMLCanvasElement)?.fillStyles).toContain('#123456');
     expect(pageMaterials[2].color.getHexString()).toBe('123456');
     expect(pageMaterials[4].color.getHexString()).toBe('123456');
     expect(pageMaterials[4].map).toBeNull();
@@ -284,17 +285,50 @@ describe('BookMesh', () => {
   it('rebuilds the back cover and spine textures when the cover dominant color is discovered', () => {
     const bookMesh = new BookMeshGroup(MINT_BOOK_MANIFEST[0], new THREE.Vector3(1.0, 0.17, 0));
     const backCoverMesh = bookMesh.group.children[2] as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
-    const spineMesh = bookMesh.group.children[3] as THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>;
+    const spineMesh = bookMesh.group.children[3] as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
     const backCoverMaterial = backCoverMesh.material[1];
-    const spineMapBefore = spineMesh.material.map;
+    const spineFaceMaterial = spineMesh.material[4]; // +Z visible spine face
+    const spineMapBefore = spineFaceMaterial.map;
     const backMapBefore = backCoverMaterial.map;
 
     bookMesh.updateBindingColor('#123456');
 
-    expect(spineMesh.material.map).not.toBe(spineMapBefore);
+    expect(spineFaceMaterial.map).not.toBe(spineMapBefore);
     expect(backCoverMaterial.map).not.toBe(backMapBefore);
-    expect(spineMesh.material.color.getHexString()).toBe('ffffff');
+    expect(spineFaceMaterial.color.getHexString()).toBe('ffffff');
     expect(backCoverMaterial.color.getHexString()).toBe('ffffff');
+
+    bookMesh.dispose();
+  });
+
+  it('updateItem is a cheap no-op for identical items and rebuilds only changed surfaces (incremental reconciliation)', () => {
+    const bookMesh = new BookMeshGroup(MINT_BOOK_MANIFEST[0], new THREE.Vector3(1.0, 0.17, 0));
+    const spineMesh = bookMesh.group.getObjectByName('spine') as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
+    const spineFace = spineMesh.material[4];
+    const spineMapBefore = spineFace.map;
+    const spinePbrBefore = spineFace.roughnessMap;
+
+    // Identical item (re-filtering the same book): zero regeneration. Uses the
+    // resolved item (dimensions are normalized by getBookDimensionsByPageCount).
+    bookMesh.updateItem({ ...bookMesh.item });
+    expect(spineFace.map).toBe(spineMapBefore);
+    expect(spineFace.roughnessMap).toBe(spinePbrBefore);
+
+    // Content edit (e.g. notes changed): only the color-baked surfaces rebuild.
+    bookMesh.updateItem({ ...bookMesh.item, notes: 'Nota atualizada' });
+    expect(spineFace.map).not.toBe(spineMapBefore);
+    expect(spineFace.roughnessMap).not.toBe(spinePbrBefore);
+
+    bookMesh.dispose();
+  });
+
+  it('packs roughness and metalness into one shared PBR texture per surface', () => {
+    const bookMesh = new BookMeshGroup(MINT_BOOK_MANIFEST[0], new THREE.Vector3(1.0, 0.17, 0));
+    const frontCover = bookMesh.group.getObjectByName('front-cover') as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
+    const frontMat = frontCover.material[0];
+
+    expect(frontMat.roughnessMap).not.toBeNull();
+    expect(frontMat.metalnessMap).toBe(frontMat.roughnessMap); // G=roughness, B=metalness on the same canvas
 
     bookMesh.dispose();
   });

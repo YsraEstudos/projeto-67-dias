@@ -12,6 +12,392 @@ import { getBookDimensions } from '../../../utils/bookDimensions';
 // Static cloth texture cache to save GPU/Canvas overhead
 let cachedClothNormalMap: THREE.CanvasTexture | null = null;
 
+// ---------------------------------------------------------------------------
+// Texture anisotropy configuration
+// ---------------------------------------------------------------------------
+
+let configuredAnisotropy = 4;
+
+/**
+ * Configures the anisotropy level applied to every procedural book texture.
+ * Call once after the WebGL renderer exists
+ * (`renderer.capabilities.getMaxAnisotropy()`). Cached textures are updated
+ * in place so books created before this call still benefit.
+ */
+export function configureTextureAnisotropy(maxAnisotropy: number) {
+  configuredAnisotropy = Math.max(1, Math.floor(maxAnisotropy) || 1);
+  [cachedClothNormalMap, cachedPaperBlockTexture].forEach((texture) => {
+    if (texture) texture.anisotropy = configuredAnisotropy;
+  });
+}
+
+function applyAnisotropy<T extends THREE.Texture>(texture: T): T {
+  texture.anisotropy = configuredAnisotropy;
+  return texture;
+}
+
+// ---------------------------------------------------------------------------
+// Color helpers
+// ---------------------------------------------------------------------------
+
+function parseHexColor(hex: string): { r: number; g: number; b: number } | null {
+  const match = /^#?([\da-f]{6})$/i.exec(hex.trim());
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 16);
+  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixHex(hexA: string, hexB: string, t: number): string {
+  const a = parseHexColor(hexA);
+  const b = parseHexColor(hexB);
+  if (!a || !b) return hexA;
+  return rgbToHex(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t);
+}
+
+function shadeHex(hex: string, factor: number): string {
+  const c = parseHexColor(hex);
+  if (!c) return hex;
+  return rgbToHex(c.r * factor, c.g * factor, c.b * factor);
+}
+
+/** Relative luminance (WCAG-style) used for foil/cloth contrast decisions. */
+function colorLuminance(hex: string): number {
+  const c = parseHexColor(hex);
+  if (!c) return 0.5;
+  const linear = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+}
+
+/**
+ * Guarantees the foil reads against the cloth binding. Foil palette colors
+ * are tuned for dark book cloth; on light bindings (e.g. cream) the same hex
+ * disappears, so it is pushed toward white or black until the luminance gap
+ * clears a safe threshold. This is a design choice: the stamped art keeps its
+ * character while never losing legibility.
+ */
+function getFoilDisplayColor(foilHex: string, bindingColor: string): string {
+  const bindingLum = colorLuminance(bindingColor);
+  const foilLum = colorLuminance(foilHex);
+  if (Math.abs(foilLum - bindingLum) >= 0.28) return foilHex;
+  const lighten = foilLum >= bindingLum;
+  const target = lighten ? '#FFFFFF' : '#000000';
+  let t = 0.2;
+  for (let i = 0; i < 6; i++) {
+    const mixed = mixHex(foilHex, target, t);
+    if (Math.abs(colorLuminance(mixed) - bindingLum) >= 0.28) return mixed;
+    t += 0.16;
+  }
+  return mixHex(foilHex, target, lighten ? 0.92 : 0.8);
+}
+
+// ---------------------------------------------------------------------------
+// Canvas drawing helpers (JSDOM-safe: gradients are guarded, no drawImage
+// dependency for the color work — only the PBR mask pipeline uses it and it
+// already has a pixel-loop fallback).
+// ---------------------------------------------------------------------------
+
+/**
+ * Cloth background: base tone, soft head/tail shading, a lateral sheen and an
+ * edge vignette. The base fill keeps `bindingColor` so color pickers and tests
+ * see the resolved cloth tone; the overlays only deepen the edges.
+ */
+function drawClothBackground(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  bindingColor: string,
+) {
+  ctx.fillStyle = bindingColor;
+  ctx.fillRect(0, 0, width, height);
+
+  // Head/tail shading: dust-jacket shadow where the cloth meets the boards.
+  const vertical = ctx.createLinearGradient(0, 0, 0, height);
+  vertical.addColorStop(0, 'rgba(0, 0, 0, 0.18)');
+  vertical.addColorStop(0.06, 'rgba(0, 0, 0, 0)');
+  vertical.addColorStop(0.94, 'rgba(0, 0, 0, 0)');
+  vertical.addColorStop(1, 'rgba(0, 0, 0, 0.22)');
+  ctx.fillStyle = vertical;
+  ctx.fillRect(0, 0, width, height);
+
+  // Lateral sheen: light catching the cloth weave from the shelf lighting.
+  const lateral = ctx.createLinearGradient(0, 0, width, 0);
+  lateral.addColorStop(0, 'rgba(255, 255, 255, 0.07)');
+  lateral.addColorStop(0.35, 'rgba(255, 255, 255, 0)');
+  lateral.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+  ctx.fillStyle = lateral;
+  ctx.fillRect(0, 0, width, height);
+
+  // Edge vignette (radial when available, diagonal linear otherwise).
+  if (typeof ctx.createRadialGradient === 'function') {
+    const vignette = ctx.createRadialGradient(
+      width / 2, height / 2, Math.min(width, height) * 0.42,
+      width / 2, height / 2, Math.max(width, height) * 0.72,
+    );
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.16)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+  } else {
+    const diagonal = ctx.createLinearGradient(0, 0, width, height);
+    diagonal.addColorStop(0, 'rgba(0, 0, 0, 0.1)');
+    diagonal.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+    diagonal.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+    ctx.fillStyle = diagonal;
+    ctx.fillRect(0, 0, width, height);
+  }
+}
+
+/**
+ * Vertical metallic gradient in the foil hue: dark → light → mid → light →
+ * dark. Gives stamped foil its characteristic banded sheen instead of a flat
+ * fill.
+ */
+function getFoilGradient(
+  ctx: CanvasRenderingContext2D,
+  y0: number,
+  y1: number,
+  foilHex: string,
+): CanvasGradient {
+  const dark = shadeHex(foilHex, 0.4);
+  const light = mixHex(foilHex, '#FFFFFF', 0.55);
+  const gradient = ctx.createLinearGradient(0, y0, 0, y1);
+  gradient.addColorStop(0, dark);
+  gradient.addColorStop(0.35, light);
+  gradient.addColorStop(0.6, foilHex);
+  gradient.addColorStop(0.8, light);
+  gradient.addColorStop(1, dark);
+  return gradient;
+}
+
+function measureTextWidth(ctx: CanvasRenderingContext2D, text: string, tracking: number): number {
+  if (!text) return 0;
+  return ctx.measureText(text).width + tracking * Math.max(0, text.length - 1);
+}
+
+/**
+ * Draws text centered on x with manual letter tracking (canvas letter-spacing
+ * is not universally supported). The same routine must be used on the foil
+ * mask so the PBR mask stays aligned with the colored artwork.
+ */
+function fillTextWithTracking(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  tracking: number,
+) {
+  if (!text) return;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  let cursor = x - measureTextWidth(ctx, text, tracking) / 2;
+  for (const char of text) {
+    ctx.fillText(char, cursor, y);
+    cursor += ctx.measureText(char).width + tracking;
+  }
+}
+
+/**
+ * Wraps text into at most `maxLines` lines measured with the given tracking.
+ * The final line receives an ellipsis when it overflows; on the last line
+ * words are trimmed character-by-character as a safety net.
+ */
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  font: string,
+  tracking: number,
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  ctx.font = font;
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let line = '';
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (measureTextWidth(ctx, candidate, tracking) <= maxWidth) {
+      line = candidate;
+      continue;
+    }
+
+    if (lines.length < maxLines - 1 && line) {
+      // Commit the current line and start a fresh one with the overflow word.
+      lines.push(line);
+      line = word;
+      continue;
+    }
+
+    // Last allowed line: fit what we can and append an ellipsis.
+    let trimmed = line ? `${line} ${word}` : word;
+    while (trimmed.length > 0 && measureTextWidth(ctx, `${trimmed}…`, tracking) > maxWidth) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    lines.push(trimmed ? `${trimmed}…` : '…');
+    line = '';
+    break;
+  }
+
+  if (line && lines.length < maxLines) lines.push(line);
+  return lines.length > 0 ? lines : [text];
+}
+
+/**
+ * Foil text on the color canvas: a hard drop-shadow pass (stamped depth)
+ * followed by a metallic gradient pass over the same glyphs.
+ */
+function drawFoilText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  font: string,
+  tracking: number,
+  displayFoil: string,
+) {
+  if (!text) return;
+  ctx.save();
+  ctx.font = font;
+  // Depth pass — the offset shadow sells the embossed stamp.
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowOffsetX = 1.5;
+  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 3;
+  ctx.fillStyle = displayFoil;
+  fillTextWithTracking(ctx, text, x, y, tracking);
+  ctx.restore();
+
+  // Metallic sheen pass.
+  ctx.font = font;
+  ctx.fillStyle = getFoilGradient(ctx, y - 34, y + 34, displayFoil);
+  fillTextWithTracking(ctx, text, x, y, tracking);
+}
+
+/**
+ * Solid-white twin of `drawFoilText` for the PBR mask. Kept in the same file
+ * and driven by the same tracking so metalness/roughness match the artwork.
+ */
+function drawFoilTextMask(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  font: string,
+  tracking: number,
+) {
+  if (!text) return;
+  ctx.font = font;
+  ctx.fillStyle = '#FFFFFF';
+  fillTextWithTracking(ctx, text, x, y, tracking);
+}
+
+/** Motif with a stamped drop shadow on the color canvas (mask gets the plain motif). */
+function drawFoilMotifOnMap(
+  ctx: CanvasRenderingContext2D,
+  motif: FoilMotifType,
+  cx: number,
+  cy: number,
+  size: number,
+  displayFoil: string,
+) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+  ctx.shadowOffsetX = 1.5;
+  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 3;
+  const gradient = getFoilGradient(ctx, cy - size, cy + size, displayFoil);
+  drawFoilMotif(ctx, motif, cx, cy, size, gradient);
+  ctx.restore();
+}
+
+/**
+ * Builds an emboss normal map from the foil mask: foil glyphs push the normal
+ * outward (central difference of the mask) while cloth areas keep a subtle
+ * woven grain. Half resolution keeps the cost low; mipmaps smooth the result
+ * on the mesh. No color space — normal maps stay linear.
+ */
+function buildFoilNormalMap(
+  foilCanvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+): THREE.CanvasTexture {
+  const outWidth = Math.max(2, Math.floor(width / 2));
+  const outHeight = Math.max(2, Math.floor(height / 2));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = outWidth;
+  canvas.height = outHeight;
+  const ctx = canvas.getContext('2d')!;
+
+  // Pre-compute the boolean mask (JSDOM getImageData returns zeros — the map
+  // then simply falls back to cloth grain, which is harmless for tests).
+  const foilCtx = foilCanvas.getContext('2d');
+  const foilImg = foilCtx?.getImageData(0, 0, width, height);
+  const mask = foilImg ? new Uint8Array(width * height) : null;
+  if (mask && foilImg) {
+    for (let i = 0; i < width * height; i++) {
+      mask[i] = foilImg.data[i * 4] > 100 ? 1 : 0;
+    }
+  }
+
+  const out = ctx.createImageData(outWidth, outHeight);
+  const data = out.data;
+
+  const foilStrength = 110;
+  const grainStrength = 7;
+
+  const maskAt = (px: number, py: number): number => {
+    if (!mask || px < 0 || py < 0 || px >= width || py >= height) return 0;
+    return mask[py * width + px];
+  };
+
+  for (let y = 0; y < outHeight; y++) {
+    for (let x = 0; x < outWidth; x++) {
+      const sx = x * 2;
+      const sy = y * 2;
+      const idx = (y * outWidth + x) * 4;
+
+      // Central difference of the mask at step 2 (one output pixel).
+      const hx =
+        (maskAt(sx + 2, sy) - maskAt(sx - 2, sy)) * 0.5
+        + (maskAt(sx + 2, sy + 2) - maskAt(sx - 2, sy - 2)) * 0.25
+        + (maskAt(sx + 2, sy - 2) - maskAt(sx - 2, sy + 2)) * 0.25;
+      const hy =
+        (maskAt(sx, sy + 2) - maskAt(sx, sy - 2)) * 0.5
+        + (maskAt(sx + 2, sy + 2) - maskAt(sx - 2, sy - 2)) * 0.25
+        + (maskAt(sx - 2, sy + 2) - maskAt(sx + 2, sy - 2)) * 0.25;
+
+      let gx = 0;
+      let gy = 0;
+      if (!(mask ? mask[sy * width + sx] : 0)) {
+        // Soft woven grain on the cloth areas only — foil stays smooth.
+        gx = Math.sin(sx * 0.8) * grainStrength + Math.sin(sy * 0.35) * grainStrength * 0.5;
+        gy = Math.sin(sy * 0.8) * grainStrength + Math.sin(sx * 0.35) * grainStrength * 0.5;
+      }
+
+      data[idx] = 128 + hx * foilStrength + gx;
+      data[idx + 1] = 128 + hy * foilStrength + gy;
+      data[idx + 2] = 255;
+      data[idx + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(out, 0, 0);
+
+  const texture = applyAnisotropy(new THREE.CanvasTexture(canvas));
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  return texture;
+}
+
 // Three.js BoxGeometry groups are ordered as +X, -X, +Y, -Y, +Z, -Z.
 // Keeping that order in one helper prevents a later material edit from
 // accidentally putting the cover texture on a page or structural face.
@@ -27,54 +413,42 @@ function createBoxFaceMaterials<T>(
 }
 
 /**
- * Generates PBR roughness and metalness map canvases from a foil mask canvas.
+ * Generates ONE packed PBR map from a foil mask canvas (memory: 1 texture
+ * instead of 2 per surface). MeshStandardMaterial reads:
+ *   - roughnessMap  → channel G
+ *   - metalnessMap  → channel B
+ * so the same canvas can back both maps. Encoding:
+ *   G channel: roughness — foil 45/255 ≈ 0.18, cloth 190/255 ≈ 0.75
+ *   B channel: metalness — foil 235/255 ≈ 0.92, cloth 12/255 ≈ 0.05
  * Uses canvas compositing when available (browsers) and falls back to a
  * pixel-loop for environments that do not implement drawImage (e.g. JSDOM).
- *
- * Foil areas  → low roughness (45/255 ≈ 0.18), high metalness (235/255 ≈ 0.92)
- * Cloth areas → high roughness (190/255 ≈ 0.75), low metalness (12/255 ≈ 0.05)
  */
 function buildFoilPBRMaps(
   foilCanvas: HTMLCanvasElement,
   width: number,
   height: number,
-): { roughnessMap: THREE.CanvasTexture; metalnessMap: THREE.CanvasTexture } {
-  const roughnessCanvas = document.createElement('canvas');
-  roughnessCanvas.width = width;
-  roughnessCanvas.height = height;
-  const ctxR = roughnessCanvas.getContext('2d')!;
-
-  const metalnessCanvas = document.createElement('canvas');
-  metalnessCanvas.width = width;
-  metalnessCanvas.height = height;
-  const ctxM = metalnessCanvas.getContext('2d')!;
+): { pbrMap: THREE.CanvasTexture } {
+  const pbrCanvas = document.createElement('canvas');
+  pbrCanvas.width = width;
+  pbrCanvas.height = height;
+  const ctxP = pbrCanvas.getContext('2d')!;
 
   // Try compositing path (fast, browser-native)
-  const canUseDrawImage = typeof ctxR.drawImage === 'function';
+  const canUseDrawImage = typeof ctxP.drawImage === 'function';
   if (canUseDrawImage) {
     try {
-      ctxR.fillStyle = 'rgb(190,190,190)';
-      ctxR.fillRect(0, 0, width, height);
-      ctxR.globalCompositeOperation = 'destination-out';
-      ctxR.drawImage(foilCanvas, 0, 0);
-      ctxR.globalCompositeOperation = 'destination-over';
-      ctxR.fillStyle = 'rgb(45,45,45)';
-      ctxR.fillRect(0, 0, width, height);
-      ctxR.globalCompositeOperation = 'source-over';
+      // Cloth: G=190 (roughness), B=12 (metalness)
+      ctxP.fillStyle = 'rgb(190,190,12)';
+      ctxP.fillRect(0, 0, width, height);
+      ctxP.globalCompositeOperation = 'destination-out';
+      ctxP.drawImage(foilCanvas, 0, 0);
+      ctxP.globalCompositeOperation = 'destination-over';
+      // Foil: G=45 (roughness), B=235 (metalness)
+      ctxP.fillStyle = 'rgb(45,45,235)';
+      ctxP.fillRect(0, 0, width, height);
+      ctxP.globalCompositeOperation = 'source-over';
 
-      ctxM.fillStyle = 'rgb(12,12,12)';
-      ctxM.fillRect(0, 0, width, height);
-      ctxM.globalCompositeOperation = 'destination-out';
-      ctxM.drawImage(foilCanvas, 0, 0);
-      ctxM.globalCompositeOperation = 'destination-over';
-      ctxM.fillStyle = 'rgb(235,235,235)';
-      ctxM.fillRect(0, 0, width, height);
-      ctxM.globalCompositeOperation = 'source-over';
-
-      return {
-        roughnessMap: new THREE.CanvasTexture(roughnessCanvas),
-        metalnessMap: new THREE.CanvasTexture(metalnessCanvas),
-      };
+      return { pbrMap: new THREE.CanvasTexture(pbrCanvas) };
     } catch {
       // fall through to pixel loop below
     }
@@ -83,25 +457,20 @@ function buildFoilPBRMaps(
   // Pixel-loop fallback (JSDOM / environments without drawImage support)
   const foilCtx = foilCanvas.getContext('2d');
   const foilImg = foilCtx?.getImageData(0, 0, width, height);
-  const rImg = ctxR.createImageData(width, height);
-  const mImg = ctxM.createImageData(width, height);
+  const pImg = ctxP.createImageData(width, height);
   const total = width * height * 4;
   for (let i = 0; i < total; i += 4) {
     const isFoil = foilImg ? foilImg.data[i] > 100 : false;
     const rVal = isFoil ? 45 : 190;
     const mVal = isFoil ? 235 : 12;
-    rImg.data[i] = rImg.data[i + 1] = rImg.data[i + 2] = rVal;
-    rImg.data[i + 3] = 255;
-    mImg.data[i] = mImg.data[i + 1] = mImg.data[i + 2] = mVal;
-    mImg.data[i + 3] = 255;
+    pImg.data[i] = rVal;         // R unused
+    pImg.data[i + 1] = rVal;     // G = roughness
+    pImg.data[i + 2] = mVal;     // B = metalness
+    pImg.data[i + 3] = 255;
   }
-  ctxR.putImageData(rImg, 0, 0);
-  ctxM.putImageData(mImg, 0, 0);
+  ctxP.putImageData(pImg, 0, 0);
 
-  return {
-    roughnessMap: new THREE.CanvasTexture(roughnessCanvas),
-    metalnessMap: new THREE.CanvasTexture(metalnessCanvas),
-  };
+  return { pbrMap: new THREE.CanvasTexture(pbrCanvas) };
 }
 
 
@@ -141,7 +510,7 @@ function getClothNormalMap(): THREE.CanvasTexture {
 
   ctx.putImageData(imgData, 0, 0);
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = applyAnisotropy(new THREE.CanvasTexture(canvas));
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(4, 8);
@@ -151,43 +520,47 @@ function getClothNormalMap(): THREE.CanvasTexture {
 }
 
 /**
- * Creates paper page block texture with horizontal line details
+ * Creates paper page block texture with horizontal line details.
+ * Warm cream stock (instead of pure white) reads as aged paper under warm
+ * scene lighting; power-of-two dimensions keep mipmaps healthy. The shared
+ * map is intentionally neutral — each book tints it through its own page-edge
+ * material, so one book cannot change another book's pages.
  */
 let cachedPaperBlockTexture: THREE.CanvasTexture | null = null;
 
 function getPaperBlockTexture(): THREE.CanvasTexture {
   if (cachedPaperBlockTexture) return cachedPaperBlockTexture;
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 512;
+  canvas.width = 256;
+  canvas.height = 1024;
   const ctx = canvas.getContext('2d')!;
 
-  // The shared map is intentionally neutral. Each book tints it through its own
-  // page-edge material, so one book cannot change another book's pages.
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, 128, 512);
+  // Warm cream paper base.
+  ctx.fillStyle = '#EDE5D4';
+  ctx.fillRect(0, 0, 256, 1024);
 
-  // Subtle page edge lines
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
-  for (let y = 0; y < 512; y += 3) {
+  // Subtle page edge lines — ink-kissed paper, not hard black.
+  ctx.fillStyle = 'rgba(120, 96, 62, 0.1)';
+  for (let y = 0; y < 1024; y += 3) {
     if (y % 15 !== 0) {
-      ctx.fillRect(0, y, 128, 1);
+      ctx.fillRect(0, y, 256, 1);
     }
   }
 
   // Neutral edge shading keeps the page cuts readable after tinting.
-  const grad = ctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, 'rgba(0, 0, 0, 0.12)');
+  const grad = ctx.createLinearGradient(0, 0, 0, 1024);
+  grad.addColorStop(0, 'rgba(120, 96, 62, 0.16)');
   grad.addColorStop(0.05, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(0.95, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.12)');
+  grad.addColorStop(1, 'rgba(120, 96, 62, 0.2)');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 128, 512);
+  ctx.fillRect(0, 0, 256, 1024);
 
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = applyAnisotropy(new THREE.CanvasTexture(canvas));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   cachedPaperBlockTexture = texture;
   return texture;
 }
@@ -201,7 +574,7 @@ function drawFoilMotif(
   cx: number,
   cy: number,
   size: number,
-  foilColor: string
+  foilColor: string | CanvasGradient
 ) {
   ctx.save();
   ctx.strokeStyle = foilColor;
@@ -347,15 +720,36 @@ function drawFoilMotif(
 }
 
 /**
- * Creates Front Cover Texture (Map, Roughness, Metalness)
+ * Textures produced for one book surface: color map, the packed PBR map
+ * (G=roughness, B=metalness — one texture instead of two) and the emboss
+ * normal map derived from the foil mask.
  */
-function createFrontCoverTextures(item: ShelfBookManifestItem, bindingColor: string): {
+interface BookSurfaceTextures {
   map: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-  metalnessMap: THREE.CanvasTexture;
-} {
+  pbrMap: THREE.CanvasTexture;
+  normalMap: THREE.CanvasTexture;
+}
+
+/**
+ * Creates Front Cover Texture (Map, Roughness, Metalness, Emboss Normal Map)
+ *
+ * Design notes:
+ * - The cloth background is a shaded gradient with a vignette instead of a
+ *   flat fill, so covers have atmosphere without losing the resolved tone.
+ * - The foil hue is contrast-corrected against the binding
+ *   (`getFoilDisplayColor`) and drawn with a vertical metallic gradient plus a
+ *   stamped drop shadow on the color canvas. The PBR mask stays solid white so
+ *   roughness/metalness and the emboss normal map derive from the same shapes.
+ * - The title is larger, letter-tracked, wrapped to at most 3 lines with an
+ *   ellipsis, and laid out in a classic centered composition (title, author,
+ *   bottom ornament).
+ */
+function createFrontCoverTextures(item: ShelfBookManifestItem, bindingColor: string): BookSurfaceTextures {
+  // Power-of-two canvas (512×512) so mipmaps stay valid; the layout below is
+  // expressed as fractions of the height so the same code serves any size.
   const width = 512;
-  const height = 768;
+  const height = 512;
+  const S = height / 768; // scale factor vs the original 512×768 layout
 
   // Diffuse Canvas
   const canvasMap = document.createElement('canvas');
@@ -369,98 +763,104 @@ function createFrontCoverTextures(item: ShelfBookManifestItem, bindingColor: str
   canvasFoil.height = height;
   const ctxFoil = canvasFoil.getContext('2d')!;
 
-  // 1. Cloth Background
-  ctxMap.fillStyle = bindingColor;
-  ctxMap.fillRect(0, 0, width, height);
+  // 1. Cloth Background — base tone with shading and vignette
+  drawClothBackground(ctxMap, width, height, bindingColor);
 
   ctxFoil.fillStyle = '#000000';
   ctxFoil.fillRect(0, 0, width, height);
 
-  // 2. Draw Decorative Border Frame
-  const pad = 36;
-  ctxMap.strokeStyle = item.foilHex;
+  const foil = getFoilDisplayColor(item.foilHex, bindingColor);
+  const pad = Math.round(height * 0.0625);
+
+  // 2. Decorative Border Frame — metallic double rule on the color canvas,
+  //    solid white on the mask so PBR stays aligned with the artwork.
+  const innerRule = Math.round(height * 0.014);
+  ctxMap.save();
+  ctxMap.shadowColor = 'rgba(0, 0, 0, 0.35)';
+  ctxMap.shadowOffsetX = 1;
+  ctxMap.shadowOffsetY = 2;
+  ctxMap.shadowBlur = 2;
+  ctxMap.strokeStyle = getFoilGradient(ctxMap, pad, height - pad, foil);
   ctxMap.lineWidth = 3;
   ctxMap.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
+  ctxMap.restore();
+  ctxMap.strokeStyle = foil;
   ctxMap.lineWidth = 1;
-  ctxMap.strokeRect(pad + 6, pad + 6, width - (pad + 6) * 2, height - (pad + 6) * 2);
+  ctxMap.strokeRect(pad + innerRule, pad + innerRule, width - (pad + innerRule) * 2, height - (pad + innerRule) * 2);
 
   ctxFoil.strokeStyle = '#FFFFFF';
   ctxFoil.lineWidth = 3;
   ctxFoil.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
   ctxFoil.lineWidth = 1;
-  ctxFoil.strokeRect(pad + 6, pad + 6, width - (pad + 6) * 2, height - (pad + 6) * 2);
+  ctxFoil.strokeRect(pad + innerRule, pad + innerRule, width - (pad + innerRule) * 2, height - (pad + innerRule) * 2);
 
-  // 3. Draw Foil Motif
-  drawFoilMotif(ctxMap, item.foilMotif, width / 2, 230, 85, item.foilHex);
-  drawFoilMotif(ctxFoil, item.foilMotif, width / 2, 230, 85, '#FFFFFF');
+  // 3. Foil Motif — stamped shadow + metallic gradient on the color canvas.
+  drawFoilMotifOnMap(ctxMap, item.foilMotif, width / 2, height * 0.28, Math.round(92 * S), foil);
+  drawFoilMotif(ctxFoil, item.foilMotif, width / 2, height * 0.28, Math.round(92 * S), '#FFFFFF');
 
-  // 4. Draw Title
-  ctxMap.fillStyle = item.foilHex;
-  ctxMap.textAlign = 'center';
-  ctxMap.textBaseline = 'middle';
-  ctxMap.font = 'bold 34px "Cinzel", "Georgia", serif';
-
-  ctxFoil.fillStyle = '#FFFFFF';
-  ctxFoil.textAlign = 'center';
-  ctxFoil.textBaseline = 'middle';
-  ctxFoil.font = 'bold 34px "Cinzel", "Georgia", serif';
-
-  // Word wrap title
-  const words = item.title.toUpperCase().split(' ');
-  let line = '';
-  const lines: string[] = [];
-  for (let n = 0; n < words.length; n++) {
-    const testLine = line + words[n] + ' ';
-    const metrics = ctxMap.measureText(testLine);
-    if (metrics.width > width - 120 && n > 0) {
-      lines.push(line.trim());
-      line = words[n] + ' ';
-    } else {
-      line = testLine;
-    }
-  }
-  lines.push(line.trim());
-
-  let startY = 410;
-  lines.forEach((l) => {
-    ctxMap.fillText(l, width / 2, startY);
-    ctxFoil.fillText(l, width / 2, startY);
-    startY += 44;
+  // 4. Title — tracked serif caps, wrapped to at most 3 lines.
+  const titleFont = `bold ${Math.round(46 * S)}px "Cinzel", "Georgia", serif`;
+  const titleTracking = Math.max(1, Math.round(3 * S));
+  const titleLines = wrapTextLines(
+    ctxMap,
+    item.title.toUpperCase(),
+    titleFont,
+    titleTracking,
+    width - Math.round(width * 0.27),
+    3,
+  );
+  const titleLineHeight = Math.round(56 * S);
+  const titleTop = Math.round(392 * S);
+  titleLines.forEach((line, index) => {
+    const y = titleTop + index * titleLineHeight;
+    drawFoilText(ctxMap, line, width / 2, y, titleFont, titleTracking, foil);
+    drawFoilTextMask(ctxFoil, line, width / 2, y, titleFont, titleTracking);
   });
 
-  // 5. Draw Author
-  ctxMap.font = '18px "Georgia", serif';
-  ctxMap.fillText(item.author.toUpperCase(), width / 2, startY + 30);
+  // 5. Author — sits below the title block, never colliding with the accent.
+  const authorY = titleTop + titleLines.length * titleLineHeight + Math.round(22 * S);
+  const authorFont = `${Math.round(20 * S)}px "Georgia", serif`;
+  drawFoilText(ctxMap, item.author.toUpperCase(), width / 2, authorY, authorFont, Math.max(1, Math.round(2 * S)), foil);
+  drawFoilTextMask(ctxFoil, item.author.toUpperCase(), width / 2, authorY, authorFont, Math.max(1, Math.round(2 * S)));
 
-  ctxFoil.font = '18px "Georgia", serif';
-  ctxFoil.fillText(item.author.toUpperCase(), width / 2, startY + 30);
-
-  // 6. Draw Bottom Accent
-  ctxMap.font = '20px serif';
-  ctxMap.fillText('✦ ⚜ ✦', width / 2, height - 70);
-
-  ctxFoil.font = '20px serif';
-  ctxFoil.fillText('✦ ⚜ ✦', width / 2, height - 70);
+  // 6. Bottom Accent
+  const accentFont = `${Math.round(22 * S)}px serif`;
+  drawFoilText(ctxMap, '✦ ⚜ ✦', width / 2, height - Math.round(62 * S), accentFont, Math.max(2, Math.round(8 * S)), foil);
+  drawFoilTextMask(ctxFoil, '✦ ⚜ ✦', width / 2, height - Math.round(62 * S), accentFont, Math.max(2, Math.round(8 * S)));
 
   // Create Textures
-  const map = new THREE.CanvasTexture(canvasMap);
+  const map = applyAnisotropy(new THREE.CanvasTexture(canvasMap));
   map.colorSpace = THREE.SRGBColorSpace;
 
-  const { roughnessMap, metalnessMap } = buildFoilPBRMaps(canvasFoil, width, height);
+  const { pbrMap } = buildFoilPBRMaps(canvasFoil, width, height);
+  applyAnisotropy(pbrMap);
 
-  return { map, roughnessMap, metalnessMap };
+  const normalMap = buildFoilNormalMap(canvasFoil, width, height);
+
+  return { map, pbrMap, normalMap };
 }
 
 /**
- * Creates Spine Texture (Map, Roughness, Metalness)
+ * Creates Spine Texture (Map, Roughness, Metalness, Emboss Normal Map)
+ *
+ * Design notes:
+ * - The spine is now a FLAT hardcover board (BoxGeometry), so the canvas
+ *   aspect matches the physical face: width covers the book thickness
+ *   (thickness / height of the book, ×768 canvas height). No curvature
+ *   padding — the texture maps 1:1 onto the flat spine face.
+ * - Raised bands are positioned proportionally to the height instead of at
+ *   absolute pixels, so thin and tall books share the same rhythm.
+ * - The vertical title uses a large proportional font with a two-line wrap
+ *   and a safety shrink loop so it never overflows the spine width; the
+ *   background/gradient/foil treatment matches the front cover.
  */
-function createSpineTextures(item: ShelfBookManifestItem, bindingColor: string): {
-  map: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-  metalnessMap: THREE.CanvasTexture;
-} {
-  const width = 256;
-  const height = 768;
+function createSpineTextures(item: ShelfBookManifestItem, bindingColor: string): BookSurfaceTextures {
+  // Power-of-two canvas: height 512, width rounds to the nearest POT that
+  // matches the physical face aspect (thickness / height). No curvature
+  // padding — the texture maps 1:1 onto the flat spine face.
+  const height = 512;
+  const targetWidth = 512 * item.thickness / Math.max(item.height, 0.1);
+  const width = Math.min(256, Math.max(64, Math.pow(2, Math.round(Math.log2(targetWidth)))));
 
   const canvasMap = document.createElement('canvas');
   canvasMap.width = width;
@@ -472,76 +872,105 @@ function createSpineTextures(item: ShelfBookManifestItem, bindingColor: string):
   canvasFoil.height = height;
   const ctxFoil = canvasFoil.getContext('2d')!;
 
-  // 1. Cloth Background
-  ctxMap.fillStyle = bindingColor;
-  ctxMap.fillRect(0, 0, width, height);
+  // 1. Cloth Background — base tone with shading and vignette
+  drawClothBackground(ctxMap, width, height, bindingColor);
 
   ctxFoil.fillStyle = '#000000';
   ctxFoil.fillRect(0, 0, width, height);
 
-  // 2. Spine Ribs / Raised Bands
-  ctxMap.strokeStyle = item.foilHex;
-  ctxMap.lineWidth = 4;
-  ctxFoil.strokeStyle = '#FFFFFF';
-  ctxFoil.lineWidth = 4;
+  const foil = getFoilDisplayColor(item.foilHex, bindingColor);
+  const ribLineWidth = Math.max(2, Math.min(5, Math.round(width * 0.02)));
 
-  const ribYs = [60, 140, height - 140, height - 60];
+  // 2. Spine Ribs / Raised Bands — proportional to height, metallic on the
+  //    color canvas, solid white on the mask.
+  const ribYs = [0.07, 0.16, 0.84, 0.93].map((fraction) => fraction * height);
+  ctxMap.save();
+  ctxMap.shadowColor = 'rgba(0, 0, 0, 0.4)';
+  ctxMap.shadowOffsetX = 1;
+  ctxMap.shadowOffsetY = 1.5;
+  ctxMap.shadowBlur = 2;
+  ctxMap.strokeStyle = getFoilGradient(ctxMap, 0, height, foil);
+  ctxMap.lineWidth = ribLineWidth;
+  ctxFoil.strokeStyle = '#FFFFFF';
+  ctxFoil.lineWidth = ribLineWidth;
   ribYs.forEach((y) => {
     ctxMap.beginPath();
-    ctxMap.moveTo(25, y);
-    ctxMap.lineTo(width - 25, y);
+    ctxMap.moveTo(width * 0.16, y);
+    ctxMap.lineTo(width * 0.84, y);
     ctxMap.stroke();
 
     ctxFoil.beginPath();
-    ctxFoil.moveTo(25, y);
-    ctxFoil.lineTo(width - 25, y);
+    ctxFoil.moveTo(width * 0.16, y);
+    ctxFoil.lineTo(width * 0.84, y);
     ctxFoil.stroke();
   });
+  ctxMap.restore();
 
-  // Top/Bottom Motif Accent
-  drawFoilMotif(ctxMap, item.foilMotif, width / 2, 100, 22, item.foilHex);
-  drawFoilMotif(ctxFoil, item.foilMotif, width / 2, 100, 22, '#FFFFFF');
+  // 3. Top Motif Accent — below the first band pair, scaled to the spine width.
+  const motifSize = Math.max(10, Math.min(22, Math.round(width * 0.14)));
+  drawFoilMotifOnMap(ctxMap, item.foilMotif, width / 2, height * 0.135, motifSize, foil);
+  drawFoilMotif(ctxFoil, item.foilMotif, width / 2, height * 0.135, motifSize, '#FFFFFF');
 
-  // Vertical Title Text
+  // 4. Vertical Title Text — wrapped to two lines between the band groups.
+  //    Lines stack right-to-left as the eye travels down. The font keeps the
+  //    same canvas-height ratio as the previous 768px layout (≈6% of height),
+  //    so on-screen legibility is unchanged; the safety loop shrinks it if
+  //    the glyphs would overflow the flat spine width.
+  const usableLength = height * 0.6;
+  let titleFontSize = Math.max(24, Math.min(40, Math.round(height * 0.06)));
+  while (titleFontSize > 20 && titleFontSize * 0.68 > width * 0.92) {
+    titleFontSize -= 2;
+  }
+  const titleFont = `bold ${titleFontSize}px "Cinzel", "Georgia", serif`;
+  const titleTracking = Math.max(1, Math.round(titleFontSize * 0.08));
+  const titleLines = wrapTextLines(
+    ctxMap,
+    item.title.toUpperCase(),
+    titleFont,
+    titleTracking,
+    usableLength,
+    2,
+  );
+  const titleLineHeight = titleFontSize * 1.5;
+
   ctxMap.save();
   ctxFoil.save();
-
-  ctxMap.translate(width / 2, height / 2 - 20);
+  ctxMap.translate(width / 2, height * 0.52);
   ctxMap.rotate(Math.PI / 2);
-  ctxMap.font = 'bold 26px "Cinzel", "Georgia", serif';
-  ctxMap.textAlign = 'center';
-  ctxMap.textBaseline = 'middle';
-  ctxMap.fillStyle = item.foilHex;
-  ctxMap.fillText(item.title.toUpperCase(), 0, 0);
-
-  ctxFoil.translate(width / 2, height / 2 - 20);
+  ctxFoil.translate(width / 2, height * 0.52);
   ctxFoil.rotate(Math.PI / 2);
-  ctxFoil.font = 'bold 26px "Cinzel", "Georgia", serif';
-  ctxFoil.textAlign = 'center';
-  ctxFoil.textBaseline = 'middle';
-  ctxFoil.fillStyle = '#FFFFFF';
-  ctxFoil.fillText(item.title.toUpperCase(), 0, 0);
+
+  const blockHeight = titleLines.length * titleLineHeight;
+  titleLines.forEach((line, index) => {
+    const y = -blockHeight / 2 + index * titleLineHeight;
+    drawFoilText(ctxMap, line, 0, y, titleFont, titleTracking, foil);
+    drawFoilTextMask(ctxFoil, line, 0, y, titleFont, titleTracking);
+  });
 
   ctxMap.restore();
   ctxFoil.restore();
 
-  // Author near bottom
-  ctxMap.font = '16px "Georgia", serif';
-  ctxMap.textAlign = 'center';
-  ctxMap.fillStyle = item.foilHex;
-  ctxMap.fillText(item.author.toUpperCase(), width / 2, height - 100);
+  // 5. Author near the bottom bands, shrunk to fit the spine width.
+  let authorFontSize = Math.max(12, Math.min(20, Math.round(width * 0.12)));
+  let authorFont = `${authorFontSize}px "Georgia", serif`;
+  const authorText = item.author.toUpperCase();
+  while (authorFontSize > 9 && measureTextWidth(ctxMap, authorText, 1) > width * 0.86) {
+    authorFontSize -= 1;
+    authorFont = `${authorFontSize}px "Georgia", serif`;
+    ctxMap.font = authorFont;
+  }
+  drawFoilText(ctxMap, authorText, width / 2, height * 0.885, authorFont, 1, foil);
+  drawFoilTextMask(ctxFoil, authorText, width / 2, height * 0.885, authorFont, 1);
 
-  ctxFoil.font = '16px "Georgia", serif';
-  ctxFoil.textAlign = 'center';
-  ctxFoil.fillStyle = '#FFFFFF';
-  ctxFoil.fillText(item.author.toUpperCase(), width / 2, height - 100);
-
-  const map = new THREE.CanvasTexture(canvasMap);
+  const map = applyAnisotropy(new THREE.CanvasTexture(canvasMap));
   map.colorSpace = THREE.SRGBColorSpace;
 
-  const { roughnessMap, metalnessMap } = buildFoilPBRMaps(canvasFoil, width, height);
+  const { pbrMap } = buildFoilPBRMaps(canvasFoil, width, height);
+  applyAnisotropy(pbrMap);
 
-  return { map, roughnessMap, metalnessMap };
+  const normalMap = buildFoilNormalMap(canvasFoil, width, height);
+
+  return { map, pbrMap, normalMap };
 }
 
 /**
@@ -658,54 +1087,95 @@ export function extractDominantColor(img: HTMLImageElement | HTMLCanvasElement, 
 }
 
 /**
- * Creates Back Cover Textures (Map, Roughness, Metalness) with Written Notes & Reflections
+ * Creates Back Cover Textures (Map, Roughness, Metalness, Emboss Normal Map)
+ * with Written Notes & Reflections.
+ *
+ * Design notes:
+ * - The border, header, rule and footer seal now share the front cover's foil
+ *   treatment: contrast-corrected hue, metallic gradient, stamped shadow on
+ *   the color canvas and a solid-white PBR mask so they glint like real foil.
+ * - The notes stay as contrasting ink on cloth — deliberately not foil, which
+ *   keeps the back cover readable instead of showy.
+ * - Background gradient/vignette matches the front cover.
  */
-function createBackCoverTextures(item: ShelfBookManifestItem, notesText: string, bindingColor: string): {
-  map: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-  metalnessMap: THREE.CanvasTexture;
-} {
+function createBackCoverTextures(item: ShelfBookManifestItem, notesText: string, bindingColor: string): BookSurfaceTextures {
+  // Power-of-two canvas (512×512) with the same fractional layout as the
+  // front cover, so mipmaps stay valid and the composition matches.
   const width = 512;
-  const height = 768;
+  const height = 512;
+  const S = height / 768;
 
   const canvasMap = document.createElement('canvas');
   canvasMap.width = width;
   canvasMap.height = height;
   const ctx = canvasMap.getContext('2d')!;
 
-  ctx.fillStyle = bindingColor;
-  ctx.fillRect(0, 0, width, height);
+  const canvasFoil = document.createElement('canvas');
+  canvasFoil.width = width;
+  canvasFoil.height = height;
+  const ctxFoil = canvasFoil.getContext('2d')!;
 
-  // 1. Decorative Border Frame
-  const pad = 36;
-  ctx.strokeStyle = item.foilHex;
+  // 1. Cloth Background — base tone with shading and vignette
+  drawClothBackground(ctx, width, height, bindingColor);
+
+  ctxFoil.fillStyle = '#000000';
+  ctxFoil.fillRect(0, 0, width, height);
+
+  const foil = getFoilDisplayColor(item.foilHex, bindingColor);
+  const pad = Math.round(height * 0.0625);
+  const innerRule = Math.round(height * 0.014);
+
+  // 2. Decorative Border Frame — metallic double rule + mask.
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 2;
+  ctx.strokeStyle = getFoilGradient(ctx, pad, height - pad, foil);
   ctx.lineWidth = 3;
   ctx.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
+  ctx.restore();
+  ctx.strokeStyle = foil;
   ctx.lineWidth = 1;
-  ctx.strokeRect(pad + 6, pad + 6, width - (pad + 6) * 2, height - (pad + 6) * 2);
+  ctx.strokeRect(pad + innerRule, pad + innerRule, width - (pad + innerRule) * 2, height - (pad + innerRule) * 2);
 
-  // 2. Back Cover Header
-  ctx.fillStyle = item.foilHex;
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 22px "Cinzel", "Georgia", serif';
-  ctx.fillText('NOTAS & REFLEXÕES', width / 2, pad + 45);
+  ctxFoil.strokeStyle = '#FFFFFF';
+  ctxFoil.lineWidth = 3;
+  ctxFoil.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
+  ctxFoil.lineWidth = 1;
+  ctxFoil.strokeRect(pad + innerRule, pad + innerRule, width - (pad + innerRule) * 2, height - (pad + innerRule) * 2);
 
+  // 3. Back Cover Header + rule — foil on both canvases.
+  const headerFont = `bold ${Math.round(24 * S)}px "Cinzel", "Georgia", serif`;
+  drawFoilText(ctx, 'NOTAS & REFLEXÕES', width / 2, pad + Math.round(48 * S), headerFont, Math.max(1, Math.round(2 * S)), foil);
+  drawFoilTextMask(ctxFoil, 'NOTAS & REFLEXÕES', width / 2, pad + Math.round(48 * S), headerFont, Math.max(1, Math.round(2 * S)));
+
+  const ruleY = pad + Math.round(72 * S);
+  ctx.strokeStyle = getFoilGradient(ctx, ruleY - 4, ruleY + 4, foil);
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(pad + 40, pad + 60);
-  ctx.lineTo(width - pad - 40, pad + 60);
+  ctx.moveTo(pad + Math.round(40 * S), ruleY);
+  ctx.lineTo(width - pad - Math.round(40 * S), ruleY);
   ctx.stroke();
 
-  // 3. Notes & Reflections Written Content
+  ctxFoil.strokeStyle = '#FFFFFF';
+  ctxFoil.lineWidth = 1.5;
+  ctxFoil.beginPath();
+  ctxFoil.moveTo(pad + Math.round(40 * S), ruleY);
+  ctxFoil.lineTo(width - pad - Math.round(40 * S), ruleY);
+  ctxFoil.stroke();
+
+  // 4. Notes & Reflections Written Content — ink, not foil.
   ctx.fillStyle = getContrastingTextColor(bindingColor);
   ctx.textAlign = 'left';
-  ctx.font = '16px "Georgia", serif';
+  ctx.font = `${Math.round(16 * S)}px "Georgia", serif`;
 
   const text = notesText && notesText.trim() ? notesText : 'Nenhuma nota registrada para este volume.';
   const words = text.split(/\s+/);
-  const maxTextWidth = width - pad * 2 - 36;
-  const startX = pad + 18;
-  let startY = pad + 95;
-  const lineHeight = 25;
+  const maxTextWidth = width - pad * 2 - Math.round(36 * S);
+  const startX = pad + Math.round(18 * S);
+  let startY = pad + Math.round(95 * S);
+  const lineHeight = Math.round(25 * S);
   let currentLine = '';
 
   for (let i = 0; i < words.length; i++) {
@@ -715,8 +1185,8 @@ function createBackCoverTextures(item: ShelfBookManifestItem, notesText: string,
       ctx.fillText(currentLine, startX, startY);
       currentLine = words[i];
       startY += lineHeight;
-      if (startY > height - pad - 55) {
-        ctx.fillStyle = item.foilHex;
+      if (startY > height - pad - Math.round(55 * S)) {
+        ctx.fillStyle = foil;
         ctx.fillText('... (continua na ficha do livro)', startX, startY);
         break;
       }
@@ -724,37 +1194,63 @@ function createBackCoverTextures(item: ShelfBookManifestItem, notesText: string,
       currentLine = testLine;
     }
   }
-  if (currentLine && startY <= height - pad - 55) {
+  if (currentLine && startY <= height - pad - Math.round(55 * S)) {
     ctx.fillText(currentLine, startX, startY);
   }
 
-  // 4. Publisher Seal Footer
-  ctx.fillStyle = item.foilHex;
-  ctx.textAlign = 'center';
-  ctx.font = '12px "Georgia", serif';
-  ctx.fillText('✦ BIBLIOTECA EDITORIAL ✦', width / 2, height - pad - 20);
+  // 5. Publisher Seal Footer — foil on both canvases.
+  const footerFont = `${Math.round(13 * S)}px "Georgia", serif`;
+  drawFoilText(ctx, '✦ BIBLIOTECA EDITORIAL ✦', width / 2, height - pad - Math.round(16 * S), footerFont, Math.max(1, Math.round(3 * S)), foil);
+  drawFoilTextMask(ctxFoil, '✦ BIBLIOTECA EDITORIAL ✦', width / 2, height - pad - Math.round(16 * S), footerFont, Math.max(1, Math.round(3 * S)));
 
-  const map = new THREE.CanvasTexture(canvasMap);
+  const map = applyAnisotropy(new THREE.CanvasTexture(canvasMap));
   map.colorSpace = THREE.SRGBColorSpace;
 
-  const roughnessCanvas = document.createElement('canvas');
-  roughnessCanvas.width = width;
-  roughnessCanvas.height = height;
-  const ctxR = roughnessCanvas.getContext('2d')!;
-  ctxR.fillStyle = '#C0C0C0';
-  ctxR.fillRect(0, 0, width, height);
+  const { pbrMap } = buildFoilPBRMaps(canvasFoil, width, height);
+  applyAnisotropy(pbrMap);
 
-  const metalnessCanvas = document.createElement('canvas');
-  metalnessCanvas.width = width;
-  metalnessCanvas.height = height;
-  const ctxM = metalnessCanvas.getContext('2d')!;
-  ctxM.fillStyle = '#0C0C0C';
-  ctxM.fillRect(0, 0, width, height);
+  const normalMap = buildFoilNormalMap(canvasFoil, width, height);
 
-  const roughnessMap = new THREE.CanvasTexture(roughnessCanvas);
-  const metalnessMap = new THREE.CanvasTexture(metalnessCanvas);
+  return { map, pbrMap, normalMap };
+}
 
-  return { map, roughnessMap, metalnessMap };
+/**
+ * Re-samples a loaded cover image to at most `maxDim` pixels on its longest
+ * side (GPU memory: a 4K mipmapped cover costs ~20–30MB). Returns the
+ * original texture when it already fits or when canvas re-sampling is
+ * unavailable (JSDOM). The original texture is disposed here — callers must
+ * treat the returned texture as the new owner.
+ */
+function downsampleCoverTexture<T extends THREE.Texture>(texture: T, maxDim: number): T {
+  const image = texture.image as HTMLImageElement | HTMLCanvasElement | undefined;
+  if (!image || typeof image.width !== 'number' || typeof image.height !== 'number') {
+    return texture;
+  }
+  const longest = Math.max(image.width, image.height);
+  if (longest <= maxDim) return texture;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * (maxDim / longest)));
+  canvas.height = Math.max(1, Math.round(image.height * (maxDim / longest)));
+  const ctx = canvas.getContext('2d');
+  if (!ctx || typeof ctx.drawImage !== 'function') {
+    return texture;
+  }
+
+  try {
+    ctx.drawImage(image as CanvasImageSource, 0, 0, canvas.width, canvas.height);
+    const resized = new THREE.CanvasTexture(canvas);
+    resized.colorSpace = THREE.SRGBColorSpace;
+    resized.wrapS = THREE.ClampToEdgeWrapping;
+    resized.wrapT = THREE.ClampToEdgeWrapping;
+    resized.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.dispose();
+    // The caller only relies on Texture behavior; the downsampled canvas
+    // replaces the original image object wholesale.
+    return resized as unknown as T;
+  } catch {
+    return texture;
+  }
 }
 
 export class BookMeshGroup {
@@ -762,6 +1258,12 @@ export class BookMeshGroup {
   public item: ShelfBookManifestItem;
   public isHovered: boolean = false;
   public isSelected: boolean = false;
+  /**
+   * Called whenever a surface texture is applied asynchronously (e.g. a
+   * remote cover finishes loading) so the scene can wake its render loop.
+   * Assigned by CompleteShelfScene.
+   */
+  public onSurfaceUpdate: (() => void) | null = null;
 
   private basePosition: THREE.Vector3;
   private baseRotation: THREE.Euler;
@@ -822,9 +1324,9 @@ export class BookMeshGroup {
     const paperTex = getPaperBlockTexture();
 
     this.texturesToDispose.push(
-      frontTex.map, frontTex.roughnessMap, frontTex.metalnessMap,
-      spineTex.map, spineTex.roughnessMap, spineTex.metalnessMap,
-      backTex.map, backTex.roughnessMap, backTex.metalnessMap,
+      frontTex.map, frontTex.pbrMap, frontTex.normalMap,
+      spineTex.map, spineTex.pbrMap, spineTex.normalMap,
+      backTex.map, backTex.pbrMap, backTex.normalMap,
     );
 
     // Common cloth material
@@ -834,37 +1336,48 @@ export class BookMeshGroup {
       metalness: 0.05,
       normalMap: clothNormalMap,
       normalScale: new THREE.Vector2(0.2, 0.2),
+      envMapIntensity: 0.85,
     });
 
+    // Cover surfaces combine the packed foil PBR map (G=roughness, B=metalness
+    // — one texture backs both material slots) with an emboss normal map
+    // derived from the foil mask. The env map (scene.environment) is inherited
+    // automatically; the intensity is tuned so foil glints without blowing out
+    // the matte cloth (which stays dark thanks to its high roughness).
     const frontCoverMat = new THREE.MeshStandardMaterial({
       map: frontTex.map,
-      roughnessMap: frontTex.roughnessMap,
-      metalnessMap: frontTex.metalnessMap,
-      normalMap: clothNormalMap,
-      normalScale: new THREE.Vector2(0.2, 0.2),
+      roughnessMap: frontTex.pbrMap,
+      metalnessMap: frontTex.pbrMap,
+      normalMap: frontTex.normalMap,
+      normalScale: new THREE.Vector2(0.22, 0.22),
+      envMapIntensity: 1.25,
     });
 
     const backCoverMat = new THREE.MeshStandardMaterial({
       map: backTex.map,
-      roughnessMap: backTex.roughnessMap,
-      metalnessMap: backTex.metalnessMap,
-      normalMap: clothNormalMap,
-      normalScale: new THREE.Vector2(0.2, 0.2),
+      roughnessMap: backTex.pbrMap,
+      metalnessMap: backTex.pbrMap,
+      normalMap: backTex.normalMap,
+      normalScale: new THREE.Vector2(0.22, 0.22),
+      envMapIntensity: 1.25,
     });
 
     const spineMat = new THREE.MeshStandardMaterial({
       map: spineTex.map,
-      roughnessMap: spineTex.roughnessMap,
-      metalnessMap: spineTex.metalnessMap,
-      normalMap: clothNormalMap,
-      normalScale: new THREE.Vector2(0.2, 0.2),
+      roughnessMap: spineTex.pbrMap,
+      metalnessMap: spineTex.pbrMap,
+      normalMap: spineTex.normalMap,
+      normalScale: new THREE.Vector2(0.28, 0.28),
+      envMapIntensity: 1.25,
     });
 
+    // Warm cream page stock; the shared map is tinted per surface via color.
     const paperMat = new THREE.MeshStandardMaterial({
       map: paperTex,
-      roughness: 0.9,
+      roughness: 0.85,
       metalness: 0.0,
-      color: new THREE.Color('#E5E7EB'),
+      color: new THREE.Color('#FFFFFF'),
+      envMapIntensity: 0.8,
     });
 
     const pageEdgeMat = new THREE.MeshStandardMaterial({
@@ -872,6 +1385,7 @@ export class BookMeshGroup {
       roughness: 0.94,
       metalness: 0.0,
       color: new THREE.Color(bindingColor),
+      envMapIntensity: 0.9,
     });
 
     this.clothMaterials.push(baseClothMat, frontCoverMat, spineMat, backCoverMat, paperMat, pageEdgeMat);
@@ -944,14 +1458,24 @@ export class BookMeshGroup {
     backCoverMesh.receiveShadow = true;
     this.group.add(backCoverMesh);
 
-    // Spine Curved Back (+Z face when standing)
-    const spineRadius = thickness / 2;
-    const spineGeo = new THREE.CylinderGeometry(spineRadius, spineRadius, height, 16, 1, false, Math.PI * 0.5, Math.PI);
-    const spineMesh = new THREE.Mesh(spineGeo, spineMat);
+    // Spine — flat hardcover board closing the back edge (z = +width/2).
+    // The cover boards run the full depth, so the board sits flush *inside*
+    // them (z from width/2 - boardThickness to width/2) with no gap and no
+    // protrusion; the page block is inset at z = -0.04 and never touches it,
+    // so there is no z-fighting. Only the +Z face carries the spine texture
+    // (vertical title, raised bands, author); the edges stay cloth.
+    const spineGeo = new THREE.BoxGeometry(thickness, height, boardThickness);
+    const spineMesh = new THREE.Mesh(spineGeo, createBoxFaceMaterials(
+      baseClothMat,  // +X side edge
+      baseClothMat,  // -X side edge
+      baseClothMat,  // +Y top
+      baseClothMat,  // -Y bottom
+      spineMat,      // +Z visible spine face
+      baseClothMat,  // -Z inner face
+    ));
     spineMesh.name = 'spine';
     spineMesh.userData.surfaceRole = 'spine';
-    spineMesh.rotation.y = Math.PI / 2;
-    spineMesh.position.set(0, height / 2, width / 2);
+    spineMesh.position.set(0, height / 2, width / 2 - boardThickness / 2);
     spineMesh.castShadow = true;
     spineMesh.receiveShadow = true;
     this.group.add(spineMesh);
@@ -982,25 +1506,27 @@ export class BookMeshGroup {
 
   private replaceTextureSet(
     material: THREE.MeshStandardMaterial | null,
-    textures: {
-      map: THREE.CanvasTexture;
-      roughnessMap: THREE.CanvasTexture;
-      metalnessMap: THREE.CanvasTexture;
-    },
+    textures: BookSurfaceTextures,
   ) {
     if (!material) {
       textures.map.dispose();
-      textures.roughnessMap.dispose();
-      textures.metalnessMap.dispose();
+      textures.pbrMap.dispose();
+      textures.normalMap.dispose();
       return;
     }
 
-    const previousTextures = [material.map, material.roughnessMap, material.metalnessMap]
-      .filter((texture): texture is THREE.Texture => texture !== null);
+    const previousTextures = [
+      material.map,
+      material.roughnessMap,
+      material.metalnessMap,
+      material.normalMap,
+    ].filter((texture): texture is THREE.Texture => texture !== null);
 
     material.map = textures.map;
-    material.roughnessMap = textures.roughnessMap;
-    material.metalnessMap = textures.metalnessMap;
+    material.roughnessMap = textures.pbrMap;
+    material.metalnessMap = textures.pbrMap;
+    material.normalMap = textures.normalMap;
+    material.normalScale.set(0.22, 0.22);
     material.color.set('#FFFFFF');
     material.needsUpdate = true;
 
@@ -1010,7 +1536,11 @@ export class BookMeshGroup {
       texture.dispose();
     });
 
-    this.texturesToDispose.push(textures.map, textures.roughnessMap, textures.metalnessMap);
+    this.texturesToDispose.push(
+      textures.map,
+      textures.pbrMap,
+      textures.normalMap,
+    );
   }
 
   private refreshColorBoundTextures(hexColor: string) {
@@ -1060,6 +1590,68 @@ export class BookMeshGroup {
     this.applyBindingColor({ hex: normalized, source: 'custom' });
   }
 
+  /**
+   * Incremental content update used by scene reconciliation (filtering,
+   * metadata edits). When nothing relevant changed it is a cheap no-op, so
+   * re-filtering the shelf does not rebuild any textures. Dimension changes
+   * update the stored item but keep the current geometry — full dimension
+   * edits are out of scope for the incremental path.
+   */
+  public updateItem(next: ShelfBookManifestItem) {
+    const prev = this.item;
+    const contentChanged =
+      prev.title !== next.title
+      || prev.author !== next.author
+      || prev.notes !== next.notes
+      || prev.foilHex !== next.foilHex
+      || prev.foilMotif !== next.foilMotif
+      || prev.clothColor !== next.clothColor
+      || prev.customColor !== next.customColor
+      || prev.pages !== next.pages
+      || prev.height !== next.height
+      || prev.width !== next.width
+      || prev.thickness !== next.thickness;
+
+    const dims = getBookDimensionsByPageCount(next.pages, next);
+    this.item = {
+      ...next,
+      thickness: dims.thickness,
+      height: dims.height,
+      width: dims.width,
+    };
+
+    if (!contentChanged && next.coverUrl === prev.coverUrl) return;
+
+    // Cover swapped: reload the image (procedural surfaces stay until it
+    // arrives); cover removed: fall back to the procedural cover.
+    if (next.coverUrl !== prev.coverUrl) {
+      this.frontUsesCoverTexture = false;
+      if (next.coverUrl) {
+        this.loadCoverTexture(next.coverUrl);
+      } else {
+        this.coverLoadGeneration += 1;
+        if (this.frontCoverMaterial) {
+          this.replaceTextureSet(
+            this.frontCoverMaterial,
+            createFrontCoverTextures(this.item, this.resolvedBindingColor.hex),
+          );
+        }
+      }
+    }
+
+    // Rebind cloth tone + regenerate color-baked surfaces only when needed.
+    const resolved = resolveBindingColor({
+      customColor: next.customColor,
+      manifestColor: next.clothColor,
+    });
+    if (resolved.hex !== this.resolvedBindingColor.hex) {
+      this.applyBindingColor(resolved);
+    } else if (contentChanged) {
+      this.refreshColorBoundTextures(this.resolvedBindingColor.hex);
+    }
+    this.onSurfaceUpdate?.();
+  }
+
   public getResolvedBindingColor(): ResolvedBindingColor {
     return { ...this.resolvedBindingColor };
   }
@@ -1082,20 +1674,31 @@ export class BookMeshGroup {
           return;
         }
 
+        // Downsample oversized remote covers (up to 4K) to ≤1024px before
+        // upload — a 4K mipmapped cover costs ~20–30MB of GPU memory per book.
+        texture = downsampleCoverTexture(texture, 1024);
+
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
+        applyAnisotropy(texture);
 
         const previousTextures = [
           this.frontCoverMaterial.map,
           this.frontCoverMaterial.roughnessMap,
           this.frontCoverMaterial.metalnessMap,
+          this.frontCoverMaterial.normalMap,
         ].filter((candidate): candidate is THREE.Texture => candidate !== null);
         this.frontCoverMaterial.map = texture;
         this.frontCoverMaterial.roughnessMap = null;
         this.frontCoverMaterial.metalnessMap = null;
+        // A real photo cover has no foil emboss — fall back to the woven cloth
+        // relief and a subtle environment response.
+        this.frontCoverMaterial.normalMap = getClothNormalMap();
+        this.frontCoverMaterial.normalScale.set(0.2, 0.2);
         this.frontCoverMaterial.roughness = 0.72;
         this.frontCoverMaterial.metalness = 0.05;
+        this.frontCoverMaterial.envMapIntensity = 0.9;
         this.frontCoverMaterial.color.set('#FFFFFF');
         this.frontCoverMaterial.needsUpdate = true;
         previousTextures.forEach((previousTexture) => {
@@ -1105,6 +1708,7 @@ export class BookMeshGroup {
         });
         this.texturesToDispose.push(texture);
         this.frontUsesCoverTexture = true;
+        this.onSurfaceUpdate?.();
 
         // A CORS-blocked canvas read returns null; resolution then stays on the
         // manifest/custom source while the original cover texture remains intact.
@@ -1230,6 +1834,27 @@ export class BookMeshGroup {
       const targetOpacity = this.isHovered ? 0.35 : 0.0;
       mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, delta * 8);
     }
+  }
+
+  /**
+   * True while the book is still lerping toward its targets. Used by the
+   * render loop to keep rendering during hover/focus/drag animations and
+   * skip rendering when everything is idle.
+   */
+  public isAnimating(epsilon = 0.002): boolean {
+    if (this.group.position.distanceToSquared(this.targetPosition) > epsilon * epsilon) return true;
+    if (Math.abs(this.group.rotation.x - this.targetRotation.x) > epsilon) return true;
+    if (Math.abs(this.group.rotation.y - this.targetRotation.y) > epsilon) return true;
+    if (Math.abs(this.group.rotation.z - this.targetRotation.z) > epsilon) return true;
+    if (Math.abs(this.group.scale.x - this.targetScale.x) > epsilon) return true;
+    if (Math.abs(this.group.scale.y - this.targetScale.y) > epsilon) return true;
+    if (Math.abs(this.group.scale.z - this.targetScale.z) > epsilon) return true;
+    if (this.glowMesh) {
+      const mat = this.glowMesh.material as THREE.MeshBasicMaterial;
+      const targetOpacity = this.isHovered ? 0.35 : 0.0;
+      if (Math.abs(mat.opacity - targetOpacity) > 0.02) return true;
+    }
+    return false;
   }
 
   public getBasePosition(): THREE.Vector3 {

@@ -162,10 +162,10 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40">
-      {/* Mobile Backdrop */}
+      {/* Mobile Backdrop — visual dim only; pointer events pass through so the
+          3D scene stays interactive (tapping another book switches to it). */}
       <div
-        className="pointer-events-auto fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity md:hidden"
-        onClick={onClose}
+        className="pointer-events-none fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity md:hidden"
         aria-hidden="true"
       />
 

@@ -30,9 +30,16 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  // Desktop rail is collapsed by default; it expands on hover (mouse) or
+  // focus (keyboard) over the tab or the panel, and while a book is being
+  // dragged so the drop targets stay reachable.
+  const [isDesktopExpanded, setIsDesktopExpanded] = useState(false);
+  const desktopPanelExpanded = isDesktopExpanded || Boolean(draggingBookId);
+
+  const expandDesktop = () => setIsDesktopExpanded(true);
+  const collapseDesktop = () => setIsDesktopExpanded(false);
 
   const orderedLevels = useMemo(() => [...levels].sort((a, b) => b.position - a.position), [levels]);
-  const activeLevel = useMemo(() => levels.find(l => l.id === activeLevelId) || orderedLevels[0], [levels, activeLevelId, orderedLevels]);
 
   useEffect(() => {
     if (!editingLevelId || levels.some((level) => level.id === editingLevelId)) return;
@@ -137,17 +144,19 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
 
   return (
     <>
-      {/* Mobile (<768px): Floating Level Trigger Button */}
+      {/* Mobile (<768px): Peek tab — tap to open the bottom sheet drawer.
+          Keeps the same aria-label as before so the HUD's fallback toggle
+          (querySelector) and existing tests keep working. */}
       <div className="pointer-events-auto absolute left-[max(1rem,env(safe-area-inset-left))] top-20 z-20 md:hidden">
         <button
           type="button"
           onClick={() => setIsMobileDrawerOpen(true)}
           aria-label="Abrir gaveta de andares"
-          className="flex h-11 min-h-[44px] min-w-[44px] items-center gap-2.5 rounded-full border border-slate-700/90 bg-[#0D121A]/95 px-4 py-2 text-xs font-bold text-slate-100 shadow-2xl backdrop-blur-xl transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 active:scale-95"
+          className="flex h-24 min-h-[44px] min-w-[44px] w-11 flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-700/80 bg-[#0D121A]/95 text-slate-100 shadow-2xl backdrop-blur-xl transition hover:border-[#D4AF37]/60 hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 active:scale-95"
         >
           <Layers className="h-4 w-4 text-[#F3D274]" />
-          <span className="max-w-[130px] truncate">{activeLevel ? activeLevel.name : 'Andares'}</span>
-          <span className="rounded-full bg-[#D4AF37]/20 px-2 py-0.5 text-[10px] font-bold text-[#F3D274]">
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ writingMode: 'vertical-rl' }}>Andares</span>
+          <span className="rounded-full bg-[#D4AF37]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#F3D274]">
             {levels.length}
           </span>
         </button>
@@ -241,31 +250,65 @@ export const ShelfLevelRail: React.FC<ShelfLevelRailProps> = ({
         </div>
       )}
 
-      {/* Desktop / Tablet (>=768px): Sleek Side Rail */}
-      <aside className="pointer-events-auto absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2.5 md:flex">
-        <div className="mb-1 rounded-xl border border-slate-700/80 bg-[#0D121A]/90 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 shadow-xl backdrop-blur-md">
-          Andares
-        </div>
+      {/* Desktop / Tablet (>=768px): Collapsed rail — peek tab + slide-in panel.
+          The panel is collapsed by default (max-w-0, opacity-0, no pointer
+          events) so it never blocks clicks on the 3D shelf; hover or keyboard
+          focus on the tab/panel expands it with a smooth slide. While a book
+          is dragged the panel stays open so drop targets remain visible. */}
+      <div
+        data-testid="shelf-level-rail-desktop"
+        className="pointer-events-auto absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-20 hidden -translate-y-1/2 md:block"
+        onMouseEnter={expandDesktop}
+        onMouseLeave={collapseDesktop}
+        onFocusCapture={expandDesktop}
+        onBlurCapture={collapseDesktop}
+      >
+        <div className="flex items-start gap-2">
+          {/* Peek Tab */}
+          <button
+            type="button"
+            onClick={() => setIsDesktopExpanded((prev) => !prev)}
+            aria-expanded={desktopPanelExpanded}
+            aria-label={desktopPanelExpanded ? 'Recolher painel de andares' : 'Expandir painel de andares'}
+            className="flex h-32 min-h-[44px] min-w-[44px] w-11 flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-700/80 bg-[#0D121A]/95 text-slate-100 shadow-2xl backdrop-blur-xl transition hover:border-[#D4AF37]/60 hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+          >
+            <Layers className="h-4 w-4 text-[#F3D274]" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ writingMode: 'vertical-rl' }}>Andares</span>
+          </button>
 
-        {orderedLevels.map((level) => renderLevelCard(level, false))}
+          {/* Slide-in Panel */}
+          <div
+            className={`flex flex-col gap-2.5 overflow-hidden transition-all duration-300 ease-out ${
+              desktopPanelExpanded
+                ? 'max-w-[240px] translate-x-0 opacity-100 pointer-events-auto'
+                : 'max-w-0 -translate-x-2 opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="mb-1 shrink-0 rounded-xl border border-slate-700/80 bg-[#0D121A]/90 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400 shadow-xl backdrop-blur-md">
+              Andares
+            </div>
 
-        <button
-          type="button"
-          onClick={onAddLevel}
-          aria-label="Novo andar"
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-600 bg-[#0D121A]/75 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 hover:border-[#D4AF37] hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
-        >
-          <Plus className="h-4 w-4" />
-          Novo andar
-        </button>
+            {orderedLevels.map((level) => renderLevelCard(level, false))}
 
-        {draggingBookId && (
-          <div className="rounded-lg border border-[#D4AF37]/30 bg-[#0D121A]/90 px-2 py-1.5 text-[10px] text-[#F3D274] shadow-xl">
-            Solte sobre um andar
-            {dragTargetLevelId ? ' destacado' : ''}
+            <button
+              type="button"
+              onClick={onAddLevel}
+              aria-label="Novo andar"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-600 bg-[#0D121A]/75 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 hover:border-[#D4AF37] hover:text-[#F3D274] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50"
+            >
+              <Plus className="h-4 w-4" />
+              Novo andar
+            </button>
+
+            {draggingBookId && (
+              <div className="rounded-lg border border-[#D4AF37]/30 bg-[#0D121A]/90 px-2 py-1.5 text-[10px] text-[#F3D274] shadow-xl">
+                Solte sobre um andar
+                {dragTargetLevelId ? ' destacado' : ''}
+              </div>
+            )}
           </div>
-        )}
-      </aside>
+        </div>
+      </div>
     </>
   );
 };

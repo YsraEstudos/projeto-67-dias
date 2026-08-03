@@ -10,6 +10,8 @@ import {
   calculateTouchDistance,
   calculateTouchCenter,
   clampZoomScale,
+  shouldCloseInspectionOnWheel,
+  shouldCloseInspectionOnPinch,
   CompleteShelfScene,
 } from '../../../components/reading/shelf/CompleteShelfScene';
 import EditorialHeader from '../../../components/reading/shelf/EditorialHeader';
@@ -136,6 +138,24 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     const addBookBtn = screen.getByRole('button', { name: 'Adicionar novo livro' });
     expect(addBookBtn).toBeInTheDocument();
     expect(addBookBtn.className).toContain('min-h-[44px]');
+
+    // In 3D mode the filter chips bar is hidden to keep the shelf unobstructed.
+    expect(screen.queryByRole('button', { name: 'Filtrar por Todos' })).not.toBeInTheDocument();
+  });
+
+  it('EditorialHeader shows accessible filter chips in 2D mode', () => {
+    render(
+      <EditorialHeader
+        activeCategory="ALL"
+        onSelectCategory={vi.fn()}
+        totalBooksCount={12}
+        readingStreakDays={5}
+        onOpenAddBook={vi.fn()}
+        is3DMode={false}
+        onToggleViewMode={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
 
     const filterAllBtn = screen.getByRole('button', { name: 'Filtrar por Todos' });
     expect(filterAllBtn).toBeInTheDocument();
@@ -360,5 +380,22 @@ describe('Mobile UI Responsiveness & Accessibility (a11y) Tests', () => {
     expect(screen.queryByRole('button', { name: 'Andar Anterior (▲)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Próximo Andar (▼)' })).not.toBeInTheDocument();
     expect(screen.queryByText('Arraste a estante')).not.toBeInTheDocument();
+  });
+});
+
+describe('Inspection exit gestures (pure decision helpers)', () => {
+  it('wheel down closes the inspection while inspecting, and never outside it', () => {
+    expect(shouldCloseInspectionOnWheel(120, true)).toBe(true);
+    expect(shouldCloseInspectionOnWheel(5, true)).toBe(true);
+    expect(shouldCloseInspectionOnWheel(0, true)).toBe(false);
+    expect(shouldCloseInspectionOnWheel(-120, true)).toBe(false); // scroll up: ignored
+    expect(shouldCloseInspectionOnWheel(120, false)).toBe(false); // shelf wheel keeps working
+  });
+
+  it('two-finger pinch closes the inspection while inspecting, and never outside it', () => {
+    expect(shouldCloseInspectionOnPinch(2, true)).toBe(true);
+    expect(shouldCloseInspectionOnPinch(3, true)).toBe(true);
+    expect(shouldCloseInspectionOnPinch(1, true)).toBe(false); // single finger still orbits
+    expect(shouldCloseInspectionOnPinch(2, false)).toBe(false); // shelf pinch-zoom keeps working
   });
 });
