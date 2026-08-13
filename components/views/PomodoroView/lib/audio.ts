@@ -85,16 +85,20 @@ function playTone(
   osc.connect(gain);
   gain.connect(ctx.destination);
 
-  const startTime = ctx.currentTime + delay;
+  // Clamp startTime so it's never behind ctx.currentTime (avoids RangeError on AudioParam)
+  const now = ctx.currentTime;
+  const startTime = Math.max(now, now + delay);
   const endTime = startTime + duration;
 
   // Start at 0, ramp up smoothly, then fade out
   // Max gain capped at 0.3 to keep sounds gentle even at 100%
   const maxGain = 0.3;
-  const normalizedVolume = Math.min(volume / 100, 1);
+  const normalizedVolume = Math.min(Math.max(volume / 100, 0), 1);
   const peakGain = normalizedVolume * maxGain;
-  
-  gain.gain.setValueAtTime(0, startTime - 0.001);
+
+  // Use a safe pre-start time: at least 1ms in the future, never negative
+  const preStartTime = Math.max(now, startTime - 0.001);
+  gain.gain.setValueAtTime(0, preStartTime);
   gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.01);
   gain.gain.setValueAtTime(peakGain, startTime + 0.01);
   gain.gain.linearRampToValueAtTime(Math.max(0.001, peakGain * 0.8), endTime - 0.05);
