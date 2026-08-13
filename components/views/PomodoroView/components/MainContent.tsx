@@ -57,6 +57,7 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
     setSettingsOpen,
     shortBreakSelection,
     longBreakSelection,
+    projects,
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'timer' | 'tasks'>('timer');
@@ -89,12 +90,12 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
   const isAlertCountdown = mode === 'alert' && alertStep === 'countdown';
   const isBreakMode = mode === 'shortBreak' || mode === 'longBreak';
 
-  const modes: { id: TimerMode; label: string; icon: React.ElementType }[] = [
+  const modes = useMemo<{ id: TimerMode; label: string; icon: React.ElementType }[]>(() => [
     { id: 'pomodoro', label: 'Foco', icon: Brain },
     { id: 'shortBreak', label: 'Pausa Curta', icon: Coffee },
     { id: 'longBreak', label: 'Pausa Longa', icon: Coffee },
     { id: 'alert', label: 'Alerta', icon: AlertTriangle },
-  ];
+  ], []);
 
   const activeBreakSelection = mode === 'shortBreak'
     ? shortBreakSelection
@@ -162,7 +163,7 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
     return { text: 'Expire', action: 'exhale' };
   };
 
-  const getFilterTitle = () => {
+  const filterTitle = useMemo(() => {
     const titles: Record<string, string> = {
       'today': 'Hoje',
       'tomorrow': 'Amanhã',
@@ -172,8 +173,8 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
       'tasks': 'Tarefas'
     };
     if (titles[currentFilter]) return titles[currentFilter];
-    return useStore.getState().projects.find(p => p.id === currentFilter)?.name || 'Tarefas';
-  };
+    return projects.find(p => p.id === currentFilter)?.name ?? 'Tarefas';
+  }, [currentFilter, projects]);
 
   return (
     <div className={cn(
@@ -193,7 +194,7 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
             </button>
           )}
           <h1 className="text-base sm:text-lg md:text-xl font-bold truncate max-w-[120px] sm:max-w-none text-white">
-            {getFilterTitle()}
+            {filterTitle}
           </h1>
         </div>
 

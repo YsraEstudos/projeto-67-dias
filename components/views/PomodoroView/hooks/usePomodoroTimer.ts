@@ -33,6 +33,10 @@ export function usePomodoroTimer() {
     }
   }, [settings.pomodoroLength, settings.shortBreakLength, settings.longBreakLength]);
 
+  // Use a ref so createTimerState can read alertStep without being recreated on every timer tick
+  const alertStepRef = useRef(timerState.alertStep);
+  useEffect(() => { alertStepRef.current = timerState.alertStep; }, [timerState.alertStep]);
+
   const createTimerState = useCallback((
     mode: TimerMode,
     status: 'IDLE' | 'RUNNING' | 'PAUSED',
@@ -49,9 +53,9 @@ export function usePomodoroTimer() {
       endTime: status === 'RUNNING' ? startedAt + resolvedTimeLeft * 1000 : null,
       sessionCount,
       sessionStartTime: status === 'RUNNING' ? Date.now() : null,
-      alertStep: overrides?.alertStep ?? (mode === 'alert' ? timerState.alertStep : null),
+      alertStep: overrides?.alertStep ?? (mode === 'alert' ? alertStepRef.current : null),
     };
-  }, [getDuration, timerState.alertStep]);
+  }, [getDuration]);
 
   const getRemainingTime = useCallback(() => {
     if (timerState.status !== 'RUNNING' || !timerState.endTime) {
