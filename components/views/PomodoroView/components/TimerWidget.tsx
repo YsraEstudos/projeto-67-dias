@@ -487,7 +487,7 @@ export function TimerWidget() {
           isFullscreen 
             ? "inset-0 w-full h-full rounded-none bg-[var(--color-bg)] flex flex-col items-center justify-center overflow-hidden"
             : cn(
-                "bottom-8 left-1/2 -translate-x-1/2 bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)]",
+                "bottom-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1rem))] left-1/2 -translate-x-1/2 bg-[var(--color-surface)] rounded-2xl shadow-2xl border border-[var(--color-border)]",
                 isExpanded 
                   ? "w-[calc(100%-2rem)] sm:w-[380px] p-4 sm:p-6 max-h-[85vh] overflow-y-auto scrollbar-thin" 
                   : "w-auto px-4 py-3 flex items-center space-x-4 overflow-hidden",
@@ -1063,7 +1063,7 @@ const FullscreenTimerDisplayAndControls = React.memo(function FullscreenTimerDis
 
       {/* Countdown Time & Mode Information at order-2 */}
       <div className="order-2 flex flex-col items-center justify-center">
-        <div className="text-[6rem] sm:text-[8rem] md:text-[10rem] font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)]">
+        <div className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-light tracking-tight font-mono leading-none text-[var(--color-primary)] drop-shadow-[0_0_40px_var(--color-primary)]">
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
         

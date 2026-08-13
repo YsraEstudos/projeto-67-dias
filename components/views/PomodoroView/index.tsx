@@ -123,7 +123,7 @@ export default function App() {
   }, [isBreakMode, timerMode, alertStep, settings.accentColor]);
 
   return (
-    <div className="pomodoro-app-container flex h-[85vh] min-h-[500px] md:min-h-[600px] border border-slate-700 bg-[var(--color-bg)] text-[var(--color-text)] overflow-hidden font-sans selection:bg-[var(--color-primary)] selection:text-white relative shadow-2xl">
+    <div className="pomodoro-app-container flex flex-col md:flex-row min-h-[calc(100vh-5rem)] md:h-[85vh] md:min-h-[600px] border border-slate-700/80 bg-[var(--color-bg)] text-[var(--color-text)] overflow-hidden font-sans selection:bg-[var(--color-primary)] selection:text-white relative shadow-2xl rounded-2xl md:rounded-3xl">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <MainContent onToggleSidebar={() => setIsSidebarOpen(true)} />
       <TimerWidget />

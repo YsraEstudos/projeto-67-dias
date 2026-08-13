@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { X, Search, Sun, Calendar, CalendarDays, CalendarCheck, CheckCircle2, Inbox, Plus, Folder, Home, Tag, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { X, Search, Sun, Calendar, CalendarDays, CalendarCheck, CheckCircle2, Inbox, Plus, Folder, Home, Tag, Edit2, Trash2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFilteredTasks } from '../hooks/useFilteredTasks';
-import { Popover } from './ui/Popover';
 
 const navItems = [
   { id: 'today', label: 'Hoje', icon: Sun, color: 'text-green-500' },
@@ -59,6 +58,13 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     }
   };
 
+  const handleSelectFilter = (filterId: string) => {
+    setFilter(filterId);
+    if (onClose && typeof window !== 'undefined' && window.innerWidth < 768) {
+      onClose();
+    }
+  };
+
   return (
     <div className={cn(
       "fixed md:relative inset-y-0 left-0 z-50 md:z-auto w-72 md:w-64 h-full bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col text-sm transition-transform duration-300 ease-in-out",
@@ -109,7 +115,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => setFilter(item.id)}
+                onClick={() => handleSelectFilter(item.id)}
                 className={cn(
                   "w-full flex items-center px-3 py-2 rounded-md transition-colors group relative",
                   isActive ? "bg-[var(--color-surface-hover)]" : "hover:bg-[var(--color-surface)]"
@@ -164,7 +170,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                   </div>
                 ) : (
                   <div
-                    onClick={() => setFilter(project.id)}
+                    onClick={() => handleSelectFilter(project.id)}
                     className={cn(
                       "w-full flex items-center px-3 py-2 rounded-md transition-colors relative cursor-pointer",
                       isActive ? "bg-[var(--color-surface-hover)]" : "hover:bg-[var(--color-surface)]"
@@ -254,7 +260,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 return (
                   <button
                     key={tag}
-                    onClick={() => setFilter(tagId)}
+                    onClick={() => handleSelectFilter(tagId)}
                     className={cn(
                       "w-full flex items-center px-3 py-2 rounded-md transition-colors group relative",
                       isActive ? "bg-[var(--color-surface-hover)] text-[var(--color-primary)]" : "hover:bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"

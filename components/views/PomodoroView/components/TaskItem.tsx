@@ -97,6 +97,8 @@ export function TaskItem({
           {!isCompletedView && onPlay && (
             <button 
               onClick={(e) => onPlay(e, task.id)}
+              aria-label={`Iniciar Pomodoro em ${task.title}`}
+              title="Iniciar Pomodoro nesta tarefa"
               className="w-6 h-6 rounded-full bg-[var(--color-primary)]/20 text-[var(--color-primary)] flex items-center justify-center mr-3 shrink-0 hover:bg-[var(--color-primary)] hover:text-white transition-colors"
             >
               <Play className="w-3 h-3 ml-0.5" />
