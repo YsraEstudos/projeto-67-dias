@@ -41,7 +41,6 @@ const MODULE_NAME_MAPPING: Record<string, string> = {
   'p67_sunday_timer': 'Timer de Domingo',
   'p67_goals_store': 'Metas do Desafio',
   'p67_competition_store': 'Competição / Ranking',
-  'p67_daily_planner_store': 'Planejador Diário',
   'pomodoro-storage': 'Timer Pomodoro',
   'p67_aulas_config': 'Configuração de Aulas',
   'p67_aulas_books': 'Livros de Aulas',

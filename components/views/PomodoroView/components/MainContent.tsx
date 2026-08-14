@@ -38,6 +38,7 @@ import { usePomodoroTimer, TimerMode } from '../hooks/usePomodoroTimer';
 import { useActiveTask } from '../hooks/useActiveTask';
 import { useRestStore } from '../../../../stores';
 import { resolveBreakSelectionLabel } from '../lib/breakOptions';
+import { getLocalISODate } from '../lib/pomodoroStats';
 import { useShallow } from 'zustand/react/shallow';
 
 interface MainContentProps {
@@ -67,7 +68,7 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
 
   const activeTask = useActiveTask();
   const restActivities = useRestStore((state) => state.activities);
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalISODate(), []);
 
   const timerState = useStore(useShallow((state) => state.timerState));
   const setTimerState = useStore((state) => state.setTimerState);

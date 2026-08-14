@@ -1,5 +1,5 @@
 import {
-    Calculator, Ruler, Banknote, FileText, MousePointerClick, Clock, Wind, Headphones, LucideIcon
+    Calculator, Ruler, Banknote, FileText, MousePointerClick, Clock, Wind, Headphones, StickyNote, LucideIcon
 } from 'lucide-react';
 import { ToolType } from './ToolsSidebar';
 
@@ -20,13 +20,14 @@ export const CURRENCIES = [
 ];
 
 export const TOOLS_MENU: { id: ToolType; icon: LucideIcon; label: string }[] = [
-    { id: 'time', icon: Clock, label: 'Relógio/Timer' },
+    { id: 'time', icon: Clock, label: 'Relógio' },
     { id: 'focus', icon: Headphones, label: 'Sons de Foco' },
     { id: 'calc', icon: Calculator, label: 'Calculadora' },
     { id: 'convert', icon: Ruler, label: 'Conversor' },
     { id: 'currency', icon: Banknote, label: 'Cotações' },
     { id: 'text', icon: FileText, label: 'Analisador Texto' },
     { id: 'clicker', icon: MousePointerClick, label: 'Contador' },
+    { id: 'notes', icon: StickyNote, label: 'Notas Rápidas' },
     { id: 'breathing', icon: Wind, label: 'Respiração' },
 ];
 

@@ -1,4 +1,5 @@
 export interface DailyPlannerPreferences {
+  defaultWakeTime: string;           // HH:mm
   defaultSleepTime: string;          // HH:mm
   defaultWindDownMinutes: number;    // Janela final sem tarefas
   mealDurationMinutes: number;       // Duração padrão da refeição
@@ -6,6 +7,7 @@ export interface DailyPlannerPreferences {
 }
 
 export interface DailyPlannerDayInputs {
+  wakeTime: string;                  // HH:mm
   sleepTime: string;                 // HH:mm
   windDownMinutes: number;
   mealPending: boolean;
@@ -81,4 +83,17 @@ export interface DailyPlannerSession {
   isLoading: boolean;
   error: string | null;
   lastUpdatedAt: number;
+}
+
+export interface DailyPlannerPlanSnapshot {
+  date: string;                     // YYYY-MM-DD
+  dayNumber: number;                // 1..67
+  totalDays: number;                // 67
+  wakeTime: string;                 // HH:mm
+  sleepTime: string;                // HH:mm
+  currentTime: string;              // HH:mm
+  availableMinutes: number;         // minutos até o início do preparo para dormir
+  habits: Array<{ title: string; completed: boolean }>;
+  tasks: Array<{ title: string; completed: boolean }>;
+  work: { count: number; goal: number };
 }

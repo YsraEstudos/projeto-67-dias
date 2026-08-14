@@ -5,6 +5,7 @@ import { ProgressStats } from './ProgressStats';
 import { ResourcesVault } from './ResourcesVault';
 import { RoadmapSection } from './RoadmapSection';
 import { MicroAchievementsTab } from './MicroAchievementsTab';
+import { GoalsPanel } from './GoalsPanel';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { syncRoadmapState } from './roadmapSync';
 
@@ -86,8 +87,11 @@ export const SkillDetailView: React.FC<SkillDetailViewProps> = ({
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* LEFT COLUMN: Micro-Achievements, Stats & Resources */}
+                {/* LEFT COLUMN: Goals & Points, Micro-Achievements, Stats & Resources */}
                 <div className="space-y-6">
+                    {/* Metas & Pontos - goals with XP and level progression */}
+                    <GoalsPanel skill={skill} />
+
                     {/* Micro-Achievements - ADHD-friendly quick wins */}
                     <MicroAchievementsTab skill={skill} onUpdate={onUpdate} />
 

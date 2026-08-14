@@ -59,8 +59,12 @@ export const SkillHeader: React.FC<SkillHeaderProps> = ({ skill, onBack, onUpdat
                         </button>
                     </div>
                 )}
-                <p className="text-slate-400 flex items-center gap-2 text-sm mt-1">
+                <p className="text-slate-400 flex flex-wrap items-center gap-2 text-sm mt-1">
                     <span className={`${variants.bgLight} ${variants.text} ${variants.borderLight} px-2 py-0.5 rounded border`}>{skill.level}</span>
+                    <span className={`${variants.bgLight} ${variants.text} ${variants.borderLight} px-2 py-0.5 rounded border`}>
+                        Nível {skill.levelNumber ?? 1}
+                        {(skill.totalXp ?? 0) > 0 && <> • {(skill.totalXp ?? 0).toLocaleString('pt-BR')} XP</>}
+                    </span>
                     • Criado em {new Date(skill.createdAt).toLocaleDateString('pt-BR')}
                 </p>
             </div>

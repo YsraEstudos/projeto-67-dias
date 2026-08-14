@@ -73,21 +73,15 @@ describe('SkillsView Component', () => {
         render(<SkillsView />);
 
         expect(screen.getByText('Skill Tree')).toBeInTheDocument();
-        expect(screen.getByText('Plano do Dia IA')).toBeInTheDocument();
         expect(screen.getByText('Gerencie seu aprendizado e desenvolvimento.')).toBeInTheDocument();
     });
 
-    it('switches between Skill Tree, Agenda Semanal, and Plano do Dia IA tabs', async () => {
+    it('switches between Skill Tree and Agenda Semanal tabs', async () => {
         render(<SkillsView />);
 
         fireEvent.click(screen.getByText('Agenda Semanal'));
         await waitFor(() => {
             expect(screen.getByText('Arraste para agendar')).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText('Plano do Dia IA'));
-        await waitFor(() => {
-            expect(screen.getByText('Painel de manobra')).toBeInTheDocument();
         });
 
         fireEvent.click(screen.getByText('Skill Tree'));

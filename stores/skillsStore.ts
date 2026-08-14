@@ -17,6 +17,7 @@ import { createNextDayContentActions, NextDayContentActions } from './skills/nex
 import { createDistributionActions, DistributionActions } from './skills/distributionActions';
 import { createSectionVisibilityActions, SectionVisibilityActions } from './skills/sectionVisibilityActions';
 import { createHistoryActions, HistoryActions } from './skills/historyActions';
+import { createGoalActions, GoalActions } from './skills/goalActions';
 
 const STORE_KEY = 'p67_skills_store';
 
@@ -60,7 +61,8 @@ interface SkillsState extends SkillsBaseState,
     NextDayContentActions,
     DistributionActions,
     SectionVisibilityActions,
-    HistoryActions { }
+    HistoryActions,
+    GoalActions { }
 
 export const useSkillsStore = create<SkillsState>()(immer((set, get) => ({
     // Initial state
@@ -135,6 +137,7 @@ export const useSkillsStore = create<SkillsState>()(immer((set, get) => ({
     ...createDistributionActions(set as any, get as any),
     ...createSectionVisibilityActions(set as any, get as any),
     ...createHistoryActions(set as any, get as any),
+    ...createGoalActions(set as any, get as any),
 
     // Internal methods
     setLoading: (loading) => set((state) => { state.isLoading = loading; }),

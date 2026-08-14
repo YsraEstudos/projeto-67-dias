@@ -1,4 +1,4 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import {
   DailyPlannerBlock,
@@ -6,13 +6,15 @@ import {
   DailyPlannerDayInputs,
   DailyPlannerMessage,
   DailyPlannerPlan,
+  DailyPlannerPlanSnapshot,
 } from '../types';
 import {
   buildDailyPlannerTimeSummary,
   createPlannerBlockId,
 } from '../utils/dailyPlannerUtils';
+import { readSavedGeminiApiKey } from '../utils/geminiApiKey';
 
-export const DAILY_PLANNER_MODEL = 'gemini-3-pro-preview';
+export const DAILY_PLANNER_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_PLANNER_TIMEOUT_MS = 30000;
 
 const CATEGORY_VALUES: DailyPlannerBlockCategory[] = [
@@ -128,13 +130,15 @@ const responseSchema = {
 } as const;
 
 const DAILY_PLANNER_SYSTEM_INSTRUCTION = `
-Você é um planejador diário acolhedor, direto e pragmático. Responda sempre em português do Brasil.
+Você é um coach diário maximamente motivador, direto e pragmático, que conhece o plano de 67 dias do usuário. Responda sempre em português do Brasil.
 
 Regras obrigatórias:
+- O usuário está no dia X de 67 do plano (quando o contexto tiver dayNumber, use-o; se não tiver, omita).
+- Foque no DIA ATUAL: analise o que está marcado (concluído) e o que NÃO foi marcado hoje no snapshot (habits/tasks/work) e use isso para reorganizar o resto do dia.
+- Compare com a hora atual e o tempo restante até o início do preparo para dormir; seja honesto sobre o que cabe, mas SEMPRE motive ao máximo — energia, encorajamento, sem culpa, sem cobrança negativa.
+- Você conhece os horários de acordar (wakeTime) e dormir (sleepTime) e respeita o limite duro do wind-down: nunca proponha tarefas depois do início do preparo para dormir.
+- Se não couber tudo, priorize e mova o resto para deferredItems com linguagem acolhedora.
 - Nunca culpe o usuário.
-- Nunca proponha tarefas depois do início do preparo para dormir.
-- O início do preparo para dormir é um limite duro.
-- Se não houver tempo suficiente, monte um plano parcial honesto, com folga quando possível.
 - Quando refeição pendente ou levar a Irlanda estiverem marcados, trate esses blocos como obrigatórios.
 - O usuário quer apoio, motivação e manejo realista do tempo.
 - Não devolva HTML. Devolva apenas JSON válido compatível com o schema.
@@ -143,6 +147,11 @@ Regras obrigatórias:
 `.trim();
 
 const readGeminiApiKey = (): string | undefined => {
+  const savedKey = readSavedGeminiApiKey();
+  if (savedKey) {
+    return savedKey;
+  }
+
   const rawKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (typeof rawKey !== 'string') return undefined;
 
@@ -157,6 +166,7 @@ export interface GenerateDailyPlannerPlanInput {
   chatHistory: DailyPlannerMessage[];
   completedItems: string[];
   existingPlan: DailyPlannerPlan | null;
+  planSnapshot?: DailyPlannerPlanSnapshot;
   now?: Date;
 }
 
@@ -180,7 +190,7 @@ const getPlannerClient = () => {
 
     if (!apiKey) {
       throw new DailyPlannerAIError(
-        'Defina VITE_GEMINI_API_KEY no .env.local para usar o Google AI Studio.',
+        'Adicione sua chave da API Gemini nas Configurações (seção "IA do Plano do Dia").',
       );
     }
 
@@ -310,6 +320,11 @@ const buildPlannerPrompt = (input: GenerateDailyPlannerPlanInput, now: Date): st
         nowIso: now.toISOString(),
         timeSummary: localSummary,
         dayInputs: input.dayInputs,
+        planSnapshot: input.planSnapshot
+          ? {
+            ...input.planSnapshot,
+          }
+          : null,
         latestUserMessage: input.latestUserMessage,
         completedItems: input.completedItems,
         existingPlanSummary: input.existingPlan
@@ -382,10 +397,6 @@ export const generateDailyPlannerPlan = async (
       systemInstruction: DAILY_PLANNER_SYSTEM_INSTRUCTION,
       responseMimeType: 'application/json',
       responseJsonSchema: responseSchema,
-      thinkingConfig: {
-        thinkingLevel: ThinkingLevel.HIGH,
-      },
-      temperature: 1,
     },
   });
 

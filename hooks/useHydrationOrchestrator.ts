@@ -31,7 +31,6 @@ import {
     useSundayTimerStore,
     useGoalsStore,
     useCompetitionStore,
-    useDailyPlannerStore,
     usePomodoroStore,
     useAulasStore,
     clearAllStores,
@@ -82,7 +81,6 @@ const buildStoreSubscriptions = (): StoreSubscription[] => [
     { key: 'p67_sunday_timer', hydrate: (d) => useSundayTimerStore.getState()._hydrateFromFirestore(d) },
     { key: 'p67_goals_store', hydrate: (d) => useGoalsStore.getState()._hydrateFromFirestore(d) },
     { key: 'p67_competition_store', hydrate: (d) => useCompetitionStore.getState()._hydrateFromFirestore(d) },
-    { key: 'p67_daily_planner_store', hydrate: (d) => useDailyPlannerStore.getState()._hydrateFromFirestore(d) },
     { key: 'pomodoro-storage', hydrate: (d) => usePomodoroStore.getState()._hydrateFromFirestore(d) },
     { key: 'p67_aulas_config', hydrate: (d) => useAulasStore.getState()._hydrateFromFirestore(d) },
 ];

@@ -136,7 +136,15 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
 
                 <div className="flex justify-between items-start mb-4">
                     <div>
-                        <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${textColor}`}>{skill.level}</div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className={`text-xs font-bold uppercase tracking-wider ${textColor}`}>{skill.level}</div>
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-900/60 border border-slate-700 rounded-full px-2 py-[2px] leading-none">
+                                Nível {skill.levelNumber ?? 1}
+                                {(skill.totalXp ?? 0) > 0 && (
+                                    <span className="text-emerald-400/90">• {(skill.totalXp ?? 0).toLocaleString('pt-BR')} XP</span>
+                                )}
+                            </span>
+                        </div>
                         <h3 className="text-xl font-bold text-white mb-1">{skill.name}</h3>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-sm font-bold text-slate-400 border border-slate-700 group-hover:border-emerald-500/50 transition-colors">

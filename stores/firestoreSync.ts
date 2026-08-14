@@ -117,7 +117,6 @@ const STORE_DEBOUNCE_OVERRIDES: Record<string, number> = {
     p67_prompts_store: 25000,
     p67_links_store: 25000,
     p67_weekly_agenda: 25000,
-    p67_daily_planner_store: 25000,
 };
 
 // Track last written data per collection to avoid duplicate writes

@@ -130,115 +130,134 @@ export function usePomodoroTimer() {
     settings.longBreakLength,
   ]);
 
+  const isCompletingRef = useRef(false);
+
   const handleComplete = useCallback((completedAtMs = Date.now()) => {
-    const completedAt = new Date(completedAtMs);
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
 
-    if (timerState.mode === 'alert') {
-      const step = timerState.alertStep;
-      if (step === 'countdown') {
-        playAlertFailSound(settings.volume);
-        const nextState: PomodoroTimerState = {
-          mode: 'alert',
-          status: 'PAUSED',
-          timeLeft: 0,
-          endTime: null,
-          sessionCount: timerState.sessionCount,
-          sessionStartTime: null,
-          alertStep: 'pix',
-        };
-        setPersistedTimerState(nextState);
-        setTimeLeft(0);
-      } else if (step === 'breathing') {
-        if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          new Notification('Pausa de Respiração concluída', {
-            body: 'Hora de voltar ao foco.',
+    try {
+      const now = Date.now();
+      const completedAt = new Date(completedAtMs);
+      // If completedAt is more than 60s in the past relative to now, the session completed while away/tab inactive.
+      const isLateCompletion = Math.abs(now - completedAtMs) > 60_000;
+      const isRecent = !isLateCompletion;
+
+      if (timerState.mode === 'alert') {
+        const step = timerState.alertStep;
+        if (step === 'countdown') {
+          if (isRecent && settings.volume > 0) {
+            playAlertFailSound(settings.volume);
+          }
+          const nextState: PomodoroTimerState = {
+            mode: 'alert',
+            status: 'PAUSED',
+            timeLeft: 0,
+            endTime: null,
+            sessionCount: timerState.sessionCount,
+            sessionStartTime: null,
+            alertStep: 'pix',
+          };
+          setPersistedTimerState(nextState);
+          setTimeLeft(0);
+        } else if (step === 'breathing') {
+          if (isRecent && settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification('Pausa de Respiração concluída', {
+              body: 'Hora de voltar ao foco.',
+            });
+          }
+          if (isRecent && settings.volume > 0) playSound('break-end', settings.volume);
+
+          const nextState = createTimerState('pomodoro', 'IDLE', timerState.sessionCount);
+          setPersistedTimerState(nextState);
+          setTimeLeft(nextState.timeLeft);
+        }
+        return;
+      }
+
+      if (timerState.mode === 'pomodoro') {
+        if (isRecent && settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification('Pomodoro concluido', {
+            body: activeTaskId ? 'Sessao finalizada com sucesso.' : 'Sessao de foco livre finalizada.',
           });
         }
-        if (settings.volume > 0) playSound('break-end', settings.volume);
 
-        const nextState = createTimerState('pomodoro', 'IDLE', timerState.sessionCount);
-        setPersistedTimerState(nextState);
-        setTimeLeft(nextState.timeLeft);
-      }
-      return;
-    }
+        if (isRecent && settings.volume > 0) playSound('work-end', settings.volume);
 
-    if (timerState.mode === 'pomodoro') {
-      if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('Pomodoro concluido', {
-          body: activeTaskId ? 'Sessao finalizada com sucesso.' : 'Sessao de foco livre finalizada.',
+        const sessionDuration = settings.pomodoroLength;
+        // Use the tracked sessionStartTime when available for accurate start (handles pauses correctly)
+        const actualStartTime = timerState.sessionStartTime
+          ? new Date(timerState.sessionStartTime).toISOString()
+          : new Date(completedAt.getTime() - sessionDuration * 60000).toISOString();
+        addRecord({
+          taskId: activeTaskId ?? undefined,
+          duration: sessionDuration,
+          startTime: actualStartTime,
+          endTime: completedAt.toISOString(),
         });
-      }
 
-      if (settings.volume > 0) playSound('work-end', settings.volume);
+        if (activeTaskId) {
+          const task = tasks.find((entry) => entry.id === activeTaskId);
+          if (task) {
+            const today = getLocalISODate();
+            updateTask(activeTaskId, {
+              completedPomodoros: getTaskTodayPomodoros(task, today) + 1,
+              lastCompletedDate: today,
+            });
 
-      const sessionDuration = settings.pomodoroLength;
-      // Use the tracked sessionStartTime when available for accurate start (handles pauses correctly)
-      const actualStartTime = timerState.sessionStartTime
-        ? new Date(timerState.sessionStartTime).toISOString()
-        : new Date(completedAt.getTime() - sessionDuration * 60000).toISOString();
-      addRecord({
-        taskId: activeTaskId ?? undefined,
-        duration: sessionDuration,
-        startTime: actualStartTime,
-        endTime: completedAt.toISOString(),
-      });
+            if (task.skillId) {
+              useSkillsStore.getState().addPomodoro(task.skillId);
+            }
+          } else {
+            const activeSkills = useSkillsStore.getState().skills;
+            const foundSkillId = activeTaskId.startsWith('skill-focus:')
+              ? activeTaskId.replace('skill-focus:', '')
+              : getSkillRoadmapIndex(activeSkills).get(activeTaskId)?.skillId ?? null;
 
-      if (activeTaskId) {
-        const task = tasks.find((entry) => entry.id === activeTaskId);
-        if (task) {
-          const today = getLocalISODate();
-          updateTask(activeTaskId, {
-            completedPomodoros: getTaskTodayPomodoros(task, today) + 1,
-            lastCompletedDate: today,
-          });
-
-          if (task.skillId) {
-            useSkillsStore.getState().addPomodoro(task.skillId);
-          }
-        } else {
-          const activeSkills = useSkillsStore.getState().skills;
-          const foundSkillId = activeTaskId.startsWith('skill-focus:')
-            ? activeTaskId.replace('skill-focus:', '')
-            : getSkillRoadmapIndex(activeSkills).get(activeTaskId)?.skillId ?? null;
-
-          if (foundSkillId) {
-            useSkillsStore.getState().addPomodoro(foundSkillId);
+            if (foundSkillId) {
+              useSkillsStore.getState().addPomodoro(foundSkillId);
+            }
           }
         }
-      }
 
-      const newCount = timerState.sessionCount + 1;
+        const newCount = timerState.sessionCount + 1;
 
-      if (settings.disableBreak) {
-        const shouldAutoStart = settings.autoStartPomodoro || !activeTaskId;
-        const nextState = createTimerState('pomodoro', shouldAutoStart ? 'RUNNING' : 'IDLE', newCount);
+        if (settings.disableBreak) {
+          const shouldAutoStart = Boolean(settings.autoStartPomodoro) && isRecent;
+          const nextState = createTimerState('pomodoro', shouldAutoStart ? 'RUNNING' : 'IDLE', newCount, undefined, now);
+          setPersistedTimerState(nextState);
+          setTimeLeft(nextState.timeLeft);
+          return;
+        }
+
+        const longBreakAfter = Math.max(1, Math.floor(settings.longBreakAfter) || 1);
+        const nextMode = newCount % longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
+        // Auto-start break ONLY if explicitly enabled in settings AND not a stale completion (user is present)
+        const shouldAutoStartBreak = Boolean(settings.autoStartBreak) && isRecent;
+        const nextState = createTimerState(nextMode, shouldAutoStartBreak ? 'RUNNING' : 'IDLE', newCount, undefined, now);
         setPersistedTimerState(nextState);
         setTimeLeft(nextState.timeLeft);
         return;
       }
 
-      const longBreakAfter = Math.max(1, Math.floor(settings.longBreakAfter) || 1);
-      const nextMode = newCount % longBreakAfter === 0 ? 'longBreak' : 'shortBreak';
-      const shouldAutoStartBreak = settings.autoStartBreak || !activeTaskId;
-      const nextState = createTimerState(nextMode, shouldAutoStartBreak ? 'RUNNING' : 'IDLE', newCount, undefined, completedAtMs);
+      if (isRecent && settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('Pausa concluida', {
+          body: 'Hora de voltar ao foco.',
+        });
+      }
+
+      if (isRecent && settings.volume > 0) playSound('break-end', settings.volume);
+
+      // Auto-start pomodoro after break ONLY if explicitly enabled in settings AND not a stale completion
+      const shouldAutoStartPomodoro = Boolean(settings.autoStartPomodoro) && isRecent;
+      const nextState = createTimerState('pomodoro', shouldAutoStartPomodoro ? 'RUNNING' : 'IDLE', timerState.sessionCount, undefined, now);
       setPersistedTimerState(nextState);
       setTimeLeft(nextState.timeLeft);
-      return;
+    } finally {
+      setTimeout(() => {
+        isCompletingRef.current = false;
+      }, 50);
     }
-
-    if (settings.desktopNotifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification('Pausa concluida', {
-        body: 'Hora de voltar ao foco.',
-      });
-    }
-
-    if (settings.volume > 0) playSound('break-end', settings.volume);
-
-    const shouldAutoStartPomodoro = settings.autoStartPomodoro || !activeTaskId;
-    const nextState = createTimerState('pomodoro', shouldAutoStartPomodoro ? 'RUNNING' : 'IDLE', timerState.sessionCount, undefined, completedAtMs);
-    setPersistedTimerState(nextState);
-    setTimeLeft(nextState.timeLeft);
   }, [
     activeTaskId,
     addRecord,

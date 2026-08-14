@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+
+vi.mock('@google/genai', () => {
+    const GoogleGenAI = vi.fn();
+    return { GoogleGenAI };
+});
+
+import { GoogleGenAI } from '@google/genai';
 import {
     DAILY_PLANNER_MODEL,
     DailyPlannerAIError,
@@ -7,7 +13,10 @@ import {
     parseDailyPlannerResponse,
 } from '../../services/dailyPlannerAI';
 
+vi.stubEnv('VITE_GEMINI_API_KEY', 'test-gemini-api-key');
+
 const defaultInputs = {
+    wakeTime: '07:00',
     sleepTime: '22:00',
     windDownMinutes: 10,
     mealPending: true,
@@ -132,14 +141,82 @@ describe('dailyPlannerAI service', () => {
                 contents: expect.any(String),
                 config: expect.objectContaining({
                     responseMimeType: 'application/json',
-                    thinkingConfig: expect.objectContaining({
-                        thinkingLevel: ThinkingLevel.HIGH,
-                    }),
                 }),
             }),
         );
         expect(plan.assistantMessage).toContain('reduzir o escopo');
         expect(plan.deferredItems[0]?.title).toBe('Segunda hora de estudo');
         expect(plan.timeSummary.reservedMinutes).toBe(45);
+    });
+
+    it('sends the plan snapshot inside the prompt when provided', async () => {
+        vi.resetModules();
+        const genaiModule = (await import('@google/genai')) as unknown as {
+            GoogleGenAI: ReturnType<typeof vi.fn>;
+        };
+        const freshPlanner = await import('../../services/dailyPlannerAI');
+
+        const generateContent = vi.fn((_args: {
+            model: string;
+            contents: string;
+            config: Record<string, unknown>;
+        }) => Promise.resolve({
+            text: JSON.stringify({
+                assistantMessage: 'Dia 42 vai ser fechado com energia.',
+                timeSummary: {
+                    currentTime: '19:00',
+                    sleepTime: '22:00',
+                    windDownStart: '21:50',
+                    availableMinutes: 170,
+                    reservedMinutes: 45,
+                    scheduledMinutes: 80,
+                    freeBufferMinutes: 45,
+                },
+                scheduledBlocks: [],
+                deferredItems: [],
+                encouragement: 'Voce esta quase la, continue.',
+            }),
+        }));
+
+        genaiModule.GoogleGenAI.mockImplementationOnce(function GoogleGenAI() {
+            return {
+                models: {
+                    generateContent,
+                },
+            };
+        });
+
+        await freshPlanner.generateDailyPlannerPlan({
+            date: '2026-04-07',
+            latestUserMessage: 'O que falta hoje?',
+            dayInputs: defaultInputs,
+            chatHistory: [],
+            completedItems: [],
+            existingPlan: null,
+            planSnapshot: {
+                date: '2026-04-07',
+                dayNumber: 42,
+                totalDays: 67,
+                wakeTime: '07:00',
+                sleepTime: '22:00',
+                currentTime: '19:00',
+                availableMinutes: 170,
+                habits: [
+                    { title: 'Leitura de 20 minutos', completed: true },
+                    { title: 'Treino', completed: false },
+                ],
+                tasks: [
+                    { title: 'Fazer revisao do projeto', completed: false },
+                ],
+                work: { count: 3, goal: 6 },
+            },
+            now: new Date('2026-04-07T19:00:00'),
+        });
+
+        const contentsArg = generateContent.mock.calls[0]?.[0];
+
+        expect(contentsArg?.contents).toEqual(expect.stringContaining('dayNumber'));
+        expect(contentsArg?.contents).toEqual(expect.stringContaining('Fazer revisao do projeto'));
+        expect(contentsArg?.contents).toEqual(expect.stringContaining('work'));
     });
 });

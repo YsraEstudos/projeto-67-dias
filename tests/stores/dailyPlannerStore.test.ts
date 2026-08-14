@@ -18,6 +18,7 @@ describe('dailyPlannerStore', () => {
         const session = useDailyPlannerStore.getState().ensureSession('2026-04-07');
 
         expect(session.dayInputs).toMatchObject({
+            wakeTime: '07:00',
             sleepTime: '22:00',
             windDownMinutes: 10,
             mealDurationMinutes: 20,
@@ -30,6 +31,7 @@ describe('dailyPlannerStore', () => {
     it('hydrates persisted sessions and resets cleanly on logout', () => {
         useDailyPlannerStore.getState()._hydrateFromFirestore({
             preferences: {
+                defaultWakeTime: '06:30',
                 defaultSleepTime: '23:00',
                 defaultWindDownMinutes: 15,
                 mealDurationMinutes: 30,
@@ -39,6 +41,7 @@ describe('dailyPlannerStore', () => {
                 '2026-04-07': {
                     date: '2026-04-07',
                     dayInputs: {
+                        wakeTime: '06:30',
                         sleepTime: '23:00',
                         windDownMinutes: 15,
                         mealPending: true,
@@ -59,6 +62,7 @@ describe('dailyPlannerStore', () => {
         });
 
         expect(useDailyPlannerStore.getState().preferences.defaultSleepTime).toBe('23:00');
+        expect(useDailyPlannerStore.getState().preferences.defaultWakeTime).toBe('06:30');
         expect(useDailyPlannerStore.getState().sessionsByDate['2026-04-07']?.dayInputs.mealPending).toBe(true);
 
         useDailyPlannerStore.getState()._reset();
@@ -72,6 +76,7 @@ describe('dailyPlannerStore', () => {
         vi.clearAllMocks();
 
         useDailyPlannerStore.getState().updateDayInputs('2026-04-07', {
+            wakeTime: '06:30',
             sleepTime: '21:30',
             windDownMinutes: 20,
             mealDurationMinutes: 25,
@@ -82,6 +87,7 @@ describe('dailyPlannerStore', () => {
         const state = useDailyPlannerStore.getState();
 
         expect(state.preferences).toMatchObject({
+            defaultWakeTime: '06:30',
             defaultSleepTime: '21:30',
             defaultWindDownMinutes: 20,
             mealDurationMinutes: 25,

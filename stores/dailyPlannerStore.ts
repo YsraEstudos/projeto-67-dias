@@ -129,6 +129,7 @@ export const useDailyPlannerStore = create<DailyPlannerStoreState>()((set, get) 
 
       const nextPreferences: DailyPlannerPreferences = {
         ...state.preferences,
+        defaultWakeTime: nextInputs.wakeTime,
         defaultSleepTime: nextInputs.sleepTime,
         defaultWindDownMinutes: nextInputs.windDownMinutes,
         mealDurationMinutes: nextInputs.mealDurationMinutes,

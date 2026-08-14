@@ -183,7 +183,7 @@ describe('usePomodoroTimer', () => {
     expect(usePomodoroStore.getState().records).toHaveLength(1);
   });
 
-  it('starts the next break from the completed pomodoro end time when resuming late', async () => {
+  it('stops and sets break to IDLE when resuming after pomodoro completed while away', async () => {
     const now = Date.now();
     const completedAt = now - 2 * 60 * 1000;
 
@@ -203,9 +203,61 @@ describe('usePomodoroTimer', () => {
 
     const timerState = usePomodoroStore.getState().timerState;
     expect(timerState.mode).toBe('shortBreak');
-    expect(timerState.status).toBe('RUNNING');
+    expect(timerState.status).toBe('IDLE');
     expect(timerState.sessionCount).toBe(1);
-    expect(timerState.endTime).toBe(completedAt + 5 * 60 * 1000);
+    expect(timerState.endTime).toBeNull();
+    // Exactly 1 record created for the finished pomodoro
+    expect(usePomodoroStore.getState().records).toHaveLength(1);
+  });
+
+  it('does not create infinite pomodoros or records when returning hours later', async () => {
+    const now = Date.now();
+    // User left 3 hours ago; pomodoro was supposed to finish 2.5 hours ago
+    const completedAt = now - 150 * 60 * 1000;
+
+    // Enable autoStartBreak and autoStartPomodoro to test safety
+    usePomodoroStore.getState().updateSettings({
+      autoStartBreak: true,
+      autoStartPomodoro: true,
+    });
+
+    usePomodoroStore.getState().setTimerState({
+      mode: 'pomodoro',
+      status: 'RUNNING',
+      timeLeft: 1500,
+      endTime: completedAt,
+      sessionCount: 0,
+    });
+
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    await act(async () => {
+      await Promise.resolve();
+      vi.advanceTimersByTime(2000);
+    });
+
+    const timerState = usePomodoroStore.getState().timerState;
+    // Must NOT run indefinitely into past; must stop at IDLE
+    expect(timerState.status).toBe('IDLE');
+    expect(timerState.sessionCount).toBe(1);
+    expect(usePomodoroStore.getState().records).toHaveLength(1);
+    expect(result.current.isActive).toBe(false);
+  });
+
+  it('does not auto-start breaks in free focus (!activeTaskId) when autoStartBreak is false', () => {
+    usePomodoroStore.getState().updateSettings({ autoStartBreak: false, autoStartPomodoro: false });
+    usePomodoroStore.getState().setActiveTaskId(null);
+
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    act(() => {
+      result.current.skipPhase();
+    });
+
+    const timerState = usePomodoroStore.getState().timerState;
+    expect(timerState.mode).toBe('shortBreak');
+    expect(timerState.status).toBe('IDLE');
+    expect(result.current.isActive).toBe(false);
   });
 
   describe('Alerta mode', () => {

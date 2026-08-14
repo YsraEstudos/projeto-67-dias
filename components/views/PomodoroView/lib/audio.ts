@@ -31,9 +31,23 @@ function getAudioContext(): AudioContext | null {
   }
 }
 
+let lastWorkEndSoundTime = 0;
+let lastBreakEndSoundTime = 0;
+let lastAlertFailSoundTime = 0;
+const SOUND_DEBOUNCE_MS = 1500;
+
 export function playSound(type: 'work-end' | 'break-end', volume: number = 0.5) {
   try {
     if (volume <= 0) return;
+
+    const now = Date.now();
+    if (type === 'work-end') {
+      if (now - lastWorkEndSoundTime < SOUND_DEBOUNCE_MS) return;
+      lastWorkEndSoundTime = now;
+    } else {
+      if (now - lastBreakEndSoundTime < SOUND_DEBOUNCE_MS) return;
+      lastBreakEndSoundTime = now;
+    }
 
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -55,6 +69,10 @@ export function playSound(type: 'work-end' | 'break-end', volume: number = 0.5) 
 export function playAlertFailSound(volume: number = 0.5) {
   try {
     if (volume <= 0) return;
+
+    const now = Date.now();
+    if (now - lastAlertFailSoundTime < SOUND_DEBOUNCE_MS) return;
+    lastAlertFailSoundTime = now;
 
     const ctx = getAudioContext();
     if (!ctx) return;

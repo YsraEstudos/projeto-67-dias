@@ -86,9 +86,6 @@ export { useGoalsStore } from './goalsStore';
 // Competition Store - Daily competition engine and leaderboard state
 export { useCompetitionStore } from './competitionStore';
 
-// Daily Planner Store - AI-assisted daily planning
-export { useDailyPlannerStore } from './dailyPlannerStore';
-
 // Pomodoro Store - Embedded Pomodoro module state
 export { usePomodoroStore } from './pomodoroStore';
 
@@ -146,7 +143,6 @@ import { useSiteFoldersStore } from './siteFoldersStore';
 import { useSundayTimerStore } from './sundayTimerStore';
 import { useGoalsStore } from './goalsStore';
 import { useCompetitionStore } from './competitionStore';
-import { useDailyPlannerStore } from './dailyPlannerStore';
 import { usePomodoroStore } from './pomodoroStore';
 
 /**
@@ -180,7 +176,6 @@ export const clearAllStores = () => {
     useSundayTimerStore.getState()._reset();
     useGoalsStore.getState()._reset();
     useCompetitionStore.getState()._reset();
-    useDailyPlannerStore.getState()._reset();
     usePomodoroStore.getState()._reset();
     useTabStore.setState({ tabs: [], activeTabId: null }); // Reset tabs on logout
     console.log('[clearAllStores] All stores reset for user switch');

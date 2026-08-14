@@ -1,6 +1,7 @@
 // Barrel export for tools module
 export { CalculatorTool } from './CalculatorTool';
 export { ClickerTool } from './ClickerTool';
+export { QuickNotesTool } from './QuickNotesTool';
 export { ConverterTool } from './ConverterTool';
 export { CurrencyConverterTool } from './CurrencyConverterTool';
 export { FocusMixer } from './FocusMixer';

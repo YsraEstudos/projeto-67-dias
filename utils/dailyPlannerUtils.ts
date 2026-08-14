@@ -2,12 +2,14 @@ import {
   DailyPlannerBlock,
   DailyPlannerDayInputs,
   DailyPlannerPlan,
+  DailyPlannerPlanSnapshot,
   DailyPlannerPreferences,
   DailyPlannerSession,
   DailyPlannerTimeSummary,
 } from '../types';
 
 export const DAILY_PLANNER_DEFAULTS: DailyPlannerPreferences = {
+  defaultWakeTime: '07:00',
   defaultSleepTime: '22:00',
   defaultWindDownMinutes: 10,
   mealDurationMinutes: 20,
@@ -52,6 +54,7 @@ export const getWindDownStartTime = (
 export const createDailyPlannerInputs = (
   preferences: DailyPlannerPreferences = DAILY_PLANNER_DEFAULTS,
 ): DailyPlannerDayInputs => ({
+  wakeTime: preferences.defaultWakeTime,
   sleepTime: preferences.defaultSleepTime,
   windDownMinutes: preferences.defaultWindDownMinutes,
   mealPending: false,
@@ -167,4 +170,38 @@ export const createPlannerBlockId = (block: Omit<DailyPlannerBlock, 'id'>): stri
     block.endTime.replace(':', ''),
     String(block.durationMinutes),
   ].join('_');
+};
+
+export interface BuildDailyPlannerPlanSnapshotParams {
+  date: string;
+  dayNumber: number;
+  totalDays: number;
+  dayInputs: DailyPlannerDayInputs;
+  habits: Array<{ title: string; completed: boolean }>;
+  tasks: Array<{ title: string; completed: boolean }>;
+  workCount: number;
+  workGoal: number;
+  now?: Date;
+}
+
+export const buildDailyPlannerPlanSnapshot = (
+  params: BuildDailyPlannerPlanSnapshotParams,
+): DailyPlannerPlanSnapshot => {
+  const timeSummary = buildDailyPlannerTimeSummary(params.dayInputs, [], params.now ?? new Date());
+
+  return {
+    date: params.date,
+    dayNumber: params.dayNumber,
+    totalDays: params.totalDays,
+    wakeTime: params.dayInputs.wakeTime,
+    sleepTime: params.dayInputs.sleepTime,
+    currentTime: timeSummary.currentTime,
+    availableMinutes: timeSummary.availableMinutes,
+    habits: params.habits,
+    tasks: params.tasks,
+    work: {
+      count: params.workCount,
+      goal: params.workGoal,
+    },
+  };
 };

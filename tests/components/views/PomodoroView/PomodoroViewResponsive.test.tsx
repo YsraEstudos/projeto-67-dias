@@ -4,11 +4,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import PomodoroView from '../../../../components/views/PomodoroView';
 import { usePomodoroStore } from '../../../../stores/pomodoroStore';
 import { useRestStore } from '../../../../stores/restStore';
+import { getLocalISODate } from '../../../../components/views/PomodoroView/lib/pomodoroStats';
 
 describe('PomodoroView Responsive & Direct Display', () => {
   beforeEach(() => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const today = getLocalISODate();
 
     usePomodoroStore.getState()._reset();
     useRestStore.getState()._reset();

@@ -11,6 +11,7 @@ const CurrencyConverterTool = React.lazy(() => import('../tools/CurrencyConverte
 const TextAnalyzerTool = React.lazy(() => import('../tools/TextAnalyzerTool').then(m => ({ default: m.TextAnalyzerTool })));
 const ClickerTool = React.lazy(() => import('../tools/ClickerTool').then(m => ({ default: m.ClickerTool })));
 const BreathingTool = React.lazy(() => import('../tools/BreathingTool').then(m => ({ default: m.BreathingTool })));
+const QuickNotesTool = React.lazy(() => import('../tools/QuickNotesTool').then(m => ({ default: m.QuickNotesTool })));
 
 // Loading fallback for tools
 const ToolLoadingFallback = () => (
@@ -42,6 +43,7 @@ const ToolsView: React.FC = () => {
                {activeTool === 'text' && <TextAnalyzerTool />}
                {activeTool === 'clicker' && <ClickerTool />}
                {activeTool === 'breathing' && <BreathingTool />}
+               {activeTool === 'notes' && <QuickNotesTool />}
             </Suspense>
          </div>
       </div>

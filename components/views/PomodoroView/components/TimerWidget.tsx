@@ -8,6 +8,7 @@ import { useRestStore } from '../../../../stores';
 import { useSkillsStore } from '../../../../stores/skillsStore';
 import { RestActivity, Skill } from '../../../../types';
 import { resolveBreakSelectionLabel } from '../lib/breakOptions';
+import { getLocalISODate } from '../lib/pomodoroStats';
 import { useShallow } from 'zustand/react/shallow';
 
 // Extracted Subcomponents & Hooks
@@ -51,7 +52,7 @@ export function TimerWidget() {
   const restActivities = useRestStore((state) => state.activities);
   const skills = useSkillsStore((s) => s.skills);
   const activeTask = useActiveTask();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalISODate();
 
   const taskPickerProjects = useMemo(() => {
     const inboxCount = tasks.filter((task) => !task.completed && !task.projectId && !task.skillId).length;

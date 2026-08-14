@@ -155,7 +155,6 @@ vi.mock('../stores', () => {
         useReviewStore: createStoreMock({}),
         useWaterStore: createStoreMock({}),
         useTimerStore: createStoreMock({ timer: { display: '00:00' }, setTimer: mockFn() }),
-        useDailyPlannerStore: createStoreMock({}),
         usePomodoroStore: createStoreMock({ _hydrateFromFirestore: mockFn(), _reset: mockFn() }),
         useCompetitionStore: createStoreMock({
             competition: {

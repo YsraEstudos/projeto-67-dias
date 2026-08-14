@@ -11,7 +11,7 @@ export const gameSchema = z.object({
     status: z.enum(GAME_STATUSES),
     coverUrl: z.union([z.string().url('URL inválida'), z.literal('')]).optional(),
     // Allow string (from input), number (from defaultValues), or undefined (not provided)
-    totalHoursEstimate: z.union([z.string(), z.number(), z.undefined()])
+    totalHoursEstimate: z.union([z.string(), z.number()]).optional()
         .transform((val) => val === '' || val === undefined ? undefined : Number(val))
         .pipe(z.number().min(0, 'As horas devem ser positivas').optional()),
     folderId: z.string().optional(),

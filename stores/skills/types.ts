@@ -3,7 +3,7 @@
  * Shared types used across all skill action slices
  */
 import type { Draft } from 'immer';
-import { Skill, SkillLog, SkillResource, SkillRoadmapItem, VisualRoadmap, RoadmapViewMode, MicroAchievement, NextDayContent } from '../../types';
+import { Skill, SkillLog, SkillResource, SkillRoadmapItem, VisualRoadmap, RoadmapViewMode, MicroAchievement, NextDayContent, SkillGoal } from '../../types';
 
 /**
  * Base state interface for skills store
@@ -55,5 +55,6 @@ export type {
     VisualRoadmap,
     RoadmapViewMode,
     MicroAchievement,
-    NextDayContent
+    NextDayContent,
+    SkillGoal
 };

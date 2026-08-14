@@ -108,6 +108,16 @@ export interface NextDayContent {
 
 export type SkillGoalType = 'TIME' | 'POMODOROS';
 
+export interface SkillGoal {
+  id: string;
+  title: string;
+  description?: string;
+  points: number;              // XP concedido ao completar
+  status: 'pending' | 'completed';
+  completedAt?: number;
+  createdAt: number;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -153,4 +163,9 @@ export interface Skill {
 
   // Roadmap Backup History: Histórico de imports (máx 10)
   roadmapHistory?: RoadmapBackup[];
+
+  // Goals & Points System (Novo Sistema de Metas com Pontos)
+  goals?: SkillGoal[];           // Metas definidas pelo usuário
+  totalXp?: number;              // XP acumulado (soma dos pontos das metas completadas)
+  levelNumber?: number;          // Nível atual (1-based; sobe a cada meta completada)
 }

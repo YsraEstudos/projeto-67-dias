@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Timer, AlarmClock, Play, Pause, RotateCcw } from 'lucide-react';
+import { Timer, AlarmClock, Pause, RotateCcw } from 'lucide-react';
 import { useTimerStore } from '../../stores';
 
 import { formatTimeDisplay } from './utils/timeUtils';
@@ -162,12 +162,14 @@ export const TimerTool: React.FC = () => {
                 <div className="bg-slate-900 p-1 rounded-xl border border-slate-700 flex">
                     <button
                         onClick={() => switchMode('TIMER')}
+                        aria-pressed={timerState.mode === 'TIMER'}
                         className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${timerState.mode === 'TIMER' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
                     >
                         <Timer size={16} /> Temporizador
                     </button>
                     <button
                         onClick={() => switchMode('STOPWATCH')}
+                        aria-pressed={timerState.mode === 'STOPWATCH'}
                         className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${timerState.mode === 'STOPWATCH' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
                     >
                         <AlarmClock size={16} /> Cronômetro
@@ -191,10 +193,10 @@ export const TimerTool: React.FC = () => {
                             <StopwatchDisplay displayTime={displayTime} />
                         ) : (
                             <>
-                                <span className={`text-6xl font-mono font-bold tracking-tighter ${timerState.status === 'FINISHED' ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                <span aria-live="polite" className={`text-6xl font-mono font-bold tracking-tighter ${timerState.status === 'FINISHED' ? 'text-red-500 animate-pulse' : 'text-white'}`}>
                                     {formatTimeDisplay(displayTime)}
                                 </span>
-                                <span className="text-slate-500 text-sm mt-2 font-medium uppercase tracking-widest">{timerState.label || 'Timer'}</span>
+                                <span className="text-slate-400 text-sm mt-2 font-medium uppercase tracking-widest">{timerState.label || 'Timer'}</span>
                             </>
                         )}
                     </div>
@@ -204,15 +206,21 @@ export const TimerTool: React.FC = () => {
                 <div className="flex items-center justify-center gap-4">
                     <button
                         onClick={toggleTimer}
+                        aria-label={timerState.status === 'RUNNING' ? 'Pausar' : 'Iniciar'}
                         className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 ${timerState.status === 'RUNNING'
                             ? 'bg-amber-500 text-white hover:bg-amber-600'
                             : 'bg-indigo-600 text-white hover:bg-indigo-500'
                             }`}
                     >
-                        {timerState.status === 'RUNNING' ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                        {timerState.status === 'RUNNING' ? <Pause size={32} fill="currentColor" /> : (
+                            <svg viewBox="0 0 24 24" className="w-8 h-8 ml-1" aria-hidden="true">
+                                <path fill="currentColor" d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86a1 1 0 0 0-1.5.86z" />
+                            </svg>
+                        )}
                     </button>
                     <button
                         onClick={resetTimer}
+                        aria-label="Reiniciar"
                         className="w-12 h-12 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center hover:bg-slate-600 transition-all hover:rotate-180 duration-500"
                     >
                         <RotateCcw size={20} />
@@ -223,15 +231,15 @@ export const TimerTool: React.FC = () => {
             {/* Presets (Timer Only) */}
             {timerState.mode === 'TIMER' && (
                 <div className="grid grid-cols-3 gap-3">
-                    <button onClick={() => setPreset(25, 'Pomodoro')} className="flex flex-col items-center p-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-red-500/50 hover:bg-slate-800 transition-colors group">
+                    <button onClick={() => setPreset(25, 'Pomodoro')} aria-pressed={timerState.label === 'Pomodoro'} className="flex flex-col items-center p-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-red-500/50 hover:bg-slate-800 transition-colors group">
                         <span className="text-2xl font-bold text-slate-300 group-hover:text-red-400">25</span>
                         <span className="text-[10px] uppercase text-slate-500">Pomodoro</span>
                     </button>
-                    <button onClick={() => setPreset(5, 'Pausa Curta')} className="flex flex-col items-center p-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800 transition-colors group">
+                    <button onClick={() => setPreset(5, 'Pausa Curta')} aria-pressed={timerState.label === 'Pausa Curta'} className="flex flex-col items-center p-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800 transition-colors group">
                         <span className="text-2xl font-bold text-slate-300 group-hover:text-blue-400">05</span>
                         <span className="text-[10px] uppercase text-slate-500">Pausa</span>
                     </button>
-                    <button onClick={() => setPreset(15, 'Pausa Longa')} className="flex flex-col items-center p-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800 transition-colors group">
+                    <button onClick={() => setPreset(15, 'Pausa Longa')} aria-pressed={timerState.label === 'Pausa Longa'} className="flex flex-col items-center p-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800 transition-colors group">
                         <span className="text-2xl font-bold text-slate-300 group-hover:text-emerald-400">15</span>
                         <span className="text-[10px] uppercase text-slate-500">Descanso</span>
                     </button>

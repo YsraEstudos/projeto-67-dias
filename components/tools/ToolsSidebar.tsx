@@ -1,7 +1,7 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 
-export type ToolType = 'calc' | 'convert' | 'currency' | 'text' | 'clicker' | 'time' | 'breathing' | 'focus';
+export type ToolType = 'calc' | 'convert' | 'currency' | 'text' | 'clicker' | 'time' | 'breathing' | 'focus' | 'notes';
 
 interface ToolMenuItem {
     id: ToolType;
@@ -17,22 +17,21 @@ interface ToolsSidebarProps {
 
 export const ToolsSidebar: React.FC<ToolsSidebarProps> = ({ activeTool, onSelectTool, menuItems }) => {
     return (
-        <div className="flex md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0">
+        <div className="flex md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0" role="tablist" aria-label="Ferramentas">
             {menuItems.map((item) => (
                 <button
                     key={item.id}
+                    role="tab"
+                    aria-selected={activeTool === item.id}
+                    aria-pressed={activeTool === item.id}
                     onClick={() => onSelectTool(item.id)}
-                    className={`group flex items-center gap-3 p-4 rounded-xl text-left transition-all min-w-[160px] relative overflow-hidden ${activeTool === item.id
+                    className={`flex items-center gap-2.5 p-2.5 px-4 rounded-lg text-left transition-all min-w-[140px] ${activeTool === item.id
                         ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:shadow-lg hover:shadow-slate-700/50'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
                         }`}
                 >
-                    {/* Shimmer effect */}
-                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out pointer-events-none">
-                        <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12" />
-                    </div>
-                    <item.icon size={20} className="relative z-10" />
-                    <span className="font-medium relative z-10">{item.label}</span>
+                    <item.icon size={18} />
+                    <span className="font-medium">{item.label}</span>
                 </button>
             ))}
         </div>
