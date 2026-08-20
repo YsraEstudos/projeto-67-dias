@@ -6,24 +6,24 @@ describe('monthly goals', () => {
   const targets = buildMonthlyTargetsFromDayPlans(plans);
 
   it('deriva metas mensais diretamente do cronograma diário final', () => {
-    const march = targets.find((target) => target.monthKey === '2026-03');
-    const april = targets.find((target) => target.monthKey === '2026-04');
-    const may = targets.find((target) => target.monthKey === '2026-05');
+    const august = targets.find((target) => target.monthKey === '2026-08');
+    const september = targets.find((target) => target.monthKey === '2026-09');
+    const october = targets.find((target) => target.monthKey === '2026-10');
 
-    expect(march).toEqual({
-      monthKey: '2026-03',
-      simulados: plans.filter((plan) => plan.monthKey === '2026-03' && plan.hasSimulado).length,
-      redacoes: plans.filter((plan) => plan.monthKey === '2026-03' && plan.hasRedacao).length,
+    expect(august).toEqual({
+      monthKey: '2026-08',
+      simulados: plans.filter((plan) => plan.monthKey === '2026-08' && plan.hasSimulado).length,
+      redacoes: plans.filter((plan) => plan.monthKey === '2026-08' && plan.hasRedacao).length,
     });
-    expect(april).toEqual({
-      monthKey: '2026-04',
-      simulados: plans.filter((plan) => plan.monthKey === '2026-04' && plan.hasSimulado).length,
-      redacoes: plans.filter((plan) => plan.monthKey === '2026-04' && plan.hasRedacao).length,
+    expect(september).toEqual({
+      monthKey: '2026-09',
+      simulados: plans.filter((plan) => plan.monthKey === '2026-09' && plan.hasSimulado).length,
+      redacoes: plans.filter((plan) => plan.monthKey === '2026-09' && plan.hasRedacao).length,
     });
-    expect(may).toEqual({
-      monthKey: '2026-05',
-      simulados: plans.filter((plan) => plan.monthKey === '2026-05' && plan.hasSimulado).length,
-      redacoes: plans.filter((plan) => plan.monthKey === '2026-05' && plan.hasRedacao).length,
+    expect(october).toEqual({
+      monthKey: '2026-10',
+      simulados: plans.filter((plan) => plan.monthKey === '2026-10' && plan.hasSimulado).length,
+      redacoes: plans.filter((plan) => plan.monthKey === '2026-10' && plan.hasRedacao).length,
     });
   });
 

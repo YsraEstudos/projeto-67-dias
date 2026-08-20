@@ -10,7 +10,7 @@ import {
 import * as storage from '../app/storage';
 
 const dateState = vi.hoisted(() => ({
-  currentLocalToday: '2026-04-23',
+  currentLocalToday: '2026-09-15',
 }));
 
 vi.mock('../app/dateUtils', async () => {
@@ -36,7 +36,7 @@ const RerenderProbe = () => {
 
   return (
     <>
-      <button type="button" onClick={() => setSelectedDate('2026-03-15')}>
+      <button type="button" onClick={() => setSelectedDate('2026-08-21')}>
         atualizar data
       </button>
       <p data-testid="selected-date">{state.selectedDate}</p>
@@ -49,10 +49,10 @@ const BatchProbe = () => {
 
   return (
     <>
-      <button type="button" onClick={() => setSelectedDate('2026-03-15')}>
+      <button type="button" onClick={() => setSelectedDate('2026-08-21')}>
         primeira mudanca
       </button>
-      <button type="button" onClick={() => setSelectedDate('2026-03-16')}>
+      <button type="button" onClick={() => setSelectedDate('2026-08-22')}>
         segunda mudanca
       </button>
       <p data-testid="batch-date">{state.selectedDate}</p>
@@ -68,7 +68,7 @@ const ActionsOnlyProbe = () => {
 
   return (
     <>
-      <button type="button" onClick={() => setDailyNote('2026-03-15', 'nota rapida')}>
+      <button type="button" onClick={() => setDailyNote('2026-08-21', 'nota rapida')}>
         salvar nota
       </button>
       {/* eslint-disable-next-line react-hooks/refs */}
@@ -83,7 +83,7 @@ describe('AppContext performance safeguards', () => {
   });
 
   afterEach(() => {
-    dateState.currentLocalToday = '2026-04-23';
+    dateState.currentLocalToday = '2026-09-15';
     vi.useRealTimers();
   });
 
@@ -97,7 +97,7 @@ describe('AppContext performance safeguards', () => {
     fireEvent.click(screen.getByRole('button', { name: 'atualizar data' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('selected-date')).toHaveTextContent('2026-03-15');
+      expect(screen.getByTestId('selected-date')).toHaveTextContent('2026-08-21');
     });
 
     expect(storage.loadStateSnapshot).toHaveBeenCalledTimes(1);
@@ -134,7 +134,7 @@ describe('AppContext performance safeguards', () => {
     });
 
     expect(storage.saveStateSnapshot).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('batch-date')).toHaveTextContent('2026-03-16');
+    expect(screen.getByTestId('batch-date')).toHaveTextContent('2026-08-22');
   });
 
   it('mantem consumidores apenas de acoes fora de rerenders de estado', async () => {
@@ -157,7 +157,7 @@ describe('AppContext performance safeguards', () => {
 
   it('sincroniza a data ativa ao cruzar a meia-noite e persiste a troca', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-23T12:00:00.000Z'));
+    vi.setSystemTime(new Date('2026-09-15T12:00:00.000Z'));
 
     const MidnightProbe = () => {
       const { state } = useAppContext();
@@ -171,14 +171,14 @@ describe('AppContext performance safeguards', () => {
       </AppProvider>,
     );
 
-    expect(screen.getByTestId('midnight-date')).toHaveTextContent('2026-04-23');
+    expect(screen.getByTestId('midnight-date')).toHaveTextContent('2026-09-15');
 
     act(() => {
       vi.advanceTimersByTime(LOCAL_SNAPSHOT_DEBOUNCE_MS + 1);
     });
 
     vi.mocked(storage.saveStateSnapshot).mockClear();
-    dateState.currentLocalToday = '2026-04-24';
+    dateState.currentLocalToday = '2026-09-16';
 
     act(() => {
       const now = new Date();
@@ -187,7 +187,7 @@ describe('AppContext performance safeguards', () => {
       vi.advanceTimersByTime(nextMidnight.getTime() - now.getTime() + 1);
     });
 
-    expect(screen.getByTestId('midnight-date')).toHaveTextContent('2026-04-24');
+    expect(screen.getByTestId('midnight-date')).toHaveTextContent('2026-09-16');
 
     act(() => {
       vi.advanceTimersByTime(LOCAL_SNAPSHOT_DEBOUNCE_MS + 1);
@@ -195,6 +195,6 @@ describe('AppContext performance safeguards', () => {
 
     expect(storage.saveStateSnapshot).toHaveBeenCalled();
     const lastSavedState = vi.mocked(storage.saveStateSnapshot).mock.calls.at(-1)?.[0];
-    expect(lastSavedState?.selectedDate).toBe('2026-04-24');
+    expect(lastSavedState?.selectedDate).toBe('2026-09-16');
   });
 });

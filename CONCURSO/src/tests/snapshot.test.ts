@@ -75,7 +75,7 @@ describe('snapshot storage', () => {
     delete (legacyLike as { calendarEventProgress?: unknown }).calendarEventProgress;
 
     const normalized = normalizeStateForCurrentPlan(legacyLike);
-    expect(normalized.planSettings.startDate).toBe('2026-03-14');
+    expect(normalized.planSettings.startDate).toBe('2026-08-20');
     expect(normalized.planSettings.startDateChangeCount).toBe(0);
     expect(normalized.planSettings.restWeekday).toBe(0);
     expect(normalized.planSettings.defaultQuestionGoals).toEqual({
@@ -227,7 +227,7 @@ describe('snapshot storage', () => {
 
   it('registra falha de bloco manual e permite desfazer realocacao', () => {
     const state = createInitialState();
-    const date = '2026-04-27';
+    const date = '2026-08-20';
     const manualBlock = {
       id: 'manual-test',
       area: 'Português',
@@ -249,10 +249,10 @@ describe('snapshot storage', () => {
       type: 'fail-calendar-manual-block',
       date,
       block: manualBlock,
-      at: '2026-04-27T10:00:00.000Z',
+      at: '2026-08-20T10:00:00.000Z',
     });
 
-    expect(failed.calendarEventProgress['2026-04-27-manual-test'].status).toBe('failed');
+    expect(failed.calendarEventProgress['2026-08-20-manual-test'].status).toBe('failed');
     expect(failed.topicProgress[manualBlock.contentTargets[0].topicId].status).toBe('pendente');
     expect(failed.topicSubmattersByTopic[manualBlock.contentTargets[0].topicId][0].grade).toBe('E');
     expect(failed.manualBlockReschedules).toContainEqual(
@@ -267,10 +267,10 @@ describe('snapshot storage', () => {
       type: 'undo-calendar-manual-block-failure',
       date,
       blockId: 'manual-test',
-      at: '2026-04-27T11:00:00.000Z',
+      at: '2026-08-20T11:00:00.000Z',
     });
 
-    expect(undone.calendarEventProgress['2026-04-27-manual-test'].status).toBe('pending');
+    expect(undone.calendarEventProgress['2026-08-20-manual-test'].status).toBe('pending');
     expect(undone.topicProgress[manualBlock.contentTargets[0].topicId].status).toBe('nao_iniciado');
     expect(undone.topicSubmattersByTopic[manualBlock.contentTargets[0].topicId][0].grade).toBe('E');
     expect(undone.topicSubmattersByTopic[manualBlock.contentTargets[0].topicId][0].actionNote).toBe('');
@@ -281,12 +281,12 @@ describe('snapshot storage', () => {
 
   it('alinha selectedDate com o dia local ao normalizar um snapshot antigo', () => {
     const state = createInitialState();
-    state.selectedDate = '2026-04-22';
+    state.selectedDate = '2026-08-21';
 
-    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-04-23');
+    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-09-15');
     const normalized = normalizeStateForCurrentPlan(state);
 
-    expect(normalized.selectedDate).toBe('2026-04-23');
+    expect(normalized.selectedDate).toBe('2026-09-15');
 
     todaySpy.mockRestore();
   });
@@ -311,39 +311,39 @@ describe('snapshot storage', () => {
   });
 
   it('recalcula o plano e contabiliza alteracoes ao mudar a data de inicio', () => {
-    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-04-23');
+    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-09-15');
     const state = createInitialState();
-    state.selectedDate = '2026-04-17';
+    state.selectedDate = '2026-09-10';
 
     const updated = appReducer(state, {
       type: 'set-plan-start-date',
-      startDate: '2026-04-15',
+      startDate: '2026-09-01',
     });
 
-    expect(updated.planSettings.startDate).toBe('2026-04-15');
+    expect(updated.planSettings.startDate).toBe('2026-09-01');
     expect(updated.planSettings.startDateChangeCount).toBe(1);
-    expect(updated.selectedDate).toBe('2026-04-23');
-    expect(updated.dailyRecords['2026-04-23']).toBeDefined();
-    expect(updated.dailyRecords['2026-04-17']).toBeDefined();
-    expect(updated.dailyRecords['2026-03-14']).toBeDefined();
+    expect(updated.selectedDate).toBe('2026-09-15');
+    expect(updated.dailyRecords['2026-09-15']).toBeDefined();
+    expect(updated.dailyRecords['2026-09-10']).toBeDefined();
+    expect(updated.dailyRecords['2026-08-20']).toBeDefined();
 
     todaySpy.mockRestore();
   });
 
   it('preserva notas e checklists antigos ao mudar a data de inicio do plano', () => {
-    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-04-23');
+    const todaySpy = vi.spyOn(dateUtils, 'getLocalTodayIsoDate').mockReturnValue('2026-09-15');
     const state = createInitialState();
-    state.dailyRecords['2026-03-14'] = {
-      ...state.dailyRecords['2026-03-14'],
+    state.dailyRecords['2026-08-20'] = {
+      ...state.dailyRecords['2026-08-20'],
       notes: 'Historico que nao pode sumir.',
     };
 
     const updated = appReducer(state, {
       type: 'set-plan-start-date',
-      startDate: '2026-04-15',
+      startDate: '2026-09-01',
     });
 
-    expect(updated.dailyRecords['2026-03-14']?.notes).toBe('Historico que nao pode sumir.');
+    expect(updated.dailyRecords['2026-08-20']?.notes).toBe('Historico que nao pode sumir.');
 
     todaySpy.mockRestore();
   });

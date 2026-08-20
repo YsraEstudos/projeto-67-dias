@@ -1,6 +1,6 @@
 # Plano TRT 4
 
-Aplicação standalone do plano de estudos do TRT 4, com período ativo de `14/03/2026` a `19/11/2026`.
+Aplicação standalone do plano de estudos do TRT 4, com período ativo de `20/08/2026` a `05/12/2026`.
 
 ## O que este app cobre
 

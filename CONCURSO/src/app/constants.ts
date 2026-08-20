@@ -14,8 +14,8 @@ import type {
 
 export const SCHEMA_VERSION = 9;
 
-export const START_DATE = '2026-03-14';
-export const END_DATE = '2026-11-19';
+export const START_DATE = '2026-08-20';
+export const END_DATE = '2026-12-05';
 
 export const SUBJECT_ORDER: SubjectKey[] = ['portugues', 'rlm', 'legislacao', 'especificos'];
 
@@ -39,15 +39,11 @@ export const WORK_ACTIVITY_LABELS: Record<WorkActivity, string> = {
 };
 
 export const MONTHLY_TARGETS: ExamWritingMonthlyTarget[] = [
-  { monthKey: '2026-03', simulados: 1, redacoes: 2 },
-  { monthKey: '2026-04', simulados: 1, redacoes: 3 },
-  { monthKey: '2026-05', simulados: 2, redacoes: 4 },
-  { monthKey: '2026-06', simulados: 2, redacoes: 4 },
-  { monthKey: '2026-07', simulados: 2, redacoes: 5 },
-  { monthKey: '2026-08', simulados: 3, redacoes: 6 },
-  { monthKey: '2026-09', simulados: 3, redacoes: 6 },
-  { monthKey: '2026-10', simulados: 4, redacoes: 8 },
-  { monthKey: '2026-11', simulados: 0, redacoes: 0 },
+  { monthKey: '2026-08', simulados: 2, redacoes: 0 },
+  { monthKey: '2026-09', simulados: 4, redacoes: 0 },
+  { monthKey: '2026-10', simulados: 5, redacoes: 0 },
+  { monthKey: '2026-11', simulados: 4, redacoes: 0 },
+  { monthKey: '2026-12', simulados: 1, redacoes: 0 },
 ];
 
 export const FSRS_WEIGHTS = [

@@ -4,7 +4,7 @@ import { buildDayPlans } from '../app/schedule';
 
 describe('buildFullPlanMarkdown', () => {
   it('inclui referencias oficiais do conteudo programatico nos blocos manuais', () => {
-    const firstManualDay = buildDayPlans().find((plan) => plan.date === '2026-03-14');
+    const firstManualDay = buildDayPlans().find((plan) => plan.date === '2026-08-20');
     expect(firstManualDay).toBeDefined();
 
     const markdown = buildFullPlanMarkdown([firstManualDay!]);

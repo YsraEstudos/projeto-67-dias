@@ -8,14 +8,14 @@ import { buildDayPlans } from '../app/schedule';
 import { TOPICS } from '../app/seed';
 
 describe('clean concurso module', () => {
-  it('lista os blocos reais do plano de nove meses, nao apenas os topicos-base', () => {
+  it('lista os blocos reais do plano de 16 semanas, nao apenas os topicos-base', () => {
     const plans = buildDayPlans();
     const items = buildCleanPlanContentItems(plans);
     const officialLeafCount = TOPICS.filter((topic) => topic.isLeaf).length;
 
     expect(officialLeafCount).toBe(110);
     expect(items.length).toBeGreaterThan(officialLeafCount);
-    expect(items.some((item) => item.date === '2026-11-19')).toBe(true);
+    expect(items.some((item) => item.date === '2026-12-05')).toBe(true);
   });
 
   it('monta calendario completo ate o fim do plano', () => {
@@ -23,16 +23,16 @@ describe('clean concurso module', () => {
     const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, plans[0]?.date);
 
     expect(events.length).toBeGreaterThan(110);
-    expect(events.some((event) => event.date === '2026-11-19')).toBe(true);
+    expect(events.some((event) => event.date === '2026-12-05')).toBe(true);
   });
 
   it('nao cria revisoes em massa no dia seguinte ao inicio sem historico de revisao', () => {
-    const plans = buildDayPlans('2026-05-05');
-    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, '2026-05-05');
-    const maySixEvents = events.filter((event) => event.date === '2026-05-06');
+    const plans = buildDayPlans('2026-08-20');
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, '2026-08-20');
+    const aug21Events = events.filter((event) => event.date === '2026-08-21');
 
-    expect(maySixEvents).toHaveLength(2);
-    expect(maySixEvents.every((event) => event.kind === 'study')).toBe(true);
+    expect(aug21Events).toHaveLength(2);
+    expect(aug21Events.every((event) => event.kind === 'study')).toBe(true);
   });
 
   it('aplica status persistido ao evento do calendario', () => {
@@ -48,7 +48,7 @@ describe('clean concurso module', () => {
       {
         [eventId]: {
           status: 'done',
-          updatedAt: '2026-04-27T10:00:00.000Z',
+          updatedAt: '2026-08-20T10:00:00.000Z',
         },
       },
     );
@@ -74,7 +74,7 @@ describe('clean concurso module', () => {
           title: firstStudy.block.title,
           subtitle: firstStudy.block.detail,
           subject: firstStudy.subject,
-          createdAt: '2026-04-27T10:00:00.000Z',
+          createdAt: '2026-08-20T10:00:00.000Z',
         },
       ],
     );
@@ -95,7 +95,7 @@ describe('clean concurso module', () => {
       plans,
       {},
       {},
-      '2026-03-19',
+      '2026-08-25',
       {
         portugues: 80,
         rlm: 65,
@@ -105,7 +105,7 @@ describe('clean concurso module', () => {
     );
 
     expect(pending.length).toBeGreaterThan(1);
-    expect(pending.every((item) => item.date < '2026-03-19')).toBe(true);
+    expect(pending.every((item) => item.date < '2026-08-25')).toBe(true);
     expect([...pending].sort((left, right) => left.date.localeCompare(right.date))).toEqual(pending);
   });
 
@@ -118,20 +118,20 @@ describe('clean concurso module', () => {
       {
         [eventId]: {
           status: 'done',
-          updatedAt: '2026-03-16T10:00:00.000Z',
+          updatedAt: '2026-08-21T10:00:00.000Z',
           questionsDone: 12,
         },
-        '2026-03-15-rest': {
+        '2026-08-23-rest': {
           status: 'pending',
-          updatedAt: '2026-03-15T10:00:00.000Z',
+          updatedAt: '2026-08-23T10:00:00.000Z',
         },
-        '2026-03-17-simulado': {
+        '2026-08-22-simulado': {
           status: 'pending',
-          updatedAt: '2026-03-17T10:00:00.000Z',
+          updatedAt: '2026-08-22T10:00:00.000Z',
         },
       },
       {},
-      '2026-03-19',
+      '2026-08-25',
       {
         portugues: 80,
         rlm: 65,

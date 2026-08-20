@@ -35,16 +35,16 @@ describe('buildDayPlans', () => {
   const plans = buildDayPlans();
   const byDate = Object.fromEntries(plans.map((plan) => [plan.date, plan]));
 
-  it('gera a janela completa entre 14/03 e 19/11', () => {
-    expect(plans).toHaveLength(251);
-    expect(plans[0]?.date).toBe('2026-03-14');
-    expect(plans[plans.length - 1]?.date).toBe('2026-11-19');
+  it('gera a janela completa entre 20/08 e 05/12', () => {
+    expect(plans).toHaveLength(108);
+    expect(plans[0]?.date).toBe('2026-08-20');
+    expect(plans[plans.length - 1]?.date).toBe('2026-12-05');
   });
 
-  it('mantem o primeiro dia visivel em 14/03 ja dentro da trilha manual', () => {
-    const firstDay = byDate['2026-03-14'];
+  it('mantem o primeiro dia visivel em 20/08 ja dentro da trilha manual', () => {
+    const firstDay = byDate['2026-08-20'];
     expect(firstDay?.planMode).toBe('manual');
-    expect(firstDay?.manualBlocks?.[0]?.title).toContain('Web: HTML semântico + forms');
+    expect(firstDay?.manualBlocks?.[0]?.title).toContain('ITIL 4: serviço, valor e quatro dimensões');
     expect((firstDay?.manualBlocks?.[0]?.contentRefs?.length ?? 0) > 0).toBe(true);
     expect(firstDay?.manualBlocks?.[0]?.contentTargets?.[0]?.path).toMatch(/^\/conteudo\/topico\/item-/);
     expect(firstDay?.weekNumber).toBe(1);
@@ -52,43 +52,31 @@ describe('buildDayPlans', () => {
 
   it('mantém domingos como descanso fixo dentro da janela manual', () => {
     const sundaysInWindow = plans.filter(
-      (plan) => plan.date >= '2026-03-14' && plan.date <= '2026-11-19' && plan.isRestDay,
+      (plan) => plan.date >= '2026-08-20' && plan.date <= '2026-12-05' && plan.isRestDay,
     );
 
     expect(sundaysInWindow.length).toBeGreaterThan(0);
     expect(sundaysInWindow.every((plan) => plan.planMode === 'auto')).toBe(true);
-    expect(byDate['2026-03-15']?.isRestDay).toBe(true);
+    expect(byDate['2026-08-23']?.isRestDay).toBe(true);
   });
 
   it('troca o dia de descanso quando a configuração muda', () => {
-    const saturdayRestPlans = buildDayPlans('2026-03-14', [], 6);
+    const saturdayRestPlans = buildDayPlans('2026-08-20', [], 6);
     const saturdayRestByDate = Object.fromEntries(saturdayRestPlans.map((plan) => [plan.date, plan]));
 
-    expect(saturdayRestByDate['2026-03-14']?.isRestDay).toBe(true);
-    expect(saturdayRestByDate['2026-03-15']?.isRestDay).toBe(false);
+    expect(saturdayRestByDate['2026-08-22']?.isRestDay).toBe(true);
+    expect(saturdayRestByDate['2026-08-23']?.isRestDay).toBe(false);
   });
 
-  it('realoca eventos de domingo para sábado com bloco marcado', () => {
-    const movedDay = plans.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.movedFromSunday),
-    );
-
-    expect(movedDay?.planMode).toBe('manual');
-    expect(movedDay?.manualBlocks?.some((block) => block.movedFromSunday)).toBe(true);
+  it('mantém simulados nos sábados ao longo das 16 semanas', () => {
+    const simuladoDays = plans.filter((plan) => plan.hasSimulado);
+    expect(simuladoDays.length).toBe(16);
   });
 
-  it('usa 40 questões nos dias com redação extra', () => {
-    const redacaoDay = plans.find(
-      (plan) => plan.planMode === 'manual' && plan.hasRedacao && plan.targets.objectiveQuestions === 40,
-    );
-
-    expect(redacaoDay).toBeDefined();
-  });
-
-  it('mantém plano manual até o fim da janela em 19/11/2026', () => {
-    expect(byDate['2026-11-19']?.planMode).toBe('manual');
-    expect(byDate['2026-11-19']?.weekNumber).toBe(36);
-    expect(byDate['2026-11-20']).toBeUndefined();
+  it('mantém plano manual até o fim da janela em 05/12/2026', () => {
+    expect(byDate['2026-12-05']?.planMode).toBe('manual');
+    expect(byDate['2026-12-05']?.weekNumber).toBe(16);
+    expect(byDate['2026-12-06']).toBeUndefined();
   });
 
   it('garante referencias oficiais para todo bloco manual de estudo', () => {
@@ -96,7 +84,7 @@ describe('buildDayPlans', () => {
       .filter((plan) => plan.planMode === 'manual')
       .flatMap((plan) => plan.manualBlocks ?? [])
       .filter((block) =>
-        ['PT', 'PT (FCC)', 'PT + Redação', 'RLM', 'Legis', 'TI'].some((area) =>
+        ['PT', 'Legis', 'TI', 'Revisão'].some((area) =>
           block.area.startsWith(area),
         ),
       );
@@ -108,20 +96,20 @@ describe('buildDayPlans', () => {
 
   it('realoca falha para o proximo dia manual sem a mesma materia quando existe nos proximos 5 dias', () => {
     const sourcePlan = plans.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.id === 'w1-mon-pt-interpretacao'),
+      (plan.manualBlocks ?? []).some((block) => block.id === 'w1-thu-pt-interpretacao'),
     );
     expect(sourcePlan).toBeDefined();
 
-    const rescheduled = buildDayPlans('2026-03-14', [
+    const rescheduled = buildDayPlans('2026-08-20', [
       {
         id: 'failure-pt',
-        failedAt: sourcePlan?.date ?? '2026-03-14',
-        blockId: 'w1-mon-pt-interpretacao',
-        createdAt: '2026-03-14T12:00:00.000Z',
+        failedAt: sourcePlan?.date ?? '2026-08-20',
+        blockId: 'w1-thu-pt-interpretacao',
+        createdAt: '2026-08-20T12:00:00.000Z',
       },
     ]);
     const destinationPlan = rescheduled.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.id === 'w1-mon-pt-interpretacao'),
+      (plan.manualBlocks ?? []).some((block) => block.id === 'w1-thu-pt-interpretacao'),
     );
 
     expect(destinationPlan?.date).not.toBe(sourcePlan?.date);
@@ -137,12 +125,12 @@ describe('buildDayPlans', () => {
       detail: 'Questões de Java',
     };
     const plansWithBusyTomorrow = [
-      createPlan('2026-03-16', ['especificos', 'portugues'], [tiBlock]),
-      createPlan('2026-03-17', ['especificos', 'rlm'], [{ id: 'ti-next', area: 'TI', title: 'Web', detail: 'HTML' }]),
-      createPlan('2026-03-18', ['portugues', 'rlm'], [{ id: 'pt-next', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
+      createPlan('2026-08-24', ['especificos', 'portugues'], [tiBlock]),
+      createPlan('2026-08-25', ['especificos', 'rlm'], [{ id: 'ti-next', area: 'TI', title: 'Web', detail: 'HTML' }]),
+      createPlan('2026-08-26', ['portugues', 'rlm'], [{ id: 'pt-next', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
     ];
 
-    expect(findNextFailurePlanDate(plansWithBusyTomorrow, '2026-03-16', tiBlock)).toBe('2026-03-18');
+    expect(findNextFailurePlanDate(plansWithBusyTomorrow, '2026-08-24', tiBlock)).toBe('2026-08-26');
   });
 
   it('retorna null quando os proximos 5 dias manuais ja contem a mesma materia', () => {
@@ -153,16 +141,16 @@ describe('buildDayPlans', () => {
       detail: 'Questões de Java',
     };
     const plansWithFiveBusyDays = [
-      createPlan('2026-03-16', ['especificos', 'portugues'], [tiBlock]),
-      createPlan('2026-03-17', ['especificos', 'rlm'], [{ id: 'ti-1', area: 'TI', title: 'Web', detail: 'HTML' }]),
-      createPlan('2026-03-18', ['especificos', 'rlm'], [{ id: 'ti-2', area: 'TI', title: 'Java', detail: 'API' }]),
-      createPlan('2026-03-19', ['especificos', 'rlm'], [{ id: 'ti-3', area: 'TI', title: 'SQL', detail: 'Banco' }]),
-      createPlan('2026-03-20', ['especificos', 'rlm'], [{ id: 'ti-4', area: 'TI', title: 'Redes', detail: 'TCP' }]),
-      createPlan('2026-03-21', ['especificos', 'rlm'], [{ id: 'ti-5', area: 'TI', title: 'Docker', detail: 'Linux' }]),
-      createPlan('2026-03-23', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
+      createPlan('2026-08-24', ['especificos', 'portugues'], [tiBlock]),
+      createPlan('2026-08-25', ['especificos', 'rlm'], [{ id: 'ti-1', area: 'TI', title: 'Web', detail: 'HTML' }]),
+      createPlan('2026-08-26', ['especificos', 'rlm'], [{ id: 'ti-2', area: 'TI', title: 'Java', detail: 'API' }]),
+      createPlan('2026-08-27', ['especificos', 'rlm'], [{ id: 'ti-3', area: 'TI', title: 'SQL', detail: 'Banco' }]),
+      createPlan('2026-08-28', ['especificos', 'rlm'], [{ id: 'ti-4', area: 'TI', title: 'Redes', detail: 'TCP' }]),
+      createPlan('2026-08-29', ['especificos', 'rlm'], [{ id: 'ti-5', area: 'TI', title: 'Docker', detail: 'Linux' }]),
+      createPlan('2026-08-31', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
     ];
 
-    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-03-16', tiBlock)).toBeNull();
+    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-08-24', tiBlock)).toBeNull();
   });
 
   it('nao move o bloco para dia com a mesma materia quando os proximos 5 dias ja a contem', () => {
@@ -173,71 +161,35 @@ describe('buildDayPlans', () => {
       detail: 'Questões de Java',
     };
     const plans = [
-      createPlan('2026-03-16', ['especificos', 'portugues'], [tiBlock]),
-      createPlan('2026-03-17', ['especificos', 'rlm'], [{ id: 'ti-1', area: 'TI', title: 'Web', detail: 'HTML' }]),
-      createPlan('2026-03-18', ['especificos', 'rlm'], [{ id: 'ti-2', area: 'TI', title: 'SQL', detail: 'Banco' }]),
-      createPlan('2026-03-19', ['especificos', 'rlm'], [{ id: 'ti-3', area: 'TI', title: 'Redes', detail: 'TCP' }]),
-      createPlan('2026-03-20', ['especificos', 'rlm'], [{ id: 'ti-4', area: 'TI', title: 'Docker', detail: 'Linux' }]),
-      createPlan('2026-03-21', ['especificos', 'rlm'], [{ id: 'ti-5', area: 'TI', title: 'Cloud', detail: 'AWS' }]),
-      createPlan('2026-03-23', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
+      createPlan('2026-08-24', ['especificos', 'portugues'], [tiBlock]),
+      createPlan('2026-08-25', ['especificos', 'rlm'], [{ id: 'ti-1', area: 'TI', title: 'Web', detail: 'HTML' }]),
+      createPlan('2026-08-26', ['especificos', 'rlm'], [{ id: 'ti-2', area: 'TI', title: 'SQL', detail: 'Banco' }]),
+      createPlan('2026-08-27', ['especificos', 'rlm'], [{ id: 'ti-3', area: 'TI', title: 'Redes', detail: 'TCP' }]),
+      createPlan('2026-08-28', ['especificos', 'rlm'], [{ id: 'ti-4', area: 'TI', title: 'Docker', detail: 'Linux' }]),
+      createPlan('2026-08-29', ['especificos', 'rlm'], [{ id: 'ti-5', area: 'TI', title: 'Cloud', detail: 'AWS' }]),
+      createPlan('2026-08-31', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
     ];
 
     const rescheduled = applyManualBlockReschedules(plans, [
       {
         id: 'failure-ti',
-        failedAt: '2026-03-16',
+        failedAt: '2026-08-24',
         blockId: 'ti-stay',
-        createdAt: '2026-03-16T12:00:00.000Z',
+        createdAt: '2026-08-24T12:00:00.000Z',
       },
     ]);
 
     expect(rescheduled.find((plan) => (plan.manualBlocks ?? []).some((block) => block.id === 'ti-stay'))?.date).toBe(
-      '2026-03-16',
+      '2026-08-24',
     );
-  });
-
-  it('falhar a Redacao 1/38 nao desloca a Redacao extra 2/38 do dia agendado', () => {
-    const plans = buildDayPlans();
-    const source = plans.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação 1/38')),
-    );
-    expect(source).toBeDefined();
-    const failedBlock = source?.manualBlocks?.find((block) => block.title.startsWith('Redação 1/38'));
-    expect(failedBlock).toBeDefined();
-
-    const rescheduled = applyManualBlockReschedules(plans, [
-      {
-        id: 'failure-redacao-1',
-        failedAt: source?.date ?? '2026-03-14',
-        blockId: failedBlock?.id ?? '',
-        createdAt: `${source?.date ?? '2026-03-14'}T12:00:00.000Z`,
-        block: failedBlock,
-      },
-    ]);
-
-    const extraDay = rescheduled.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação extra 2/38')),
-    );
-    const baseExtraDay = plans.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação extra 2/38')),
-    );
-
-    expect(extraDay?.date).toBe(baseExtraDay?.date);
-    expect(extraDay?.date).toBe('2026-04-01');
-
-    const redacaoDay = rescheduled.find((plan) =>
-      (plan.manualBlocks ?? []).some((block) => block.title.startsWith('Redação 1/38')),
-    );
-    expect(redacaoDay?.date).not.toBe(source?.date);
-    expect((redacaoDay?.date ?? '').localeCompare(source?.date ?? '')).toBeGreaterThan(0);
   });
 
   it('mantem a capacidade original de blocos em todos os dias apos realocacoes em cadeia', () => {
     const plans = buildDayPlans();
     const failures = plans
-      .filter((plan) => plan.date >= '2026-05-16' && plan.date <= '2026-05-23' && !plan.isRestDay)
+      .filter((plan) => plan.date >= '2026-08-24' && plan.date <= '2026-08-29' && !plan.isRestDay)
       .flatMap((plan) =>
-        (plan.manualBlocks ?? []).filter((block) => !block.title.startsWith('Redação')).map((block) => ({
+        (plan.manualBlocks ?? []).map((block) => ({
           id: `failure-${block.id}`,
           failedAt: plan.date,
           blockId: block.id,

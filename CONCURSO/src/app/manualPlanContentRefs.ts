@@ -198,23 +198,33 @@ const matchesRule = (text: string, rule: RuleDefinition): boolean => {
 };
 
 const inferSubjectFromArea = (area: string): SubjectKey | null => {
-  if (area.startsWith('PT')) {
+  if (area.startsWith('PT') || /portugu[eê]s/i.test(area)) {
     return 'portugues';
   }
 
-  if (area.startsWith('RLM')) {
+  if (area.startsWith('RLM') || /racioc[ií]nio|matem[aá]tica/i.test(area)) {
     return 'rlm';
   }
 
-  if (area.startsWith('Legis')) {
+  if (
+    area.startsWith('Legis') ||
+    /legisla[cç][aã]o|constitui[cç][aã]o|lc\s*\d+|lei|estatuto|org[aâ]nica|improbidade|administra[cç][aã]o/i.test(
+      area,
+    )
+  ) {
     return 'legislacao';
   }
 
-  if (area.startsWith('TI')) {
+  if (
+    area.startsWith('TI') ||
+    /seguran[cç]a|banco|redes|itil|cobit|pmbok|bpmn|bpm|iso|desenvolvimento|software|nuvem|sql|dados|ia|uml|devops|arquitetura|simulado|revis[aã]o|corre[cç][aã]o/i.test(
+      area,
+    )
+  ) {
     return 'especificos';
   }
 
-  return null;
+  return 'especificos';
 };
 
 const PORTUGUESE_RULES: RuleDefinition[] = [
@@ -227,7 +237,7 @@ const PORTUGUESE_RULES: RuleDefinition[] = [
   { subject: 'portugues', refs: [TOPIC_SOURCE.ptPronouns], any: ['pronome', 'colocacao'] },
   { subject: 'portugues', refs: [TOPIC_SOURCE.ptRewrite], any: ['reescrita', 'confronto', 'frases corretas', 'frases incorretas'] },
   { subject: 'portugues', refs: [TOPIC_SOURCE.ptRewrite, TOPIC_SOURCE.ptAdequacy], any: ['redacao'] },
-  { subject: 'portugues', refs: [TOPIC_SOURCE.ptSyntax], any: ['coordenacao', 'subordinacao', 'coord.', 'subord.'] },
+  { subject: 'portugues', refs: [TOPIC_SOURCE.ptSyntax], any: ['sintaxe', 'coordenacao', 'subordinacao', 'coord.', 'subord.', 'oracoes', 'orações'] },
   { subject: 'portugues', refs: [TOPIC_SOURCE.ptFigures], any: ['figuras de linguagem', 'figuras'] },
   { subject: 'portugues', refs: [TOPIC_SOURCE.ptArgumentation], any: ['argument'] },
   { subject: 'portugues', refs: [TOPIC_SOURCE.ptVerbTense], any: ['tempos', 'modos verbais'] },
@@ -263,13 +273,14 @@ const LEGISLATION_RULES: RuleDefinition[] = [
   { subject: 'legislacao', refs: [TOPIC_SOURCE.lawPad], all: ['8.112'], any: ['pad', 'processo administrativo disciplinar'] },
   { subject: 'legislacao', refs: [TOPIC_SOURCE.law8112Intro], all: ['8.112'], any: ['visao geral', 'visão geral', 'disposicoes preliminares', 'disposições preliminares'] },
   { subject: 'legislacao', refs: [TOPIC_SOURCE.law8112Intro], all: ['8.112'] },
-  { subject: 'legislacao', refs: [TOPIC_SOURCE.law9784], any: ['9.784'] },
+  { subject: 'legislacao', refs: [TOPIC_SOURCE.law8112Intro], any: ['lc 133', 'lc 478', 'previmpa', 'estatuto dos servidores', 'estatuto'] },
+  { subject: 'legislacao', refs: [TOPIC_SOURCE.law9784], any: ['9.784', 'processo administrativo'] },
   { subject: 'legislacao', refs: [TOPIC_SOURCE.lawImprobity], any: ['improbidade', '8.429', '14.230'] },
-  { subject: 'legislacao', refs: [TOPIC_SOURCE.law14133], any: ['14.133', 'licitac', 'contratacao', 'contratação', 'contratos'] },
+  { subject: 'legislacao', refs: [TOPIC_SOURCE.law14133], any: ['14.133', 'licitac', 'contratacao', 'contratação', 'contratos', 'etp', 'termo de referencia', 'tr'] },
   { subject: 'legislacao', refs: [TOPIC_SOURCE.lawLgpd], any: ['lgpd'] },
   { subject: 'legislacao', refs: [TOPIC_SOURCE.lawLbi], any: ['lbi', '13.146', 'acessibilidade', 'pessoa com deficiencia', 'pessoa com deficiência'] },
-  { subject: 'legislacao', refs: [TOPIC_SOURCE.lawRegiment], any: ['regimento', 'trt4'] },
-  { subject: 'legislacao', refs: [TOPIC_SOURCE.lawCnj400], any: ['cnj 400', 'sustentabilidade'] },
+  { subject: 'legislacao', refs: [TOPIC_SOURCE.lawRegiment], any: ['regimento', 'trt4', 'lei organica', 'lei orgânica', 'municipal', 'camara', 'câmara', 'prefeito', 'competencias', 'competências'] },
+  { subject: 'legislacao', refs: [TOPIC_SOURCE.lawCnj400], any: ['cnj 400', 'sustentabilidade', 'constituicao', 'constituição', 'arts. 37', 'artigos 37', 'administracao publica', 'administração pública'] },
 ];
 
 const SPECIFIC_RULES: RuleDefinition[] = [
@@ -280,26 +291,26 @@ const SPECIFIC_RULES: RuleDefinition[] = [
   { subject: 'especificos', refs: [TOPIC_SOURCE.specFrameworksJava], any: ['jpa', 'hibernate', '@entity', '@id', 'lazy', 'eager', 'jakarta ee'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specSpring], any: ['spring boot', 'spring security', 'spring ', 'controller', 'service', 'repo', 'validacao', 'validação'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specSpringCloud], any: ['eureka', 'zuul', 'microservices', 'microservicos', 'microserviços'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specWebservices], any: ['rest', 'soap', 'swagger', 'jwt', 'openapi', 'idempotencia', 'idempotência'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specWebservices], any: ['rest', 'soap', 'swagger', 'jwt', 'openapi', 'idempotencia', 'idempotência', 'wsdl', 'http'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specElk], any: ['elk', 'elasticsearch', 'logstash', 'kibana'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specTests], any: ['junit', 'mockito', 'teste', 'testes', 'cobertura', 'integracao', 'integração', 'unitario', 'unitário'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specArchitecture], any: ['cliente/servidor', 'multicamadas', 'hub', 'arquitetura orientada a servicos', 'arquitetura orientada a serviços'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specTests], any: ['junit', 'mockito', 'teste', 'testes', 'cobertura', 'integracao', 'integração', 'unitario', 'unitário', 'estresse', 'carga', 'mocks', 'stubs'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specArchitecture], any: ['cliente-servidor', 'cliente/servidor', 'multicamadas', 'hub', 'arquitetura orientada a servicos', 'arquitetura orientada a serviços', 'arquitetura', 'solid', 'clean architecture', 'togaf', 'adm', 'soa', 'microsservicos', 'microsserviços', 'camadas', 'mvc', 'uml', 'casos de uso', 'classes', 'sequencia', 'estados', 'atividades', 'requisitos', 'apf'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specWebhooks], any: ['webhook', 'webhooks', 'mensageria'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specMlPreprocessing], any: ['pre-processamento', 'preprocessamento'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specMlModels], any: ['supervisionado', 'nao supervisionado', 'não supervisionado', 'descritivo', 'preditivo'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specMlEvaluation], any: ['overfitting', 'sobreajuste', 'metricas', 'métricas', 'classificacao', 'classificação', 'regressao', 'regressão'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specMlModels], any: ['supervisionado', 'nao supervisionado', 'não supervisionado', 'descritivo', 'preditivo', 'aprendizado'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specMlEvaluation], any: ['overfitting', 'sobreajuste', 'metricas', 'métricas', 'classificacao', 'classificação', 'regressao', 'regressão', 'clustering', 'estatistica', 'estatística'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specRoc], any: ['roc'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specMlTools], any: ['keras', 'pytorch', 'scikit', 'machine learning', 'ia/ml', 'ml'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specDatabaseModeling], any: ['bd', 'banco', 'modelagem', 'er ', 'e-r', 'normalizacao', 'normalização', 'constraints', 'pk', 'fk'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specSql], any: ['sql', 'pl/sql', 'join', 'group by', 'having', 'subquery', 'subqueries', 'procedure', 'procedures', 'function', 'functions', 'trigger', 'triggers', 'acid', 'rollback', 'commit'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specSgbds], any: ['oracle', 'postgresql', 'sql server', 'h2'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specDw], any: ['dw', 'olap', 'data mining', 'data warehouse'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specDevops], any: ['docker', 'kubernetes', 'rancher', 'container', 'containers'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specGitFlow], any: ['git', 'gitlab', 'gitflow', 'jenkins', 'maven', 'branch', 'merge', 'commit'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specKeycloak], any: ['oauth2', 'sso', 'keycloak'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specMlTools], any: ['keras', 'pytorch', 'scikit', 'machine learning', 'ia/ml', 'ml', 'ia', 'inteligencia'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specDatabaseModeling], any: ['bd', 'banco', 'modelagem', 'er ', 'e-r', 'normalizacao', 'normalização', 'constraints', 'pk', 'fk', 'cardinalidade', 'chaves', '1fn', '2fn', '3fn'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specSql], any: ['sql', 'pl/sql', 'join', 'group by', 'having', 'subquery', 'subqueries', 'subconsultas', 'procedure', 'procedures', 'function', 'functions', 'trigger', 'triggers', 'acid', 'rollback', 'commit', 'select', 'insert', 'update', 'delete', 'ddl', 'dml', 'tabelas', 'registros', 'concorrencia', 'concorrência', 'transacoes', 'transações'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specSgbds], any: ['oracle', 'postgresql', 'sql server', 'h2', 'nosql', 'chave-valor', 'documentos', 'colunas', 'grafos'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specDw], any: ['dw', 'olap', 'data mining', 'data warehouse', 'etl', 'elt', 'data lake', 'big data'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specDevops], any: ['docker', 'kubernetes', 'k8s', 'rancher', 'container', 'containers', 'virtualizacao', 'virtualização'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specGitFlow], any: ['git', 'gitlab', 'gitflow', 'jenkins', 'maven', 'branch', 'merge', 'commit', 'devops', 'ci/cd'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specKeycloak], any: ['oauth2', 'sso', 'keycloak', 'openid', 'saml', 'rbac', 'iam', 'mfa', 'autenticacao', 'autenticação', 'autorizacao', 'autorização'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specCicd], any: ['ci/cd', 'cicd', 'entrega continua', 'entrega contínua', 'integracao continua', 'integração contínua'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specProxy], any: ['proxy reverso', 'nginx', 'ssl offloading', 'balanceamento'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specComputerArchitecture], any: ['cpu', 'memoria', 'memória', 'i/o', 'arquitetura'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specComputerArchitecture], any: ['cpu', 'memoria', 'memória', 'i/o', 'arquitetura de computadores', 'processador'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specExecution], any: ['paralelismo', 'multiprocessamento', 'execucao de instrucoes', 'execução de instruções'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specVirtualization], any: ['virtualizacao', 'virtualização'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specFilesystems], any: ['filesystem', 'arquivo', 'arquivos', 'diretorio', 'diretório', 'inode', 'inodes'] },
@@ -308,30 +319,30 @@ const SPECIFIC_RULES: RuleDefinition[] = [
   { subject: 'especificos', refs: [TOPIC_SOURCE.specRaid], any: ['raid'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specSmbNfs], any: ['smb', 'nfs'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specObjectStorage], any: ['s3', 'objeto', 'bloco'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specBackup], any: ['backup', 'tape', 'vtl'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specProcesses], any: ['processos', 'processo', 'ciclo de vida', 'estados'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specBackup], any: ['backup', 'tape', 'vtl', 'alta disponibilidade', 'redundancia', 'redundância', 'disaster recovery'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specProcesses], any: ['processos', 'processo', 'ciclo de vida', 'estados', 'sistemas operacionais'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specThreads], any: ['threads', 'ipc', 'escalonamento'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specMemory], any: ['memoria virtual', 'memória virtual', 'paginacao', 'paginação', 'enderecamento', 'endereçamento'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specWindows], any: ['windows', 'active directory', 'activedirectory', 'rds', 'wsus', 'failover', 'powershell'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specLinux], any: ['linux', 'systemd', 'lvm', 'iptables', 'bash', 'rpm', 'deb', 'dnf', 'permissoes', 'permissões', 'ps/top/kill', 'systemctl'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specNetworkMedia], any: ['ethernet', 'wireless', 'vlan', 'lacp', 'sub-rede'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specTcpIp], any: ['tcp/ip', 'tcp', 'udp', 'arp', 'ipv4', 'ipv6'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specNetworkMedia], any: ['ethernet', 'wireless', 'vlan', 'lacp', 'sub-rede', 'subnetting', 'wi-fi', 'switches', 'bridges', 'roteadores', 'fibra'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specTcpIp], any: ['tcp/ip', 'tcp', 'udp', 'arp', 'ipv4', 'ipv6', 'osi', 'modelos osi'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specNetworkManagement], any: ['icmp', 'snmp', 'qos', 'ping', 'traceroute'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specRouting], any: ['ospf', 'bgp'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specProtocols], any: ['dns', 'dhcp', 'ldap', 'ntp', 'smtp', 'syslog', 'http', 'https', 'nat'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specProtocols], any: ['dns', 'dhcp', 'ldap', 'ntp', 'smtp', 'syslog', 'http', 'https', 'nat', 'ftp', 'ssh'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specVoip], any: ['sip', 'rtp', 'voip'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specObservability], any: ['zabbix', 'prometheus', 'grafana', 'fluentd', 'observabilidade', 'monitoramento', 'logs'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specCloud], any: ['cloud', 'nist sp 800-145'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specCloud], any: ['cloud', 'nuvem', 'iaas', 'paas', 'saas', 'faas', 'nist sp 800-145'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specInfraSecurity], any: ['firewall', 'ips', 'ids', 'siem', 'ztna', 'pam', 'vpn', 'webproxy', 'ngav'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specSecureDev], any: ['owasp', 'ssdf', 'xss', 'csrf', 'desenvolvimento seguro', 'websec'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specNorms], any: ['27001', '27002', '27005', '27035', '22301', 'cis controls', 'abnt'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specLgpdSecurity], any: ['lgpd'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specSecureDev], any: ['owasp', 'ssdf', 'xss', 'csrf', 'desenvolvimento seguro', 'websec', 'sast', 'dast', 'samm', 'bsimm', 'devsecops', 'validacao', 'sanitizacao', 'sql injection'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specNorms], any: ['27001', '27002', '27005', '27035', '22301', 'cis controls', 'abnt', 'iso'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specLgpdSecurity], any: ['lgpd', 'lai', 'marco civil', 'privacidade'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specMalware], any: ['malware', 'worm', 'virus', 'vírus', 'ransomware', 'adware'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specAttacks], any: ['ddos', 'brute force', 'phishing', 'spear phishing', 'smurf', 'apt'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specCia], any: ['cia', 'confidencialidade', 'integridade', 'disponibilidade', 'autenticacao', 'autenticação', 'autorizacao', 'autorização', 'nao repudio', 'não-repúdio'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specAttacks], any: ['ddos', 'brute force', 'phishing', 'spear phishing', 'smurf', 'apt', 'ameacas', 'ameaças', 'vulnerabilidades'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specCia], any: ['cia', 'confidencialidade', 'integridade', 'disponibilidade', 'autenticacao', 'autenticação', 'autorizacao', 'autorização', 'nao repudio', 'não-repúdio', 'ativos', 'controles'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specCrypto], any: ['criptografia', 'simetrica', 'simétrica', 'assimetrica', 'assimétrica'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specCertification], any: ['certificacao digital', 'certificação digital', 'certificado'] },
-  { subject: 'especificos', refs: [TOPIC_SOURCE.specGovernance], any: ['itil', 'cobit', 'metodos ageis', 'métodos ágeis', 'governanca', 'governança'] },
+  { subject: 'especificos', refs: [TOPIC_SOURCE.specGovernance], any: ['itil', 'cobit', 'pmbok', 'bpmn', 'bpm', 'metodos ageis', 'métodos ágeis', 'governanca', 'governança', 'scrum', 'kanban', 'lean', 'xp', 'story points', 'mvp', 'divida tecnica', 'dívida técnica', 'svs', 'edm', 'apo', 'bai', 'dss', 'mea', 'tailoring', 'stakeholders'] },
   { subject: 'especificos', refs: [TOPIC_SOURCE.specEnglish], any: ['ingles tecnico', 'inglês técnico', 'glossario'] },
 ];
 
