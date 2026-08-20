@@ -33,10 +33,11 @@ import {
   buildPendingStudyDecisions,
   buildReviewSchedule,
   getManualBlockSubjectLabel,
+  inferManualBlockSubject,
 } from '../app/cleanConcursoModule';
 import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport';
 import { getLocalTodayIsoDate } from '../app/dateUtils';
-import { buildReviewQueue, buildTopicRollups, resolveDailyStudy } from '../app/contentSubmatters';
+import { buildReviewQueue, buildTopicRollups } from '../app/contentSubmatters';
 import { formatIsoDateCompactPtBr, formatIsoDatePtBr, subjectLabel } from '../app/formatters';
 import { getTopicDisplayTitle } from '../app/topics';
 import type { SubjectKey, TopicGrade, TopicNode, TopicSubmatter } from '../app/types';
@@ -317,10 +318,6 @@ export const CleanConcursoPage = () => {
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
   const selectedPlan = dayPlansByDate[state.selectedDate];
-  const dailyStudy = useMemo(
-    () => resolveDailyStudy(state, state.selectedDate, topics, selectedPlan),
-    [state, state.selectedDate, topics, selectedPlan],
-  );
   const reviewQueue = useMemo(
     () => buildReviewQueue(state.topicSubmattersByTopic, topics, state.selectedDate),
     [state.topicSubmattersByTopic, state.selectedDate, topics],
@@ -361,9 +358,6 @@ export const CleanConcursoPage = () => {
     });
     return list;
   }, [state.topicSubmattersByTopic, state.selectedDate, topicById]);
-
-  const completedNew = useMemo(() => completedToday.find(x => x.isNew) ?? null, [completedToday]);
-  const completedReview = useMemo(() => completedToday.find(x => !x.isNew) ?? null, [completedToday]);
 
   const planContentItems = useMemo(() => buildCleanPlanContentItems(dayPlans), [dayPlans]);
 
@@ -482,6 +476,10 @@ export const CleanConcursoPage = () => {
   const selectedCalendarEvents = useMemo(
     () => calendarEventsByDate.get(selectedCalendarDate) ?? EMPTY_CALENDAR_EVENTS,
     [calendarEventsByDate, selectedCalendarDate],
+  );
+  const activeDayEvents = useMemo(
+    () => calendarEventsByDate.get(state.selectedDate) ?? EMPTY_CALENDAR_EVENTS,
+    [calendarEventsByDate, state.selectedDate],
   );
   const selectedCalendarNote = state.dailyRecords[selectedCalendarDate]?.notes ?? '';
   const selectedCalendarStatusCounts = useMemo(
@@ -921,252 +919,136 @@ export const CleanConcursoPage = () => {
             ) : (
               <>
                 <div className="clean-task-list">
-                {(() => {
-                  const cards = [];
+                  {activeDayEvents.map((event) => {
+                    const isDone = event.status === 'done';
+                    const isFailed = event.status === 'failed';
+                    const eventSubmatters = getCalendarEventSubmatters(event);
+                    const canFail = event.block !== null || event.kind === 'failed';
+                    const isRescheduled = (failedBlocksByDate[event.date] ?? 0) > 0;
 
-                  // SLOT 1: Nova Matéria / Estudo
-                  if (completedNew) {
-                    const item = completedNew;
-                    const submatter = item.submatter;
-                    cards.push(
-                      <article className="clean-task-card completed" key="slot-new-matter" data-testid="srs-slot-1">
+                    return (
+                      <article
+                        className={`clean-task-card tone-${event.tone} ${isDone ? 'completed' : ''} ${isFailed ? 'failed' : ''} ${isRescheduled ? 'is-rescheduled' : ''}`}
+                        key={event.id}
+                      >
                         <div>
                           <div className="clean-task-area-row">
-                            <span className="clean-task-area">
-                              Estudo: Matéria Nova (Concluído)
+                            <span className={`clean-task-area ${isDone ? 'is-completed' : (isFailed ? 'is-failed' : `subject-${event.tone}`)}`}>
+                              {isDone && <CheckCircle2 size={12} style={{ marginRight: '4px', display: 'inline' }} />}
+                              {calendarToneLabel[event.tone] ?? event.tone}
+                              {isDone ? ' (Concluído)' : ''}
                             </span>
-                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
-                              {subjectLabel(item.topic.subject)}
+                            <span className={`clean-status-pill status-${event.status}`}>
+                              {calendarStatusLabel[event.status]}
                             </span>
                           </div>
-                          <h3>{item.topic.title}</h3>
-                          <p>{submatter.title}</p>
-                          <small>
-                            Desempenho registrado hoje. Intervalo atual: {submatter.srsInterval ?? 0}d
-                          </small>
+                          <h3>{event.title}</h3>
+                          <p>{event.subtitle}</p>
+                          {event.block?.detail && event.block.detail !== event.subtitle && (
+                            <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8' }}>
+                              {event.block.detail}
+                            </small>
+                          )}
                         </div>
                         <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-                          <div className="clean-srs-rating-container">
-                            <span className="clean-srs-rating-label">
-                              Como foi seu desempenho?
-                              <span className="clean-srs-feedback-badge">Concluído</span>
-                            </span>
-                            <div className="clean-srs-buttons-row">
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, true)}>Errei</button>
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, true)}>Difícil</button>
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-good ${submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, true)}>Bom</button>
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, true)}>Fácil</button>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="clean-icon-link"
-                            style={{ alignSelf: 'flex-start', margin: 0, background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-                            onClick={() => unrateSubmatter(item.topic.id, submatter.id, state.selectedDate, true)}
-                          >
-                            <RotateCcw size={15} />
-                            Desmarcar
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  } else if (dailyStudy.newMatter) {
-                    const item = dailyStudy.newMatter;
-                    const isNew = !dailyStudy.isAllRepeated;
-                    const submatter = item.submatter;
-                    const isCompletedToday = submatter.lastReviewedAt === state.selectedDate;
-
-                    cards.push(
-                      <article className="clean-task-card" key="slot-new-matter" data-testid="srs-slot-1">
-                        <div>
-                          <div className="clean-task-area-row">
-                            <span className={`clean-task-area ${isCompletedToday ? 'is-completed' : (isNew ? 'is-new' : 'is-review')}`}>
-                              {isCompletedToday && <CheckCircle2 size={12} style={{ marginRight: '4px', display: 'inline' }} />}
-                              {isNew ? "Estudo: Matéria Nova" : "Revisão SRS 1"}
-                              {isCompletedToday ? " (Concluído)" : ""}
-                            </span>
-                            <span className={`clean-task-area subject-${item.topic.subject}`}>
-                              {subjectLabel(item.topic.subject)}
-                            </span>
-                          </div>
-                          <h3>{item.topic.title}</h3>
-                          <p>{submatter.title}</p>
-                          <small>
-                            {isNew ? "Estudo inicial do tópico" : `Nota ${submatter.grade} | Repetições: ${submatter.srsRepetitions ?? 0}`}
-                          </small>
-                        </div>
-                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-                          <button
-                            type="button"
-                            className="clean-icon-link"
-                            style={{ alignSelf: 'flex-start', margin: 0 }}
-                            onClick={() =>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="clean-icon-link"
+                              style={{ margin: 0 }}
+                              onClick={() =>
                                 handleStartStudySession({
-                                  id: `day-${state.selectedDate}-srs-new`,
-                                  eventId: 'new-matter-study',
-                                  title: submatter.title,
-                                  detail: item.topic.title,
-                                  subject: subjectLabel(item.topic.subject),
-                                  subjectKey: item.topic.subject,
-                                  topicId: item.topic.id,
-                                  topicIds: [item.topic.id],
+                                  id: `day-${event.date}-${event.id}`,
+                                  eventId: event.id,
+                                  title: event.title,
+                                  detail: event.subtitle,
+                                  subject: event.block ? getManualBlockSubjectLabel(event.block) : (calendarToneLabel[event.tone] ?? 'Específicos'),
+                                  subjectKey: event.block ? inferManualBlockSubject(event.block) : 'especificos',
+                                  topicId: event.topicIds[0] ?? leafTopics[0]?.id ?? '',
+                                  topicIds: event.topicIds,
                                 })
-                            }
-                          >
-                            <Play size={15} />
-                            Estudar
-                          </button>
+                              }
+                            >
+                              <Play size={15} />
+                              Estudar
+                            </button>
+                            <label className="clean-calendar-questions" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Questões:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                style={{ width: '60px', padding: '4px 8px', borderRadius: '6px', background: 'rgba(2,6,23,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                                value={
+                                  pendingQuestionsByEventId[event.id]
+                                  ?? state.calendarEventProgress[event.id]?.questionsDone
+                                  ?? 0
+                                }
+                                onChange={(inputEvent) =>
+                                  handlePendingQuestionsChange(event.id, inputEvent.target.valueAsNumber)
+                                }
+                                aria-label={`Questões feitas em ${event.title}`}
+                              />
+                            </label>
+                            {!isDone ? (
+                              <button
+                                type="button"
+                                className="clean-icon-link"
+                                style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#86efac', borderColor: 'rgba(34, 197, 94, 0.3)' }}
+                                onClick={() => handleCompleteCalendarEvent(event)}
+                              >
+                                <CheckCircle2 size={15} />
+                                Marcar feito
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="clean-icon-link"
+                                style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                onClick={() => unsetCalendarEventDone(event.id, event.topicIds)}
+                              >
+                                <RotateCcw size={15} />
+                                Desmarcar
+                              </button>
+                            )}
+                            {canFail && (
+                              <button
+                                type="button"
+                                className="clean-fail-button"
+                                onClick={() => handleCalendarFailure(event)}
+                              >
+                                <XCircle size={15} />
+                                {event.kind === 'failed' ? 'Desfazer falha' : 'Falhei'}
+                              </button>
+                            )}
+                          </div>
 
-                          <div className="clean-srs-rating-container">
-                            <span className="clean-srs-rating-label">
-                              Como foi seu desempenho?
-                              {submatter.srsNextReview && (
-                                <span className="clean-srs-feedback-badge">
-                                  Intervalo atual: {submatter.srsInterval ?? 0}d
-                                </span>
-                              )}
-                            </span>
-                            <div className="clean-srs-buttons-row">
-                              <button type="button" className="clean-btn-srs clean-btn-srs-bad" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, isNew)}>Errei</button>
-                              <button type="button" className="clean-btn-srs clean-btn-srs-hard" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, isNew)}>Difícil</button>
-                              <button type="button" className="clean-btn-srs clean-btn-srs-good" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, isNew)}>Bom</button>
-                              <button type="button" className="clean-btn-srs clean-btn-srs-easy" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, isNew)}>Fácil</button>
+                          {eventSubmatters.length > 0 && (
+                            <div className="clean-srs-rating-container">
+                              <span className="clean-srs-rating-label">
+                                Avaliação de Retenção (SRS)
+                                {eventSubmatters[0]?.submatter.srsNextReview && (
+                                  <span className="clean-srs-feedback-badge">
+                                    Intervalo: {eventSubmatters[0]?.submatter.srsInterval ?? 0}d
+                                  </span>
+                                )}
+                              </span>
+                              <div className="clean-srs-buttons-row">
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${eventSubmatters[0]?.submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'bad', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Errei</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${eventSubmatters[0]?.submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'hard', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Difícil</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-good ${eventSubmatters[0]?.submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'good', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Bom</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${eventSubmatters[0]?.submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'easy', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Fácil</button>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </article>
                     );
-                  }
+                  })}
 
-                  // SLOT 2: Revisão
-                  if (completedReview) {
-                    const item = completedReview;
-                    const submatter = item.submatter;
-                    cards.push(
-                      <article className="clean-task-card completed" key="slot-review-matter" data-testid="srs-slot-2">
-                        <div>
-                          <div className="clean-task-area-row">
-                            <span className="clean-task-area">
-                              Revisão SRS (Concluído)
-                            </span>
-                            <span className="clean-task-area" style={{ opacity: 0.7 }}>
-                              {subjectLabel(item.topic.subject)}
-                            </span>
-                          </div>
-                          <h3>{item.topic.title}</h3>
-                          <p>{submatter.title}</p>
-                          <small>
-                            Desempenho registrado hoje. Intervalo atual: {submatter.srsInterval ?? 0}d
-                          </small>
-                        </div>
-                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-                          <div className="clean-srs-rating-container">
-                            <span className="clean-srs-rating-label">
-                              Como foi seu desempenho?
-                              <span className="clean-srs-feedback-badge">Concluído</span>
-                            </span>
-                            <div className="clean-srs-buttons-row">
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, false)}>Errei</button>
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, false)}>Difícil</button>
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-good ${submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, false)}>Bom</button>
-                              <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, false)}>Fácil</button>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="clean-icon-link"
-                            style={{ alignSelf: 'flex-start', margin: 0, background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-                            onClick={() => unrateSubmatter(item.topic.id, submatter.id, state.selectedDate, false)}
-                          >
-                            <RotateCcw size={15} />
-                            Desmarcar
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  } else if (dailyStudy.reviewMatter) {
-                    const item = dailyStudy.reviewMatter;
-                    const isNew = false;
-                    const submatter = item.submatter;
-                    const isCompletedToday = submatter.lastReviewedAt === state.selectedDate;
-
-                    cards.push(
-                      <article className="clean-task-card" key="slot-review-matter" data-testid="srs-slot-2">
-                        <div>
-                          <div className="clean-task-area-row">
-                            <span className={`clean-task-area ${isCompletedToday ? 'is-completed' : 'is-review'}`}>
-                              {isCompletedToday && <CheckCircle2 size={12} style={{ marginRight: '4px', display: 'inline' }} />}
-                              {dailyStudy.isAllRepeated ? "Revisão SRS 2" : "Revisão SRS (Matéria Anterior)"}
-                              {isCompletedToday ? " (Concluído)" : ""}
-                            </span>
-                            <span className={`clean-task-area subject-${item.topic.subject}`}>
-                              {subjectLabel(item.topic.subject)}
-                            </span>
-                          </div>
-                          <h3>{item.topic.title}</h3>
-                          <p>{submatter.title}</p>
-                          <small>
-                            Nota {submatter.grade} | Repetições: {submatter.srsRepetitions ?? 0} | Intervalo: {submatter.srsInterval ?? 0}d
-                          </small>
-                        </div>
-                        <div className="clean-task-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-                          <button
-                            type="button"
-                            className="clean-icon-link"
-                            style={{ alignSelf: 'flex-start', margin: 0 }}
-                            onClick={() =>
-                              handleStartStudySession({
-                                id: `day-${state.selectedDate}-srs-review`,
-                                eventId: 'review-matter-study',
-                                title: submatter.title,
-                                detail: item.topic.title,
-                                subject: subjectLabel(item.topic.subject),
-                                subjectKey: item.topic.subject,
-                                topicId: item.topic.id,
-                                topicIds: [item.topic.id],
-                              })
-                            }
-                          >
-                            <Play size={15} />
-                            Estudar
-                          </button>
-
-                          <div className="clean-srs-rating-container">
-                            <span className="clean-srs-rating-label">
-                              Como foi seu desempenho?
-                              {submatter.srsNextReview && (
-                                <span className="clean-srs-feedback-badge">
-                                  {submatter.srsNextReview <= state.selectedDate ? "Venceu hoje" : `Próxima: ${formatIsoDateCompactPtBr(submatter.srsNextReview)}`}
-                                </span>
-                              )}
-                            </span>
-                            <div className="clean-srs-buttons-row">
-                              <button type="button" className="clean-btn-srs clean-btn-srs-bad" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'bad', state.selectedDate, isNew)}>Errei</button>
-                              <button type="button" className="clean-btn-srs clean-btn-srs-hard" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'hard', state.selectedDate, isNew)}>Difícil</button>
-                              <button type="button" className="clean-btn-srs clean-btn-srs-good" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'good', state.selectedDate, isNew)}>Bom</button>
-                              <button type="button" className="clean-btn-srs clean-btn-srs-easy" onClick={() => rateSubmatter(item.topic.id, submatter.id, 'easy', state.selectedDate, isNew)}>Fácil</button>
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  } else if (!dailyStudy.isAllRepeated && !completedNew) {
-                    cards.push(
-                      <article className="clean-task-card" key="slot-review-empty">
-                        <div>
-                          <div className="clean-task-area-row">
-                            <span className="clean-task-area is-review">Revisão SRS</span>
-                          </div>
-                          <h3>Sem revisões pendentes</h3>
-                          <p>Você ainda não estudou nenhuma matéria para iniciar a curva de repetição. Continue completando novas matérias!</p>
-                        </div>
-                      </article>
-                    );
-                  }
-
-                  return cards;
-                })()}
-              </div>
+                  {activeDayEvents.length === 0 && (
+                    <div className="clean-empty-state">Nenhuma matéria agendada para esta data.</div>
+                  )}
+                </div>
 
               {completedToday.length > 0 && (
                 <section className="clean-history-panel" style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
