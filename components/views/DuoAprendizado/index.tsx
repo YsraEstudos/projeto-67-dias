@@ -197,13 +197,15 @@ export const DuoAprendizadoView: React.FC<DuoAprendizadoViewProps> = ({ userId }
 
       case 'practice':
         return (
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center max-w-xl mx-auto text-center space-y-6">
-            <div className="w-20 h-20 rounded-3xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-3xl shadow-inner mx-auto">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center max-w-xl mx-auto text-center space-y-5 sm:space-y-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-2xl sm:text-3xl shadow-inner mx-auto">
               ⚡
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-black text-white">Laboratório de Reforço & Repetição Espaçada</h2>
-              <p className="text-xs text-slate-300 leading-relaxed">
+            <div className="space-y-2 px-2">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-tight">
+                Laboratório de Reforço & Repetição Espaçada
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
                 Nosso algoritmo inteligente seleciona automaticamente os tópicos onde você teve menor taxa de acerto para consolidar seu aprendizado na memória de longo prazo.
               </p>
             </div>
@@ -212,7 +214,7 @@ export const DuoAprendizadoView: React.FC<DuoAprendizadoViewProps> = ({ userId }
                 playDuoSound('click');
                 handleStartSpacedRepetition();
               }}
-              className="bg-[#ffc800] hover:bg-[#e5b200] active:translate-y-1 shadow-[0_5px_0_#e5b200] text-slate-950 font-black px-8 py-4 rounded-2xl text-sm uppercase tracking-wider transition"
+              className="w-full sm:w-auto bg-[#ffc800] hover:bg-[#e5b200] active:translate-y-1 shadow-[0_4px_0_#e5b200] text-slate-950 font-black px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl text-xs sm:text-sm uppercase tracking-wider transition touch-manipulation"
             >
               Iniciar Sessão de Reforço (+2 Vidas ❤️)
             </button>
@@ -225,7 +227,7 @@ export const DuoAprendizadoView: React.FC<DuoAprendizadoViewProps> = ({ userId }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] bg-[#0b1320] text-slate-100 font-sans overflow-hidden select-none relative">
+    <div className="flex flex-col h-[calc(100dvh-5.5rem)] sm:h-[calc(100dvh-6.5rem)] md:h-[calc(100vh-7rem)] bg-[#0b1320] text-slate-100 font-sans overflow-hidden select-none relative rounded-2xl sm:rounded-3xl border border-slate-800/80 shadow-2xl">
       {/* Top Gamification Header */}
       {!isLessonRunning && (
         <DuoHeader
@@ -241,7 +243,7 @@ export const DuoAprendizadoView: React.FC<DuoAprendizadoViewProps> = ({ userId }
       )}
 
       {/* Main Container Area */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative min-h-0">
         {renderMainContent()}
 
         {/* AI Tutor Side Drawer */}

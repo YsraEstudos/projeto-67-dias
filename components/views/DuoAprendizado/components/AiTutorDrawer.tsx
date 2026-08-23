@@ -154,115 +154,128 @@ Se desejar, você pode testar este conceito no nosso **Módulo de Teorias** clic
   if (!isOpen) return null;
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-[#131f31] border-l-2 border-slate-800 shadow-2xl flex flex-col transition-all duration-300 animate-slide-left select-none">
-      {/* Header */}
-      <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#131f31] shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xl shadow-inner">
-            <Bot size={22} />
-          </div>
-          <div>
-            <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-              Mascote Tutor IA <Sparkles size={13} className="text-amber-400" />
-            </h3>
-            <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Tutor Pedagógico Ativo
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            playDuoSound('click');
-            onClose();
-          }}
-          className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition"
-          aria-label="Fechar"
-        >
-          <X size={20} />
-        </button>
-      </div>
+    <>
+      {/* Backdrop overlay for mobile & tablet */}
+      <div
+        onClick={() => {
+          playDuoSound('click');
+          onClose();
+        }}
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40 sm:z-40 animate-fade-in"
+        aria-hidden="true"
+      />
 
-      {/* Quick Prompts */}
-      <div className="px-4 py-2 bg-[#0d1624] border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
-        <button
-          onClick={() => handleSendMessage('O que é var e por que não devemos usar?')}
-          className="text-[10px] font-bold whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition"
-        >
-          O que é var?
-        </button>
-        <button
-          onClick={() => handleSendMessage('Como funciona uma Closure?')}
-          className="text-[10px] font-bold whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition"
-        >
-          O que é Closure?
-        </button>
-        <button
-          onClick={() => handleSendMessage('Qual a diferença entre == e ===?')}
-          className="text-[10px] font-bold whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition"
-        >
-          == vs ===
-        </button>
-      </div>
-
-      {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar text-xs">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`p-3.5 rounded-2xl leading-relaxed border ${
-              msg.role === 'user'
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-200 ml-6 shadow-sm'
-                : 'bg-[#182436] border-slate-700/80 text-slate-200 mr-4 shadow-md'
-            }`}
+      <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 md:w-[420px] bg-[#131f31] border-l-2 border-slate-800 shadow-2xl flex flex-col transition-all duration-300 animate-slide-left select-none">
+        {/* Header */}
+        <div className="p-3.5 sm:p-4 border-b border-slate-800 flex justify-between items-center bg-[#131f31] shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xl shadow-inner shrink-0">
+              <Bot size={22} />
+            </div>
+            <div>
+              <h3 className="font-black text-sm text-white flex items-center gap-1.5">
+                Mascote Tutor IA <Sparkles size={13} className="text-amber-400" />
+              </h3>
+              <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Tutor Pedagógico Ativo
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              playDuoSound('click');
+              onClose();
+            }}
+            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center"
+            aria-label="Fechar"
           >
-            <div className="flex items-center gap-1.5 font-bold mb-1 text-[11px]">
-              {msg.role === 'user' ? (
-                <span className="text-amber-400">Você</span>
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Quick Prompts */}
+        <div className="px-3 sm:px-4 py-2 bg-[#0d1624] border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+          <button
+            onClick={() => handleSendMessage('O que é var e por que não devemos usar?')}
+            className="text-[10px] font-bold whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 transition touch-manipulation min-h-[30px]"
+          >
+            O que é var?
+          </button>
+          <button
+            onClick={() => handleSendMessage('Como funciona uma Closure?')}
+            className="text-[10px] font-bold whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 transition touch-manipulation min-h-[30px]"
+          >
+            O que é Closure?
+          </button>
+          <button
+            onClick={() => handleSendMessage('Qual a diferença entre == e ===?')}
+            className="text-[10px] font-bold whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 transition touch-manipulation min-h-[30px]"
+          >
+            == vs ===
+          </button>
+        </div>
+
+        {/* Messages Scroll Area */}
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 custom-scrollbar text-xs">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`p-3 sm:p-3.5 rounded-2xl leading-relaxed border ${
+                msg.role === 'user'
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-200 ml-4 sm:ml-6 shadow-sm'
+                  : 'bg-[#182436] border-slate-700/80 text-slate-200 mr-2 sm:mr-4 shadow-md'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-bold mb-1 text-[11px]">
+                {msg.role === 'user' ? (
+                  <span className="text-amber-400">Você</span>
+                ) : (
+                  <span className="text-indigo-400 flex items-center gap-1">
+                    <Bot size={13} /> Tutor IA
+                  </span>
+                )}
+              </div>
+
+              {msg.isLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 py-1">
+                  <Loader2 size={14} className="animate-spin text-indigo-400" />
+                  <span>{msg.text}</span>
+                </div>
               ) : (
-                <span className="text-indigo-400 flex items-center gap-1">
-                  <Bot size={13} /> Tutor IA
-                </span>
+                <div className="whitespace-pre-line leading-relaxed">{msg.text}</div>
               )}
             </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
 
-            {msg.isLoading ? (
-              <div className="flex items-center gap-2 text-slate-400 py-1">
-                <Loader2 size={14} className="animate-spin text-indigo-400" />
-                <span>{msg.text}</span>
-              </div>
-            ) : (
-              <div className="whitespace-pre-line leading-relaxed">{msg.text}</div>
-            )}
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input Box */}
-      <div className="p-3 border-t border-slate-800 bg-[#0b1320] shrink-0">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleSendMessage(inputText);
-          }}
-          className="flex items-center gap-2"
-        >
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Pergunte ao tutor..."
-            className="flex-1 bg-[#182232] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition"
-          />
-          <button
-            type="submit"
-            disabled={!inputText.trim() || isBusy}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2.5 rounded-xl text-xs transition active:scale-95 shadow-md"
+        {/* Input Box */}
+        <div className="p-3 border-t border-slate-800 bg-[#0b1320] shrink-0 pb-safe">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSendMessage(inputText);
+            }}
+            className="flex items-center gap-2"
           >
-            <Send size={16} />
-          </button>
-        </form>
-      </div>
-    </aside>
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Pergunte ao tutor..."
+              className="flex-1 bg-[#182232] border border-slate-700 rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition min-h-[44px]"
+            />
+            <button
+              type="submit"
+              disabled={!inputText.trim() || isBusy}
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white p-2.5 rounded-xl text-xs transition active:scale-95 shadow-md touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Enviar mensagem"
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        </div>
+      </aside>
+    </>
   );
 };

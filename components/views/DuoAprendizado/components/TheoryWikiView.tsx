@@ -30,6 +30,9 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
   const [activeTheoryId, setActiveTheoryId] = useState<string>(
     DUO_THEORY_DATABASE[0]?.id || ''
   );
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>(
+    initialSearchQuery ? 'detail' : 'list'
+  );
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null);
   const [sandboxOutputs, setSandboxOutputs] = useState<Record<number, string>>({});
 
@@ -121,15 +124,15 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6 max-w-7xl mx-auto w-full">
+    <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-6 max-w-7xl mx-auto w-full min-h-0">
       {/* Top Search & Filter Bar */}
-      <div className="mb-6 space-y-3 shrink-0">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="mb-4 sm:mb-6 space-y-3 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              <BookOpen className="text-[#1cb0f6]" /> Enciclopédia & Dicionário JS
+            <h2 className="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
+              <BookOpen className="text-[#1cb0f6] shrink-0" size={22} /> Enciclopédia & Dicionário JS
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
               Pesquise qualquer conceito JavaScript, entenda a teoria profunda e execute exemplos na hora.
             </p>
           </div>
@@ -138,19 +141,23 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
           <div className="relative w-full sm:w-80">
             <Search
               size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
             />
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Pesquisar (ex: var, let, closure, event loop)..."
-              className="w-full bg-[#161f2e] border-2 border-slate-700/80 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-[#1cb0f6] transition shadow-inner"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value) setMobileView('list');
+              }}
+              placeholder="Pesquisar (ex: var, let, closure)..."
+              className="w-full bg-[#161f2e] border-2 border-slate-700/80 rounded-2xl pl-10 pr-8 py-2.5 text-base sm:text-sm text-slate-200 focus:outline-none focus:border-[#1cb0f6] transition shadow-inner"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-xs text-slate-400 hover:text-white touch-manipulation"
+                aria-label="Limpar pesquisa"
               >
                 ✕
               </button>
@@ -159,7 +166,7 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 custom-scrollbar">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
@@ -169,7 +176,7 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                   playDuoSound('click');
                   setSelectedCategory(cat);
                 }}
-                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition border ${
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition border touch-manipulation min-h-[32px] ${
                   isSelected
                     ? 'bg-[#1cb0f6] text-white border-[#1cb0f6] shadow-md shadow-sky-500/20'
                     : 'bg-[#161f2e] text-slate-400 border-slate-700/80 hover:text-slate-200 hover:border-slate-600'
@@ -180,18 +187,52 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
             );
           })}
         </div>
+
+        {/* Mobile Navigation Toggle Bar (< lg) */}
+        <div className="flex lg:hidden items-center justify-between bg-[#161f2e] border border-slate-800 p-1 rounded-2xl">
+          <button
+            onClick={() => {
+              playDuoSound('click');
+              setMobileView('list');
+            }}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              mobileView === 'list'
+                ? 'bg-[#1cb0f6] text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Lista de Tópicos ({filteredTheories.length})</span>
+          </button>
+          <button
+            onClick={() => {
+              playDuoSound('click');
+              setMobileView('detail');
+            }}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              mobileView === 'detail'
+                ? 'bg-[#58cc02] text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Artigo Selecionado</span>
+          </button>
+        </div>
       </div>
 
-      {/* Main Content Split (List on Left, Detailed Article on Right) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 overflow-hidden">
+      {/* Main Content Split: Cards on Left, Detailed Article on Right (Dual pane on desktop, Master-detail on mobile) */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 min-h-0 overflow-hidden">
         {/* Left Side: Theory Cards Index */}
-        <div className="lg:col-span-4 flex flex-col space-y-3 overflow-y-auto pr-1 custom-scrollbar">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+        <div
+          className={`${
+            mobileView === 'list' ? 'flex' : 'hidden'
+          } lg:flex lg:col-span-4 flex-col space-y-3 overflow-y-auto pr-1 custom-scrollbar min-h-0`}
+        >
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 shrink-0">
             {filteredTheories.length} artigo{filteredTheories.length !== 1 ? 's' : ''} encontrado{filteredTheories.length !== 1 ? 's' : ''}
           </span>
 
           {filteredTheories.length === 0 ? (
-            <div className="p-8 text-center bg-[#161f2e] border-2 border-slate-800 rounded-3xl space-y-2">
+            <div className="p-6 sm:p-8 text-center bg-[#161f2e] border-2 border-slate-800 rounded-3xl space-y-2">
               <p className="text-sm font-bold text-slate-300">Nenhum conceito encontrado</p>
               <p className="text-xs text-slate-500">Tente buscar por termos como "var", "let", "map" ou "promessa".</p>
             </div>
@@ -204,21 +245,22 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                   onClick={() => {
                     playDuoSound('click');
                     setActiveTheoryId(theory.id);
+                    setMobileView('detail');
                   }}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition flex flex-col space-y-2 ${
+                  className={`p-3.5 sm:p-4 rounded-2xl border-2 cursor-pointer transition flex flex-col space-y-1.5 sm:space-y-2 touch-manipulation ${
                     isSelected
                       ? 'bg-sky-950/40 border-[#1cb0f6] shadow-lg shadow-sky-500/10'
-                      : 'bg-[#161f2e] border-slate-800 hover:border-slate-700 text-slate-300'
+                      : 'bg-[#161f2e] border-slate-800 hover:border-slate-700 text-slate-300 active:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="text-[9px] sm:text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
                       {theory.category}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">#{theory.conceptId}</span>
+                    <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono">#{theory.conceptId}</span>
                   </div>
-                  <h3 className="font-extrabold text-sm text-white leading-snug">{theory.title}</h3>
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{theory.summary}</p>
+                  <h3 className="font-extrabold text-xs sm:text-sm text-white leading-snug">{theory.title}</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{theory.summary}</p>
                 </div>
               );
             })
@@ -226,19 +268,23 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
         </div>
 
         {/* Right Side: Detailed Theory View */}
-        <div className="lg:col-span-8 bg-[#131f31] border-2 border-slate-800 rounded-3xl p-5 sm:p-7 overflow-y-auto custom-scrollbar flex flex-col space-y-6 shadow-2xl">
+        <div
+          className={`${
+            mobileView === 'detail' ? 'flex' : 'hidden'
+          } lg:flex lg:col-span-8 bg-[#131f31] border-2 border-slate-800 rounded-3xl p-4 sm:p-7 overflow-y-auto custom-scrollbar flex-col space-y-5 sm:space-y-6 shadow-2xl min-h-0`}
+        >
           {activeTheory ? (
             <>
               {/* Header */}
-              <div className="border-b border-slate-800/80 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
+              <div className="border-b border-slate-800/80 pb-4 sm:pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
                       {activeTheory.category}
                     </span>
-                    <span className="text-xs text-slate-400 font-mono">ID: {activeTheory.conceptId}</span>
+                    <span className="text-[11px] sm:text-xs text-slate-400 font-mono">ID: {activeTheory.conceptId}</span>
                   </div>
-                  <h1 className="text-xl sm:text-2xl font-black text-white mt-2 leading-tight">
+                  <h1 className="text-lg sm:text-2xl font-black text-white mt-2 leading-tight">
                     {activeTheory.title}
                   </h1>
                 </div>
@@ -249,7 +295,7 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                     playDuoSound('click');
                     onPracticeConcept(activeTheory.conceptId);
                   }}
-                  className="bg-[#58cc02] hover:bg-[#46a302] active:translate-y-1 shadow-[0_4px_0_#46a302] text-slate-950 font-black px-5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 shrink-0 self-start sm:self-center"
+                  className="w-full sm:w-auto bg-[#58cc02] hover:bg-[#46a302] active:translate-y-1 shadow-[0_4px_0_#46a302] text-slate-950 font-black px-4 sm:px-5 py-2.5 rounded-2xl text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 shrink-0 touch-manipulation min-h-[44px]"
                 >
                   <Sparkles size={16} />
                   <span>Praticar Lição</span>
@@ -257,42 +303,42 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
               </div>
 
               {/* Summary Pill */}
-              <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
+              <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
                 💡 <strong>Em resumo:</strong> {activeTheory.summary}
               </div>
 
               {/* What is it Section */}
               <div className="space-y-2">
-                <h3 className="text-sm font-black uppercase tracking-wider text-sky-400 flex items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-sky-400 flex items-center gap-2">
                   <BookOpen size={16} /> O que é e Como Funciona?
                 </h3>
-                <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-[#0e1726] p-4 rounded-2xl border border-slate-800">
+                <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-[#0e1726] p-3.5 sm:p-4 rounded-2xl border border-slate-800">
                   {activeTheory.whatIsIt}
                 </div>
               </div>
 
               {/* Why it Matters Section */}
               <div className="space-y-2">
-                <h3 className="text-sm font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
                   <Sparkles size={16} /> Por que isso é importante?
                 </h3>
-                <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-[#0e1726] p-4 rounded-2xl border border-slate-800">
+                <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line bg-[#0e1726] p-3.5 sm:p-4 rounded-2xl border border-slate-800">
                   {activeTheory.whyItMatters}
                 </div>
               </div>
 
               {/* Comparison Table if available */}
               {activeTheory.comparison && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-purple-400">
+                <div className="space-y-2 sm:space-y-3">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-purple-400">
                     📊 Tabela Comparativa Detalhada
                   </h3>
-                  <div className="overflow-x-auto rounded-2xl border border-slate-800">
-                    <table className="w-full text-left text-xs border-collapse bg-[#0e1726]">
+                  <div className="overflow-x-auto rounded-2xl border border-slate-800 custom-scrollbar">
+                    <table className="w-full text-left text-xs border-collapse bg-[#0e1726] min-w-[340px]">
                       <thead>
                         <tr className="bg-slate-800/80 text-white font-black border-b border-slate-700">
                           {activeTheory.comparison.headers.map((h, idx) => (
-                            <th key={idx} className="p-3">
+                            <th key={idx} className="p-2.5 sm:p-3 whitespace-nowrap">
                               {h}
                             </th>
                           ))}
@@ -301,9 +347,9 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                       <tbody className="divide-y divide-slate-800/60 font-medium text-slate-300">
                         {activeTheory.comparison.rows.map((row, rIdx) => (
                           <tr key={rIdx} className="hover:bg-slate-800/30 transition">
-                            <td className="p-3 font-bold text-amber-300">{row.feature}</td>
+                            <td className="p-2.5 sm:p-3 font-bold text-amber-300 whitespace-nowrap">{row.feature}</td>
                             {activeTheory.comparison?.headers.slice(1).map((headerKey) => (
-                              <td key={headerKey} className="p-3 text-slate-200">
+                              <td key={headerKey} className="p-2.5 sm:p-3 text-slate-200">
                                 {row.values[headerKey] || '-'}
                               </td>
                             ))}
@@ -316,12 +362,12 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
               )}
 
               {/* Code Examples with Live Sandbox */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
                   <Play size={16} /> Exemplos de Código & Playground Interativo
                 </h3>
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {activeTheory.codeExamples.map((ex, eIdx) => {
                     const isCopied = copiedCodeIndex === eIdx;
                     const output = sandboxOutputs[eIdx];
@@ -331,13 +377,14 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                         key={eIdx}
                         className="bg-slate-950 border-2 border-slate-800 rounded-2xl overflow-hidden shadow-xl"
                       >
-                        <div className="bg-[#182232] px-4 py-2.5 flex items-center justify-between border-b border-slate-800 text-xs">
-                          <span className="font-bold text-slate-300">{ex.title}</span>
-                          <div className="flex items-center gap-2">
+                        <div className="bg-[#182232] px-3.5 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2 border-b border-slate-800 text-xs">
+                          <span className="font-bold text-slate-300 truncate">{ex.title}</span>
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                             <button
                               onClick={() => handleCopyCode(ex.code, eIdx)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-[11px] transition flex items-center gap-1"
+                              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-[11px] transition flex items-center gap-1 touch-manipulation min-h-[32px]"
                               title="Copiar código para a área de transferência"
+                              aria-label="Copiar código"
                             >
                               {isCopied ? (
                                 <>
@@ -354,8 +401,9 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
 
                             <button
                               onClick={() => handleRunCode(ex.code, eIdx)}
-                              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-[11px] transition flex items-center gap-1 shadow-sm"
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-[11px] transition flex items-center gap-1 shadow-sm touch-manipulation min-h-[32px]"
                               title="Executar código neste navegador agora"
+                              aria-label="Executar código"
                             >
                               <Play size={11} className="fill-slate-950" />
                               <span>Executar</span>
@@ -363,7 +411,7 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                           </div>
                         </div>
 
-                        <pre className="p-4 text-xs font-mono text-emerald-400 overflow-x-auto custom-scrollbar leading-relaxed">
+                        <pre className="p-3.5 sm:p-4 text-xs font-mono text-emerald-400 overflow-x-auto custom-scrollbar leading-relaxed">
                           {ex.code}
                         </pre>
 
@@ -379,12 +427,12 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                                     return next;
                                   })
                                 }
-                                className="text-slate-500 hover:text-slate-300"
+                                className="text-slate-500 hover:text-slate-300 p-1 touch-manipulation"
                               >
                                 Limpar
                               </button>
                             </div>
-                            <pre className="text-amber-300 whitespace-pre-wrap">{output}</pre>
+                            <pre className="text-amber-300 whitespace-pre-wrap overflow-x-auto">{output}</pre>
                           </div>
                         )}
 
@@ -400,10 +448,10 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
               {/* Pitfalls & Gotchas */}
               {activeTheory.pitfalls.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-rose-400 flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-rose-400 flex items-center gap-2">
                     <AlertTriangle size={16} /> Armadilhas Comuns & Cuidado
                   </h3>
-                  <div className="bg-rose-950/20 border border-rose-500/30 rounded-2xl p-4 space-y-2 text-xs text-rose-200 leading-relaxed">
+                  <div className="bg-rose-950/20 border border-rose-500/30 rounded-2xl p-3.5 sm:p-4 space-y-2 text-xs text-rose-200 leading-relaxed">
                     {activeTheory.pitfalls.map((pitfall, pIdx) => (
                       <div key={pIdx} className="flex items-start gap-2">
                         <span className="text-rose-400 font-bold">•</span>
@@ -415,7 +463,7 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
               )}
 
               {/* Tags & Related Concepts */}
-              <div className="border-t border-slate-800 pt-4 flex flex-wrap items-center gap-2">
+              <div className="border-t border-slate-800 pt-3 sm:pt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
                   <Tag size={12} /> Tags:
                 </span>
@@ -425,8 +473,9 @@ export const TheoryWikiView: React.FC<TheoryWikiViewProps> = ({
                     onClick={() => {
                       playDuoSound('click');
                       setSearchQuery(tag);
+                      setMobileView('list');
                     }}
-                    className="text-[11px] font-mono font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-xl border border-slate-700 transition"
+                    className="text-[11px] font-mono font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-xl border border-slate-700 transition touch-manipulation"
                   >
                     #{tag}
                   </button>
