@@ -222,10 +222,10 @@ When a rule applies only to a specific language, subsystem, framework, or workfl
 - When the app resumes from background or mobile lock, `usePomodoroTimer` reconciles elapsed phases against the saved `endTime` instead of restarting the next phase from the resume time.
 - Browser/PWA audio and notification delivery while a phone is locked remains best-effort; persisted timer state must still advance correctly when the app is reopened.
 
-## 2026-08-23 JS DuoAprendizado module
+## 2026-08-23 JS DuoAprendizado module & David Flanagan Chapter 1
 
 - Added the gamified JavaScript learning module `DuoAprendizado` under `components/views/DuoAprendizado/` accessible via `ViewState.DUOAPRENDIZADO`.
-- Features 10 progressive curriculum units (36+ concepts) from JS basics (`var`, `let`, `const`, types, operators) to advanced topics (functional methods, closures, `this`, classes, async/await, event loop, DOM, metaprogramming with `Proxy`, and performance optimization).
-- Includes a dedicated, searchable Theory & Wiki database (`TheoryWikiView.tsx`) with keyword/concept search (e.g. searching `var` displays deep explanations, `var` vs `let` vs `const` comparison tables, common pitfalls, and an in-browser live code sandbox/playground to run snippets).
+- Features 11 progressive curriculum units (41+ concepts) starting from Unit 1: "Explorando o JavaScript & Tour Inicial (David Flanagan)" covering DevTools (F12), Node REPL (.editor, .break), Objects, Arrays, Optional Chaining (?.), Operators (+ coercion, ===, !==), Arrow Functions, Methods with `this`, and ES6 Classes.
+- Includes a dedicated, searchable Theory & Wiki database (`TheoryWikiView.tsx`) with keyword/concept search (e.g. searching `var` or `exploring` displays deep explanations, comparison tables, common pitfalls, and an in-browser live code sandbox/playground to run snippets).
 - Interactive question runner (`LessonRunner.tsx`) supports Multiple Choice, Output Prediction, Fill-in-the-Blank, and Code Block Ordering, with Web Audio API synthesized sound effects and AI Tutor explanation drawer.
 - Progress (XP, gems, streaks, hearts, mastery, and unlocked unit chests) is synchronized with Firestore and LocalStorage via `useDuoProgress.ts`.

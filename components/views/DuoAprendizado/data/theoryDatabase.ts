@@ -2,9 +2,277 @@ import { DuoTheory } from '../types';
 
 export const DUO_THEORY_DATABASE: DuoTheory[] = [
   {
+    id: 'th_exploring_devtools_repl',
+    conceptId: 'exploring_devtools_repl',
+    unitId: 1,
+    title: 'Ambientes de Execução: DevTools do Navegador & Node.js REPL',
+    category: 'Fundamentos',
+    summary: 'Aprenda como testar e experimentar código JavaScript instantaneamente no Console do Navegador (F12) e no terminal interativo do Node.js (REPL).',
+    whatIsIt: `Para aprender uma nova linguagem de programação como JavaScript, a prática imediata é essencial. Em vez de criar arquivos complexos para cada teste, podemos usar um **interpretador interativo**.
+
+Existem duas formas principais recomendadas por David Flanagan em *JavaScript: The Definitive Guide*:
+
+1. **Console do Navegador (Browser DevTools)**:
+   * Abra pressionando **F12** ou **Ctrl + Shift + I** (Windows/Linux) / **Cmd + Option + I** (macOS).
+   * Selecione a aba **Console**. Você pode digitar expressões diretamente e ver o resultado imediato (REPL in-browser).
+
+2. **Node.js REPL (Read-Eval-Print Loop)**:
+   * Abra seu terminal e digite \`node\` para iniciar a sessão interativa.
+   * Comandos especiais com ponto:
+     * \`.help\`: Exibe a lista de comandos do interpretador.
+     * \`.editor\`: Entra no modo multilinhas para digitar blocos sem executar a cada Enter.
+     * \`.break\` ou \`Ctrl + C\`: Cancela uma instrução inacabada e retorna ao prompt limpo.
+     * \`.exit\` ou \`Ctrl + D\`: Encerra a sessão do Node.js.`,
+    whyItMatters: `* **Feedback Instantâneo**: Teste dúvidas de sintaxe e comportamento de APIs em menos de 2 segundos.
+* **Depuração Ágil**: Inspecione o estado real de variáveis sem precisar recompilar a aplicação.
+* **Compreensão de Convenções**: Nos livros técnicos de JS, o comentário \`// =>\` indica a saída interativa produzida pelo interpretador.`,
+    comparison: {
+      headers: ['Recurso', 'DevTools (Navegador)', 'Node.js REPL (Terminal)'],
+      rows: [
+        {
+          feature: 'Acesso a APIs Web (DOM, window)',
+          values: {
+            'DevTools (Navegador)': 'Sim (document, window, fetch)',
+            'Node.js REPL (Terminal)': 'Não (possui global, process, fs)',
+          },
+        },
+        {
+          feature: 'Como Iniciar',
+          values: {
+            'DevTools (Navegador)': 'F12 ou Ctrl+Shift+I -> Console',
+            'Node.js REPL (Terminal)': 'Comando "node" no terminal',
+          },
+        },
+        {
+          feature: 'Modo Multilinhas',
+          values: {
+            'DevTools (Navegador)': 'Shift + Enter',
+            'Node.js REPL (Terminal)': 'Comando .editor',
+          },
+        },
+      ],
+    },
+    codeExamples: [
+      {
+        title: '1. Teste rápido no Console',
+        code: `console.log("Olá, DevTools!");
+3 * 2; // => 6`,
+        explanation: 'No console, a última expressão avaliada é automaticamente impressa mesmo sem console.log explícito.',
+      },
+      {
+        title: '2. Saída formatada no Node.js',
+        code: `const versao = process.version;
+console.log(\`Executando no Node \${versao}\`);`,
+        explanation: 'O objeto global process expõe metadados do ambiente de execução do servidor.',
+      },
+    ],
+    pitfalls: [
+      'Tentar acessar objetos do navegador (como window ou document) dentro do Node.js resulta em ReferenceError.',
+      'Dar Enter simples no Node REPL ao meio de um bloco pode disparar SyntaxError caso a instrução não esteja com parênteses/chaves abertas; use .editor para blocos grandes.',
+    ],
+    tags: ['devtools', 'console', 'repl', 'node', 'flanagan'],
+    relatedConcepts: ['variables_var_let_const', 'exploring_objects_optional_chaining'],
+  },
+  {
+    id: 'th_exploring_objects_optional_chaining',
+    conceptId: 'exploring_objects_optional_chaining',
+    unitId: 1,
+    title: 'Estruturas de Dados e Optional Chaining (?.)',
+    category: 'Fundamentos',
+    summary: 'Compreenda como criar objetos e arrays literais, estruturas aninhadas e navegar com segurança usando o operador Optional Chaining (?.).',
+    whatIsIt: `JavaScript suporta duas estruturas fundamentais para agrupar dados:
+* **Objetos**: Coleções de pares chave/valor (propriedades). Criados com chaves \`{ chave: valor }\`.
+* **Arrays**: Listas ordenadas e indexadas numericamente a partir de zero. Criados com colchetes \`[ item1, item2 ]\`.
+
+Desde o **ES2020**, o operador **Optional Chaining (?.)** permite acessar propriedades profundamente aninhadas sem o perigo de quebrar a aplicação caso um objeto intermediário seja \`null\` ou \`undefined\`.`,
+    whyItMatters: `Em aplicações reais consumindo APIs, nem todos os nós de dados vêm preenchidos. Sem o \`?.\`, o código dispara \`TypeError: Cannot read properties of undefined\`. Com o \`?.\`, ele avalia graciosamente para \`undefined\`.`,
+    codeExamples: [
+      {
+        title: '1. Objeto literal e Optional Chaining',
+        code: `let book = {
+  topic: "JavaScript",
+  edition: 7
+};
+
+console.log(book.topic); // => "JavaScript"
+console.log(book["edition"]); // => 7 (notação de colchete)
+
+// Acesso seguro: não quebra se contents não existir!
+console.log(book.contents?.ch01?.sect1); // => undefined`,
+        explanation: 'O encadeamento opcional interrompe a leitura imediatamente se encontrar null/undefined e retorna undefined com segurança.',
+      },
+      {
+        title: '2. Arrays e Estruturas Aninhadas',
+        code: `let primes = [2, 3, 5, 7];
+console.log(primes[0]); // => 2 (primeiro elemento)
+console.log(primes[primes.length - 1]); // => 7 (último elemento)
+
+// Array contendo objetos
+let points = [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 }
+];
+console.log(points[1].x - points[0].x); // => 1`,
+        explanation: 'Fórmula canônica para acessar o último elemento de qualquer array: array[array.length - 1].',
+      },
+    ],
+    pitfalls: [
+      'Acessar uma propriedade em um valor que é null/undefined sem ?. lança TypeError fatal.',
+      'O índice de array fora dos limites (ex: primes[99]) não lança erro em JS, retorna undefined.',
+    ],
+    tags: ['objects', 'arrays', 'optional-chaining', 'es2020', 'flanagan'],
+    relatedConcepts: ['exploring_devtools_repl', 'exploring_operators_expressions'],
+  },
+  {
+    id: 'th_exploring_operators_expressions',
+    conceptId: 'exploring_operators_expressions',
+    unitId: 1,
+    title: 'Expressões, Operadores e Coerção no JavaScript',
+    category: 'Fundamentos',
+    summary: 'Entenda as regras de soma vs concatenação ("3" + "2"), atalhos aritméticos, comparação lexicográfica de texto e operadores booleanos.',
+    whatIsIt: `Uma **expressão** é qualquer frase de código em JavaScript que pode ser avaliada para produzir um valor.
+Os **operadores** atuam sobre operandos para calcular novos resultados.
+
+No Capítulo 1 do livro, destacam-se:
+1. **Aritmética e Concatenação**: O operador \`+\` soma números (\`3 + 2 = 5\`), mas concatena texto se houver string (\`"3" + "2" = "32"\`).
+2. **Atalhos Aritméticos**: \`count++\`, \`count += 2\`, \`count *= 3\`.
+3. **Igualdade Estrita (\`===\`) vs Desigualdade (\`!==\`)**: Comparam valor e tipo sem coerção arbitrária.
+4. **Comparações de Strings**: Strings são comparadas por ordem alfabética Unicode caractere a caractere (\`"two" > "three"\` é true porque "w" > "h").`,
+    whyItMatters: `Erros de coerção implícita com \`+\` ou \`==\` são fontes clássicas de bugs em JavaScript. Dominar operadores estritos garante previsibilidade e código robusto.`,
+    codeExamples: [
+      {
+        title: '1. Soma vs Concatenação',
+        code: `console.log(3 + 2);   // => 5 (número)
+console.log("3" + "2"); // => "32" (string concatenada)
+console.log("3" + 2);   // => "32" (coerção para string)`,
+        explanation: 'A presença de uma string transforma a adição em concatenação.',
+      },
+      {
+        title: '2. Operações lógicas combinadas',
+        code: `let x = 2, y = 3;
+console.log((x === 2) && (y === 3)); // => true (AND: ambos verdadeiros)
+console.log((x > 3) || (y < 3));    // => false (OR: nenhum verdadeiro)
+console.log(!(x === y));             // => true (NOT: inverte false para true)`,
+        explanation: 'Operadores booleanos clássicos permitem construir árvores de decisão lógicas.',
+      },
+    ],
+    pitfalls: [
+      'Usar == em vez de === pode converter strings em números involuntariamente ("0" == false é true).',
+    ],
+    tags: ['operators', 'expressions', 'coercion', 'flanagan'],
+    relatedConcepts: ['operators_equality', 'exploring_functions_arrow'],
+  },
+  {
+    id: 'th_exploring_functions_arrow',
+    conceptId: 'exploring_functions_arrow',
+    unitId: 1,
+    title: 'Funções Clássicas vs Arrow Functions e Composição',
+    category: 'Funções',
+    summary: 'Domine a sintaxe compacta das Arrow Functions (x => x + 1), retorno implícito e composição de chamadas aninhadas.',
+    whatIsIt: `Uma **função** é um bloco parametrizado e nomeado de código que pode ser invocado repetidamente.
+No ES6, surgiram as **Arrow Functions** (\`=>\`), que oferecem uma sintaxe enxuta ideal para callbacks e programação funcional.
+
+Diferenças essenciais de sintaxe:
+* **Corpo Conciso**: \`const plus1 = x => x + 1;\` (retorno implícito, sem chaves).
+* **Corpo em Bloco**: \`const plus1 = (x) => { return x + 1; };\` (exige a palavra \`return\`).`,
+    whyItMatters: `Arrow functions tornam expressões de transformação de dados limpas e fáceis de compor, como \`square(plus1(y))\`.`,
+    codeExamples: [
+      {
+        title: '1. Declaração vs Arrow Function',
+        code: `// Função Tradicional
+function plus1(x) {
+  return x + 1;
+}
+
+// Arrow Function equivalente
+const plus1Arrow = x => x + 1;
+
+console.log(plus1(3)); // => 4
+console.log(plus1Arrow(3)); // => 4`,
+        explanation: 'Ambas executam a mesma lógica, mas a arrow function elimina boilerplate.',
+      },
+      {
+        title: '2. Composição de Funções',
+        code: `const plus1 = x => x + 1;
+const square = x => x * x;
+
+let y = 3;
+console.log(square(plus1(y))); // => 16 (4 ao quadrado)`,
+        explanation: 'O retorno de plus1(3) torna-se o argumento de entrada de square().',
+      },
+    ],
+    pitfalls: [
+      'Esquecer a palavra return ao abrir chaves em uma arrow function: `x => { x + 1 }` retorna undefined!',
+    ],
+    tags: ['functions', 'arrow-functions', 'composition', 'es6', 'flanagan'],
+    relatedConcepts: ['arrow_functions', 'exploring_methods_classes'],
+  },
+  {
+    id: 'th_exploring_methods_classes',
+    conceptId: 'exploring_methods_classes',
+    unitId: 1,
+    title: 'Métodos, Palavra-Chave this e Classes ES6',
+    category: 'POO & Protótipos',
+    summary: 'Descubra como funções viram métodos quando anexadas a objetos, o papel de this e a sintaxe de classes modernas com constructor.',
+    whatIsIt: `Quando uma função é atribuída a uma propriedade de um objeto, ela é chamada de **método**.
+Dentro do método, a palavra-chave especial **\`this\`** aponta para o próprio objeto que invocou a função.
+
+O ES6 formalizou essa estrutura com a sintaxe de **Classes**:
+\`\`\`javascript
+class Point {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+  distance() {
+    return Math.sqrt(this.x * this.x + this.y * this.y);
+  }
+}
+let p = new Point(3, 4);
+\`\`\``,
+    whyItMatters: `A orientação a objetos com classes organiza modelos de domínio complexos e encapsula comportamento com seus dados.`,
+    codeExamples: [
+      {
+        title: '1. Método com cálculo de distância euclidiana via this',
+        code: `let points = [
+  { x: 0, y: 0 },
+  { x: 3, y: 4 }
+];
+
+// Anexando método dinamicamente
+points.dist = function() {
+  let p1 = this[0];
+  let p2 = this[1];
+  let a = p2.x - p1.x;
+  let b = p2.y - p1.y;
+  return Math.sqrt(a * a + b * b);
+};
+
+console.log(points.dist()); // => 5`,
+        explanation: 'this[0] e this[1] acessam os elementos do array points durante a chamada.',
+      },
+      {
+        title: '2. Iteração moderna com for...of',
+        code: `let primes = [2, 3, 5, 7];
+let sum = 0;
+for (let n of primes) {
+  sum += n;
+}
+console.log(sum); // => 17`,
+        explanation: 'for...of itera de forma limpa sobre os valores de qualquer estrutura iterável.',
+      },
+    ],
+    pitfalls: [
+      'Chamar um construtor de classe sem o operador new lança TypeError: Class constructor cannot be invoked without new.',
+      'Arrow functions não devem ser usadas como métodos com this se você precisar que this aponte para o objeto chamador.',
+    ],
+    tags: ['classes', 'this', 'methods', 'for-of', 'flanagan'],
+    relatedConcepts: ['classes_es6', 'this_binding'],
+  },
+  {
     id: 'th_var',
     conceptId: 'variables_var_let_const',
-    unitId: 1,
+    unitId: 2,
     title: 'O que é var? (e a comparação com let & const)',
     category: 'Fundamentos',
     summary: 'var é a declaração legada de variáveis no JavaScript com escopo de função e içamento (hoisting). Desde o ES6 (2015), foi superada por let e const.',

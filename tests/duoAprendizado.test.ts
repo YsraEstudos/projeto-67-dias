@@ -18,8 +18,8 @@ describe('DuoAprendizado Module Data & Logic', () => {
   });
 
   describe('Units & Curriculum Structure', () => {
-    it('contains 10 comprehensive progressive units', () => {
-      expect(DUO_UNITS).toHaveLength(10);
+    it('contains 11 comprehensive progressive units (including Exploring JavaScript)', () => {
+      expect(DUO_UNITS).toHaveLength(11);
       DUO_UNITS.forEach((unit, idx) => {
         expect(unit.id).toBe(idx + 1);
         expect(unit.title).toBeTruthy();
@@ -43,7 +43,7 @@ describe('DuoAprendizado Module Data & Logic', () => {
 
   describe('Question Bank', () => {
     it('contains valid questions covering concepts with explanation and answers', () => {
-      expect(DUO_QUESTION_BANK.length).toBeGreaterThan(20);
+      expect(DUO_QUESTION_BANK.length).toBeGreaterThan(40);
 
       DUO_QUESTION_BANK.forEach((q) => {
         expect(q.id).toBeTruthy();
@@ -63,9 +63,18 @@ describe('DuoAprendizado Module Data & Logic', () => {
         }
       });
     });
+
+    it('covers all Exploring JavaScript Chapter 1 concepts in question bank', () => {
+      const concepts = DUO_QUESTION_BANK.map((q) => q.conceptId);
+      expect(concepts).toContain('exploring_devtools_repl');
+      expect(concepts).toContain('exploring_objects_optional_chaining');
+      expect(concepts).toContain('exploring_operators_expressions');
+      expect(concepts).toContain('exploring_functions_arrow');
+      expect(concepts).toContain('exploring_methods_classes');
+    });
   });
 
-  describe('Theory Wiki Database (including var research)', () => {
+  describe('Theory Wiki Database (including var research & David Flanagan Guide)', () => {
     it('contains thorough explanation of var, let and const with comparison table', () => {
       const varTheory = DUO_THEORY_DATABASE.find((t) => t.conceptId === 'variables_var_let_const');
       expect(varTheory).toBeDefined();
@@ -79,8 +88,10 @@ describe('DuoAprendizado Module Data & Logic', () => {
       expect(varTheory?.pitfalls.length).toBeGreaterThan(0);
     });
 
-    it('covers closures, promises, event loop and array methods', () => {
+    it('covers exploring devtools, closures, promises, event loop and array methods', () => {
       const concepts = DUO_THEORY_DATABASE.map((t) => t.conceptId);
+      expect(concepts).toContain('exploring_devtools_repl');
+      expect(concepts).toContain('exploring_objects_optional_chaining');
       expect(concepts).toContain('closures');
       expect(concepts).toContain('promises_basics');
       expect(concepts).toContain('event_loop_microtasks');

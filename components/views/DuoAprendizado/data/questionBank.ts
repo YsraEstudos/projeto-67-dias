@@ -1,11 +1,320 @@
 import { DuoQuestion } from '../types';
 
 export const DUO_QUESTION_BANK: DuoQuestion[] = [
-  // --- UNIDADE 1: FUNDAMENTOS & VARIÁVEIS ---
+  // =========================================================================
+  // --- UNIDADE 1: EXPLORANDO O JAVASCRIPT & TOUR INICIAL (DAVID FLANAGAN) ---
+  // =========================================================================
+
+  // --- NÓ 1: Ambientes, DevTools & Node REPL ---
+  {
+    id: 'q_exp_dev_1',
+    conceptId: 'exploring_devtools_repl',
+    unitId: 1,
+    type: 'choice',
+    title: 'Como abrir o console interativo de JavaScript no navegador para testar uma linha de código?',
+    options: [
+      'Pressionando F12 ou Ctrl+Shift+I (Windows/Linux) e indo para a aba Console',
+      'Pressionando Ctrl+Shift+N para abrir uma aba anônima',
+      'Digitando node run na barra de endereços do navegador',
+      'Pressionando Alt+F4'
+    ],
+    correctIndex: 0,
+    explanation: 'Conforme David Flanagan explica na seção 1.1, a forma mais rápida de testar código é no DevTools do navegador (F12 ou Ctrl+Shift+I / Cmd+Option+I) na aba Console.',
+    hint: 'Lembre-se do atalho de desenvolvedor padrão presente em todos os navegadores modernos.'
+  },
+  {
+    id: 'q_exp_dev_2',
+    conceptId: 'exploring_devtools_repl',
+    unitId: 1,
+    type: 'fill',
+    title: 'Complete a instrução universal para imprimir "Hello World!" no terminal do Node ou Console:',
+    codeSnippet: 'console._____("Hello World!");',
+    correctAnswer: 'log',
+    explanation: 'console.log() é a função padrão do JavaScript para exibir mensagens e valores tanto no Node.js quanto no Console do navegador.',
+    hint: 'Três letras: l _ g'
+  },
+  {
+    id: 'q_exp_dev_3',
+    conceptId: 'exploring_devtools_repl',
+    unitId: 1,
+    type: 'choice',
+    title: 'No REPL do Node.js, qual comando especial inicia o modo editor para digitar códigos multilinhas?',
+    options: [
+      '.editor',
+      '.multiline',
+      '.script',
+      '.code'
+    ],
+    correctIndex: 0,
+    explanation: 'O comando .editor no Node REPL permite entrar em modo de edição multilinhas sem que o interpretador tente avaliar cada Enter imediatamente.',
+    hint: 'Começa com ponto: .edi...'
+  },
+  {
+    id: 'q_exp_dev_4',
+    conceptId: 'exploring_devtools_repl',
+    unitId: 1,
+    type: 'choice',
+    title: 'Se você ficar preso em uma expressão incompleta no Node REPL, qual comando ou atalho cancela a instrução?',
+    options: [
+      '.break (ou Ctrl+C)',
+      '.kill',
+      '.cancel',
+      'Esc'
+    ],
+    correctIndex: 0,
+    explanation: 'O comando .break (ou atalho Ctrl+C) aborta a expressão em andamento e retorna ao prompt limpo.',
+    hint: 'Significa quebrar/interromper em inglês.'
+  },
+  {
+    id: 'q_exp_dev_5',
+    conceptId: 'exploring_devtools_repl',
+    unitId: 1,
+    type: 'output',
+    title: 'Nos exemplos do livro, o que significa um comentário no formato "// =>"?',
+    codeSnippet: '3 * 2 // => 6',
+    options: [
+      'Mostra o valor resultante retornado pela avaliação do código à esquerda',
+      'Indica um erro de compilação',
+      'É um operador especial do JavaScript',
+      'Indica que o código precisa ser importado'
+    ],
+    correctIndex: 0,
+    explanation: 'O autor David Flanagan usa // => para simular a resposta impressa por um console interativo após avaliar a expressão anterior.',
+    hint: 'Representa a saída produzida no console interativo.'
+  },
+
+  // --- NÓ 2: Objetos, Arrays & Optional Chaining (?.) ---
+  {
+    id: 'q_exp_obj_1',
+    conceptId: 'exploring_objects_optional_chaining',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual é o valor retornado ao acessar a propriedade topic do objeto?',
+    codeSnippet: 'let book = {\n  topic: "JavaScript",\n  edition: 7\n};\nconsole.log(book.topic);',
+    options: ['"JavaScript"', '7', 'undefined', 'null'],
+    correctIndex: 0,
+    explanation: 'A notação de ponto (book.topic) busca o valor mapeado pela chave "topic", retornando a string "JavaScript".',
+  },
+  {
+    id: 'q_exp_obj_2',
+    conceptId: 'exploring_objects_optional_chaining',
+    unitId: 1,
+    type: 'output',
+    title: 'O que o operador Optional Chaining (?.) retorna quando uma propriedade pai não existe?',
+    codeSnippet: 'let book = { topic: "JavaScript" };\nlet sect = book.contents?.ch01?.sect1;\nconsole.log(sect);',
+    options: ['undefined', 'null', 'TypeError', 'ReferenceError'],
+    correctIndex: 0,
+    explanation: 'O operador ?. avalia de forma segura: se book.contents for undefined, ele para a busca imediatamente e retorna undefined sem disparar um TypeError.',
+    hint: 'Em vez de quebrar a aplicação, ele retorna o valor padrão para propriedades inexistentes.'
+  },
+  {
+    id: 'q_exp_obj_3',
+    conceptId: 'exploring_objects_optional_chaining',
+    unitId: 1,
+    type: 'choice',
+    title: 'Qual outra sintaxe válida permite acessar o valor de "edition" em book como um array associativo?',
+    options: [
+      'book["edition"]',
+      'book{"edition"}',
+      'book->edition',
+      'book(edition)'
+    ],
+    correctIndex: 0,
+    explanation: 'Em JavaScript, propriedades de objetos podem ser acessadas tanto por ponto (book.edition) quanto por colchetes com string (book["edition"]).',
+  },
+  {
+    id: 'q_exp_obj_4',
+    conceptId: 'exploring_objects_optional_chaining',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual elemento é retornado pela fórmula canônica do último elemento de um array?',
+    codeSnippet: 'let primes = [2, 3, 5, 7];\nconsole.log(primes[primes.length - 1]);',
+    options: ['7', '5', '4', 'undefined'],
+    correctIndex: 0,
+    explanation: 'Como arrays têm índice base zero, primes.length é 4, e primes[3] é o último valor (7).',
+  },
+  {
+    id: 'q_exp_obj_5',
+    conceptId: 'exploring_objects_optional_chaining',
+    unitId: 1,
+    type: 'blocks',
+    title: 'Ordene os blocos para criar um array com 2 objetos de coordenadas (x e y):',
+    promptBlocks: ['let points = [', '{x: 0, y: 0}, ', '{x: 1, y: 1}', '];'],
+    correctOrder: ['let points = [', '{x: 0, y: 0}, ', '{x: 1, y: 1}', '];'],
+    explanation: 'Arrays e objetos podem ser aninhados livremente em JavaScript para representar estruturas ricas de dados.',
+  },
+
+  // --- NÓ 3: Expressões, Operadores & Coerção (+ e ===) ---
+  {
+    id: 'q_exp_ops_1',
+    conceptId: 'exploring_operators_expressions',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual é a saída comparativa entre soma de números e concatenação com strings?',
+    codeSnippet: 'console.log(3 + 2, "3" + "2");',
+    options: ['5 "32"', '"32" 5', '5 5', '"32" "32"'],
+    correctIndex: 0,
+    explanation: 'O operador + soma operandos numéricos (3 + 2 = 5), mas concatena se um deles for string ("3" + "2" = "32").',
+  },
+  {
+    id: 'q_exp_ops_2',
+    conceptId: 'exploring_operators_expressions',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual o valor final da variável count após as operações abreviadas?',
+    codeSnippet: 'let count = 0;\ncount += 2;\ncount *= 3;\nconsole.log(count);',
+    options: ['6', '5', '2', '0'],
+    correctIndex: 0,
+    explanation: 'count começa em 0. count += 2 torna count = 2. count *= 3 multiplica por 3, resultando em 6.',
+  },
+  {
+    id: 'q_exp_ops_3',
+    conceptId: 'exploring_operators_expressions',
+    unitId: 1,
+    type: 'output',
+    title: 'Como o JavaScript compara duas strings em termos relacionais?',
+    codeSnippet: 'console.log("two" > "three");',
+    options: ['true', 'false', 'NaN', 'TypeError'],
+    correctIndex: 0,
+    explanation: 'Strings são comparadas em ordem alfabética/Unicode caractere por caractere. Como "tw" vem após "th", a comparação resulta em true.',
+  },
+  {
+    id: 'q_exp_ops_4',
+    conceptId: 'exploring_operators_expressions',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual o resultado das operações booleanas combinadas?',
+    codeSnippet: 'let x = 2, y = 3;\nconsole.log((x === 2) && (y === 3));',
+    options: ['true', 'false', 'undefined', '2'],
+    correctIndex: 0,
+    explanation: 'Ambas as comparações são verdadeiras: (2 === 2) é true e (3 === 3) é true. Logo, true && true é true.',
+  },
+  {
+    id: 'q_exp_ops_5',
+    conceptId: 'exploring_operators_expressions',
+    unitId: 1,
+    type: 'fill',
+    title: 'Complete com o operador de desigualdade estrita sem coerção de tipos:',
+    codeSnippet: 'if (x _____ y) { console.log("x e y são diferentes em valor ou tipo"); }',
+    correctAnswer: '!==',
+    explanation: '!== é a negação da igualdade estrita ===, não realizando conversões implícitas de tipo.',
+    hint: 'Ponto de exclamação seguido de dois iguais: ! _ _'
+  },
+
+  // --- NÓ 4: Funções, Arrow Functions & Composição ---
+  {
+    id: 'q_exp_fn_1',
+    conceptId: 'exploring_functions_arrow',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual é o valor retornado pela invocação da função plus1?',
+    codeSnippet: 'function plus1(x) {\n  return x + 1;\n}\nlet y = 3;\nconsole.log(plus1(y));',
+    options: ['4', '3', 'undefined', '1'],
+    correctIndex: 0,
+    explanation: 'A função recebe 3 como argumento e calcula 3 + 1, retornando 4.',
+  },
+  {
+    id: 'q_exp_fn_2',
+    conceptId: 'exploring_functions_arrow',
+    unitId: 1,
+    type: 'blocks',
+    title: 'Ordene os blocos para criar uma Arrow Function concisa que eleva um número ao quadrado:',
+    promptBlocks: ['const square = ', 'x => ', 'x * x;'],
+    correctOrder: ['const square = ', 'x => ', 'x * x;'],
+    explanation: 'Arrow functions com apenas um parâmetro e uma expressão não exigem parênteses nem chaves nem a palavra return.',
+  },
+  {
+    id: 'q_exp_fn_3',
+    conceptId: 'exploring_functions_arrow',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual é o resultado da composição das duas funções em uma única expressão?',
+    codeSnippet: 'const plus1 = x => x + 1;\nconst square = x => x * x;\nlet y = 3;\nconsole.log(square(plus1(y)));',
+    options: ['16', '10', '12', '9'],
+    correctIndex: 0,
+    explanation: 'plus1(3) retorna 4. Em seguida, square(4) calcula 4 * 4, resultando em 16.',
+  },
+  {
+    id: 'q_exp_fn_4',
+    conceptId: 'exploring_functions_arrow',
+    unitId: 1,
+    type: 'choice',
+    title: 'Por que a Arrow Function "const dobrar = x => x * 2;" não precisa da instrução return?',
+    options: [
+      'Porque quando o corpo não tem chaves {}, o valor da expressão é retornado implicitamente',
+      'Porque ela altera diretamente a variável x na memória global',
+      'Porque arrow functions não podem retornar valores',
+      'Porque ela é compilada como um loop'
+    ],
+    correctIndex: 0,
+    explanation: 'Em arrow functions de expressão concisa (sem chaves), o retorno é implícito (concise body). Se você colocar chaves {}, o return explícito passa a ser obrigatório.',
+  },
+
+  // --- NÓ 5: Métodos, Contexto (this) & Classes ES6 ---
+  {
+    id: 'q_exp_meth_1',
+    conceptId: 'exploring_methods_classes',
+    unitId: 1,
+    type: 'choice',
+    title: 'Quando uma função é atribuída a uma propriedade de um objeto e chamada via notação de ponto, como a chamamos?',
+    options: [
+      'Método (Method)',
+      'Closure estática',
+      'Módulo global',
+      'Macro'
+    ],
+    correctIndex: 0,
+    explanation: 'Quando funções são vinculadas como propriedades de objetos, chamamos de métodos. Ao serem invocados, eles ganham acesso ao objeto pelo `this`.',
+  },
+  {
+    id: 'q_exp_meth_2',
+    conceptId: 'exploring_methods_classes',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual a distância euclidiana calculada pelo método dist usando a palavra-chave this?',
+    codeSnippet: 'let points = [\n  { x: 0, y: 0 },\n  { x: 3, y: 4 }\n];\npoints.dist = function() {\n  let p1 = this[0];\n  let p2 = this[1];\n  let a = p2.x - p1.x;\n  let b = p2.y - p1.y;\n  return Math.sqrt(a * a + b * b);\n};\nconsole.log(points.dist());',
+    options: ['5', '7', '25', '1'],
+    correctIndex: 0,
+    explanation: 'Dentro do método, `this` referencia o próprio array `points`. O cálculo de Pitágoras dá sqrt(3^2 + 4^2) = sqrt(9 + 16) = sqrt(25) = 5.',
+  },
+  {
+    id: 'q_exp_meth_3',
+    conceptId: 'exploring_methods_classes',
+    unitId: 1,
+    type: 'output',
+    title: 'Qual a soma final calculada ao iterar com o laço for...of sobre os valores do array?',
+    codeSnippet: 'let primes = [2, 3, 5, 7];\nlet sum = 0;\nfor (let n of primes) {\n  sum += n;\n}\nconsole.log(sum);',
+    options: ['17', '4', '6', '2357'],
+    correctIndex: 0,
+    explanation: 'for...of percorre diretamente cada valor numérico do array primes: 2 + 3 + 5 + 7 = 17.',
+  },
+  {
+    id: 'q_exp_meth_4',
+    conceptId: 'exploring_methods_classes',
+    unitId: 1,
+    type: 'blocks',
+    title: 'Ordene os blocos para declarar a classe Point com construtor em ES6:',
+    promptBlocks: ['class Point {', 'constructor(x, y) {', 'this.x = x; this.y = y;', '}', '}'],
+    correctOrder: ['class Point {', 'constructor(x, y) {', 'this.x = x; this.y = y;', '}', '}'],
+    explanation: 'Classes no ES6 utilizam a palavra-chave `class` e definem a inicialização de propriedades através do método `constructor`.',
+  },
+  {
+    id: 'q_exp_meth_5',
+    conceptId: 'exploring_methods_classes',
+    unitId: 1,
+    type: 'fill',
+    title: 'Complete com o operador usado para criar uma nova instância da classe Point:',
+    codeSnippet: 'let p = _____ Point(1, 2);',
+    correctAnswer: 'new',
+    explanation: 'O operador `new` instancia um novo objeto a partir de uma classe ou função construtora, executando seu construtor com o `this` vinculado.',
+    hint: 'Palavra em inglês que significa "novo".'
+  },
+
+  // --- UNIDADE 2: FUNDAMENTOS & VARIÁVEIS ---
   {
     id: 'q_var_1',
     conceptId: 'variables_var_let_const',
-    unitId: 1,
+    unitId: 2,
     type: 'choice',
     title: 'Qual palavra-chave declara uma variável com escopo de função que sofre içamento (hoisting) inicializado como undefined?',
     options: ['let', 'const', 'var', 'static'],
@@ -16,7 +325,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_var_2',
     conceptId: 'variables_var_let_const',
-    unitId: 1,
+    unitId: 2,
     type: 'choice',
     title: 'O que acontece ao tentar reatribuir um novo valor a uma variável declarada com const?',
     options: [
@@ -31,7 +340,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_prim_1',
     conceptId: 'primitives_types',
-    unitId: 1,
+    unitId: 2,
     type: 'output',
     title: 'Qual é o resultado exato impresso pela instrução abaixo?',
     codeSnippet: 'console.log(typeof null);',
@@ -42,7 +351,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_prim_2',
     conceptId: 'primitives_types',
-    unitId: 1,
+    unitId: 2,
     type: 'choice',
     title: 'Quais são todos os tipos primitivos nativos do JavaScript moderno?',
     options: [
@@ -57,7 +366,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_ops_1',
     conceptId: 'operators_equality',
-    unitId: 1,
+    unitId: 2,
     type: 'output',
     title: 'Qual é o valor booleano resultante da comparação abaixo?',
     codeSnippet: 'console.log(0 == false && 0 === false);',
@@ -68,7 +377,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_ops_2',
     conceptId: 'operators_equality',
-    unitId: 1,
+    unitId: 2,
     type: 'fill',
     title: 'Complete com o operador de igualdade estrita que não realiza coerção de tipos:',
     codeSnippet: 'if (valor _____ 42) { console.log("Idênticos em valor e tipo"); }',
@@ -78,7 +387,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_tmpl_1',
     conceptId: 'template_literals',
-    unitId: 1,
+    unitId: 2,
     type: 'blocks',
     title: 'Ordene os blocos para criar uma string interpolada com Template Literals:',
     promptBlocks: ['`Olá, ', '${nome}', '! Você tem ', '${idade} anos.`'],
@@ -86,11 +395,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: 'Template literals usam crases (`) e a sintaxe ${expressão} para interpolar variáveis de forma limpa e legível.',
   },
 
-  // --- UNIDADE 2: CONTROLE DE FLUXO & LÓGICA ---
+  // --- UNIDADE 3: CONTROLE DE FLUXO & LÓGICA ---
   {
     id: 'q_cond_1',
     conceptId: 'conditionals_if_else',
-    unitId: 2,
+    unitId: 3,
     type: 'fill',
     title: 'Complete a cláusula intermediária para testar uma condição secundária:',
     codeSnippet: 'if (pontos >= 90) { rank = "A"; }\n_____ (pontos >= 70) { rank = "B"; }\nelse { rank = "C"; }',
@@ -100,7 +409,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_switch_1',
     conceptId: 'switch_case',
-    unitId: 2,
+    unitId: 3,
     type: 'choice',
     title: 'Qual comando é fundamental dentro de cada cláusula case para impedir que a execução continue caindo nos cases seguintes?',
     options: ['continue', 'break', 'return', 'stop'],
@@ -110,7 +419,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_tern_1',
     conceptId: 'ternary_operator',
-    unitId: 2,
+    unitId: 3,
     type: 'output',
     title: 'Qual é o valor final atribuído à variável status?',
     codeSnippet: 'const idade = 17;\nconst status = idade >= 18 ? "Adulto" : "Menor";\nconsole.log(status);',
@@ -121,7 +430,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_nullish_1',
     conceptId: 'short_circuit_coalescing',
-    unitId: 2,
+    unitId: 3,
     type: 'output',
     title: 'Qual é a diferença de comportamento entre || e ?? neste caso?',
     codeSnippet: 'const contagem = 0;\nconst a = contagem || 10;\nconst b = contagem ?? 10;\nconsole.log(a, b);',
@@ -130,11 +439,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: 'O operador || considera 0 como falsy e retorna 10. O operador ?? (Nullish Coalescing) só avalia se for null ou undefined, mantendo o 0!',
   },
 
-  // --- UNIDADE 3: FUNÇÕES & ARROW FUNCTIONS ---
+  // --- UNIDADE 4: FUNÇÕES & ARROW FUNCTIONS ---
   {
     id: 'q_func_1',
     conceptId: 'function_basics',
-    unitId: 3,
+    unitId: 4,
     type: 'choice',
     title: 'Qual a principal diferença no içamento (hoisting) entre declaração de função e expressão de função?',
     options: [
@@ -149,7 +458,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_arrow_1',
     conceptId: 'arrow_functions',
-    unitId: 3,
+    unitId: 4,
     type: 'blocks',
     title: 'Ordene os blocos para criar uma Arrow Function com retorno implícito que calcula o quadrado:',
     promptBlocks: ['const quadrado = ', 'x => ', 'x * x;'],
@@ -159,7 +468,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_rest_1',
     conceptId: 'default_rest_params',
-    unitId: 3,
+    unitId: 4,
     type: 'fill',
     title: 'Complete com o operador Rest para coletar todos os argumentos restantes em um array real:',
     codeSnippet: 'function somarTudo(primeiro, _____outros) {\n  return primeiro + outros.reduce((a, b) => a + b, 0);\n}',
@@ -169,7 +478,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_pure_1',
     conceptId: 'pure_functions',
-    unitId: 3,
+    unitId: 4,
     type: 'choice',
     title: 'O que define uma Função Pura (Pure Function)?',
     options: [
@@ -182,11 +491,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: 'Funções puras são determinísticas e livres de side effects (não alteram variáveis globais, DOM ou mutações externas).',
   },
 
-  // --- UNIDADE 4: ESTRUTURAS DE DADOS (ARRAYS & OBJETOS) ---
+  // --- UNIDADE 5: ESTRUTURAS DE DADOS (ARRAYS & OBJETOS) ---
   {
     id: 'q_arr_1',
     conceptId: 'array_methods_basic',
-    unitId: 4,
+    unitId: 5,
     type: 'choice',
     title: 'Qual método remove e retorna o PRIMEIRO elemento de um array?',
     options: ['pop()', 'shift()', 'unshift()', 'splice()'],
@@ -196,7 +505,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_obj_1',
     conceptId: 'objects_properties',
-    unitId: 4,
+    unitId: 5,
     type: 'output',
     title: 'Qual propriedade é acessada com segurança usando Optional Chaining (?.):',
     codeSnippet: 'const usuario = { perfil: null };\nconsole.log(usuario.perfil?.endereco?.rua || "Sem rua");',
@@ -207,7 +516,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_loop_1',
     conceptId: 'loops_for_of_in',
-    unitId: 4,
+    unitId: 5,
     type: 'choice',
     title: 'Qual a diferença entre for...of e for...in?',
     options: [
@@ -222,7 +531,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_destruct_1',
     conceptId: 'destructuring_spread',
-    unitId: 4,
+    unitId: 5,
     type: 'blocks',
     title: 'Ordene os blocos para desestruturar nome e idade com valor padrão de um objeto:',
     promptBlocks: ['const { ', 'nome, ', 'idade = 18 ', '} = usuario;'],
@@ -230,11 +539,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: 'A desestruturação permite extrair campos de objetos com suporte a valores de fallback padrão.',
   },
 
-  // --- UNIDADE 5: PROGRAMAÇÃO FUNCIONAL COM ARRAYS ---
+  // --- UNIDADE 6: PROGRAMAÇÃO FUNCIONAL COM ARRAYS ---
   {
     id: 'q_map_1',
     conceptId: 'array_map',
-    unitId: 5,
+    unitId: 6,
     type: 'output',
     title: 'Qual é o novo array gerado pela operação de mapeamento?',
     codeSnippet: 'const numeros = [1, 2, 3];\nconst dobrados = numeros.map(n => n * 2);\nconsole.log(dobrados);',
@@ -245,7 +554,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_filter_1',
     conceptId: 'array_filter',
-    unitId: 5,
+    unitId: 6,
     type: 'fill',
     title: 'Complete com o método funcional para reter apenas strings com mais de 4 caracteres:',
     codeSnippet: 'const longas = palavras._____(p => p.length > 4);',
@@ -255,7 +564,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_reduce_1',
     conceptId: 'array_reduce',
-    unitId: 5,
+    unitId: 6,
     type: 'output',
     title: 'Qual é o valor final acumulado pelo reduce?',
     codeSnippet: 'const itens = [{ preco: 10 }, { preco: 25 }, { preco: 15 }];\nconst total = itens.reduce((acc, item) => acc + item.preco, 0);\nconsole.log(total);',
@@ -266,7 +575,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_chain_1',
     conceptId: 'method_chaining',
-    unitId: 5,
+    unitId: 6,
     type: 'choice',
     title: 'Qual método é ideal para encontrar o PRIMEIRO item que atende a um critério e parar a busca imediatamente?',
     options: ['.filter()', '.find()', '.map()', '.forEach()'],
@@ -274,11 +583,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: '.find() retorna o primeiro elemento correspondente e encerra a iteração imediatamente (curto-circuito).',
   },
 
-  // --- UNIDADE 6: ESCOPO, CLOSURES & CONTEXTO (THIS) ---
+  // --- UNIDADE 7: ESCOPO, CLOSURES & CONTEXTO (THIS) ---
   {
     id: 'q_scope_1',
     conceptId: 'scope_lexical',
-    unitId: 6,
+    unitId: 7,
     type: 'choice',
     title: 'O que define a Zona Morta Temporal (Temporal Dead Zone - TDZ) com let e const?',
     options: [
@@ -293,7 +602,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_closure_1',
     conceptId: 'closures',
-    unitId: 6,
+    unitId: 7,
     type: 'output',
     title: 'Qual será a saída do contador criado pela closure?',
     codeSnippet: 'function criarContador() {\n  let count = 0;\n  return () => ++count;\n}\nconst c = criarContador();\nc();\nconsole.log(c());',
@@ -304,7 +613,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_this_1',
     conceptId: 'this_binding',
-    unitId: 6,
+    unitId: 7,
     type: 'choice',
     title: 'Como o contexto this é resolvido dentro de uma Arrow Function?',
     options: [
@@ -319,7 +628,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_bind_1',
     conceptId: 'call_apply_bind',
-    unitId: 6,
+    unitId: 7,
     type: 'choice',
     title: 'Qual a principal diferença entre .call() e .bind()?',
     options: [
@@ -332,11 +641,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: '.call(thisArg, arg1, arg2) executa na hora. .bind(thisArg) cria uma função vinculada permanente.',
   },
 
-  // --- UNIDADE 7: ORIENTAÇÃO A OBJETOS & CLASSES ES6 ---
+  // --- UNIDADE 8: ORIENTAÇÃO A OBJETOS & CLASSES ES6 ---
   {
     id: 'q_cls_1',
     conceptId: 'classes_es6',
-    unitId: 7,
+    unitId: 8,
     type: 'fill',
     title: 'Complete com o nome do método especial executado na instanciação de uma classe:',
     codeSnippet: 'class Carro {\n  _____(modelo) {\n    this.modelo = modelo;\n  }\n}',
@@ -346,7 +655,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_priv_1',
     conceptId: 'private_fields',
-    unitId: 7,
+    unitId: 8,
     type: 'fill',
     title: 'Qual prefixo de caractere define nativamente um campo privado e inacessível fora da classe?',
     codeSnippet: 'class Conta {\n  _____saldo = 100;\n}',
@@ -356,7 +665,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_inherit_1',
     conceptId: 'inheritance_super',
-    unitId: 7,
+    unitId: 8,
     type: 'choice',
     title: 'Em uma classe filha que estende outra, o que DEVE ser chamado no construtor antes de usar this?',
     options: ['parent()', 'super()', 'base()', 'this.super()'],
@@ -366,7 +675,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_proto_1',
     conceptId: 'prototypes_prototype_chain',
-    unitId: 7,
+    unitId: 8,
     type: 'choice',
     title: 'Como funciona a herança prototípica no JavaScript?',
     options: [
@@ -379,11 +688,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: 'A Prototype Chain conecta objetos a protótipos pais. Se a busca falhar até Object.prototype.__proto__ (null), retorna undefined.',
   },
 
-  // --- UNIDADE 8: ASSINCRONISMO & EVENT LOOP ---
+  // --- UNIDADE 9: ASSINCRONISMO & EVENT LOOP ---
   {
     id: 'q_prom_1',
     conceptId: 'promises_basics',
-    unitId: 8,
+    unitId: 9,
     type: 'choice',
     title: 'Quais são os 3 estados possíveis de uma Promise em JavaScript?',
     options: [
@@ -398,7 +707,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_async_1',
     conceptId: 'async_await',
-    unitId: 8,
+    unitId: 9,
     type: 'fill',
     title: 'Complete a palavra-chave para pausar a execução da função até que a Promise seja resolvida:',
     codeSnippet: 'async function buscarDados() {\n  const res = _____ fetch("/api/dados");\n  return res.json();\n}',
@@ -408,7 +717,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_comb_1',
     conceptId: 'promise_combinators',
-    unitId: 8,
+    unitId: 9,
     type: 'choice',
     title: 'Qual método espera TODAS as promises resolverem, mesmo que algumas sejam rejeitadas, retornando o status de cada uma?',
     options: ['Promise.all()', 'Promise.race()', 'Promise.allSettled()', 'Promise.any()'],
@@ -418,7 +727,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_evl_1',
     conceptId: 'event_loop_microtasks',
-    unitId: 8,
+    unitId: 9,
     type: 'output',
     title: 'Qual a ordem exata de impressão dos números no console?',
     codeSnippet: 'console.log(1);\nsetTimeout(() => console.log(2), 0);\nPromise.resolve().then(() => console.log(3));\nconsole.log(4);',
@@ -427,11 +736,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: 'Síncrono executa primeiro (1, 4). Em seguida a fila de Microtasks (Promise: 3) é esvaziada. Por fim, a Macrotask do setTimeout (2) roda.',
   },
 
-  // --- UNIDADE 9: DOM, EVENTOS & WEB APIS ---
+  // --- UNIDADE 10: DOM, EVENTOS & WEB APIS ---
   {
     id: 'q_dom_1',
     conceptId: 'dom_selection_manipulation',
-    unitId: 9,
+    unitId: 10,
     type: 'choice',
     title: 'Qual método moderno seleciona o primeiro elemento que coincide com um seletor CSS?',
     options: ['document.querySelector()', 'document.getElement()', 'document.find()', 'document.search()'],
@@ -441,7 +750,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_evt_1',
     conceptId: 'event_listeners_bubbling',
-    unitId: 9,
+    unitId: 10,
     type: 'choice',
     title: 'O que faz o método event.stopPropagation() em um manipulador de evento?',
     options: [
@@ -456,7 +765,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_stor_1',
     conceptId: 'localstorage_storage',
-    unitId: 9,
+    unitId: 10,
     type: 'blocks',
     title: 'Ordene os blocos para serializar e salvar um objeto no LocalStorage:',
     promptBlocks: ['localStorage.setItem(', '"user", ', 'JSON.stringify(usuario)', ');'],
@@ -466,7 +775,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_fetch_1',
     conceptId: 'fetch_api',
-    unitId: 9,
+    unitId: 10,
     type: 'fill',
     title: 'Complete com o método para converter o corpo da resposta HTTP em objeto JavaScript:',
     codeSnippet: 'const resposta = await fetch("https://api.exemplo.com/item");\nconst dados = await resposta._____();',
@@ -474,11 +783,11 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     explanation: '.json() lê o stream da resposta e faz o parse assíncrono para objetos JavaScript.',
   },
 
-  // --- UNIDADE 10: COLEÇÕES MODERNAS & METAPROGRAMAÇÃO ---
+  // --- UNIDADE 11: COLEÇÕES MODERNAS & METAPROGRAMAÇÃO ---
   {
     id: 'q_set_1',
     conceptId: 'map_set_collections',
-    unitId: 10,
+    unitId: 11,
     type: 'output',
     title: 'Qual é o tamanho do Set após a inserção dos elementos duplicados?',
     codeSnippet: 'const colecao = new Set([1, 2, 2, 3, 3, 3, 4]);\nconsole.log(colecao.size);',
@@ -489,7 +798,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_deb_1',
     conceptId: 'debounce_throttle',
-    unitId: 10,
+    unitId: 11,
     type: 'choice',
     title: 'Qual é o objetivo primordial da técnica de Debounce?',
     options: [
@@ -504,7 +813,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_prx_1',
     conceptId: 'proxy_reflect',
-    unitId: 10,
+    unitId: 11,
     type: 'choice',
     title: 'O que é um objeto Proxy no JavaScript?',
     options: [
@@ -519,7 +828,7 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
   {
     id: 'q_poly_1',
     conceptId: 'polyfills_modern_js',
-    unitId: 10,
+    unitId: 11,
     type: 'choice',
     title: 'O que é um Polyfill no ecossistema JavaScript?',
     options: [
