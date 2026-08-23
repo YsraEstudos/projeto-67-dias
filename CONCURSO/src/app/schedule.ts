@@ -310,11 +310,13 @@ export const applyManualBlockReschedules = (
       continue;
     }
 
-    const [failedBlock] = sourceBlocks.splice(blockIndex, 1);
-    const nextManualIndex = findNextCompatibleManualPlanIndex(plans, sourceIndex, failedBlock);
+    const targetBlock = sourceBlocks[blockIndex];
+    const nextManualIndex = findNextCompatibleManualPlanIndex(plans, sourceIndex, targetBlock);
     if (nextManualIndex < 0) {
       continue;
     }
+
+    const [failedBlock] = sourceBlocks.splice(blockIndex, 1);
 
     const targetPlan = cloneManualPlan(plans[nextManualIndex]);
     const targetBlocks = targetPlan.manualBlocks ?? [];

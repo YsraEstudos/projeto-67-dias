@@ -923,17 +923,56 @@ export const CleanConcursoPage = () => {
                     const isDone = event.status === 'done';
                     const isFailed = event.status === 'failed';
                     const eventSubmatters = getCalendarEventSubmatters(event);
-                    const canFail = event.block !== null || event.kind === 'failed';
-                    const isRescheduled = (failedBlocksByDate[event.date] ?? 0) > 0;
+                    const canFail = event.block !== null;
+
+                    if (event.kind === 'failed') {
+                      return (
+                        <article
+                          className="clean-task-card tone-failed failed"
+                          key={event.id}
+                        >
+                          <div>
+                            <div className="clean-task-area-row">
+                              <span className="clean-task-area is-failed">
+                                Realocado
+                              </span>
+                              <span className="clean-status-pill status-failed">
+                                Falhou
+                              </span>
+                            </div>
+                            <h3>{event.title}</h3>
+                            <p>{event.subtitle}</p>
+                            <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8' }}>
+                              Matéria que falhou nesta data e foi realocada para o próximo dia disponível.
+                            </small>
+                          </div>
+                          <div className="clean-task-actions" style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              className="clean-fail-button"
+                              onClick={() => handleCalendarFailure(event)}
+                            >
+                              <RotateCcw size={15} />
+                              Desfazer falha
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    }
+
+                    const isRated = eventSubmatters[0]?.submatter.lastReviewedAt !== null;
+                    const subjectClass = event.block
+                      ? `subject-${inferManualBlockSubject(event.block) ?? event.tone}`
+                      : `subject-${event.tone}`;
 
                     return (
                       <article
-                        className={`clean-task-card tone-${event.tone} ${isDone ? 'completed' : ''} ${isFailed ? 'failed' : ''} ${isRescheduled ? 'is-rescheduled' : ''}`}
+                        className={`clean-task-card tone-${event.tone} ${isDone ? 'completed' : ''} ${isFailed ? 'failed' : ''}`}
                         key={event.id}
                       >
                         <div>
                           <div className="clean-task-area-row">
-                            <span className={`clean-task-area ${isDone ? 'is-completed' : (isFailed ? 'is-failed' : `subject-${event.tone}`)}`}>
+                            <span className={`clean-task-area ${isDone ? 'is-completed' : (isFailed ? 'is-failed' : subjectClass)}`}>
                               {isDone && <CheckCircle2 size={12} style={{ marginRight: '4px', display: 'inline' }} />}
                               {calendarToneLabel[event.tone] ?? event.tone}
                               {isDone ? ' (Concluído)' : ''}
@@ -1017,7 +1056,7 @@ export const CleanConcursoPage = () => {
                                 onClick={() => handleCalendarFailure(event)}
                               >
                                 <XCircle size={15} />
-                                {event.kind === 'failed' ? 'Desfazer falha' : 'Falhei'}
+                                Falhei
                               </button>
                             )}
                           </div>
@@ -1033,10 +1072,10 @@ export const CleanConcursoPage = () => {
                                 )}
                               </span>
                               <div className="clean-srs-buttons-row">
-                                <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${eventSubmatters[0]?.submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'bad', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Errei</button>
-                                <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${eventSubmatters[0]?.submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'hard', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Difícil</button>
-                                <button type="button" className={`clean-btn-srs clean-btn-srs-good ${eventSubmatters[0]?.submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'good', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Bom</button>
-                                <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${eventSubmatters[0]?.submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'easy', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Fácil</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${isRated && eventSubmatters[0]?.submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'bad', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Errei</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${isRated && eventSubmatters[0]?.submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'hard', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Difícil</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-good ${isRated && eventSubmatters[0]?.submatter.grade === 'B' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'good', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Bom</button>
+                                <button type="button" className={`clean-btn-srs clean-btn-srs-easy ${isRated && eventSubmatters[0]?.submatter.grade === 'A' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'easy', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Fácil</button>
                               </div>
                             </div>
                           )}

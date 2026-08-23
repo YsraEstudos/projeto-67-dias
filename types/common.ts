@@ -18,6 +18,7 @@ export enum ViewState {
   CONCURSO = 'CONCURSO',
   POMODORO = 'POMODORO',
   AULAS = 'AULAS',
+  DUOAPRENDIZADO = 'DUOAPRENDIZADO',
 }
 
 export type AppTheme = 'default' | 'amoled';

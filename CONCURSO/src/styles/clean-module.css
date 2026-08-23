@@ -602,9 +602,10 @@
   padding: 18px;
 }
 
-.clean-task-card.is-rescheduled {
-  border-color: rgba(248, 113, 113, 0.28);
-  background: rgba(127, 29, 29, 0.12);
+.clean-task-card.failed,
+.clean-task-card.tone-failed {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(127, 29, 29, 0.14);
 }
 
 .clean-task-area-row {
@@ -1840,7 +1841,24 @@
   color: #34d399;
 }
 
+.clean-task-area.is-failed {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
 /* Subject Specific Colors for clean-task-area */
+.clean-task-area.subject-study {
+  background: rgba(34, 211, 238, 0.15);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: #22d3ee;
+}
+
+.clean-task-area.subject-review {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
 .clean-task-area.subject-portugues {
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.3);

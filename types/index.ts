@@ -18,3 +18,4 @@ export * from './competition';
 export * from './aulas';
 export * from './games';
 export * from './journey';
+export * from './duoAprendizado';
