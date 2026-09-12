@@ -209,4 +209,33 @@ describe('buildDayPlans', () => {
     const allBlocks = rescheduled.flatMap((plan) => plan.manualBlocks ?? []);
     expect(allBlocks.length).toBe(plans.flatMap((plan) => plan.manualBlocks ?? []).length);
   });
+
+  it('nunca desloca blocos futuros para dias passados quando today e fornecido', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const pastDate = '2026-08-25';
+    const today = '2026-08-27';
+
+    const pastPlan = plans.find((p) => p.date === pastDate)!;
+    const blockToFail = pastPlan.manualBlocks![0];
+
+    const failures = [
+      {
+        id: 'fail-past',
+        failedAt: pastDate,
+        blockId: blockToFail.id,
+        createdAt: `${pastDate}T20:00:00.000Z`,
+        block: blockToFail,
+      },
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, failures, today);
+    const updatedPastPlan = rescheduled.find((p) => p.date === pastDate)!;
+
+    // The past day must only have the remaining blocks, not any new block from the future
+    for (const block of updatedPastPlan.manualBlocks ?? []) {
+      const wasOriginallyInPastPlan = pastPlan.manualBlocks?.some((b) => b.id === block.id);
+      expect(wasOriginallyInPastPlan).toBe(true);
+    }
+  });
 });
+

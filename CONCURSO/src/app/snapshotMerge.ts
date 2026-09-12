@@ -20,8 +20,18 @@ function asEntityArray(val: unknown): EntityRecord[] {
 }
 
 function getTimestamp(val: unknown): number {
-  if (!isObject(val) || typeof val.updatedAt !== 'string') return 0;
-  return Date.parse(val.updatedAt);
+  if (!val || typeof val !== 'object') return 0;
+  if (Array.isArray(val)) {
+    return val.reduce<number>((max, item) => Math.max(max, getTimestamp(item)), 0);
+  }
+  const record = val as Record<string, unknown>;
+  for (const key of ['updatedAt', 'createdAt', 'failedAt', 'lastReviewedAt', 'date']) {
+    if (typeof record[key] === 'string') {
+      const parsed = Date.parse(record[key] as string);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+  }
+  return 0;
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -200,6 +210,13 @@ export function mergeSnapshots(
   // 3. Scalar/Config domains
   const configDomains: (keyof AppState)[] = ['planSettings', 'ankiConfig', 'ankiStats', 'shellUi'];
 
+  const localTime = localState.meta?.lastChangedAt
+    ? Date.parse(localState.meta.lastChangedAt)
+    : (local.exportedAt ? Date.parse(local.exportedAt) : 0);
+  const remoteTime = remoteState.meta?.lastChangedAt
+    ? Date.parse(remoteState.meta.lastChangedAt)
+    : (remote.exportedAt ? Date.parse(remote.exportedAt) : 0);
+
   for (const domain of configDomains) {
     const bVal = baseState?.[domain];
     const lVal = localState[domain];
@@ -212,15 +229,44 @@ export function mergeSnapshots(
     } else if (bVal !== undefined && deepEqual(rVal, bVal)) {
       Object.assign(mergedState, { [domain]: lVal });
     } else {
-      Object.assign(mergedState, { [domain]: lVal });
-      conflicts.push({
-        id: `conflict-${domain}`,
-        path: `appState.${domain}`,
-        baseValue: bVal,
-        localValue: lVal,
-        remoteValue: rVal,
-        detectedAt: Date.now(),
-      });
+      let chosenVal = lVal;
+      let hasGenuineConflict = bVal !== undefined;
+
+      if (domain === 'planSettings') {
+        const lSettings = lVal as AppState['planSettings'];
+        const rSettings = rVal as AppState['planSettings'];
+        const lCount = lSettings?.startDateChangeCount ?? 0;
+        const rCount = rSettings?.startDateChangeCount ?? 0;
+
+        if (rCount > lCount) {
+          chosenVal = rVal;
+          hasGenuineConflict = false;
+        } else if (lCount > rCount) {
+          chosenVal = lVal;
+          hasGenuineConflict = false;
+        } else if (remoteTime >= localTime) {
+          chosenVal = rVal;
+        } else {
+          chosenVal = lVal;
+        }
+      } else if (remoteTime >= localTime) {
+        chosenVal = rVal;
+      } else {
+        chosenVal = lVal;
+      }
+
+      Object.assign(mergedState, { [domain]: chosenVal });
+
+      if (hasGenuineConflict) {
+        conflicts.push({
+          id: `conflict-${domain}`,
+          path: `appState.${domain}`,
+          baseValue: bVal,
+          localValue: lVal,
+          remoteValue: rVal,
+          detectedAt: Date.now(),
+        });
+      }
     }
   }
 
@@ -231,11 +277,17 @@ export function mergeSnapshots(
 
   mergedState.conflicts = finalConflicts;
 
+  const localChangedAt = localState.meta?.lastChangedAt ?? local.exportedAt ?? null;
+  const remoteChangedAt = remoteState.meta?.lastChangedAt ?? remote.exportedAt ?? null;
+  const localChangedTime = localChangedAt ? Date.parse(localChangedAt) : 0;
+  const remoteChangedTime = remoteChangedAt ? Date.parse(remoteChangedAt) : 0;
+  const resolvedLastChangedAt = localChangedTime >= remoteChangedTime ? localChangedAt : remoteChangedAt;
+
   const exportedAt = new Date().toISOString();
   mergedState.meta = {
     ...mergedState.meta,
-    changeToken: (mergedState.meta?.changeToken || 0) + 1,
-    lastChangedAt: exportedAt,
+    changeToken: Math.max(localState.meta?.changeToken || 0, remoteState.meta?.changeToken || 0) + 1,
+    lastChangedAt: resolvedLastChangedAt ?? exportedAt,
   };
 
   const mergedSnapshot: AppSnapshot = {

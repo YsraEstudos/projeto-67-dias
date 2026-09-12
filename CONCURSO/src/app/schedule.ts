@@ -286,6 +286,7 @@ const findNextCompatibleManualPlanIndex = (
 export const applyManualBlockReschedules = (
   dayPlans: DayPlan[],
   manualBlockReschedules: ManualBlockReschedule[] = [],
+  today?: string,
 ): DayPlan[] => {
   if (manualBlockReschedules.length === 0) {
     return dayPlans;
@@ -323,9 +324,11 @@ export const applyManualBlockReschedules = (
     const targetCapacity = capacities.get(targetPlan.date) ?? targetBlocks.length;
 
     if (targetBlocks.length >= targetCapacity) {
-      const displacedBlock = targetBlocks.pop() ?? null;
-      if (displacedBlock) {
-        sourceBlocks.push(displacedBlock);
+      if (!today || sourcePlan.date >= today) {
+        const displacedBlock = targetBlocks.pop() ?? null;
+        if (displacedBlock) {
+          sourceBlocks.push(displacedBlock);
+        }
       }
     }
     targetBlocks.unshift(failedBlock);
@@ -347,10 +350,11 @@ export const buildDayPlans = (
   planStartDate: string = START_DATE,
   manualBlockReschedules: ManualBlockReschedule[] = [],
   restWeekday: PlanSettings['restWeekday'] = 0,
+  today?: string,
 ): DayPlan[] => {
   const automaticPlans = buildAutomaticDayPlans(planStartDate, restWeekday);
   const dayPlans = applyManualOverrides(automaticPlans, planStartDate);
-  return applyManualBlockReschedules(dayPlans, manualBlockReschedules);
+  return applyManualBlockReschedules(dayPlans, manualBlockReschedules, today);
 };
 
 export const buildMonthlyTargetsFromDayPlans = (

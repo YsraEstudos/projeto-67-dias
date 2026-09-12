@@ -769,4 +769,653 @@ usuarioValidado.idade = 26; // Sucesso: console "Propriedade idade alterada para
     tags: ['proxy', 'reflect', 'metaprogramacao', 'reatividade', 'validacao', 'avancado'],
     relatedConcepts: ['objects_properties', 'classes_es6'],
   },
+  // ==========================================
+  // UNIDADE 12: ARQUITETURA DE SCRIPTS, BOOTSTRAP & IDEMPOTÊNCIA NO DOM
+  // ==========================================
+  {
+    id: 'th_script_bootstrap_lifecycle',
+    conceptId: 'script_bootstrap_lifecycle',
+    unitId: 12,
+    title: 'Bootstrap (Inicialização) & Ciclo de Vida do DOM',
+    category: 'DOM & Web',
+    summary: 'Aprenda o padrão de inicialização (Bootstrap) seguro para scripts de navegador e extensões, controlando document.readyState e DOMContentLoaded para evitar erros de execução antecipada ou tardia.',
+    whatIsIt: `O **Bootstrap (Inicialização)** é o ponto de partida do seu script: a função mestra que "monta" o seu painel, instancia seus controladores, cria botões e coloca tudo no lugar correto da página.
+
+### O Desafio do Ciclo de Vida do DOM
+Um userscript ou extensão pode ser injetado em momentos imprevisíveis pelo navegador:
+1. **\`document.readyState === 'loading'\`**: O HTML ainda está sendo baixado e analisado. Elementos essenciais como \`document.body\` podem ser \`null\`!
+2. **\`document.readyState === 'interactive'\`**: O HTML foi totalmente parseado e a árvore DOM está montada (dispara o evento \`DOMContentLoaded\`).
+3. **\`document.readyState === 'complete'\`**: Todos os recursos adicionais (imagens, stylesheets, iframes) foram baixados (dispara \`window.onload\`).
+
+### O Padrão Canônico Seguro de Bootstrap:
+\`\`\`javascript
+if (document.readyState === 'loading') {
+  // O DOM ainda está carregando: aguarde o evento DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', start, { once: true });
+} else {
+  // O DOM já está pronto (interactive ou complete): execute imediatamente!
+  start();
+}
+\`\`\`
+
+> **Por que usar \`{ once: true }\`?**
+> A opção \`{ once: true }\` faz com que o navegador remova o ouvinte automaticamente da memória assim que ele dispara a primeira vez, evitando ouvintes fantasmas e vazamentos de memória.`,
+    whyItMatters: `* Se você apenas adicionar \`document.addEventListener('DOMContentLoaded', start)\` quando a página já terminou de carregar, **o evento nunca irá disparar** e seu script ficará travado em silêncio.
+* Se você tentar executar \`start()\` imediatamente sem verificar se o estado é \`loading\`, o script tentará acessar \`document.body\` e lançará um erro fatal: \`Cannot read properties of null\`.
+* O padrão de verificação dupla garante que o script funcione perfeitamente em qualquer momento de injeção (\`@run-at document-start\`, \`document-end\` ou \`document-idle\`).`,
+    comparison: {
+      headers: ['Estado (readyState)', 'O que está pronto no navegador?', 'Ação correta do script'],
+      rows: [
+        {
+          feature: "'loading'",
+          values: {
+            'Estado (readyState)': 'HTML inicial em download',
+            'O que está pronto no navegador?': 'Apenas o objeto document raiz (body pode ser null)',
+            'Ação correta do script': "Adicionar listener DOMContentLoaded com { once: true }",
+          },
+        },
+        {
+          feature: "'interactive'",
+          values: {
+            'Estado (readyState)': 'Árvore DOM completa montada',
+            'O que está pronto no navegador?': 'document.body e todos os elementos HTML presentes',
+            'Ação correta do script': 'Executar start() imediatamente',
+          },
+        },
+        {
+          feature: "'complete'",
+          values: {
+            'Estado (readyState)': 'Página 100% carregada',
+            'O que está pronto no navegador?': 'Imagens, fontes, CSS e scripts externos prontos',
+            'Ação correta do script': 'Executar start() imediatamente',
+          },
+        },
+      ],
+    },
+    codeExamples: [
+      {
+        title: '1. Padrão Universal de Inicialização Segura',
+        code: `function start() {
+  console.log('🚀 Script inicializado com sucesso no nó:', document.body);
+}
+
+// Inicialização segura compatível com qualquer momento de injeção:
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', start, { once: true });
+} else {
+  start();
+}`,
+        explanation: 'Se a página já carregou, executa imediatamente; caso contrário, aguarda o DOM ficar pronto com descarte automático do listener.',
+      },
+    ],
+    pitfalls: [
+      "Registrar addEventListener('DOMContentLoaded', start) sem testar readyState: se o script rodar após o carregamento, a função nunca será chamada.",
+      "Tentar manipular document.body no topo do arquivo fora da função start().",
+    ],
+    tags: ['bootstrap', 'dom', 'readystate', 'domcontentloaded', 'ciclo-de-vida', 'userscripts', 'extensoes'],
+    relatedConcepts: ['idempotency_golden_rule', 'spa_dom_mutation_observer'],
+  },
+  {
+    id: 'th_idempotency_golden_rule',
+    conceptId: 'idempotency_golden_rule',
+    unitId: 12,
+    title: 'Idempotência & A Regra de Ouro (O Interruptor de Luz)',
+    category: 'Avançado',
+    summary: 'Entenda a propriedade de idempotência no desenvolvimento frontend: executar uma ação 1 vez ou 100 vezes gera exatamente o mesmo resultado final sem duplicar elementos nem criar efeitos colaterais.',
+    whatIsIt: `**Idempotente (A Regra de Ouro)**: É uma propriedade onde executar uma ação 1 vez ou 100 vezes gera exatamente o mesmo resultado final, sem efeitos colaterais indesejados.
+
+💡 **Analogia do mundo real**: 
+> Apertar o interruptor para "Acender a luz". Se a luz já estiver acesa e você mandar "acender", nada muda (continua apenas uma luz acesa). Não surgem 2 ou 3 lâmpadas mágicas.
+
+---
+
+### O Perigo da Falta de Idempotência no DOM
+Em páginas web dinâmicas, funções de inicialização podem ser chamadas múltiplas vezes (por eventos de rota, mutações do DOM ou recarregamento parcial). 
+
+Se uma função \`start()\` não for idempotente:
+* Ela criará **5 barras laterais** se for chamada 5 vezes.
+* Ela registrará **5 botões repetidos** na tela.
+* Ela duplicará event listeners, disparando a mesma ação várias vezes a cada clique do usuário!
+
+---
+
+### As 3 Guardas de Idempotência no Código:
+
+#### 1. Guarda Singleton da Instância do App
+\`\`\`typescript
+let app: SinSidebarApp | null = null;
+
+function start(): void {
+  // REGRA DE OURO: Se a aplicação já foi montada, saia imediatamente!
+  if (app) return;
+
+  if (!shouldBootstrapSinSidebar()) {
+    scheduleBootstrapObserver();
+    return;
+  }
+
+  cleanupBootstrapObserver();
+  app = new SinSidebarApp();
+  app.init();
+}
+\`\`\`
+
+#### 2. Guarda do Agendador de Observação
+\`\`\`typescript
+function scheduleBootstrapObserver(): void {
+  // Se o app já existe OU já há um observador ativo, não crie outro!
+  if (app || bootstrapObserver) return;
+  ...
+}
+\`\`\`
+
+#### 3. Padrão "Limpar antes de Recriar" (Clean-before-Set)
+\`\`\`typescript
+function syncAlwaysOpenMenu(): void {
+  // Remove o menu anterior antes de registrar o novo para nunca duplicar no Tampermonkey!
+  unregisterAlwaysOpenMenu();
+  alwaysOpenMenuId = GM_registerMenuCommand(label, callback);
+}
+\`\`\``,
+    whyItMatters: `* Garante robustez absoluta: o usuário ou o sistema podem chamar \`start()\` centenas de vezes sem risco de duplicar elementos ou consumir memória excessiva.
+* Evita bugs invisíveis de memória onde listeners duplicados continuam executando em segundo plano.
+* Transforma sistemas complexos e assíncronos em fluxos previsíveis e fáceis de depurar.`,
+    comparison: {
+      headers: ['Aspecto', 'Código NÃO Idempotente ❌', 'Código Idempotente (Regra de Ouro) ✅'],
+      rows: [
+        {
+          feature: 'Chamada 1x',
+          values: {
+            'Aspecto': 'Execução inicial',
+            'Código NÃO Idempotente ❌': 'Cria 1 painel na tela',
+            'Código Idempotente (Regra de Ouro) ✅': 'Cria 1 painel na tela',
+          },
+        },
+        {
+          feature: 'Chamada 10x consecutivas',
+          values: {
+            'Aspecto': 'Múltiplas invocações',
+            'Código NÃO Idempotente ❌': 'Cria 10 painéis sobrepostos e 10 listeners clonados',
+            'Código Idempotente (Regra de Ouro) ✅': 'Mantém exatamente 1 painel, ignora invocações extras',
+          },
+        },
+        {
+          feature: 'Mecanismo de Proteção',
+          values: {
+            'Aspecto': 'Guarda de Estado',
+            'Código NÃO Idempotente ❌': 'Nenhuma checagem prévia',
+            'Código Idempotente (Regra de Ouro) ✅': 'if (app) return; e unregisterAntesDeRegistrar()',
+          },
+        },
+      ],
+    },
+    codeExamples: [
+      {
+        title: 'Exemplo: Função de Injeção Idempotente',
+        code: `let sidePanelInstance = null;
+
+function injectSidePanel() {
+  // Guarda de Idempotência:
+  if (sidePanelInstance !== null || document.getElementById('my-unique-panel')) {
+    console.log('Painel já está montado. Nenhuma ação necessária.');
+    return sidePanelInstance;
+  }
+
+  const panel = document.createElement('div');
+  panel.id = 'my-unique-panel';
+  panel.textContent = 'Painel Único e Idempotente';
+  document.body.appendChild(panel);
+
+  sidePanelInstance = panel;
+  return sidePanelInstance;
+}
+
+// Chamando 3 vezes seguidas:
+injectSidePanel();
+injectSidePanel();
+injectSidePanel();
+// Resultado no DOM: Apenas 1 painel criado!`,
+        explanation: 'A checagem do singleton e do ID do elemento no DOM impede criações redundantes.',
+      },
+    ],
+    pitfalls: [
+      'Esquecer a guarda if (app) return no início da função start().',
+      'Registrar comandos no menu de extensões (GM_registerMenuCommand) sem desregistrar o ID anterior, acumulando opções repetidas no menu.',
+    ],
+    tags: ['idempotencia', 'arquitetura', 'regra-de-ouro', 'interruptor', 'singleton', 'resiliencia'],
+    relatedConcepts: ['script_bootstrap_lifecycle', 'spa_dom_mutation_observer', 'storage_menu_cleanup_lifecycle'],
+  },
+  {
+    id: 'th_spa_dom_mutation_observer',
+    conceptId: 'spa_dom_mutation_observer',
+    unitId: 12,
+    title: 'Reconstrução do DOM em SPAs & MutationObserver com Timeout',
+    category: 'DOM & Web',
+    summary: 'Entenda como SPAs (React, Vue, Angular) destroem e reconstroem o DOM e aprenda a usar MutationObserver com temporizador de segurança para injetar elementos no momento ideal sem vazamento de memória.',
+    whatIsIt: `### Reconstrução do DOM em SPAs
+Em sites modernos desenvolvidos em **React, Vue ou Angular** (Single Page Applications - SPAs), a página **não recarrega do zero (sem refresh F5)** ao navegar entre abas ou telas. O JavaScript do framework simplesmente apaga partes do HTML existente e desenha novos nós no DOM em tempo real.
+
+---
+
+### O Problema para Scripts e Extensões
+Se o seu script tentar encontrar um container de formulário ou uma tabela imediatamente no carregamento da página, a busca falhará porque o React ainda está fazendo o \`fetch\` dos dados ou esperando o componente montar.
+
+---
+
+### A Solução Reativa: \`MutationObserver\`
+O \`MutationObserver\` é uma API nativa do navegador que vigia alterações na árvore do DOM (nós adicionados ou removidos).
+
+\`\`\`typescript
+function scheduleBootstrapObserver(): void {
+  if (app || bootstrapObserver) return;
+
+  const observeRoot = document.body ?? document.documentElement;
+  if (!observeRoot) return;
+
+  // Cria o observador que chama start() a cada mudança estrutural do HTML
+  bootstrapObserver = new MutationObserver(() => {
+    start();
+  });
+
+  // Observa filhos diretos e toda a subárvore profunda
+  bootstrapObserver.observe(observeRoot, {
+    childList: true,
+    subtree: true
+  });
+
+  // Timeout de Segurança (15 segundos) para evitar vazamento de memória
+  bootstrapCleanupTimer = window.setTimeout(() => {
+    cleanupBootstrapObserver();
+  }, BOOTSTRAP_OBSERVER_TIMEOUT_MS);
+}
+\`\`\`
+
+---
+
+### Por que o Timeout de Limpeza é Essencial?
+Um \`MutationObserver\` com \`subtree: true\` monitora milhares de alterações por segundo. Se o usuário estiver em uma página onde o elemento alvo **nunca** vai existir, o observador continuaria rodando indefinidamente, consumindo ciclos preciosos de CPU.
+O timeout de 15 segundos desconecta o observador automaticamente caso o alvo não surja.`,
+    whyItMatters: `* Permite que seu script detecte a renderização assíncrona de componentes React sem usar \`setInterval\` com polling agressivo.
+* Assim que o alvo é encontrado e o app é instanciado, chamamos \`cleanupBootstrapObserver()\`, desconectando o observador e limpando o timer com \`window.clearTimeout\`.
+* Mantém o navegador fluido a 60 quadros por segundo.`,
+    comparison: {
+      headers: ['Abordagem', 'Como Funciona', 'Impacto na Performance', 'Resiliência a SPAs'],
+      rows: [
+        {
+          feature: 'setInterval (Polling Antigo)',
+          values: {
+            'Abordagem': 'Roda uma checagem a cada 500ms continuamente',
+            'Como Funciona': 'Executa código mesmo quando nada mudou na página',
+            'Impacto na Performance': 'Ruim: desperdiça CPU e bateria constantemente',
+            'Resiliência a SPAs': 'Média (atraso fixo de detecção)',
+          },
+        },
+        {
+          feature: 'MutationObserver com Timeout',
+          values: {
+            'Abordagem': 'Notificação orientada a eventos nativos do DOM',
+            'Como Funciona': 'Só executa exatamente quando nós são inseridos/removidos',
+            'Impacto na Performance': 'Excelente: pausa imediata após o bootstrap',
+            'Resiliência a SPAs': 'Máxima (reativo e instantâneo)',
+          },
+        },
+      ],
+    },
+    codeExamples: [
+      {
+        title: 'Gerenciamento do Ciclo de Vida do MutationObserver',
+        code: `let observer = null;
+let safetyTimer = 0;
+
+function cleanupObserver() {
+  if (observer) {
+    observer.disconnect(); // Desliga a escuta do DOM
+    observer = null;
+  }
+  if (safetyTimer) {
+    window.clearTimeout(safetyTimer); // Cancela o timer pendente
+    safetyTimer = 0;
+  }
+}
+
+function observeUntilElementReady(selector, onReady) {
+  const existing = document.querySelector(selector);
+  if (existing) {
+    onReady(existing);
+    return;
+  }
+
+  observer = new MutationObserver(() => {
+    const el = document.querySelector(selector);
+    if (el) {
+      cleanupObserver(); // Desconecta assim que encontra!
+      onReady(el);
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Desiste após 10 segundos para não vazar memória
+  safetyTimer = window.setTimeout(cleanupObserver, 10000);
+}`,
+        explanation: 'O padrão observa apenas até o elemento surgir, desconectando imediatamente ou desistindo após o tempo limite.',
+      },
+    ],
+    pitfalls: [
+      'Esquecer de chamar observer.disconnect() após instanciar a aplicação, mantendo o observador rodando para sempre.',
+      'Não limpar o setTimeout com clearTimeout() ao inicializar com sucesso.',
+    ],
+    tags: ['spa', 'mutationobserver', 'react', 'dom', 'performance', 'memory-leak', 'timeout'],
+    relatedConcepts: ['script_bootstrap_lifecycle', 'idempotency_golden_rule', 'production_script_architecture'],
+  },
+  {
+    id: 'th_storage_menu_cleanup_lifecycle',
+    conceptId: 'storage_menu_cleanup_lifecycle',
+    unitId: 12,
+    title: 'Sincronização entre Abas (Storage), Menus Tampermonkey & Teardown com beforeunload',
+    category: 'Avançado',
+    summary: 'Aprenda a sincronizar estado entre diferentes abas do navegador em tempo real com StorageEvent, gerenciar menus dinâmicos e realizar a limpeza completa (teardown) ao fechar a página com beforeunload.',
+    whatIsIt: `### 1. Sincronização entre Abas com \`StorageEvent\`
+Quando o usuário altera uma configuração no \`localStorage\` na Aba 1, o navegador dispara automaticamente o evento global \`'storage'\` em todas as **outras abas abertas da mesma origem**!
+
+\`\`\`typescript
+function handleStorageEvent(event: Event): void {
+  const storageEvent = event as StorageEvent;
+  // Filtra apenas eventos relevantes para a chave de configurações do nosso script:
+  if (storageEvent.key !== null && storageEvent.key !== SETTINGS_KEY) return;
+  syncAlwaysOpenMenu();
+}
+
+globalThis.addEventListener('storage', handleStorageEvent);
+\`\`\`
+
+---
+
+### 2. Menus Dinâmicos com Tampermonkey / Greasemonkey (\`GM_*\`)
+Scripts de extensão frequentemente oferecem comandos no menu do navegador através de \`GM_registerMenuCommand\`.
+* Ao alternar uma opção (ex: "Sempre Aberto: LIGADO"), desregistramos o ID anterior com \`GM_unregisterMenuCommand(alwaysOpenMenuId)\`.
+* Em seguida, registramos o novo comando com o rótulo atualizado, mantendo o menu sempre consistente e sem entradas duplicadas.
+
+---
+
+### 3. O Ciclo de Limpeza Graciosa com \`beforeunload\`
+Quando o usuário navega para outro site ou fecha a aba, o evento \`'beforeunload'\` é disparado. Esse é o momento crítico para fazer o **Teardown (Limpeza)**:
+
+\`\`\`typescript
+globalThis.addEventListener('beforeunload', () => {
+  // 1. Remove listeners globais para evitar referências presas
+  globalThis.removeEventListener('storage', handleStorageEvent);
+  globalThis.removeEventListener(SETTINGS_CHANGED_EVENT, handleSettingsChanged as EventListener);
+
+  // 2. Desconecta observadores e cancela timers pendentes
+  cleanupBootstrapObserver();
+
+  // 3. Remove menus registrados da extensão
+  unregisterAlwaysOpenMenu();
+
+  // 4. Invoca o método destroy() de cada módulo da aplicação
+  unspscQuickFill?.destroy();
+  app?.destroy();
+}, { once: true });
+\`\`\``,
+    whyItMatters: `* **Sincronização Instantânea**: Alterar o tema ou preferências em uma aba reflete imediatamente em todas as outras abas sem precisar recarregar (F5).
+* **Prevenção de Vazamento de Memória**: O teardown com \`beforeunload\` garante que websockets, timers, observadores e referências do DOM sejam liberados pelo coletor de lixo (Garbage Collector).
+* **Experiência Limpa no Tampermonkey**: Menus dinâmicos evitam poluição visual na interface do usuário.`,
+    comparison: {
+      headers: ['Mecanismo', 'Quando Dispara?', 'Finalidade Principal'],
+      rows: [
+        {
+          feature: "Evento 'storage'",
+          values: {
+            'Mecanismo': "window.addEventListener('storage')",
+            'Quando Dispara?': 'Quando outra aba do mesmo domínio altera o localStorage',
+            'Finalidade Principal': 'Sincronizar configurações cross-tab em tempo real',
+          },
+        },
+        {
+          feature: 'CustomEvent (SETTINGS_CHANGED)',
+          values: {
+            'Mecanismo': "globalThis.addEventListener(CUSTOM_EVENT)",
+            'Quando Dispara?': 'Quando a aba atual altera suas próprias configurações',
+            'Finalidade Principal': 'Atualizar a interface da aba corrente imediatamente',
+          },
+        },
+        {
+          feature: "Evento 'beforeunload'",
+          values: {
+            'Mecanismo': "window.addEventListener('beforeunload')",
+            'Quando Dispara?': 'Imediatamente antes da aba ser fechada ou recarregada',
+            'Finalidade Principal': 'Destruir instâncias, remover listeners e desconectar observadores',
+          },
+        },
+      ],
+    },
+    codeExamples: [
+      {
+        title: 'Exemplo de Módulo com Ciclo de Vida Completo (Init / Destroy)',
+        code: `class MeuModulo {
+  private intervalId = 0;
+
+  init() {
+    this.intervalId = window.setInterval(() => console.log('Ping ativo'), 5000);
+    console.log('Módulo inicializado.');
+  }
+
+  destroy() {
+    window.clearInterval(this.intervalId);
+    console.log('Módulo destruído e memória liberada.');
+  }
+}
+
+let modulo = new MeuModulo();
+modulo.init();
+
+// Limpeza no encerramento da página:
+window.addEventListener('beforeunload', () => {
+  modulo?.destroy();
+  modulo = null;
+}, { once: true });`,
+        explanation: 'Classes de componentes profissionais sempre expõem um método destroy() emparelhado com o init().',
+      },
+    ],
+    pitfalls: [
+      "Achar que o evento 'storage' dispara na própria aba que executou localStorage.setItem() — ele só dispara nas OUTRAS abas abertas.",
+      "Esquecer de chamar removeEventListener no beforeunload quando usar listeners de longa duração.",
+    ],
+    tags: ['storage', 'localstorage', 'tampermonkey', 'beforeunload', 'cleanup', 'teardown', 'cross-tab'],
+    relatedConcepts: ['script_bootstrap_lifecycle', 'idempotency_golden_rule', 'production_script_architecture'],
+  },
+  {
+    id: 'th_production_script_architecture',
+    conceptId: 'production_script_architecture',
+    unitId: 12,
+    title: 'Análise Ponta a Ponta: Script de Injeção em Produção',
+    category: 'Avançado',
+    summary: 'Dissecção linha por linha e estudo aprofundado do script real de inicialização do SinSidebar & UnspscQuickFill, conectando todos os conceitos arquiteturais.',
+    whatIsIt: `### Estudo do Script Real de Produção
+Abaixo está o script completo analisado bloco a bloco, com explicações de cada responsabilidade:
+
+\`\`\`typescript
+// ============================================================================
+// 1. IMPORTAÇÕES E DECLARAÇÕES GLOBAIS DE TIPOS
+// ============================================================================
+import { SinSidebarApp } from './app';
+import {
+  getAlwaysOpenMenuLabel,
+  loadSettings,
+  saveSettings,
+  SETTINGS_CHANGED_EVENT,
+  SETTINGS_KEY,
+  type SinPanelSettings
+} from './state';
+import { shouldBootstrapSinSidebar } from './runtime-guard';
+import { UnspscQuickFillApp } from './unspsc-quick-fill';
+
+// Tipagem segura para APIs de extensões (Tampermonkey/Violentmonkey)
+declare const GM_registerMenuCommand:
+  | ((caption: string, onClick: () => void, accessKey?: string) => number | string)
+  | undefined;
+declare const GM_unregisterMenuCommand:
+  | ((menuCommandId: number | string) => void)
+  | undefined;
+
+// ============================================================================
+// 2. ESTADO SINGLETON E TEMPORIZADORES DO MÓDULO
+// ============================================================================
+let app: SinSidebarApp | null = null;
+let unspscQuickFill: UnspscQuickFillApp | null = null;
+let alwaysOpenMenuId: number | string | null = null;
+let bootstrapObserver: MutationObserver | null = null;
+let bootstrapCleanupTimer = 0;
+
+const BOOTSTRAP_OBSERVER_TIMEOUT_MS = 15000; // Limite de 15s para busca no DOM
+
+// ============================================================================
+// 3. GERENCIAMENTO IDEMPOTENTE DO MENU DA EXTENSÃO
+// ============================================================================
+function unregisterAlwaysOpenMenu(): void {
+  if (alwaysOpenMenuId === null || typeof GM_unregisterMenuCommand !== 'function') return;
+  GM_unregisterMenuCommand(alwaysOpenMenuId);
+  alwaysOpenMenuId = null;
+}
+
+function syncAlwaysOpenMenu(): void {
+  if (typeof GM_registerMenuCommand !== 'function') return;
+
+  unregisterAlwaysOpenMenu(); // Remove o menu anterior para evitar duplicatas
+  const settings = loadSettings();
+  const label = getAlwaysOpenMenuLabel(settings.alwaysOpen);
+
+  alwaysOpenMenuId = GM_registerMenuCommand(label, () => {
+    const currentSettings = loadSettings();
+    const nextSettings: SinPanelSettings = {
+      ...currentSettings,
+      alwaysOpen: !currentSettings.alwaysOpen
+    };
+
+    saveSettings(nextSettings);
+    app?.applySettings(nextSettings);
+    syncAlwaysOpenMenu(); // Re-sincroniza para atualizar o texto do rótulo
+  });
+}
+
+// ============================================================================
+// 4. TRATADORES DE EVENTOS REATIVOS (Cross-tab & In-page)
+// ============================================================================
+function handleStorageEvent(event: Event): void {
+  const storageEvent = event as StorageEvent;
+  if (storageEvent.key !== null && storageEvent.key !== SETTINGS_KEY) return;
+  syncAlwaysOpenMenu();
+}
+
+function handleSettingsChanged(): void {
+  syncAlwaysOpenMenu();
+}
+
+// ============================================================================
+// 5. OBSERVAÇÃO REATIVA DO DOM (COM LIMPEZA DE MEMÓRIA)
+// ============================================================================
+function cleanupBootstrapObserver(): void {
+  if (bootstrapObserver) {
+    bootstrapObserver.disconnect();
+    bootstrapObserver = null;
+  }
+
+  if (bootstrapCleanupTimer) {
+    window.clearTimeout(bootstrapCleanupTimer);
+    bootstrapCleanupTimer = 0;
+  }
+}
+
+function scheduleBootstrapObserver(): void {
+  if (app || bootstrapObserver) return; // Guarda de Idempotência
+
+  const observeRoot = document.body ?? document.documentElement;
+  if (!observeRoot) return;
+
+  bootstrapObserver = new MutationObserver(() => {
+    start();
+  });
+
+  bootstrapObserver.observe(observeRoot, {
+    childList: true,
+    subtree: true
+  });
+
+  bootstrapCleanupTimer = window.setTimeout(() => {
+    cleanupBootstrapObserver();
+  }, BOOTSTRAP_OBSERVER_TIMEOUT_MS);
+}
+
+// ============================================================================
+// 6. FUNÇÃO START(): O BOOTSTRAP IDEMPOTENTE
+// ============================================================================
+function start(): void {
+  if (app) return; // REGRA DE OURO: já instanciado, nada a fazer!
+  if (!shouldBootstrapSinSidebar()) {
+    scheduleBootstrapObserver(); // Alvo ainda não está pronto, agenda observador
+    return;
+  }
+
+  cleanupBootstrapObserver(); // Alvo encontrado! Desliga o observador
+  app = new SinSidebarApp();
+  app.init();
+  unspscQuickFill = new UnspscQuickFillApp();
+  unspscQuickFill.init();
+}
+
+// ============================================================================
+// 7. INICIALIZAÇÃO SEGURA DO DOCUMENTO
+// ============================================================================
+syncAlwaysOpenMenu();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', start, { once: true });
+} else {
+  start();
+}
+
+// ============================================================================
+// 8. TEARDOWN E LIMPEZA TOTAL (beforeunload)
+// ============================================================================
+globalThis.addEventListener('storage', handleStorageEvent);
+globalThis.addEventListener(SETTINGS_CHANGED_EVENT, handleSettingsChanged as EventListener);
+globalThis.addEventListener('beforeunload', () => {
+  globalThis.removeEventListener('storage', handleStorageEvent);
+  globalThis.removeEventListener(SETTINGS_CHANGED_EVENT, handleSettingsChanged as EventListener);
+  cleanupBootstrapObserver();
+  unregisterAlwaysOpenMenu();
+  unspscQuickFill?.destroy();
+  app?.destroy();
+}, { once: true });
+\`\`\``,
+    whyItMatters: `Este arquivo reúne todas as boas práticas de engenharia de software frontend:
+1. **Idempotência**: Nenhuma ação se duplica, mesmo com rajadas de eventos.
+2. **Reatividade a SPAs**: Não assume que o DOM está pronto, observa mutações com elegância.
+3. **Gerenciamento Estrito de Memória**: Desconecta observadores, cancela timers e limpa listeners.
+4. **Sincronização Completa**: Suporta múltiplos contextos (abas, eventos customizados, menus de extensão).`,
+    codeExamples: [
+      {
+        title: 'Fluxograma de Execução do Bootstrap',
+        code: `// 1. Script é carregado
+// 2. syncAlwaysOpenMenu() registra o menu da extensão
+// 3. Checa document.readyState:
+//    - Se 'loading' -> aguarda DOMContentLoaded
+//    - Se 'interactive'/'complete' -> chama start() imediatamente
+// 4. start():
+//    - app já existe? -> return (Idempotente)
+//    - Condições do DOM prontas? 
+//        -> SIM: inicializa SinSidebarApp e UnspscQuickFillApp
+//        -> NÃO: liga MutationObserver com timeout de 15s`,
+        explanation: 'Um fluxo claro e sem brechas para exceções não tratadas.',
+      },
+    ],
+    pitfalls: [
+      'Remover a guarda if (app) return; faz com que qualquer mutação do DOM recrie novas instâncias do app.',
+      'Não chamar unregisterAlwaysOpenMenu() antes de registrar um novo comando no menu.',
+    ],
+    tags: ['arquitetura', 'userscript', 'analise-de-codigo', 'ponta-a-ponta', 'react', 'spa', 'boas-praticas'],
+    relatedConcepts: ['script_bootstrap_lifecycle', 'idempotency_golden_rule', 'spa_dom_mutation_observer', 'storage_menu_cleanup_lifecycle'],
+  },
 ];
+

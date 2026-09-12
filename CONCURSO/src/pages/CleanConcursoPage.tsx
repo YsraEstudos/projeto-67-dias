@@ -507,8 +507,8 @@ export const CleanConcursoPage = () => {
     ? defaultQuestionGoals[activeStudySession.subjectKey]
     : 30;
   const pendingStudyDecisions = useMemo(
-    () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, state.topicProgress, today, defaultQuestionGoals),
-    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, state.topicProgress, today],
+    () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, state.topicProgress, today, defaultQuestionGoals, state.manualBlockReschedules),
+    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, state.manualBlockReschedules, state.topicProgress, today],
   );
   const normalizedDeferredSearch = useMemo(() => normalizePlanSearch(deferredSearch), [deferredSearch]);
 

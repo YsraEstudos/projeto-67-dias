@@ -239,12 +239,21 @@ export const buildPendingStudyDecisions = (
   topicProgress: Record<string, TopicProgress>,
   today: string,
   defaultQuestionGoals: Record<SubjectKey, number>,
-): CleanPendingStudyDecision[] =>
-  plans
+  manualBlockReschedules: ManualBlockReschedule[] = [],
+): CleanPendingStudyDecision[] => {
+  const failedBlockKeys = new Set(
+    manualBlockReschedules.map((item) => `${item.failedAt}-${item.blockId}`),
+  );
+
+  return plans
     .filter((plan) => plan.date < today && plan.planMode === 'manual' && !plan.isRestDay)
     .flatMap((plan) =>
       (plan.manualBlocks ?? []).filter(isStudyPlanBlock).flatMap((block) => {
         const eventId = `${plan.date}-${block.id}`;
+        if (failedBlockKeys.has(eventId)) {
+          return [];
+        }
+
         const topicIds = getBlockTopicIds(block);
         const status = getProgressStatus(calendarEventProgress, topicProgress, eventId, topicIds);
         
@@ -253,6 +262,11 @@ export const buildPendingStudyDecisions = (
         }
 
         const subject = inferManualBlockSubject(block);
+        const questionGoal =
+          subject && defaultQuestionGoals && typeof defaultQuestionGoals[subject] === 'number'
+            ? defaultQuestionGoals[subject]
+            : (plan.targets?.objectiveQuestions ?? 30);
+
         return [{
           id: eventId,
           eventId,
@@ -261,13 +275,14 @@ export const buildPendingStudyDecisions = (
           detail: block.detail,
           subject,
           subjectLabel: getManualBlockSubjectLabel(block),
-          questionGoal: subject ? defaultQuestionGoals[subject] : plan.targets.objectiveQuestions,
+          questionGoal,
           failureDate: findNextFailurePlanDate(plans, plan.date, block),
           block,
           topicIds: getBlockTopicIds(block),
         }];
       }),
     );
+};
 
 export const buildCleanCalendarEvents = (
   plans: DayPlan[],

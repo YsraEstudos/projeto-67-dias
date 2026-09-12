@@ -18,8 +18,8 @@ describe('DuoAprendizado Module Data & Logic', () => {
   });
 
   describe('Units & Curriculum Structure', () => {
-    it('contains 11 comprehensive progressive units (including Exploring JavaScript)', () => {
-      expect(DUO_UNITS).toHaveLength(11);
+    it('contains 12 comprehensive progressive units (including Exploring JavaScript & Script Architecture)', () => {
+      expect(DUO_UNITS).toHaveLength(12);
       DUO_UNITS.forEach((unit, idx) => {
         expect(unit.id).toBe(idx + 1);
         expect(unit.title).toBeTruthy();
@@ -43,7 +43,7 @@ describe('DuoAprendizado Module Data & Logic', () => {
 
   describe('Question Bank', () => {
     it('contains valid questions covering concepts with explanation and answers', () => {
-      expect(DUO_QUESTION_BANK.length).toBeGreaterThan(40);
+      expect(DUO_QUESTION_BANK.length).toBeGreaterThan(50);
 
       DUO_QUESTION_BANK.forEach((q) => {
         expect(q.id).toBeTruthy();
@@ -72,6 +72,15 @@ describe('DuoAprendizado Module Data & Logic', () => {
       expect(concepts).toContain('exploring_functions_arrow');
       expect(concepts).toContain('exploring_methods_classes');
     });
+
+    it('covers Unit 12 Script Architecture, Bootstrap, Idempotency and SPA DOM concepts', () => {
+      const concepts = DUO_QUESTION_BANK.map((q) => q.conceptId);
+      expect(concepts).toContain('script_bootstrap_lifecycle');
+      expect(concepts).toContain('idempotency_golden_rule');
+      expect(concepts).toContain('spa_dom_mutation_observer');
+      expect(concepts).toContain('storage_menu_cleanup_lifecycle');
+      expect(concepts).toContain('production_script_architecture');
+    });
   });
 
   describe('Theory Wiki Database (including var research & David Flanagan Guide)', () => {
@@ -88,7 +97,7 @@ describe('DuoAprendizado Module Data & Logic', () => {
       expect(varTheory?.pitfalls.length).toBeGreaterThan(0);
     });
 
-    it('covers exploring devtools, closures, promises, event loop and array methods', () => {
+    it('covers exploring devtools, closures, promises, event loop, and Unit 12 script architecture', () => {
       const concepts = DUO_THEORY_DATABASE.map((t) => t.conceptId);
       expect(concepts).toContain('exploring_devtools_repl');
       expect(concepts).toContain('exploring_objects_optional_chaining');
@@ -97,6 +106,19 @@ describe('DuoAprendizado Module Data & Logic', () => {
       expect(concepts).toContain('event_loop_microtasks');
       expect(concepts).toContain('array_map');
       expect(concepts).toContain('debounce_throttle');
+      expect(concepts).toContain('script_bootstrap_lifecycle');
+      expect(concepts).toContain('idempotency_golden_rule');
+      expect(concepts).toContain('spa_dom_mutation_observer');
+      expect(concepts).toContain('storage_menu_cleanup_lifecycle');
+      expect(concepts).toContain('production_script_architecture');
+    });
+
+    it('contains idempotency theory with light switch analogy and singleton guards', () => {
+      const theory = DUO_THEORY_DATABASE.find((t) => t.conceptId === 'idempotency_golden_rule');
+      expect(theory).toBeDefined();
+      expect(theory?.whatIsIt).toContain('interruptor');
+      expect(theory?.whatIsIt).toContain('luz');
+      expect(theory?.whatIsIt).toContain('if (app) return');
     });
   });
 

@@ -200,4 +200,24 @@ export const DUO_UNITS: DuoUnit[] = [
       { id: 'u11_n4', unitId: 11, title: 'Polyfills & Retrocompatibilidade', conceptId: 'polyfills_modern_js', icon: 'fa-wrench', xpReward: 35, gemsReward: 15 },
     ],
   },
+  {
+    id: 12,
+    title: 'Unidade 12: Arquitetura de Scripts, Bootstrap & Idempotência no DOM',
+    subtitle: 'Injeção Resiliente em SPAs & Userscripts',
+    desc: 'Domine Bootstrap idempotente, Reconstrução do DOM em SPAs (React/Vue/Angular), MutationObserver inteligente com timeout, sincronização de storage e cleanup com beforeunload.',
+    colorTheme: {
+      primary: '#6366f1',
+      border: '#4f46e5',
+      bg: 'rgba(99, 102, 241, 0.1)',
+      badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    },
+    nodes: [
+      { id: 'u12_n1', unitId: 12, title: 'Bootstrap (Inicialização) & Ciclo de Vida do DOM', conceptId: 'script_bootstrap_lifecycle', icon: 'fa-play', xpReward: 25, gemsReward: 5 },
+      { id: 'u12_n2', unitId: 12, title: 'Idempotência & A Regra de Ouro (O Interruptor)', conceptId: 'idempotency_golden_rule', icon: 'fa-lightbulb', xpReward: 25, gemsReward: 5 },
+      { id: 'u12_n3', unitId: 12, title: 'Reconstrução do DOM em SPAs & MutationObserver', conceptId: 'spa_dom_mutation_observer', icon: 'fa-eye', xpReward: 30, gemsReward: 10 },
+      { id: 'u12_n4', unitId: 12, title: 'Sincronização de Storage, Menus GM & Cleanup Seguro', conceptId: 'storage_menu_cleanup_lifecycle', icon: 'fa-shield-halved', xpReward: 30, gemsReward: 10 },
+      { id: 'u12_n5', unitId: 12, title: 'Análise Ponta a Ponta: Script de Injeção em Produção', conceptId: 'production_script_architecture', icon: 'fa-code-compare', xpReward: 35, gemsReward: 15 },
+    ],
+  },
 ];
+

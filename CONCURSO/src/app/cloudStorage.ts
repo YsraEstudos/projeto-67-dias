@@ -179,6 +179,5 @@ export const saveCloudSnapshot = async (user: CloudUser, snapshot: AppSnapshot):
       userEmail: user.email ?? null,
       userName: user.displayName ?? null,
     },
-    { merge: true },
   );
 };

@@ -840,4 +840,185 @@ export const DUO_QUESTION_BANK: DuoQuestion[] = [
     correctIndex: 0,
     explanation: 'Polyfills "preenchem os buracos" (polyfill) de recursos modernos não suportados em engines legadas implementando-os no protótipo.',
   },
+
+  // ==========================================
+  // UNIDADE 12: ARQUITETURA DE SCRIPTS, BOOTSTRAP & IDEMPOTÊNCIA NO DOM
+  // ==========================================
+  {
+    id: 'q_boot_1',
+    conceptId: 'script_bootstrap_lifecycle',
+    unitId: 12,
+    type: 'choice',
+    title: 'O que é o Bootstrap em um script ou extensão web?',
+    options: [
+      'É o ponto de partida do script, a função que "monta" o painel, cria os botões e inicializa os módulos no DOM',
+      'Um framework CSS exclusivo para estilização de formulários',
+      'Um compilador de WebAssembly para o navegador',
+      'Um banco de dados SQLite embutido no motor V8'
+    ],
+    correctIndex: 0,
+    explanation: 'Bootstrap é a função mestra de inicialização que orquestra a montagem da interface e inicializa instâncias dos serviços.',
+  },
+  {
+    id: 'q_boot_2',
+    conceptId: 'script_bootstrap_lifecycle',
+    unitId: 12,
+    type: 'choice',
+    title: 'Por que usamos { once: true } ao ouvir DOMContentLoaded no padrão de bootstrap?',
+    options: [
+      'Para que o ouvinte execute apenas uma vez e se auto-destrua da memória imediatamente, evitando vazamentos',
+      'Para forçar a página a recarregar duas vezes',
+      'Para bloquear cliques do usuário no body',
+      'Para transformar a função de inicialização em uma Promise assíncrona'
+    ],
+    correctIndex: 0,
+    explanation: 'O modificador { once: true } garante a desvinculação automática do listener logo após sua primeira execução.',
+  },
+  {
+    id: 'q_boot_3',
+    conceptId: 'script_bootstrap_lifecycle',
+    unitId: 12,
+    type: 'fill',
+    title: 'Complete a verificação do ciclo de vida: Se document.readyState for igual a "loading", aguardamos o evento DOMContentLoaded.',
+    codeSnippet: 'if (document.________ === \'loading\') {\n  document.addEventListener(\'DOMContentLoaded\', start, { once: true });\n} else {\n  start();\n}',
+    correctAnswer: 'readyState',
+    explanation: 'document.readyState indica o estado atual de carregamento do documento HTML.',
+  },
+  {
+    id: 'q_idem_1',
+    conceptId: 'idempotency_golden_rule',
+    unitId: 12,
+    type: 'choice',
+    title: 'O que é a propriedade de Idempotência (A Regra de Ouro) no desenvolvimento de software?',
+    options: [
+      'Propriedade onde executar uma ação 1 vez ou 100 vezes gera exatamente o mesmo resultado final, sem efeitos colaterais indesejados',
+      'Uma função que sempre retorna números aleatórios',
+      'Um algoritmo que duplica a memória a cada clique do usuário',
+      'Uma biblioteca externa para animação de botões'
+    ],
+    correctIndex: 0,
+    explanation: 'Idempotência garante que invocações redundantes não dupliquem elementos na tela nem criem ouvintes fantasmas.',
+  },
+  {
+    id: 'q_idem_2',
+    conceptId: 'idempotency_golden_rule',
+    unitId: 12,
+    type: 'choice',
+    title: 'Qual analogia do mundo real melhor ilustra uma ação idempotente?',
+    options: [
+      'Apertar o interruptor para "Acender a luz": se já estiver acesa, nada muda e continua apenas 1 luz acesa',
+      'Comprar passagens de avião que dobram a cada clique',
+      'Jogar uma moeda que muda de lado a cada lançamento',
+      'Empilhar pratos que aumentam a pilha a cada toque'
+    ],
+    correctIndex: 0,
+    explanation: 'Apertar um botão de estado "LIGAR" quando o estado já é LIGADO não cria lâmpadas extras — a ação é 100% idempotente.',
+  },
+  {
+    id: 'q_idem_3',
+    conceptId: 'idempotency_golden_rule',
+    unitId: 12,
+    type: 'output',
+    title: 'Qual será a saída do código se a função start() for executada 3 vezes consecutivas?',
+    codeSnippet: 'let app = null;\nlet instances = 0;\nfunction start() {\n  if (app) return;\n  instances++;\n  app = { id: 1 };\n}\nstart();\nstart();\nstart();\nconsole.log(instances);',
+    options: ['1', '3', '0', 'undefined'],
+    correctIndex: 0,
+    explanation: 'Graças à guarda `if (app) return;`, apenas a primeira invocação incrementa o contador; as chamadas seguintes retornam imediatamente.',
+  },
+  {
+    id: 'q_spa_1',
+    conceptId: 'spa_dom_mutation_observer',
+    unitId: 12,
+    type: 'choice',
+    title: 'Como as Single Page Applications (React, Vue, Angular) tratam a navegação de páginas?',
+    options: [
+      'A página não recarrega do zero (sem refresh F5); ela simplesmente apaga partes do HTML (DOM) e desenha de novo via JavaScript',
+      'O navegador faz um download completo de um novo arquivo HTML a cada clique',
+      'O navegador reinicia a conexão TCP e limpa o cache',
+      'A tela fica em branco até que o usuário pressione F5'
+    ],
+    correctIndex: 0,
+    explanation: 'SPAs manipulam o DOM de forma client-side, desmontando componentes antigos e montando novos nós sem recarga de página.',
+  },
+  {
+    id: 'q_spa_2',
+    conceptId: 'spa_dom_mutation_observer',
+    unitId: 12,
+    type: 'choice',
+    title: 'Por que o MutationObserver de bootstrap utiliza um timeout de 15 segundos (BOOTSTRAP_OBSERVER_TIMEOUT_MS)?',
+    options: [
+      'Para desconectar o observador caso o elemento alvo nunca seja renderizado na página atual, evitando vazamento de memória e consumo inútil de CPU',
+      'Porque o navegador proíbe scripts de rodar por mais de 15 segundos',
+      'Para dar tempo do usuário digitar sua senha',
+      'Para forçar o carregamento de anúncios'
+    ],
+    correctIndex: 0,
+    explanation: 'O timeout de segurança evita que o MutationObserver monitore mutações eternamente em páginas onde o container esperado não existe.',
+  },
+  {
+    id: 'q_sync_1',
+    conceptId: 'storage_menu_cleanup_lifecycle',
+    unitId: 12,
+    type: 'choice',
+    title: 'Quando o evento global window.addEventListener("storage", handleStorageEvent) é disparado?',
+    options: [
+      'Quando outra aba do mesmo domínio altera uma chave no localStorage',
+      'Apenas na aba que executou localStorage.setItem()',
+      'Toda vez que o usuário move o mouse',
+      'Apenas quando o disco rígido fica cheio'
+    ],
+    correctIndex: 0,
+    explanation: 'O evento storage é nativo do navegador e avisa todas as OUTRAS abas abertas da mesma origem sobre alterações no localStorage.',
+  },
+  {
+    id: 'q_sync_2',
+    conceptId: 'storage_menu_cleanup_lifecycle',
+    unitId: 12,
+    type: 'choice',
+    title: 'Qual é o papel do ouvinte beforeunload no ciclo de vida de um script robusto?',
+    options: [
+      'Executar o teardown (limpeza graciosa): remover event listeners, desconectar observadores, desregistrar menus e chamar destroy() dos módulos',
+      'Impedir o usuário de fechar o navegador',
+      'Apagar o histórico de navegação',
+      'Salvar fotos no disco local'
+    ],
+    correctIndex: 0,
+    explanation: 'beforeunload é a última oportunidade para liberar recursos, cancelar timers e destruir instâncias antes do encerramento.',
+  },
+  {
+    id: 'q_arch_1',
+    conceptId: 'production_script_architecture',
+    unitId: 12,
+    type: 'blocks',
+    title: 'Ordene as etapas corretas do fluxo de inicialização e injeção resiliente:',
+    promptBlocks: [
+      'if (app) return; // Guarda de Idempotência',
+      'if (!shouldBootstrapSinSidebar()) { scheduleBootstrapObserver(); return; }',
+      'cleanupBootstrapObserver(); // Alvo encontrado!',
+      'app = new SinSidebarApp(); app.init();'
+    ],
+    correctOrder: [
+      'if (app) return; // Guarda de Idempotência',
+      'if (!shouldBootstrapSinSidebar()) { scheduleBootstrapObserver(); return; }',
+      'cleanupBootstrapObserver(); // Alvo encontrado!',
+      'app = new SinSidebarApp(); app.init();'
+    ],
+    explanation: 'Primeiro verificamos a guarda idempotente, depois testamos a prontidão do DOM; se não pronto, agendamos o observador; se pronto, limpamos o observador e instanciamos o app.',
+  },
+  {
+    id: 'q_arch_2',
+    conceptId: 'production_script_architecture',
+    unitId: 12,
+    type: 'choice',
+    title: 'No script de produção, por que a função syncAlwaysOpenMenu() chama unregisterAlwaysOpenMenu() antes de GM_registerMenuCommand()?',
+    options: [
+      'Para remover o item de menu anterior do Tampermonkey antes de criar o novo, garantindo que o menu seja idempotente e não se duplique',
+      'Para reiniciar o computador',
+      'Para desconectar a internet',
+      'Para trocar a cor de fundo da página'
+    ],
+    correctIndex: 0,
+    explanation: 'Desregistrar o ID anterior garante que a lista de comandos no menu da extensão exiba sempre apenas 1 entrada atualizada com o novo estado.',
+  },
 ];
+

@@ -248,8 +248,9 @@ export const buildPlanRuntime = (
   planStartDate: string,
   manualBlockReschedules: ManualBlockReschedule[] = [],
   restWeekday: number = DEFAULT_REST_WEEKDAY,
+  today?: string,
 ): PlanRuntime => {
-  const dayPlans = buildDayPlans(planStartDate, manualBlockReschedules, normalizeRestWeekday(restWeekday));
+  const dayPlans = buildDayPlans(planStartDate, manualBlockReschedules, normalizeRestWeekday(restWeekday), today);
   return {
     dayPlans,
     dayPlansByDate: buildDayPlansByDate(dayPlans),

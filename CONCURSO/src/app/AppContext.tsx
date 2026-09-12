@@ -18,7 +18,7 @@ import {
   subscribeCloudSnapshotChanges,
 } from './cloudStorage';
 import { mergeSnapshots, resolveSnapshotConflict as applyConflictResolution } from './snapshotMerge';
-import { AUTO_BACKUP_INTERVAL_MINUTES, END_DATE } from './constants';
+import { AUTO_BACKUP_INTERVAL_MINUTES, END_DATE, SCHEMA_VERSION } from './constants';
 import {
   downloadSnapshot,
   loadFallbackSnapshotTimestamp,
@@ -1358,6 +1358,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       state.planSettings.startDate,
       state.manualBlockReschedules,
       state.planSettings.restWeekday,
+      getLocalTodayIsoDate(),
     ),
     [state.manualBlockReschedules, state.planSettings.restWeekday, state.planSettings.startDate],
   );
@@ -1584,19 +1585,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             }
 
             const currentLocalState = stateRef.current;
-            const currentLocalChangedAt = currentLocalState.meta.lastChangedAt ?? null;
+            const hasUnsavedLocalChanges = lastCloudSavedTokenRef.current !== currentLocalState.meta.changeToken;
             const nextRemoteChangedAt = nextRemote.lastChangedAt;
 
-            if (
-              nextRemote.snapshot?.appState &&
-              nextRemoteChangedAt &&
-              (!currentLocalChangedAt || nextRemoteChangedAt > currentLocalChangedAt)
-            ) {
-              const normalizedRemoteState = normalizeStateForCurrentPlan(nextRemote.snapshot.appState);
-              dispatch({ type: 'import-state', state: normalizedRemoteState });
-              stateRef.current = normalizedRemoteState;
-              lastCloudSavedTokenRef.current = normalizedRemoteState.meta.changeToken;
-              lastCloudSavedAtRef.current = nextRemote.snapshot.exportedAt;
+            if (nextRemote.snapshot?.appState) {
+              if (!hasUnsavedLocalChanges) {
+                const normalizedRemoteState = normalizeStateForCurrentPlan(nextRemote.snapshot.appState);
+                dispatch({ type: 'import-state', state: normalizedRemoteState });
+                stateRef.current = normalizedRemoteState;
+                lastCloudSavedTokenRef.current = normalizedRemoteState.meta.changeToken;
+                lastCloudSavedAtRef.current = nextRemote.snapshot.exportedAt;
+              } else {
+                const localSnapshot: AppSnapshot = {
+                  schemaVersion: SCHEMA_VERSION,
+                  exportedAt: new Date().toISOString(),
+                  appState: currentLocalState,
+                };
+                const { merged } = mergeSnapshots(null, localSnapshot, nextRemote.snapshot);
+                const normalizedMergedState = normalizeStateForCurrentPlan(merged.appState);
+                dispatch({ type: 'import-state', state: normalizedMergedState });
+                stateRef.current = normalizedMergedState;
+                lastCloudSavedTokenRef.current = normalizedMergedState.meta.changeToken;
+                lastCloudSavedAtRef.current = merged.exportedAt;
+                void syncSnapshotToCloud(normalizedMergedState).catch(() => {});
+              }
             }
 
             setCloudSync({
@@ -1691,7 +1703,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
         });
       });
-    }, 1200);
+    }, 250);
 
     return () => {
       if (saveCloudTimeoutRef.current) {
@@ -1700,6 +1712,64 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     };
   }, [state.meta.changeToken, syncSnapshotToCloud]);
+
+  useEffect(() => {
+    const flushCloudSync = () => {
+      if (
+        cloudUserRef.current &&
+        !cloudUserRef.current.isAnonymous &&
+        hasLoadedCloudSnapshotRef.current &&
+        lastCloudSavedTokenRef.current !== stateRef.current.meta.changeToken
+      ) {
+        if (saveCloudTimeoutRef.current) {
+          globalThis.clearTimeout(saveCloudTimeoutRef.current);
+          saveCloudTimeoutRef.current = null;
+        }
+        void syncSnapshotToCloud(stateRef.current).catch((error) => {
+          setCloudSync({
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
+          });
+        });
+      }
+    };
+
+    const handleVisibilityOrPageHide = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        flushCloudSync();
+      } else if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        if (cloudUserRef.current && !cloudUserRef.current.isAnonymous && hasLoadedCloudSnapshotRef.current) {
+          void loadCloudSnapshot(cloudUserRef.current.uid).then((remote) => {
+            if (remote.snapshot?.appState) {
+              const currentLocalState = stateRef.current;
+              const hasUnsaved = lastCloudSavedTokenRef.current !== currentLocalState.meta.changeToken;
+              if (!hasUnsaved) {
+                const normalized = normalizeStateForCurrentPlan(remote.snapshot.appState);
+                dispatch({ type: 'import-state', state: normalized });
+                stateRef.current = normalized;
+                lastCloudSavedTokenRef.current = normalized.meta.changeToken;
+                lastCloudSavedAtRef.current = remote.snapshot.exportedAt;
+              }
+            }
+          }).catch(() => {});
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('visibilitychange', handleVisibilityOrPageHide);
+      window.addEventListener('pagehide', flushCloudSync);
+      window.addEventListener('beforeunload', flushCloudSync);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('visibilitychange', handleVisibilityOrPageHide);
+        window.removeEventListener('pagehide', flushCloudSync);
+        window.removeEventListener('beforeunload', flushCloudSync);
+      }
+    };
+  }, [syncSnapshotToCloud, dispatch]);
 
   const appStateValue = useMemo<AppStateContextValue>(() => ({ state }), [state]);
 
