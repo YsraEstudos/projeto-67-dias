@@ -2,12 +2,15 @@ import {
   BarChart3,
   BookOpen,
   CalendarDays,
+  CheckCheck,
   CheckCircle2,
   CheckSquare2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ClipboardCheck,
+  Clock,
   Filter,
   ListChecks,
   Map as MapIcon,
@@ -34,6 +37,7 @@ import {
   buildReviewSchedule,
   getManualBlockSubjectLabel,
   inferManualBlockSubject,
+  splitPendingStudyDecisions,
 } from '../app/cleanConcursoModule';
 import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport';
 import { getLocalTodayIsoDate } from '../app/dateUtils';
@@ -91,6 +95,7 @@ const calendarStatusLabel = {
   pending: 'Pendente',
   done: 'Feito',
   failed: 'Falhou',
+  dismissed: 'Dispensado',
 } as const;
 
 const groupPlanItemsBySubject = (
@@ -285,6 +290,9 @@ export const CleanConcursoPage = () => {
   const {
     setSelectedDate,
     completeCalendarEvent,
+    dismissCalendarEvent,
+    batchDismissCalendarEvents,
+    batchCompleteCalendarEvents,
     failCalendarManualBlock,
     markTopicSubmatterReviewedToday,
     saveCalendarEventDraft,
@@ -314,6 +322,7 @@ export const CleanConcursoPage = () => {
   const [isCalendarEventListOpen, setIsCalendarEventListOpen] = useState(true);
   const [isWeeklyViewOpen, setIsWeeklyViewOpen] = useState(false);
   const [weeklyViewWeek, setWeeklyViewWeek] = useState<number | null>(null);
+  const [isOlderPendingOpen, setIsOlderPendingOpen] = useState(false);
 
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
@@ -510,6 +519,10 @@ export const CleanConcursoPage = () => {
     () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, state.topicProgress, today, defaultQuestionGoals, state.manualBlockReschedules),
     [dayPlans, defaultQuestionGoals, state.calendarEventProgress, state.manualBlockReschedules, state.topicProgress, today],
   );
+  const { recent: recentPendingDecisions, older: olderPendingDecisions } = useMemo(
+    () => splitPendingStudyDecisions(pendingStudyDecisions),
+    [pendingStudyDecisions],
+  );
   const normalizedDeferredSearch = useMemo(() => normalizePlanSearch(deferredSearch), [deferredSearch]);
 
   const filteredPlanItems = useMemo(() => {
@@ -586,6 +599,38 @@ export const CleanConcursoPage = () => {
   const handleCompletePendingDecision = (decision: (typeof pendingStudyDecisions)[number]): void => {
     const questionsDone = pendingQuestionsByEventId[decision.eventId] ?? 0;
     completeCalendarEvent(decision.eventId, decision.topicIds, questionsDone);
+  };
+
+  const handleDismissPendingDecision = (decision: (typeof pendingStudyDecisions)[number]): void => {
+    dismissCalendarEvent(decision.eventId);
+  };
+
+  const handleDismissAllOlderDecisions = (): void => {
+    batchDismissCalendarEvents(olderPendingDecisions.map((item) => item.eventId));
+  };
+
+  const handleCompleteAllOlderDecisions = (): void => {
+    batchCompleteCalendarEvents(
+      olderPendingDecisions.map((item) => ({
+        eventId: item.eventId,
+        topicIds: item.topicIds,
+        questionsDone: pendingQuestionsByEventId[item.eventId] ?? item.questionGoal,
+      })),
+    );
+  };
+
+  const handleDismissAllRecentDecisions = (): void => {
+    batchDismissCalendarEvents(recentPendingDecisions.map((item) => item.eventId));
+  };
+
+  const handleCompleteAllRecentDecisions = (): void => {
+    batchCompleteCalendarEvents(
+      recentPendingDecisions.map((item) => ({
+        eventId: item.eventId,
+        topicIds: item.topicIds,
+        questionsDone: pendingQuestionsByEventId[item.eventId] ?? item.questionGoal,
+      })),
+    );
   };
 
   const handleCompleteCalendarEvent = (event: (typeof calendarEvents)[number]): void => {
@@ -856,14 +901,63 @@ export const CleanConcursoPage = () => {
                     <ClipboardCheck size={16} />
                     Pendências para fechar
                   </span>
-                  <h3>{pendingStudyDecisions.length} matéria(s) aguardando decisão</h3>
+                  <h3>
+                    {pendingStudyDecisions.length} matéria(s) aguardando decisão
+                    {olderPendingDecisions.length > 0 && recentPendingDecisions.length > 0 ? (
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8', marginLeft: '8px' }}>
+                        ({recentPendingDecisions.length} recentes, {olderPendingDecisions.length} anteriores)
+                      </span>
+                    ) : null}
+                  </h3>
                 </div>
-                <small>Marque o que foi feito ou realoque só quando realmente falhou.</small>
+                <small>Marque o que foi feito, dispense se não for estudar, ou realoque quando falhou.</small>
               </div>
-              {pendingStudyDecisions.length > 0 ? (
-                <div className="clean-pending-list">
-                  {pendingStudyDecisions.map((decision) => (
-                    <article className="clean-pending-card" key={decision.id}>
+
+              {olderPendingDecisions.length > 0 && (
+                <div className="clean-older-pending-banner">
+                  <div className="clean-older-pending-info">
+                    <Clock size={18} />
+                    <div>
+                      <strong>{olderPendingDecisions.length} matéria(s) pendente(s) de semanas anteriores</strong>
+                      <span>{formatIsoDateCompactPtBr(olderPendingDecisions[0].date)} até {formatIsoDateCompactPtBr(olderPendingDecisions[olderPendingDecisions.length - 1].date)}</span>
+                    </div>
+                  </div>
+                  <div className="clean-older-pending-actions">
+                    <button
+                      type="button"
+                      className="clean-older-pending-btn is-dismiss"
+                      onClick={handleDismissAllOlderDecisions}
+                      title="Dispensar todas as matérias de semanas anteriores sem bagunçar o cronograma"
+                    >
+                      <CheckCheck size={14} />
+                      Dispensar anteriores
+                    </button>
+                    <button
+                      type="button"
+                      className="clean-older-pending-btn is-complete"
+                      onClick={handleCompleteAllOlderDecisions}
+                      title="Marcar todas as anteriores como concluídas"
+                    >
+                      <CheckCircle2 size={14} />
+                      Marcar feitas
+                    </button>
+                    <button
+                      type="button"
+                      className="clean-older-pending-btn is-toggle"
+                      onClick={() => setIsOlderPendingOpen((prev) => !prev)}
+                      aria-expanded={isOlderPendingOpen}
+                    >
+                      {isOlderPendingOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      {isOlderPendingOpen ? 'Ocultar' : `Ver matérias (${olderPendingDecisions.length})`}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {isOlderPendingOpen && olderPendingDecisions.length > 0 && (
+                <div className="clean-pending-list" style={{ marginBottom: '16px' }}>
+                  {olderPendingDecisions.map((decision) => (
+                    <article className="clean-pending-card" key={decision.id} style={{ opacity: 0.9 }}>
                       <div className="clean-pending-card-main">
                         <span>{formatIsoDateCompactPtBr(decision.date)} | {decision.subjectLabel}</span>
                         <strong>{decision.title}</strong>
@@ -896,6 +990,15 @@ export const CleanConcursoPage = () => {
                         </button>
                         <button
                           type="button"
+                          className="clean-dismiss-button"
+                          onClick={() => handleDismissPendingDecision(decision)}
+                          title="Dispensar esta matéria sem realocar no calendário"
+                        >
+                          <CheckCheck size={15} />
+                          Dispensar
+                        </button>
+                        <button
+                          type="button"
                           className="clean-fail-button"
                           onClick={() => failCalendarManualBlock(decision.date, decision.block)}
                         >
@@ -906,9 +1009,95 @@ export const CleanConcursoPage = () => {
                     </article>
                   ))}
                 </div>
-              ) : (
-                <div className="clean-empty-state">Nenhuma matéria atrasada aguardando decisão.</div>
               )}
+
+              {recentPendingDecisions.length > 0 ? (
+                <>
+                  <div className="clean-recent-pending-header">
+                    <span>Pendências recentes (últimos 7 dias)</span>
+                    <div className="clean-pending-batch-actions">
+                      <button
+                        type="button"
+                        className="clean-batch-action-btn is-complete"
+                        onClick={handleCompleteAllRecentDecisions}
+                        title="Marcar todas as pendências recentes como feitas"
+                      >
+                        <CheckCircle2 size={13} />
+                        Marcar todas feitas
+                      </button>
+                      <button
+                        type="button"
+                        className="clean-batch-action-btn is-dismiss"
+                        onClick={handleDismissAllRecentDecisions}
+                        title="Dispensar todas as pendências recentes"
+                      >
+                        <CheckCheck size={13} />
+                        Dispensar todas
+                      </button>
+                    </div>
+                  </div>
+                  <div className="clean-pending-list">
+                    {recentPendingDecisions.map((decision) => (
+                      <article className="clean-pending-card" key={decision.id}>
+                        <div className="clean-pending-card-main">
+                          <span>{formatIsoDateCompactPtBr(decision.date)} | {decision.subjectLabel}</span>
+                          <strong>{decision.title}</strong>
+                          <p>{decision.detail}</p>
+                          {decision.failureDate ? (
+                            <small>Se falhar, volta em {formatIsoDateCompactPtBr(decision.failureDate)}.</small>
+                          ) : null}
+                        </div>
+                        <div className="clean-pending-actions">
+                          <label>
+                            <span>Questões feitas</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={pendingQuestionsByEventId[decision.eventId] ?? 0}
+                              onChange={(event) =>
+                                handlePendingQuestionsChange(decision.eventId, event.target.valueAsNumber)
+                              }
+                              aria-label={`Questões feitas em ${decision.title}`}
+                            />
+                            <small>Meta: {decision.questionGoal}</small>
+                          </label>
+                          <button
+                            type="button"
+                            className="clean-icon-link"
+                            onClick={() => handleCompletePendingDecision(decision)}
+                          >
+                            <CheckCircle2 size={15} />
+                            Marcar feito
+                          </button>
+                          <button
+                            type="button"
+                            className="clean-dismiss-button"
+                            onClick={() => handleDismissPendingDecision(decision)}
+                            title="Dispensar esta matéria sem realocar no calendário"
+                          >
+                            <CheckCheck size={15} />
+                            Dispensar
+                          </button>
+                          <button
+                            type="button"
+                            className="clean-fail-button"
+                            onClick={() => failCalendarManualBlock(decision.date, decision.block)}
+                          >
+                            <XCircle size={15} />
+                            Falhei
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : olderPendingDecisions.length === 0 ? (
+                <div className="clean-empty-state">Nenhuma matéria atrasada aguardando decisão.</div>
+              ) : !isOlderPendingOpen ? (
+                <div className="clean-empty-state">
+                  Nenhuma matéria pendente nesta semana. Use o painel acima para dispensar ou concluir as {olderPendingDecisions.length} matérias de semanas anteriores.
+                </div>
+              ) : null}
             </section>
 
             {selectedPlan?.isRestDay ? (

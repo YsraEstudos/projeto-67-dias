@@ -65,6 +65,7 @@ export interface CleanPendingStudyDecision {
   failureDate: string | null;
   block: ManualBlock;
   topicIds: string[];
+  isOlder?: boolean;
 }
 
 const REVIEW_INTERVALS_BY_GRADE: Record<TopicGrade, number[]> = {
@@ -244,6 +245,7 @@ export const buildPendingStudyDecisions = (
   const failedBlockKeys = new Set(
     manualBlockReschedules.map((item) => `${item.failedAt}-${item.blockId}`),
   );
+  const sevenDaysAgo = addDays(today, -7);
 
   return plans
     .filter((plan) => plan.date < today && plan.planMode === 'manual' && !plan.isRestDay)
@@ -279,9 +281,25 @@ export const buildPendingStudyDecisions = (
           failureDate: findNextFailurePlanDate(plans, plan.date, block),
           block,
           topicIds: getBlockTopicIds(block),
+          isOlder: plan.date < sevenDaysAgo,
         }];
       }),
     );
+};
+
+export const splitPendingStudyDecisions = (
+  decisions: CleanPendingStudyDecision[],
+): { recent: CleanPendingStudyDecision[]; older: CleanPendingStudyDecision[] } => {
+  const recent: CleanPendingStudyDecision[] = [];
+  const older: CleanPendingStudyDecision[] = [];
+  for (const decision of decisions) {
+    if (decision.isOlder) {
+      older.push(decision);
+    } else {
+      recent.push(decision);
+    }
+  }
+  return { recent, older };
 };
 
 export const buildCleanCalendarEvents = (

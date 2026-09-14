@@ -3,6 +3,7 @@ import {
   buildCleanCalendarEvents,
   buildCleanPlanContentItems,
   buildPendingStudyDecisions,
+  splitPendingStudyDecisions,
 } from '../app/cleanConcursoModule';
 import { buildDayPlans } from '../app/schedule';
 import { TOPICS } from '../app/seed';
@@ -144,5 +145,53 @@ describe('clean concurso module', () => {
     expect(pending.every((item) => item.block !== null)).toBe(true);
     expect(pending.some((item) => item.eventId.endsWith('-rest'))).toBe(false);
     expect(pending.some((item) => item.eventId.endsWith('-simulado'))).toBe(false);
+  });
+
+  it('ignora materias com status dismissed em calendarEventProgress', () => {
+    const plans = buildDayPlans();
+    const firstStudy = buildCleanPlanContentItems(plans)[0];
+    const eventId = `${firstStudy.date}-${firstStudy.block.id}`;
+    const pending = buildPendingStudyDecisions(
+      plans,
+      {
+        [eventId]: {
+          status: 'dismissed',
+          updatedAt: '2026-08-21T10:00:00.000Z',
+        },
+      },
+      {},
+      '2026-08-25',
+      {
+        portugues: 80,
+        rlm: 65,
+        legislacao: 64,
+        especificos: 50,
+      },
+    );
+
+    expect(pending.some((item) => item.eventId === eventId)).toBe(false);
+  });
+
+  it('classifica pendencias entre recentes e semanas anteriores via splitPendingStudyDecisions', () => {
+    const plans = buildDayPlans();
+    const pending = buildPendingStudyDecisions(
+      plans,
+      {},
+      {},
+      '2026-09-13',
+      {
+        portugues: 80,
+        rlm: 65,
+        legislacao: 64,
+        especificos: 50,
+      },
+    );
+
+    const { recent, older } = splitPendingStudyDecisions(pending);
+    expect(recent.length).toBeGreaterThan(0);
+    expect(older.length).toBeGreaterThan(0);
+    expect(recent.length + older.length).toBe(pending.length);
+    expect(older.every((item) => item.date < '2026-09-06')).toBe(true);
+    expect(recent.every((item) => item.date >= '2026-09-06')).toBe(true);
   });
 });

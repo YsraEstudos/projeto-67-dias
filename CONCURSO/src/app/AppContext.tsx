@@ -309,6 +309,14 @@ type Action =
       at: string;
       questionsDone?: number;
     }
+  | { type: 'dismiss-calendar-event'; eventId: string; at: string }
+  | { type: 'batch-dismiss-calendar-events'; eventIds: string[]; at: string }
+  | {
+      type: 'batch-complete-calendar-events';
+      items: Array<{ eventId: string; topicIds: string[]; questionsDone: number }>;
+      reviewedAt: string;
+      at: string;
+    }
   | { type: 'unset-calendar-event-done'; eventId: string; topicIds?: string[]; at: string }
   | { type: 'fail-calendar-manual-block'; date: string; block: ManualBlock; at: string }
   | { type: 'undo-calendar-manual-block-failure'; date: string; blockId: string; at: string }
@@ -573,6 +581,74 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           isComplete: false,
         }),
       );
+    }
+    case 'dismiss-calendar-event': {
+      const currentProgress = state.calendarEventProgress[action.eventId];
+      return markChanged(
+        setCalendarEventProgress(
+          state,
+          action.eventId,
+          'dismissed',
+          action.at,
+          currentProgress?.questionsDone,
+          {
+            ...(currentProgress?.questionGoal !== undefined ? { questionGoal: currentProgress.questionGoal } : {}),
+            ...(currentProgress?.hasCards !== undefined ? { hasCards: currentProgress.hasCards } : {}),
+            ...(currentProgress?.hasClasses !== undefined ? { hasClasses: currentProgress.hasClasses } : {}),
+            isComplete: false,
+          },
+        ),
+      );
+    }
+    case 'batch-dismiss-calendar-events': {
+      if (action.eventIds.length === 0) {
+        return state;
+      }
+      const updatedProgress = { ...state.calendarEventProgress };
+      for (const eventId of action.eventIds) {
+        const current = updatedProgress[eventId];
+        updatedProgress[eventId] = {
+          status: 'dismissed',
+          updatedAt: action.at,
+          questionsDone: current?.questionsDone ?? 0,
+          ...(current?.questionGoal !== undefined ? { questionGoal: current.questionGoal } : {}),
+          ...(current?.hasCards !== undefined ? { hasCards: current.hasCards } : {}),
+          ...(current?.hasClasses !== undefined ? { hasClasses: current.hasClasses } : {}),
+          isComplete: false,
+        };
+      }
+      return markChanged({
+        ...state,
+        calendarEventProgress: updatedProgress,
+      });
+    }
+    case 'batch-complete-calendar-events': {
+      if (action.items.length === 0) {
+        return state;
+      }
+      let nextState = state;
+      const updatedProgress = { ...nextState.calendarEventProgress };
+      const allTopicIds: string[] = [];
+      for (const item of action.items) {
+        const current = updatedProgress[item.eventId];
+        const previousProgress = current?.previousProgress ?? buildTopicProgressSnapshots(nextState, item.topicIds);
+        updatedProgress[item.eventId] = {
+          status: 'done',
+          updatedAt: action.at,
+          questionsDone: item.questionsDone,
+          isComplete: true,
+          previousProgress,
+          ...(current?.questionGoal !== undefined ? { questionGoal: current.questionGoal } : {}),
+          ...(current?.hasCards !== undefined ? { hasCards: current.hasCards } : {}),
+          ...(current?.hasClasses !== undefined ? { hasClasses: current.hasClasses } : {}),
+        };
+        allTopicIds.push(...item.topicIds);
+      }
+      nextState = {
+        ...nextState,
+        calendarEventProgress: updatedProgress,
+      };
+      return markChanged(markTopicsAsDone(nextState, allTopicIds, action.reviewedAt, action.at));
     }
     case 'fail-calendar-manual-block': {
       const eventId = getCalendarEventId(action.date, action.block.id);
@@ -1157,6 +1233,9 @@ interface AppContextValue {
     },
   ) => void;
   completeCalendarEvent: (eventId: string, topicIds: string[], questionsDone?: number) => void;
+  dismissCalendarEvent: (eventId: string) => void;
+  batchDismissCalendarEvents: (eventIds: string[]) => void;
+  batchCompleteCalendarEvents: (items: Array<{ eventId: string; topicIds: string[]; questionsDone: number }>) => void;
   unsetCalendarEventDone: (eventId: string, topicIds?: string[]) => void;
   failCalendarManualBlock: (date: string, block: ManualBlock) => void;
   undoCalendarManualBlockFailure: (date: string, blockId: string) => void;
@@ -1554,8 +1633,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           stateRef.current = normalizedMergedState;
           lastCloudSavedTokenRef.current = normalizedMergedState.meta.changeToken;
           lastCloudSavedAtRef.current = merged.exportedAt;
+
+          if (localChangedAt && (!remoteChangedAt || localChangedAt > remoteChangedAt || merged.exportedAt !== remote.snapshot.exportedAt)) {
+            void syncSnapshotToCloud(normalizedMergedState).catch(() => {});
+          }
         } else {
           lastCloudSavedTokenRef.current = localState.meta.changeToken;
+          if (!remote.snapshot) {
+            void syncSnapshotToCloud(stateRef.current).catch((error) => {
+              setCloudSync({
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
+              });
+            });
+          }
         }
 
         hasLoadedCloudSnapshotRef.current = true;
@@ -1567,15 +1658,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           lastRemoteChangeAt: remoteChangedAt,
           error: null,
         });
-
-        if (!remote.snapshot || (localChangedAt && remoteChangedAt && localChangedAt > remoteChangedAt)) {
-          void syncSnapshotToCloud(stateRef.current).catch((error) => {
-            setCloudSync({
-              status: 'error',
-              error: error instanceof Error ? error.message : 'Falha ao sincronizar com a nuvem.',
-            });
-          });
-        }
 
         unsubscribeSnapshot = await subscribeCloudSnapshotChanges(
           user.uid,
@@ -1811,6 +1893,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           questionsDone,
         });
       },
+      dismissCalendarEvent: (eventId) =>
+        dispatch({ type: 'dismiss-calendar-event', eventId, at: nowIso() }),
+      batchDismissCalendarEvents: (eventIds) =>
+        dispatch({ type: 'batch-dismiss-calendar-events', eventIds, at: nowIso() }),
+      batchCompleteCalendarEvents: (items) =>
+        dispatch({
+          type: 'batch-complete-calendar-events',
+          items,
+          reviewedAt: getTodayIsoDate(),
+          at: nowIso(),
+        }),
       unsetCalendarEventDone: (eventId, topicIds) =>
         dispatch({ type: 'unset-calendar-event-done', eventId, topicIds, at: nowIso() }),
       failCalendarManualBlock: (date, block) =>

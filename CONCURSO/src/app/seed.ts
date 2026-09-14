@@ -68,7 +68,7 @@ const normalizeDailyLogs = (
 };
 
 const isCalendarEventStatus = (value: unknown): value is CalendarEventProgress['status'] =>
-  value === 'pending' || value === 'done' || value === 'failed';
+  value === 'pending' || value === 'done' || value === 'failed' || value === 'dismissed';
 
 const isTopicGrade = (value: unknown): value is TopicGrade =>
   value === 'A' || value === 'B' || value === 'C' || value === 'D' || value === 'E';

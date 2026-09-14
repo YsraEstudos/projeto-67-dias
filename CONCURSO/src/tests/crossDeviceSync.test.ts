@@ -113,4 +113,48 @@ describe('Cross-device Sync & Pending Decisions Integrity', () => {
       buildPendingStudyDecisions(plans, {}, {}, '2026-09-11', incompleteGoals);
     }).not.toThrow();
   });
+
+  it('preserva dispensas em lote entre dispositivos e elimina pendencias antigas', () => {
+    const deviceAState = createInitialState('2026-08-20');
+    const plans = buildDayPlans('2026-08-20');
+    const olderBlocks = plans
+      .filter((p) => p.date < '2026-09-06' && !p.isRestDay)
+      .flatMap((p) => (p.manualBlocks ?? []).map((b) => `${p.date}-${b.id}`));
+
+    // Device A marks all older blocks as dismissed
+    for (const eventId of olderBlocks) {
+      deviceAState.calendarEventProgress[eventId] = {
+        status: 'dismissed',
+        updatedAt: '2026-09-12T12:00:00.000Z',
+      };
+    }
+    deviceAState.meta.changeToken = 5;
+    deviceAState.meta.lastChangedAt = '2026-09-12T12:00:00.000Z';
+
+    const remoteSnapshot = buildSnapshot(deviceAState);
+
+    // Device B connects with initial empty state
+    const deviceBState = createInitialState('2026-08-20');
+    const localSnapshot = buildSnapshot(deviceBState);
+
+    const { merged } = mergeSnapshots(null, localSnapshot, remoteSnapshot);
+
+    // Merged state on Device B should have all older blocks dismissed
+    for (const eventId of olderBlocks) {
+      expect(merged.appState.calendarEventProgress[eventId]?.status).toBe('dismissed');
+    }
+
+    const goals = { portugues: 30, rlm: 30, legislacao: 30, especificos: 30 };
+    const pendingOnB = buildPendingStudyDecisions(
+      plans,
+      merged.appState.calendarEventProgress,
+      merged.appState.topicProgress,
+      '2026-09-13',
+      goals,
+    );
+
+    // None of the dismissed older blocks should be pending
+    const hasOlderPending = pendingOnB.some((p) => p.date < '2026-09-06');
+    expect(hasOlderPending).toBe(false);
+  });
 });
