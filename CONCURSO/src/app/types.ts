@@ -269,6 +269,7 @@ export interface PlanSettings {
   startDateChangeCount: number;
   restWeekday: number;
   defaultQuestionGoals: Record<SubjectKey, number>;
+  lastResetDate?: string;
 }
 
 export interface ManualBlockReschedule {

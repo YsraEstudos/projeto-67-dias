@@ -470,6 +470,12 @@ export const normalizeStateForCurrentPlan = (state: AppState): AppState => {
         : 0,
       restWeekday,
       defaultQuestionGoals,
+      lastResetDate:
+        typeof state.planSettings?.lastResetDate === 'string'
+          ? state.planSettings.lastResetDate
+          : Object.keys(calendarEventProgress).length === 0 && manualBlockReschedules.length === 0
+            ? getLocalTodayIsoDate()
+            : undefined,
     },
     shellUi: {
       mobilePinnedNav: sanitizeMobilePinnedNav(state.shellUi?.mobilePinnedNav),

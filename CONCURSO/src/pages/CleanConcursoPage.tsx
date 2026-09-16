@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Target,
+  Trash2,
   Trophy,
   XCircle,
 } from 'lucide-react';
@@ -303,6 +304,7 @@ export const CleanConcursoPage = () => {
     rateSubmatter,
     unrateSubmatter,
     resetPlan,
+    setLastResetDate,
   } = useAppActionsContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
@@ -515,8 +517,17 @@ export const CleanConcursoPage = () => {
     ? defaultQuestionGoals[activeStudySession.subjectKey]
     : 30;
   const pendingStudyDecisions = useMemo(
-    () => buildPendingStudyDecisions(dayPlans, state.calendarEventProgress, state.topicProgress, today, defaultQuestionGoals, state.manualBlockReschedules),
-    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, state.manualBlockReschedules, state.topicProgress, today],
+    () =>
+      buildPendingStudyDecisions(
+        dayPlans,
+        state.calendarEventProgress,
+        state.topicProgress,
+        today,
+        defaultQuestionGoals,
+        state.manualBlockReschedules,
+        state.planSettings.lastResetDate,
+      ),
+    [dayPlans, defaultQuestionGoals, state.calendarEventProgress, state.manualBlockReschedules, state.planSettings.lastResetDate, state.topicProgress, today],
   );
   const { recent: recentPendingDecisions, older: olderPendingDecisions } = useMemo(
     () => splitPendingStudyDecisions(pendingStudyDecisions),
@@ -693,7 +704,7 @@ export const CleanConcursoPage = () => {
   };
 
   const handleConfirmResetPlan = (): void => {
-    resetPlan(planStartDate);
+    resetPlan(planStartDate, today, planStartDate);
     setActiveStudySession(null);
     setStudyProgressBySession({});
     setSelectedDate(planStartDate);
@@ -701,6 +712,10 @@ export const CleanConcursoPage = () => {
     setCalendarMonth(planStartDate.slice(0, 7));
     setActiveView('dia');
     setIsResetModalOpen(false);
+  };
+
+  const handleClearOlderPendingDecisions = (): void => {
+    setLastResetDate(today);
   };
 
   const renderRestDayPlanner = (date: string, note: string) => (
@@ -941,6 +956,15 @@ export const CleanConcursoPage = () => {
                     >
                       <CheckCircle2 size={14} />
                       Marcar feitas
+                    </button>
+                    <button
+                      type="button"
+                      className="clean-older-pending-btn is-clear"
+                      onClick={handleClearOlderPendingDecisions}
+                      title="Descartar pendências de semanas anteriores para focar nos estudos a partir de hoje"
+                    >
+                      <Trash2 size={14} />
+                      Limpar anteriores
                     </button>
                     <button
                       type="button"
@@ -1957,8 +1981,8 @@ export const CleanConcursoPage = () => {
                 Tem certeza que deseja reiniciar o plano do concurso do início?
               </p>
               <ul style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: '1.6', marginBottom: '20px', paddingLeft: '20px' }}>
-                <li>Todas as matérias marcadas como feitas voltarão para pendentes.</li>
-                <li>Todas as falhas e matérias realocadas serão removidas.</li>
+                <li>Todo o histórico de matérias concluídas e falhas anteriores será zerado.</li>
+                <li>Nenhuma matéria atrasada ou pendência será gerada para os dias anteriores.</li>
                 <li>O cronograma e a data selecionada voltarão para o primeiro dia ({formatIsoDateCompactPtBr(planStartDate)}).</li>
                 <li>Suas preferências de descanso e metas diárias de questões serão preservadas.</li>
               </ul>

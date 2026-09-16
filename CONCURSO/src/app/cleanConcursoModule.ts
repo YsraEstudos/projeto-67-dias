@@ -275,14 +275,22 @@ export const buildPendingStudyDecisions = (
   today: string,
   defaultQuestionGoals: Record<SubjectKey, number>,
   manualBlockReschedules: ManualBlockReschedule[] = [],
+  lastResetDate?: string,
 ): CleanPendingStudyDecision[] => {
   const failedBlockKeys = new Set(
     manualBlockReschedules.map((item) => `${item.failedAt}-${item.blockId}`),
   );
   const sevenDaysAgo = addDays(today, -7);
+  const cutoffDate = lastResetDate && lastResetDate <= today ? lastResetDate : undefined;
 
   return plans
-    .filter((plan) => plan.date < today && plan.planMode === 'manual' && !plan.isRestDay)
+    .filter(
+      (plan) =>
+        plan.date < today &&
+        (!cutoffDate || plan.date >= cutoffDate) &&
+        plan.planMode === 'manual' &&
+        !plan.isRestDay,
+    )
     .flatMap((plan) =>
       (plan.manualBlocks ?? []).filter(isStudyPlanBlock).flatMap((block) => {
         const eventId = `${plan.date}-${block.id}`;

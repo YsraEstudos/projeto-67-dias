@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appReducer } from '../app/AppContext';
 import * as dateUtils from '../app/dateUtils';
 import { createInitialState, normalizeStateForCurrentPlan, TOPICS } from '../app/seed';
+import { buildDayPlans } from '../app/schedule';
+import { buildPendingStudyDecisions } from '../app/cleanConcursoModule';
 import { DEFAULT_MOBILE_PINNED_NAV } from '../app/mobileNavigation';
 import { buildSnapshot, loadStateSnapshot, saveStateSnapshot } from '../app/storage';
 import { FALLBACK_BACKUP_KEY, STORAGE_KEY } from '../app/constants';
@@ -448,13 +450,34 @@ describe('snapshot storage', () => {
     expect(state.manualBlockReschedules.length).toBeGreaterThan(0);
     expect(Object.keys(state.calendarEventProgress).length).toBeGreaterThan(0);
 
-    const resetState = appReducer(state, { type: 'reset-plan' });
+    const resetState = appReducer(state, { type: 'reset-plan', resetDate: '2026-09-16' });
 
     expect(resetState.selectedDate).toBe('2026-08-20');
     expect(resetState.manualBlockReschedules).toEqual([]);
     expect(resetState.calendarEventProgress).toEqual({});
     expect(resetState.planSettings.restWeekday).toBe(6);
     expect(resetState.planSettings.defaultQuestionGoals.portugues).toBe(45);
+    expect(resetState.planSettings.lastResetDate).toBe('2026-09-16');
     expect(resetState.meta.changeToken).toBeGreaterThan(state.meta.changeToken);
+
+    // Verifica que nao gera nenhuma pendencia mesmo estando em 2026-09-16
+    const plans = buildDayPlans(resetState.planSettings.startDate);
+    const pendingAfterReset = buildPendingStudyDecisions(
+      plans,
+      resetState.calendarEventProgress,
+      resetState.topicProgress,
+      '2026-09-16',
+      resetState.planSettings.defaultQuestionGoals,
+      resetState.manualBlockReschedules,
+      resetState.planSettings.lastResetDate,
+    );
+    expect(pendingAfterReset.length).toBe(0);
+  });
+
+  it('permite descartar pendencias anteriores atualizando lastResetDate', () => {
+    const state = createInitialState();
+    const updated = appReducer(state, { type: 'set-last-reset-date', date: '2026-09-16' });
+    expect(updated.planSettings.lastResetDate).toBe('2026-09-16');
+    expect(updated.meta.changeToken).toBeGreaterThan(state.meta.changeToken);
   });
 });

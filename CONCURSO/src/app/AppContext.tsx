@@ -405,7 +405,8 @@ type Action =
   | { type: 'remove-mobile-nav-item'; path: string }
   | { type: 'move-mobile-nav-item'; path: string; targetIndex: number }
   | { type: 'import-state'; state: AppState }
-  | { type: 'reset-plan'; startDate?: string }
+  | { type: 'reset-plan'; startDate?: string; resetDate?: string; selectedDate?: string }
+  | { type: 'set-last-reset-date'; date: string }
   | {
       type: 'record-backup';
       at: string;
@@ -512,11 +513,15 @@ export const appReducer = (state: AppState, action: Action): AppState => {
     case 'reset-plan': {
       const planStartDate = action.startDate ?? state.planSettings.startDate;
       const freshState = createInitialState(planStartDate);
+      const resetDate = action.resetDate ?? getLocalTodayIsoDate();
+      const selectedDate = action.selectedDate ?? planStartDate;
       return markChanged({
         ...freshState,
-        selectedDate: planStartDate,
+        selectedDate,
         planSettings: {
           ...freshState.planSettings,
+          startDate: planStartDate,
+          lastResetDate: resetDate,
           restWeekday: state.planSettings.restWeekday,
           defaultQuestionGoals: { ...state.planSettings.defaultQuestionGoals },
         },
@@ -531,6 +536,20 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           changeToken: state.meta.changeToken + 1,
           lastChangedAt: nowIso(),
           backup: state.meta.backup,
+        },
+      });
+    }
+    case 'set-last-reset-date': {
+      return markChanged({
+        ...state,
+        planSettings: {
+          ...state.planSettings,
+          lastResetDate: action.date,
+        },
+        meta: {
+          ...state.meta,
+          changeToken: state.meta.changeToken + 1,
+          lastChangedAt: nowIso(),
         },
       });
     }
@@ -1356,7 +1375,8 @@ interface AppContextValue {
   connectBackupFile: () => Promise<void>;
   importSnapshot: (snapshot: AppSnapshot) => void;
   exportSnapshot: () => void;
-  resetPlan: (startDate?: string) => void;
+  resetPlan: (startDate?: string, resetDate?: string, selectedDate?: string) => void;
+  setLastResetDate: (date: string) => void;
   cloudSync: {
     status: 'checking' | 'local-only' | 'connected' | 'syncing' | 'error';
     email: string | null;
@@ -2182,7 +2202,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const snapshot = buildSnapshot(stateRef.current);
         downloadSnapshot(snapshot, `concurso-export-${snapshot.exportedAt.slice(0, 10)}.json`);
       },
-      resetPlan: (startDate) => dispatch({ type: 'reset-plan', startDate }),
+      resetPlan: (startDate, resetDate, selectedDate) =>
+        dispatch({ type: 'reset-plan', startDate, resetDate, selectedDate }),
+      setLastResetDate: (date) => dispatch({ type: 'set-last-reset-date', date }),
     }),
     [persistSnapshot],
   );
