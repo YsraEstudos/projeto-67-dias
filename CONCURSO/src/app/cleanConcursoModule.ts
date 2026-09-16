@@ -37,6 +37,7 @@ export interface CleanCalendarEvent {
   block: ManualBlock | null;
   topicIds: string[];
   submatterId: string | null;
+  rescheduledFromDate?: string | null;
 }
 
 export interface CleanReviewScheduleItem {
@@ -202,15 +203,21 @@ export const findNextFailurePlanDate = (
   plans: DayPlan[],
   currentDate: string,
   block: ManualBlock,
+  today?: string,
 ): string | null => {
   const currentIndex = plans.findIndex((plan) => plan.date === currentDate);
   if (currentIndex < 0) return null;
+
+  const todayIndex = today ? plans.findIndex((plan) => plan.date === today) : -1;
+  const startIndex = today && todayIndex >= 0 && currentDate < today
+    ? Math.max(currentIndex, todayIndex - 1)
+    : currentIndex;
 
   const subject = inferManualBlockSubject(block);
   if (!subject) {
     const nextPlan = plans.find(
       (plan, index) =>
-        index > currentIndex
+        index > startIndex
         && plan.planMode === 'manual'
         && !plan.isRestDay
         && (plan.manualBlocks?.length ?? 0) > 0,
@@ -219,7 +226,7 @@ export const findNextFailurePlanDate = (
   }
 
   let checkedManualDays = 0;
-  for (let index = currentIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
+  for (let index = startIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
     const plan = plans[index];
     if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
       continue;
@@ -278,7 +285,7 @@ export const buildPendingStudyDecisions = (
           subject,
           subjectLabel: getManualBlockSubjectLabel(block),
           questionGoal,
-          failureDate: findNextFailurePlanDate(plans, plan.date, block),
+          failureDate: findNextFailurePlanDate(plans, plan.date, block, today),
           block,
           topicIds: getBlockTopicIds(block),
           isOlder: plan.date < sevenDaysAgo,
@@ -340,11 +347,15 @@ export const buildCleanCalendarEvents = (
         block: null,
         topicIds: [],
         submatterId: null,
+        rescheduledFromDate: null,
       });
     } else {
       (plan?.manualBlocks ?? []).filter(isStudyPlanBlock).forEach((block) => {
         const eventId = `${date}-${block.id}`;
         const topicIds = getBlockTopicIds(block);
+        const matchingReschedule = manualBlockReschedules.find(
+          (item) => item.blockId === block.id && item.failedAt !== date,
+        );
         events.push({
           id: eventId,
           date,
@@ -357,6 +368,7 @@ export const buildCleanCalendarEvents = (
           block,
           topicIds,
           submatterId: null,
+          rescheduledFromDate: matchingReschedule ? matchingReschedule.failedAt : null,
         });
       });
     }
@@ -375,6 +387,7 @@ export const buildCleanCalendarEvents = (
         block: null,
         topicIds: [],
         submatterId: null,
+        rescheduledFromDate: null,
       });
     }
 
@@ -392,6 +405,7 @@ export const buildCleanCalendarEvents = (
         block: null,
         topicIds: [],
         submatterId: null,
+        rescheduledFromDate: null,
       });
     }
 
@@ -411,6 +425,7 @@ export const buildCleanCalendarEvents = (
         block,
         topicIds,
         submatterId: null,
+        rescheduledFromDate: reschedule.failedAt,
       });
     });
 
@@ -423,11 +438,12 @@ export const buildCleanCalendarEvents = (
         subtitle: `${subjectLabel(topic.subject)} | Nota ${submatter.grade}`,
         tone: 'review',
         kind: 'review',
-        status: getProgressStatus(calendarEventProgress, topicProgress, eventId, []),
+        status: getProgressStatus(calendarEventProgress, topicProgress, eventId, [topic.id]),
         blockId: null,
         block: null,
         topicIds: [topic.id],
         submatterId: submatter.id,
+        rescheduledFromDate: null,
       });
     });
 

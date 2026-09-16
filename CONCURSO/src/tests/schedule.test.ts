@@ -237,5 +237,28 @@ describe('buildDayPlans', () => {
       expect(wasOriginallyInPastPlan).toBe(true);
     }
   });
+
+  it('realoca bloco que falhou no passado para data presente ou futura quando today e fornecido', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const fridayPlan = plans.find((p) => p.date === '2026-08-21')!;
+    const legisBlock = fridayPlan.manualBlocks!.find((b) => b.id === 'w1-fri-legis-lc133-provimento')!;
+    const today = '2026-09-16';
+
+    const failures = [
+      {
+        id: 'fail-legis-past',
+        failedAt: '2026-08-21',
+        blockId: legisBlock.id,
+        createdAt: '2026-09-16T10:00:00.000Z',
+        block: legisBlock,
+      },
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, failures, today);
+    const targetPlan = rescheduled.find((p) => (p.manualBlocks ?? []).some((b) => b.id === legisBlock.id));
+
+    expect(targetPlan).toBeDefined();
+    expect(targetPlan!.date >= today).toBe(true);
+  });
 });
 

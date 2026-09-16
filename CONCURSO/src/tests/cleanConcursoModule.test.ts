@@ -3,6 +3,7 @@ import {
   buildCleanCalendarEvents,
   buildCleanPlanContentItems,
   buildPendingStudyDecisions,
+  findNextFailurePlanDate,
   splitPendingStudyDecisions,
 } from '../app/cleanConcursoModule';
 import { buildDayPlans } from '../app/schedule';
@@ -193,5 +194,36 @@ describe('clean concurso module', () => {
     expect(recent.length + older.length).toBe(pending.length);
     expect(older.every((item) => item.date < '2026-09-06')).toBe(true);
     expect(recent.every((item) => item.date >= '2026-09-06')).toBe(true);
+  });
+
+  it('calcula data de retorno para o presente/futuro quando a pendencia e do passado', () => {
+    const plans = buildDayPlans();
+    const fridayPlan = plans.find((p) => p.date === '2026-08-21')!;
+    const legisBlock = fridayPlan.manualBlocks!.find((b) => b.id === 'w1-fri-legis-lc133-provimento')!;
+    const today = '2026-09-16';
+
+    const failureDate = findNextFailurePlanDate(plans, '2026-08-21', legisBlock, today);
+    expect(failureDate).not.toBeNull();
+    expect(failureDate! >= today).toBe(true);
+  });
+
+  it('marca rescheduledFromDate nos eventos de estudo realocados', () => {
+    const reschedules = [
+      {
+        id: 'reschedule-1',
+        failedAt: '2026-09-15',
+        blockId: 'w5-tue-legis-principios-administracao',
+        createdAt: '2026-09-16T00:00:00.000Z',
+      },
+    ];
+    const plans = buildDayPlans('2026-08-20', reschedules, 0, '2026-09-16');
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, '2026-08-20', {}, reschedules);
+
+    const reallocatedEvent = events.find(
+      (e) => e.date === '2026-09-16' && e.blockId === 'w5-tue-legis-principios-administracao',
+    );
+
+    expect(reallocatedEvent).toBeDefined();
+    expect(reallocatedEvent?.rescheduledFromDate).toBe('2026-09-15');
   });
 });

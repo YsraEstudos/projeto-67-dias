@@ -1006,6 +1006,12 @@
   color: #fecaca;
 }
 
+.clean-status-pill.status-rescheduled {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fcd34d;
+}
+
 .clean-calendar-actions {
   display: flex;
   flex-wrap: wrap;

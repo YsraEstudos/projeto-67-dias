@@ -1115,12 +1115,25 @@ export const CleanConcursoPage = () => {
                               {calendarToneLabel[event.tone] ?? event.tone}
                               {isDone ? ' (Concluído)' : ''}
                             </span>
+                            {event.rescheduledFromDate && (
+                              <span
+                                className="clean-status-pill status-rescheduled"
+                                title={`Matéria realocada de ${formatIsoDateCompactPtBr(event.rescheduledFromDate)}`}
+                              >
+                                Reposição ({formatIsoDateCompactPtBr(event.rescheduledFromDate)})
+                              </span>
+                            )}
                             <span className={`clean-status-pill status-${event.status}`}>
                               {calendarStatusLabel[event.status]}
                             </span>
                           </div>
                           <h3>{event.title}</h3>
                           <p>{event.subtitle}</p>
+                          {event.rescheduledFromDate && (
+                            <small style={{ display: 'block', marginTop: '4px', color: '#f59e0b', fontWeight: 600 }}>
+                              Matéria realocada por falha em {formatIsoDateCompactPtBr(event.rescheduledFromDate)} para estudo hoje.
+                            </small>
+                          )}
                           {event.block?.detail && event.block.detail !== event.subtitle && (
                             <small style={{ display: 'block', marginTop: '6px', color: '#94a3b8' }}>
                               {event.block.detail}
@@ -1209,6 +1222,11 @@ export const CleanConcursoPage = () => {
                                   </span>
                                 )}
                               </span>
+                              {event.rescheduledFromDate && !isDone && (
+                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#f59e0b', margin: '4px 0 6px', fontWeight: 500 }}>
+                                  Última tentativa marcada como "Errei". Ao estudar hoje, selecione sua nova avaliação:
+                                </span>
+                              )}
                               <div className="clean-srs-buttons-row">
                                 <button type="button" className={`clean-btn-srs clean-btn-srs-bad ${isRated && eventSubmatters[0]?.submatter.grade === 'E' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'bad', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Errei</button>
                                 <button type="button" className={`clean-btn-srs clean-btn-srs-hard ${isRated && eventSubmatters[0]?.submatter.grade === 'D' ? 'active' : ''}`} onClick={() => rateSubmatter(eventSubmatters[0].topicId, eventSubmatters[0].submatter.id, 'hard', state.selectedDate, eventSubmatters[0].submatter.lastReviewedAt === null)}>Difícil</button>

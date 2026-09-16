@@ -312,7 +312,11 @@ export const applyManualBlockReschedules = (
     }
 
     const targetBlock = sourceBlocks[blockIndex];
-    const nextManualIndex = findNextCompatibleManualPlanIndex(plans, sourceIndex, targetBlock);
+    const todayIndex = today ? plans.findIndex((plan) => plan.date === today) : -1;
+    const startIndex = today && todayIndex >= 0 && sourcePlan.date < today
+      ? Math.max(sourceIndex, todayIndex - 1)
+      : sourceIndex;
+    const nextManualIndex = findNextCompatibleManualPlanIndex(plans, startIndex, targetBlock);
     if (nextManualIndex < 0) {
       continue;
     }
