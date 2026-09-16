@@ -280,7 +280,7 @@ const findNextCompatibleManualPlanIndex = (
     }
   }
 
-  return -1;
+  return findNextManualPlanIndex(plans, fromIndex);
 };
 
 export const applyManualBlockReschedules = (
@@ -294,7 +294,10 @@ export const applyManualBlockReschedules = (
 
   const plans = dayPlans.map(cloneManualPlan);
   const capacities = new Map(
-    dayPlans.map((plan) => [plan.date, plan.manualBlocks?.length ?? 0]),
+    dayPlans.map((plan) => [
+      plan.date,
+      plan.hasSimulado || plan.isRestDay ? (plan.manualBlocks?.length ?? 0) : Math.max(2, plan.manualBlocks?.length ?? 0),
+    ]),
   );
 
   for (const reschedule of [...manualBlockReschedules].sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {

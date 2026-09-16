@@ -226,4 +226,27 @@ describe('clean concurso module', () => {
     expect(reallocatedEvent).toBeDefined();
     expect(reallocatedEvent?.rescheduledFromDate).toBe('2026-09-15');
   });
+
+  it('realoca primeiro bloco de TI do plano que falhou no inicio para hoje com reposicao e sem questoes de seguranca', () => {
+    const reschedules = [
+      {
+        id: 'fail-first-itil',
+        failedAt: '2026-08-20',
+        blockId: 'w1-thu-ti-itil-servico-valor',
+        createdAt: '2026-09-16T10:00:00.000Z',
+      },
+    ];
+    const today = '2026-09-16';
+    const plans = buildDayPlans('2026-08-20', reschedules, 0, today);
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, '2026-08-20', {}, reschedules);
+
+    const todayEvents = events.filter((e) => e.date === today && e.kind === 'study');
+    const itilEvent = todayEvents.find((e) => e.blockId === 'w1-thu-ti-itil-servico-valor');
+    const segQuestoesEvent = todayEvents.find((e) => e.blockId === 'w5-wed-ti-seg-questoes');
+
+    expect(itilEvent).toBeDefined();
+    expect(itilEvent?.rescheduledFromDate).toBe('2026-08-20');
+    expect(segQuestoesEvent).toBeUndefined();
+    expect(todayEvents.length).toBe(2);
+  });
 });

@@ -465,12 +465,6 @@ const MANUAL_WEEK_TEMPLATES: ManualWeekTemplate[] = [
             "area": "TI",
             "title": "Criptografia + controles ISO 27001/27002",
             "detail": "Criptografia simétrica/assimétrica e controles de segurança ISO 27001/27002"
-          },
-          {
-            "id": "w5-wed-ti-seg-questoes",
-            "area": "TI",
-            "title": "Questões de segurança",
-            "detail": "Bateria de questões de segurança da informação"
           }
         ]
       },

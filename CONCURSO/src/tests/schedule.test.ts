@@ -133,7 +133,7 @@ describe('buildDayPlans', () => {
     expect(findNextFailurePlanDate(plansWithBusyTomorrow, '2026-08-24', tiBlock)).toBe('2026-08-26');
   });
 
-  it('retorna null quando os proximos 5 dias manuais ja contem a mesma materia', () => {
+  it('usa o proximo dia manual de fallback quando os proximos 5 dias ja contem a mesma materia', () => {
     const tiBlock: ManualBlock = {
       id: 'ti-fallback',
       area: 'TI',
@@ -150,10 +150,10 @@ describe('buildDayPlans', () => {
       createPlan('2026-08-31', ['portugues', 'rlm'], [{ id: 'pt-1', area: 'PT', title: 'Texto', detail: 'Leitura' }]),
     ];
 
-    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-08-24', tiBlock)).toBeNull();
+    expect(findNextFailurePlanDate(plansWithFiveBusyDays, '2026-08-24', tiBlock)).toBe('2026-08-25');
   });
 
-  it('nao move o bloco para dia com a mesma materia quando os proximos 5 dias ja a contem', () => {
+  it('move o bloco para o proximo dia manual de fallback quando os proximos 5 dias ja a contem', () => {
     const tiBlock: ManualBlock = {
       id: 'ti-stay',
       area: 'TI',
@@ -180,7 +180,7 @@ describe('buildDayPlans', () => {
     ]);
 
     expect(rescheduled.find((plan) => (plan.manualBlocks ?? []).some((block) => block.id === 'ti-stay'))?.date).toBe(
-      '2026-08-24',
+      '2026-08-25',
     );
   });
 
@@ -259,6 +259,29 @@ describe('buildDayPlans', () => {
 
     expect(targetPlan).toBeDefined();
     expect(targetPlan!.date >= today).toBe(true);
+  });
+
+  it('realoca primeiro bloco de TI do plano que falhou no passado diretamente para hoje', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const firstPlan = plans.find((p) => p.date === '2026-08-20')!;
+    const itilBlock = firstPlan.manualBlocks!.find((b) => b.id === 'w1-thu-ti-itil-servico-valor')!;
+    const today = '2026-09-16';
+
+    const failures = [
+      {
+        id: 'fail-itil-past',
+        failedAt: '2026-08-20',
+        blockId: itilBlock.id,
+        createdAt: '2026-09-16T10:00:00.000Z',
+        block: itilBlock,
+      },
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, failures, today);
+    const todayPlan = rescheduled.find((p) => p.date === today)!;
+
+    expect(todayPlan).toBeDefined();
+    expect(todayPlan.manualBlocks?.some((b) => b.id === itilBlock.id)).toBe(true);
   });
 });
 

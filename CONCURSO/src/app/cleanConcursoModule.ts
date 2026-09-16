@@ -238,7 +238,14 @@ export const findNextFailurePlanDate = (
     }
   }
 
-  return null;
+  const fallbackPlan = plans.find(
+    (plan, index) =>
+      index > startIndex
+      && plan.planMode === 'manual'
+      && !plan.isRestDay
+      && (plan.manualBlocks?.length ?? 0) > 0,
+  );
+  return fallbackPlan?.date ?? null;
 };
 
 export const buildPendingStudyDecisions = (
