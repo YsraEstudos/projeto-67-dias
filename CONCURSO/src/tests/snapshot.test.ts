@@ -423,4 +423,38 @@ describe('snapshot storage', () => {
     });
     expect(removed.shellUi.mobilePinnedNav).toEqual(['/']);
   });
+
+  it('reinicia o plano do concurso do inicio limpando falhas e progresso mas preservando metas e descanso', () => {
+    let state = createInitialState('2026-08-20');
+    state = appReducer(state, { type: 'set-rest-weekday', restWeekday: 6 });
+    state = appReducer(state, { type: 'set-default-question-goal', subject: 'portugues', questionGoal: 45 });
+    state = appReducer(state, { type: 'set-selected-date', date: '2026-09-16' });
+    state = appReducer(state, {
+      type: 'complete-calendar-event',
+      eventId: '2026-08-20-w1-thu-pt-interpretacao',
+      topicIds: ['top-1'],
+      reviewedAt: '2026-08-20',
+      at: '2026-08-20T10:00:00.000Z',
+      questionsDone: 50,
+    });
+    state = appReducer(state, {
+      type: 'fail-calendar-manual-block',
+      date: '2026-08-20',
+      block: { id: 'w1-thu-ti-itil-servico-valor', area: 'TI', title: 'ITIL', detail: 'ITIL' },
+      at: '2026-08-20T11:00:00.000Z',
+    });
+
+    expect(state.selectedDate).toBe('2026-09-16');
+    expect(state.manualBlockReschedules.length).toBeGreaterThan(0);
+    expect(Object.keys(state.calendarEventProgress).length).toBeGreaterThan(0);
+
+    const resetState = appReducer(state, { type: 'reset-plan' });
+
+    expect(resetState.selectedDate).toBe('2026-08-20');
+    expect(resetState.manualBlockReschedules).toEqual([]);
+    expect(resetState.calendarEventProgress).toEqual({});
+    expect(resetState.planSettings.restWeekday).toBe(6);
+    expect(resetState.planSettings.defaultQuestionGoals.portugues).toBe(45);
+    expect(resetState.meta.changeToken).toBeGreaterThan(state.meta.changeToken);
+  });
 });

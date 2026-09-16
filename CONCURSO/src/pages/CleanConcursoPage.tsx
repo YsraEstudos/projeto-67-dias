@@ -302,6 +302,7 @@ export const CleanConcursoPage = () => {
     setDefaultQuestionGoal,
     rateSubmatter,
     unrateSubmatter,
+    resetPlan,
   } = useAppActionsContext();
   const [activeView, setActiveView] = useState<ModuleView>('dia');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
@@ -320,6 +321,7 @@ export const CleanConcursoPage = () => {
   const [isWeeklyViewOpen, setIsWeeklyViewOpen] = useState(false);
   const [weeklyViewWeek, setWeeklyViewWeek] = useState<number | null>(null);
   const [isOlderPendingOpen, setIsOlderPendingOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   const today = getLocalTodayIsoDate();
   const dayShortcuts = useMemo(() => buildCleanDayShortcuts(today), [today]);
@@ -690,6 +692,17 @@ export const CleanConcursoPage = () => {
     setExpandedCalendarEventId(null);
   };
 
+  const handleConfirmResetPlan = (): void => {
+    resetPlan(planStartDate);
+    setActiveStudySession(null);
+    setStudyProgressBySession({});
+    setSelectedDate(planStartDate);
+    setSelectedCalendarDate(planStartDate);
+    setCalendarMonth(planStartDate.slice(0, 7));
+    setActiveView('dia');
+    setIsResetModalOpen(false);
+  };
+
   const renderRestDayPlanner = (date: string, note: string) => (
     <label className="clean-rest-planner">
       <span>Matéria ou revisão futura</span>
@@ -843,13 +856,25 @@ export const CleanConcursoPage = () => {
                 <span className="clean-kicker">Filtro por dia</span>
                 <h2>{formatIsoDatePtBr(state.selectedDate)}</h2>
               </div>
-              <input
-                type="date"
-                value={state.selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-                className="clean-date-input"
-                aria-label="Escolher data do plano"
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="clean-reset-quick-btn"
+                  onClick={() => setIsResetModalOpen(true)}
+                  title="Reiniciar o plano do concurso do início"
+                  aria-label="Reiniciar o plano do concurso do início"
+                >
+                  <RotateCcw size={14} />
+                  <span>Reiniciar plano</span>
+                </button>
+                <input
+                  type="date"
+                  value={state.selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  className="clean-date-input"
+                  aria-label="Escolher data do plano"
+                />
+              </div>
             </div>
 
             <div className="clean-day-shortcuts">
@@ -1776,6 +1801,30 @@ export const CleanConcursoPage = () => {
               </small>
             </div>
 
+            <div className="clean-settings-field clean-grid-span-full clean-danger-zone">
+              <span>Zona de Perigo</span>
+              <div className="clean-settings-danger-card">
+                <div className="clean-settings-danger-info">
+                  <strong>Reiniciar plano do concurso do início</strong>
+                  <p>
+                    Zera todo o progresso de matérias feitas, anotações, falhas registradas e reposições,
+                    retornando o cronograma de estudos para o primeiro dia do plano ({formatIsoDateCompactPtBr(planStartDate)}).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="clean-btn-danger"
+                  onClick={() => setIsResetModalOpen(true)}
+                >
+                  <RotateCcw size={16} />
+                  Reiniciar plano do início
+                </button>
+              </div>
+              <small className="clean-settings-export-help">
+                Suas metas diárias de questões e preferências de descanso serão preservadas.
+              </small>
+            </div>
+
             <div className="clean-settings-summary" aria-label="Resumo das configurações do plano">
               <article>
                 <span>Data final</span>
@@ -1878,6 +1927,58 @@ export const CleanConcursoPage = () => {
               ) : (
                 <p className="clean-empty-state">Nenhuma matéria planejada para esta semana.</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isResetModalOpen && (
+        <div className="clean-modal-overlay" onClick={() => setIsResetModalOpen(false)}>
+          <div className="clean-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="clean-modal-header">
+              <div>
+                <span className="clean-kicker" style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <RotateCcw size={14} />
+                  Zona de perigo
+                </span>
+                <h2>Reiniciar plano do concurso</h2>
+              </div>
+              <button
+                type="button"
+                className="clean-modal-close"
+                onClick={() => setIsResetModalOpen(false)}
+                aria-label="Fechar"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="clean-modal-body">
+              <p style={{ color: '#cbd5e1', lineHeight: '1.6', marginBottom: '16px' }}>
+                Tem certeza que deseja reiniciar o plano do concurso do início?
+              </p>
+              <ul style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: '1.6', marginBottom: '20px', paddingLeft: '20px' }}>
+                <li>Todas as matérias marcadas como feitas voltarão para pendentes.</li>
+                <li>Todas as falhas e matérias realocadas serão removidas.</li>
+                <li>O cronograma e a data selecionada voltarão para o primeiro dia ({formatIsoDateCompactPtBr(planStartDate)}).</li>
+                <li>Suas preferências de descanso e metas diárias de questões serão preservadas.</li>
+              </ul>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="clean-modal-btn-cancel"
+                  onClick={() => setIsResetModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="clean-modal-btn-danger"
+                  onClick={handleConfirmResetPlan}
+                >
+                  <RotateCcw size={15} />
+                  Sim, reiniciar do início
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -405,6 +405,7 @@ type Action =
   | { type: 'remove-mobile-nav-item'; path: string }
   | { type: 'move-mobile-nav-item'; path: string; targetIndex: number }
   | { type: 'import-state'; state: AppState }
+  | { type: 'reset-plan'; startDate?: string }
   | {
       type: 'record-backup';
       at: string;
@@ -507,6 +508,31 @@ export const appReducer = (state: AppState, action: Action): AppState => {
           },
         }),
       );
+    }
+    case 'reset-plan': {
+      const planStartDate = action.startDate ?? state.planSettings.startDate;
+      const freshState = createInitialState(planStartDate);
+      return markChanged({
+        ...freshState,
+        selectedDate: planStartDate,
+        planSettings: {
+          ...freshState.planSettings,
+          restWeekday: state.planSettings.restWeekday,
+          defaultQuestionGoals: { ...state.planSettings.defaultQuestionGoals },
+        },
+        shellUi: {
+          ...state.shellUi,
+        },
+        ankiConfig: {
+          ...state.ankiConfig,
+        },
+        meta: {
+          ...freshState.meta,
+          changeToken: state.meta.changeToken + 1,
+          lastChangedAt: nowIso(),
+          backup: state.meta.backup,
+        },
+      });
     }
     case 'set-rest-weekday': {
       if (action.restWeekday === state.planSettings.restWeekday) {
@@ -1330,6 +1356,7 @@ interface AppContextValue {
   connectBackupFile: () => Promise<void>;
   importSnapshot: (snapshot: AppSnapshot) => void;
   exportSnapshot: () => void;
+  resetPlan: (startDate?: string) => void;
   cloudSync: {
     status: 'checking' | 'local-only' | 'connected' | 'syncing' | 'error';
     email: string | null;
@@ -2155,6 +2182,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const snapshot = buildSnapshot(stateRef.current);
         downloadSnapshot(snapshot, `concurso-export-${snapshot.exportedAt.slice(0, 10)}.json`);
       },
+      resetPlan: (startDate) => dispatch({ type: 'reset-plan', startDate }),
     }),
     [persistSnapshot],
   );
