@@ -201,9 +201,9 @@ describe('buildDayPlans', () => {
     const rescheduled = applyManualBlockReschedules(plans, failures);
 
     for (const plan of plans) {
-      const originalCount = plan.manualBlocks?.length ?? 0;
+      const maxAllowed = plan.isRestDay ? 0 : plan.hasSimulado ? (plan.manualBlocks?.length ?? 0) : 2;
       const newPlan = rescheduled.find((candidate) => candidate.date === plan.date);
-      expect((newPlan?.manualBlocks?.length ?? 0)).toBeLessThanOrEqual(originalCount);
+      expect(newPlan?.manualBlocks?.length ?? 0).toBeLessThanOrEqual(maxAllowed);
     }
 
     const allBlocks = rescheduled.flatMap((plan) => plan.manualBlocks ?? []);
@@ -282,6 +282,56 @@ describe('buildDayPlans', () => {
 
     expect(todayPlan).toBeDefined();
     expect(todayPlan.manualBlocks?.some((b) => b.id === itilBlock.id)).toBe(true);
+  });
+
+  it('nunca coloca mais de duas materias no mesmo dia apos multiplas falhas no passado', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const today = '2026-09-16';
+
+    const failures = [
+      { id: 'f-itil', failedAt: '2026-08-20', blockId: 'w1-thu-ti-itil-servico-valor', createdAt: '2026-09-16T10:00:00.000Z' },
+      { id: 'f-pt1', failedAt: '2026-08-20', blockId: 'w1-thu-pt-interpretacao', createdAt: '2026-09-16T10:01:00.000Z' },
+      { id: 'f-leg1', failedAt: '2026-08-21', blockId: 'w1-fri-legis-lc133-provimento', createdAt: '2026-09-16T10:02:00.000Z' },
+      { id: 'f-leg2', failedAt: '2026-09-15', blockId: 'w5-tue-legis-principios-administracao', createdAt: '2026-09-16T10:03:00.000Z' },
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, failures, today);
+
+    // Verify that NO day has more than 2 blocks
+    for (const plan of rescheduled) {
+      expect(plan.manualBlocks?.length ?? 0).toBeLessThanOrEqual(2);
+    }
+
+    // Verify today has at most 2 blocks
+    const todayPlan = rescheduled.find((p) => p.date === today)!;
+    expect(todayPlan.manualBlocks?.length).toBeLessThanOrEqual(2);
+  });
+
+  it('nunca coloca duas materias da mesma categoria (matematica, portugues, legislacao) no mesmo dia', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const today = '2026-09-16';
+
+    const failures = [
+      { id: 'f-itil', failedAt: '2026-08-20', blockId: 'w1-thu-ti-itil-servico-valor', createdAt: '2026-09-16T10:00:00.000Z' },
+      { id: 'f-pt1', failedAt: '2026-08-20', blockId: 'w1-thu-pt-interpretacao', createdAt: '2026-09-16T10:01:00.000Z' },
+      { id: 'f-pt2', failedAt: '2026-08-24', blockId: 'w2-mon-pt-sintaxe', createdAt: '2026-09-16T10:02:00.000Z' },
+      { id: 'f-leg1', failedAt: '2026-08-21', blockId: 'w1-fri-legis-lc133-provimento', createdAt: '2026-09-16T10:03:00.000Z' },
+      { id: 'f-leg2', failedAt: '2026-09-15', blockId: 'w5-tue-legis-principios-administracao', createdAt: '2026-09-16T10:04:00.000Z' },
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, failures, today);
+
+    for (const plan of rescheduled) {
+      const subjects = (plan.manualBlocks ?? []).map(inferManualBlockSubject).filter(Boolean);
+      const ptCount = subjects.filter((s) => s === 'portugues').length;
+      const rlmCount = subjects.filter((s) => s === 'rlm').length;
+      const legCount = subjects.filter((s) => s === 'legislacao').length;
+
+      expect(ptCount).toBeLessThanOrEqual(1);
+      expect(rlmCount).toBeLessThanOrEqual(1);
+      expect(legCount).toBeLessThanOrEqual(1);
+      expect(plan.manualBlocks?.length ?? 0).toBeLessThanOrEqual(2);
+    }
   });
 });
 

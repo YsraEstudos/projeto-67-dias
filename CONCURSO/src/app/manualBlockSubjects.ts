@@ -115,3 +115,28 @@ export const getManualBlockSubjectLabel = (block: ManualBlock): string => {
   const subject = inferManualBlockSubject(block);
   return subject ? subjectLabel(subject) : block.area;
 };
+
+export const canPlanAcceptBlockSubject = (
+  planOrBlocks: { manualBlocks?: ManualBlock[] } | ManualBlock[] | undefined | null,
+  block: ManualBlock,
+): boolean => {
+  const blocks = Array.isArray(planOrBlocks)
+    ? planOrBlocks
+    : (planOrBlocks?.manualBlocks ?? []);
+
+  const subject = inferManualBlockSubject(block);
+  if (!subject) return true;
+
+  // For basic subjects (portugues, rlm, legislacao): never allow 2 of the same category
+  if (subject !== 'especificos') {
+    return !blocks.some((candidate) => inferManualBlockSubject(candidate) === subject);
+  }
+
+  // For especificos (TI): never duplicate the exact same block ID or title
+  return !blocks.some(
+    (candidate) =>
+      candidate.id === block.id
+      || candidate.title.trim().toLowerCase() === block.title.trim().toLowerCase(),
+  );
+};
+

@@ -1,7 +1,7 @@
 import { END_DATE } from './constants';
 import { enumerateDateRange, getLocalTodayIsoDate, parseIsoDate, toIsoDate } from './dateUtils';
 import { subjectLabel } from './formatters';
-import { getManualBlockSubjectLabel, inferManualBlockSubject } from './manualBlockSubjects';
+import { canPlanAcceptBlockSubject, getManualBlockSubjectLabel, inferManualBlockSubject } from './manualBlockSubjects';
 import type {
   AppState,
   CalendarEventStatus,
@@ -195,9 +195,12 @@ export const findNextSubjectPlanDate = (
   return nextPlan?.date ?? null;
 };
 
-const hasManualPlanSubject = (plan: DayPlan, subject: SubjectKey): boolean =>
-  plan.subjects.includes(subject)
-  || (plan.manualBlocks ?? []).some((candidate) => inferManualBlockSubject(candidate) === subject);
+const hasManualPlanSubject = (plan: DayPlan, subject: SubjectKey): boolean => {
+  if (plan.manualBlocks && plan.manualBlocks.length > 0) {
+    return plan.manualBlocks.some((candidate) => inferManualBlockSubject(candidate) === subject);
+  }
+  return plan.subjects.includes(subject);
+};
 
 export const findNextFailurePlanDate = (
   plans: DayPlan[],
@@ -214,38 +217,55 @@ export const findNextFailurePlanDate = (
     : currentIndex;
 
   const subject = inferManualBlockSubject(block);
-  if (!subject) {
-    const nextPlan = plans.find(
-      (plan, index) =>
-        index > startIndex
-        && plan.planMode === 'manual'
-        && !plan.isRestDay
-        && (plan.manualBlocks?.length ?? 0) > 0,
-    );
-    return nextPlan?.date ?? null;
+
+  // Stage 1: Try to find a day without this subject that has open space (< 2 blocks) within 5 days
+  if (subject) {
+    let checkedDays = 0;
+    for (let index = startIndex + 1; index < plans.length && checkedDays < 5; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+      checkedDays += 1;
+      if ((plan.manualBlocks?.length ?? 0) < 2 && !hasManualPlanSubject(plan, subject)) {
+        return plan.date;
+      }
+    }
   }
 
-  let checkedManualDays = 0;
-  for (let index = startIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
-    const plan = plans[index];
-    if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
-      continue;
+  // Stage 2: Try to find a day without this subject (within 5 manual days)
+  if (subject) {
+    let checkedDays = 0;
+    for (let index = startIndex + 1; index < plans.length && checkedDays < 5; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+      checkedDays += 1;
+      if (!hasManualPlanSubject(plan, subject)) {
+        return plan.date;
+      }
     }
+  }
 
-    checkedManualDays += 1;
-    if (!hasManualPlanSubject(plan, subject)) {
+  // Stage 3: For TI (especificos) where all days contain TI:
+  // Find the earliest day with open space (< 2 blocks) that doesn't duplicate the block
+  if (subject === 'especificos') {
+    for (let index = startIndex + 1; index < plans.length; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+      if ((plan.manualBlocks?.length ?? 0) < 2 && canPlanAcceptBlockSubject(plan.manualBlocks ?? [], block)) {
+        return plan.date;
+      }
+    }
+  }
+
+  // Stage 4: Fallback to next compatible day
+  for (let index = startIndex + 1; index < plans.length; index += 1) {
+    const plan = plans[index];
+    if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+    if (canPlanAcceptBlockSubject(plan.manualBlocks ?? [], block)) {
       return plan.date;
     }
   }
 
-  const fallbackPlan = plans.find(
-    (plan, index) =>
-      index > startIndex
-      && plan.planMode === 'manual'
-      && !plan.isRestDay
-      && (plan.manualBlocks?.length ?? 0) > 0,
-  );
-  return fallbackPlan?.date ?? null;
+  return null;
 };
 
 export const buildPendingStudyDecisions = (

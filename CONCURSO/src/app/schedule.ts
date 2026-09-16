@@ -20,7 +20,7 @@ import {
   buildManualDayOverrides,
   MANUAL_PLAN_START_DATE,
 } from '../data/manualDailyPlan';
-import { inferManualBlockSubject } from './manualBlockSubjects';
+import { canPlanAcceptBlockSubject, inferManualBlockSubject } from './manualBlockSubjects';
 
 interface EventDistribution {
   simuladoDates: Set<string>;
@@ -233,8 +233,19 @@ const refreshManualChecklistSpec = (plan: DayPlan): DayPlan => {
     return plan;
   }
 
+  const inferred: SubjectKey[] = [];
+  for (const block of plan.manualBlocks) {
+    const s = inferManualBlockSubject(block);
+    if (s && !inferred.includes(s)) {
+      inferred.push(s);
+    }
+  }
+  const primary = inferred[0] ?? plan.subjects[0] ?? 'especificos';
+  const secondary = inferred[1] ?? (primary === 'especificos' ? 'portugues' : 'especificos');
+
   return {
     ...plan,
+    subjects: [primary, secondary],
     manualChecklistSpec: buildManualChecklistSpec(
       plan.manualBlocks,
       plan.targets.objectiveQuestions,
@@ -244,18 +255,12 @@ const refreshManualChecklistSpec = (plan: DayPlan): DayPlan => {
   };
 };
 
-const findNextManualPlanIndex = (plans: DayPlan[], fromIndex: number): number =>
-  plans.findIndex(
-    (plan, index) =>
-      index > fromIndex
-      && plan.planMode === 'manual'
-      && !plan.isRestDay
-      && (plan.manualBlocks?.length ?? 0) > 0,
-  );
-
-const hasManualPlanSubject = (plan: DayPlan, subject: SubjectKey): boolean =>
-  plan.subjects.includes(subject)
-  || (plan.manualBlocks ?? []).some((candidate) => inferManualBlockSubject(candidate) === subject);
+const hasManualPlanSubject = (plan: DayPlan, subject: SubjectKey): boolean => {
+  if (plan.manualBlocks && plan.manualBlocks.length > 0) {
+    return plan.manualBlocks.some((candidate) => inferManualBlockSubject(candidate) === subject);
+  }
+  return plan.subjects.includes(subject);
+};
 
 const findNextCompatibleManualPlanIndex = (
   plans: DayPlan[],
@@ -263,24 +268,211 @@ const findNextCompatibleManualPlanIndex = (
   block: ManualBlock,
 ): number => {
   const subject = inferManualBlockSubject(block);
-  if (!subject) {
-    return findNextManualPlanIndex(plans, fromIndex);
+
+  // Stage 1: Try to find a day without this subject that has open space (< 2 blocks) within 5 days
+  if (subject) {
+    let checkedDays = 0;
+    for (let index = fromIndex + 1; index < plans.length && checkedDays < 5; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+      checkedDays += 1;
+      if ((plan.manualBlocks?.length ?? 0) < 2 && !hasManualPlanSubject(plan, subject)) {
+        return index;
+      }
+    }
   }
 
-  let checkedManualDays = 0;
-  for (let index = fromIndex + 1; index < plans.length && checkedManualDays < 5; index += 1) {
-    const plan = plans[index];
-    if (plan.planMode !== 'manual' || plan.isRestDay || (plan.manualBlocks?.length ?? 0) === 0) {
-      continue;
+  // Stage 2: Try to find a day without this subject (within 5 manual days)
+  if (subject) {
+    let checkedDays = 0;
+    for (let index = fromIndex + 1; index < plans.length && checkedDays < 5; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+      checkedDays += 1;
+      if (!hasManualPlanSubject(plan, subject)) {
+        return index;
+      }
     }
+  }
 
-    checkedManualDays += 1;
-    if (!hasManualPlanSubject(plan, subject)) {
+  // Stage 3: For TI (especificos) where all days contain TI:
+  // Find the earliest day with open space (< 2 blocks) that doesn't duplicate the block
+  if (subject === 'especificos') {
+    for (let index = fromIndex + 1; index < plans.length; index += 1) {
+      const plan = plans[index];
+      if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+      if ((plan.manualBlocks?.length ?? 0) < 2 && canPlanAcceptBlockSubject(plan, block)) {
+        return index;
+      }
+    }
+  }
+
+  // Stage 4: Fallback to next compatible day
+  for (let index = fromIndex + 1; index < plans.length; index += 1) {
+    const plan = plans[index];
+    if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) continue;
+    if (canPlanAcceptBlockSubject(plan, block)) {
       return index;
     }
   }
 
-  return findNextManualPlanIndex(plans, fromIndex);
+  return -1;
+};
+
+const insertManualBlockWithDisplacement = (
+  plans: DayPlan[],
+  targetIndex: number,
+  blockToInsert: ManualBlock,
+  sourceIndex: number,
+  todayIndex: number,
+): void => {
+  let pendingBlock: ManualBlock | null = blockToInsert;
+  let currentIndex = targetIndex;
+
+  while (pendingBlock && currentIndex < plans.length) {
+    const plan = plans[currentIndex];
+    if (plan.planMode !== 'manual' || plan.isRestDay || plan.hasSimulado) {
+      currentIndex += 1;
+      continue;
+    }
+
+    if (!canPlanAcceptBlockSubject(plan.manualBlocks ?? [], pendingBlock)) {
+      currentIndex += 1;
+      continue;
+    }
+
+    const currentPlan = cloneManualPlan(plan);
+    const manualBlocks = currentPlan.manualBlocks ? [...currentPlan.manualBlocks] : [];
+
+    // If day has room (< 2 blocks), simply insert and stop!
+    if (manualBlocks.length < 2) {
+      manualBlocks.unshift(pendingBlock);
+      plans[currentIndex] = refreshManualChecklistSpec({
+        ...currentPlan,
+        manualBlocks,
+      });
+      pendingBlock = null;
+      break;
+    }
+
+    // Day already has 2 blocks. Displace one block so day stays at max 2 blocks!
+    const pendingSubject = inferManualBlockSubject(pendingBlock);
+    let displaceIndex = manualBlocks.length - 1;
+
+    if (pendingSubject && pendingSubject !== 'especificos') {
+      const basicIndex = manualBlocks.findIndex((b) => {
+        const s = inferManualBlockSubject(b);
+        return s && s !== 'especificos';
+      });
+      if (basicIndex >= 0) {
+        displaceIndex = basicIndex;
+      }
+    } else if (pendingSubject === 'especificos') {
+      const tiIndex = manualBlocks.findIndex((b) => inferManualBlockSubject(b) === 'especificos');
+      if (tiIndex >= 0) {
+        displaceIndex = tiIndex;
+      }
+    }
+
+    const [displacedBlock] = manualBlocks.splice(displaceIndex, 1);
+    manualBlocks.unshift(pendingBlock);
+
+    plans[currentIndex] = refreshManualChecklistSpec({
+      ...currentPlan,
+      manualBlocks,
+    });
+
+    // If sourcePlan is today or in the future, check if displacedBlock can swap back to sourcePlan
+    let placed = false;
+    if (sourceIndex >= 0 && sourceIndex >= todayIndex && sourceIndex < plans.length) {
+      const sourcePlan = plans[sourceIndex];
+      if (
+        sourcePlan.planMode === 'manual'
+        && !sourcePlan.isRestDay
+        && (sourcePlan.manualBlocks?.length ?? 0) < 2
+        && canPlanAcceptBlockSubject(sourcePlan.manualBlocks ?? [], displacedBlock)
+      ) {
+        const updatedSourceBlocks = [...(sourcePlan.manualBlocks ?? []), displacedBlock];
+        plans[sourceIndex] = refreshManualChecklistSpec({
+          ...sourcePlan,
+          manualBlocks: updatedSourceBlocks,
+        });
+        pendingBlock = null;
+        placed = true;
+        break;
+      }
+    }
+
+    // Check if any earlier day between todayIndex and currentIndex has an open slot (< 2 blocks)
+    if (!placed) {
+      for (let slotIndex = todayIndex; slotIndex < currentIndex; slotIndex += 1) {
+        const slotPlan = plans[slotIndex];
+        if (
+          slotPlan.planMode === 'manual'
+          && !slotPlan.isRestDay
+          && !slotPlan.hasSimulado
+          && (slotPlan.manualBlocks?.length ?? 0) < 2
+          && canPlanAcceptBlockSubject(slotPlan.manualBlocks ?? [], displacedBlock)
+        ) {
+          const updatedBlocks = [...(slotPlan.manualBlocks ?? []), displacedBlock];
+          plans[slotIndex] = refreshManualChecklistSpec({
+            ...slotPlan,
+            manualBlocks: updatedBlocks,
+          });
+          pendingBlock = null;
+          placed = true;
+          break;
+        }
+      }
+    }
+
+    if (placed) {
+      break;
+    }
+
+    // Displaced block cascades forward to the next available day
+    pendingBlock = displacedBlock;
+    currentIndex += 1;
+  }
+
+  // Safety net: if forward displacement reached the end of the calendar without finding a slot,
+  // search from todayIndex for any day that has room (< 2 blocks) and is subject-compatible.
+  if (pendingBlock) {
+    const startSearch = Math.max(0, todayIndex);
+    for (let i = startSearch; i < plans.length; i += 1) {
+      const p = plans[i];
+      if (p.planMode !== 'manual' || p.isRestDay || p.hasSimulado) continue;
+      if ((p.manualBlocks?.length ?? 0) < 2 && canPlanAcceptBlockSubject(p.manualBlocks ?? [], pendingBlock)) {
+        const pManualBlocks = p.manualBlocks ? [...p.manualBlocks] : [];
+        pManualBlocks.push(pendingBlock);
+        plans[i] = refreshManualChecklistSpec({
+          ...p,
+          manualBlocks: pManualBlocks,
+        });
+        pendingBlock = null;
+        break;
+      }
+    }
+  }
+
+  // Secondary safety net: search for any day with room (< 2 blocks)
+  if (pendingBlock) {
+    const startSearch = Math.max(0, todayIndex);
+    for (let i = startSearch; i < plans.length; i += 1) {
+      const p = plans[i];
+      if (p.planMode !== 'manual' || p.isRestDay) continue;
+      if ((p.manualBlocks?.length ?? 0) < 2) {
+        const pManualBlocks = p.manualBlocks ? [...p.manualBlocks] : [];
+        pManualBlocks.push(pendingBlock);
+        plans[i] = refreshManualChecklistSpec({
+          ...p,
+          manualBlocks: pManualBlocks,
+        });
+        pendingBlock = null;
+        break;
+      }
+    }
+  }
 };
 
 export const applyManualBlockReschedules = (
@@ -293,12 +485,6 @@ export const applyManualBlockReschedules = (
   }
 
   const plans = dayPlans.map(cloneManualPlan);
-  const capacities = new Map(
-    dayPlans.map((plan) => [
-      plan.date,
-      plan.hasSimulado || plan.isRestDay ? (plan.manualBlocks?.length ?? 0) : Math.max(2, plan.manualBlocks?.length ?? 0),
-    ]),
-  );
 
   for (const reschedule of [...manualBlockReschedules].sort((left, right) => left.createdAt.localeCompare(right.createdAt))) {
     const sourceIndex = plans.findIndex((plan) => plan.date === reschedule.failedAt);
@@ -325,29 +511,18 @@ export const applyManualBlockReschedules = (
     }
 
     const [failedBlock] = sourceBlocks.splice(blockIndex, 1);
-
-    const targetPlan = cloneManualPlan(plans[nextManualIndex]);
-    const targetBlocks = targetPlan.manualBlocks ?? [];
-    const targetCapacity = capacities.get(targetPlan.date) ?? targetBlocks.length;
-
-    if (targetBlocks.length >= targetCapacity) {
-      if (!today || sourcePlan.date >= today) {
-        const displacedBlock = targetBlocks.pop() ?? null;
-        if (displacedBlock) {
-          sourceBlocks.push(displacedBlock);
-        }
-      }
-    }
-    targetBlocks.unshift(failedBlock);
-
     plans[sourceIndex] = refreshManualChecklistSpec({
       ...sourcePlan,
       manualBlocks: sourceBlocks,
     });
-    plans[nextManualIndex] = refreshManualChecklistSpec({
-      ...targetPlan,
-      manualBlocks: targetBlocks,
-    });
+
+    insertManualBlockWithDisplacement(
+      plans,
+      nextManualIndex,
+      failedBlock,
+      sourceIndex,
+      todayIndex >= 0 ? todayIndex : 0,
+    );
   }
 
   return plans;
