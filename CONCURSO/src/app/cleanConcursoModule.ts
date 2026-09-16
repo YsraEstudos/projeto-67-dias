@@ -259,7 +259,7 @@ export const buildPendingStudyDecisions = (
         const topicIds = getBlockTopicIds(block);
         const status = getProgressStatus(calendarEventProgress, topicProgress, eventId, topicIds);
         
-        if (status !== 'pending') {
+        if (status !== 'pending' && status !== 'dismissed') {
           return [];
         }
 

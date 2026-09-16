@@ -138,8 +138,10 @@ const normalizeCalendarEventProgress = (
       ? Math.max(0, Math.round(Number(rawQuestionsDone)))
       : 0;
 
+    const status: CalendarEventProgress['status'] = item.status === 'dismissed' ? 'pending' : item.status;
+
     accumulator[eventId] = {
-      status: item.status,
+      status,
       updatedAt: item.updatedAt,
       questionsDone,
       ...(Number.isFinite((item as { questionGoal?: unknown }).questionGoal)

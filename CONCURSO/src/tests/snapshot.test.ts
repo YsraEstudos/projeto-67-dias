@@ -111,6 +111,27 @@ describe('snapshot storage', () => {
     });
   });
 
+  it('normaliza progresso de calendario com status dismissed convertendo para pending', () => {
+    const state = createInitialState();
+    const legacyLike = {
+      ...state,
+      calendarEventProgress: {
+        '2026-04-27-manual-dismissed': {
+          status: 'dismissed',
+          updatedAt: '2026-04-27T10:00:00.000Z',
+        },
+      },
+    } as unknown as ReturnType<typeof createInitialState>;
+
+    const normalized = normalizeStateForCurrentPlan(legacyLike);
+
+    expect(normalized.calendarEventProgress['2026-04-27-manual-dismissed']).toEqual({
+      status: 'pending',
+      updatedAt: '2026-04-27T10:00:00.000Z',
+      questionsDone: 0,
+    });
+  });
+
   it('marca evento do calendario como feito e atualiza materia vinculada', () => {
     const state = createInitialState();
     const topicId = TOPICS.find((topic) => topic.isLeaf)?.id;

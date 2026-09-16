@@ -147,7 +147,7 @@ describe('clean concurso module', () => {
     expect(pending.some((item) => item.eventId.endsWith('-simulado'))).toBe(false);
   });
 
-  it('ignora materias com status dismissed em calendarEventProgress', () => {
+  it('resgata materias com status dismissed em calendarEventProgress mantendo-as como pendencias ativas', () => {
     const plans = buildDayPlans();
     const firstStudy = buildCleanPlanContentItems(plans)[0];
     const eventId = `${firstStudy.date}-${firstStudy.block.id}`;
@@ -169,7 +169,7 @@ describe('clean concurso module', () => {
       },
     );
 
-    expect(pending.some((item) => item.eventId === eventId)).toBe(false);
+    expect(pending.some((item) => item.eventId === eventId)).toBe(true);
   });
 
   it('classifica pendencias entre recentes e semanas anteriores via splitPendingStudyDecisions', () => {
