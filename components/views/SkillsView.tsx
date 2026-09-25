@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { GraduationCap, Plus, Calendar } from 'lucide-react';
+import { GraduationCap, Plus } from 'lucide-react';
 import { Skill, Prompt, PromptCategory } from '../../types';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { usePromptsStore } from '../../stores/promptsStore';
@@ -12,7 +12,6 @@ import { INITIAL_SKILLS } from '../skills/mockData';
 import { ModuleOffensiveBar } from '../shared/ModuleOffensiveBar';
 import { calculateSkillProgress } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
-import { WeeklyAgenda } from '../skills/agenda';
 
 const SkillsView: React.FC = () => {
   // Zustand stores
@@ -33,7 +32,6 @@ const SkillsView: React.FC = () => {
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [dailyPlanSkill, setDailyPlanSkill] = useState<Skill | null>(null);
-  const [activeTab, setActiveTab] = useState<'skills' | 'agenda'>('skills');
   const initializationRef = React.useRef(false);
 
   // Initialize with default skills if empty AND not yet initialized
@@ -138,42 +136,16 @@ const SkillsView: React.FC = () => {
           </h2>
           <p className="text-slate-400 text-sm mt-1">Gerencie seu aprendizado e desenvolvimento.</p>
         </div>
-        {activeTab === 'skills' && (
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/20 font-medium transition-all hover:scale-105"
-          >
-            <Plus size={18} /> Nova Habilidade
-          </button>
-        )}
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-700 pb-3">
         <button
-          onClick={() => setActiveTab('skills')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'skills'
-            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
-            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/20 font-medium transition-all hover:scale-105"
         >
-          <GraduationCap size={18} />
-          Skill Tree
-        </button>
-        <button
-          onClick={() => setActiveTab('agenda')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${activeTab === 'agenda'
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-        >
-          <Calendar size={18} />
-          Agenda Semanal
+          <Plus size={18} /> Nova Habilidade
         </button>
       </div>
 
       {/* Barra de Ofensiva de Skills */}
-      {showSkillsOffensiveBar && activeTab === 'skills' && (
+      {showSkillsOffensiveBar && (
         <div className="mb-6">
           <ModuleOffensiveBar
             progress={skillsProgress}
@@ -184,12 +156,7 @@ const SkillsView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content */}
-      {activeTab === 'agenda' ? (
-        <WeeklyAgenda />
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeSkills.map(skill => (
               <SkillCard
                 key={skill.id}
@@ -250,10 +217,8 @@ const SkillsView: React.FC = () => {
               )}
             </div>
           )}
-        </>
-      )}
 
-      {/* Modals need to be outside the tab conditional for skills tab access */}
+      {/* Modals */}
       {isCreateModalOpen && (
         <CreateSkillModal onClose={() => setIsCreateModalOpen(false)} onCreate={handleCreateSkill} />
       )}

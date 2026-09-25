@@ -222,7 +222,7 @@ export function TaskItem({
                   >
                     -
                   </button>
-                  <span className="text-sm font-medium w-8 text-center">{task.estimatedPomodoros}</span>
+                  <span className="text-sm font-medium min-w-[2rem] px-1 text-center">{task.estimatedPomodoros}</span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); updateTask(task.id, { estimatedPomodoros: task.estimatedPomodoros + 1 }); }} 
                     className="px-3 py-1.5 hover:text-[var(--color-primary)] transition-colors"
@@ -242,7 +242,7 @@ export function TaskItem({
                   >
                     -
                   </button>
-                  <span className="text-sm font-medium w-8 text-center">{todayPomodoros}</span>
+                  <span className="text-sm font-medium min-w-[2rem] px-1 text-center">{todayPomodoros}</span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); updateTask(task.id, { completedPomodoros: todayPomodoros + 1 }); }} 
                     className="px-3 py-1.5 hover:text-[var(--color-primary)] transition-colors"

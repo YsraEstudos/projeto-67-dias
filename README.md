@@ -6,7 +6,7 @@ Repositório principal do painel de produtividade "Projeto 67 Dias" e do app sta
 
 Este repositório tem duas frentes que convivem no mesmo workspace:
 
-- App raiz em `/`: SPA principal de produtividade, hábitos, leitura, diário, progresso, jogos e arena interna de concurso.
+- App raiz em `/`: SPA principal de produtividade, hábitos, leitura, diário, progresso e arena interna de concurso.
 - App `CONCURSO/`: SPA independente do plano TRT 4, publicada em `/concurso` e também acessível a partir do card `Concurso` no dashboard principal.
 
 ## App raiz
@@ -23,7 +23,6 @@ Este repositório tem duas frentes que convivem no mesmo workspace:
 - `Progresso & Revisão`
 - `Planejador de Descansos`
 - `Ferramentas`
-- `Central de Jogos`
 - `Concurso`
 
 ### Arquitetura atual

@@ -28,12 +28,137 @@ interface NumberRowProps {
   value: number;
   onChange: (value: number) => void;
   min?: number;
+  max?: number;
 }
 
 interface ToggleRowProps {
   label: string;
   checked: boolean;
   onChange: (value: boolean) => void;
+}
+
+function Section({ title, icon: Icon, children }: SectionProps) {
+  return (
+    <div className="mb-8">
+      <div className="flex items-center text-[var(--color-primary)] mb-4">
+        <Icon className="w-5 h-5 mr-2" />
+        <h3 className="font-medium text-lg">{title}</h3>
+      </div>
+      <div className="space-y-4">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SelectRow({ label, value, onChange, options }: SelectRowProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[var(--color-text-muted)]">{label}</span>
+      <select 
+        value={value} 
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-[var(--color-text)]"
+      >
+        {options.map((opt: SelectOption) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function NumberRow({ label, value, onChange, min = 1, max = 999 }: NumberRowProps) {
+  const [draft, setDraft] = useState<string>(String(value));
+  const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isEditingRef.current) {
+      setDraft(String(value));
+    }
+  }, [value]);
+
+  const commitValue = (valStr: string) => {
+    if (valStr.trim() === '') {
+      setDraft(String(min));
+      onChange(min);
+      return;
+    }
+    const parsed = Number(valStr);
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(min));
+      onChange(min);
+      return;
+    }
+    const clamped = Math.max(min, max !== undefined ? Math.min(max, Math.floor(parsed)) : Math.floor(parsed));
+    setDraft(String(clamped));
+    onChange(clamped);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setDraft(raw);
+
+    if (raw === '') {
+      return;
+    }
+
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) {
+      if (parsed >= min && (max === undefined || parsed <= max)) {
+        onChange(Math.floor(parsed));
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-[var(--color-text-muted)]">{label}</span>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={1}
+        inputMode="numeric"
+        value={draft}
+        onFocus={() => {
+          isEditingRef.current = true;
+        }}
+        onChange={handleChange}
+        onBlur={() => {
+          isEditingRef.current = false;
+          commitValue(draft);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            commitValue(draft);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-24 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-3 py-1.5 text-sm text-right focus:outline-none focus:border-[var(--color-primary)] text-[var(--color-text)]"
+      />
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[var(--color-text-muted)]">{label}</span>
+      <button 
+        onClick={() => onChange(!checked)}
+        className={cn(
+          "w-10 h-5 rounded-full transition-colors relative",
+          checked ? "bg-[var(--color-primary)]" : "bg-[var(--color-border)]"
+        )}
+      >
+        <div className={cn(
+          "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+          checked ? "left-[22px]" : "left-0.5"
+        )} />
+      </button>
+    </div>
+  );
 }
 
 export function SettingsModal() {
@@ -78,70 +203,6 @@ export function SettingsModal() {
       alert('All data has been reset.');
     }
   };
-
-  const Section = ({ title, icon: Icon, children }: SectionProps) => (
-    <div className="mb-8">
-      <div className="flex items-center text-[var(--color-primary)] mb-4">
-        <Icon className="w-5 h-5 mr-2" />
-        <h3 className="font-medium text-lg">{title}</h3>
-      </div>
-      <div className="space-y-4">
-        {children}
-      </div>
-    </div>
-  );
-
-  const SelectRow = ({ label, value, onChange, options }: SelectRowProps) => (
-    <div className="flex items-center justify-between">
-      <span className="text-[var(--color-text-muted)]">{label}</span>
-      <select 
-        value={value} 
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-[var(--color-text)]"
-      >
-        {options.map((opt: SelectOption) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const NumberRow = ({ label, value, onChange, min = 1 }: NumberRowProps) => (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-[var(--color-text-muted)]">{label}</span>
-      <input
-        type="number"
-        min={min}
-        step={1}
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => {
-          const rawValue = e.target.value;
-          const nextValue = rawValue === '' ? min : Number(rawValue);
-          onChange(Number.isFinite(nextValue) ? Math.max(min, Math.floor(nextValue)) : min);
-        }}
-        className="w-24 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-3 py-1.5 text-sm text-right focus:outline-none focus:border-[var(--color-primary)] text-[var(--color-text)]"
-      />
-    </div>
-  );
-
-  const ToggleRow = ({ label, checked, onChange }: ToggleRowProps) => (
-    <div className="flex items-center justify-between">
-      <span className="text-[var(--color-text-muted)]">{label}</span>
-      <button 
-        onClick={() => onChange(!checked)}
-        className={cn(
-          "w-10 h-5 rounded-full transition-colors relative",
-          checked ? "bg-[var(--color-primary)]" : "bg-[var(--color-border)]"
-        )}
-      >
-        <div className={cn(
-          "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
-          checked ? "left-[22px]" : "left-0.5"
-        )} />
-      </button>
-    </div>
-  );
 
   return (
     <div 
@@ -194,6 +255,7 @@ export function SettingsModal() {
               value={settings.longBreakAfter} 
               onChange={(v: number) => updateSettings({ longBreakAfter: v })}
               min={1}
+              max={999}
             />
             <div className="h-px bg-[var(--color-border)] my-4" />
             <ToggleRow 
@@ -311,6 +373,7 @@ export function SettingsModal() {
               value={settings.dailyGoal} 
               onChange={(v: number) => updateSettings({ dailyGoal: v })}
               min={1}
+              max={999}
             />
             <SelectRow 
               label="Week Starts On" 

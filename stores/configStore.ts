@@ -14,15 +14,12 @@ export const DEFAULT_OFFENSIVE_GOALS: OffensiveGoalsConfig = {
     enabledModules: {
         skills: true,
         reading: true,
-        games: true,
     },
     categoryWeights: {
-        skills: 50,
-        reading: 30,
-        games: 20,
+        skills: 60,
+        reading: 40,
     },
     focusSkills: [],
-    dailyGameHoursGoal: 1,
 };
 
 const sanitizeOffensive = (input?: OffensiveGoalsConfig): OffensiveGoalsConfig => ({
@@ -30,12 +27,10 @@ const sanitizeOffensive = (input?: OffensiveGoalsConfig): OffensiveGoalsConfig =
     enabledModules: {
         skills: !!input?.enabledModules?.skills,
         reading: !!input?.enabledModules?.reading,
-        games: !!input?.enabledModules?.games,
     },
     categoryWeights: {
-        skills: Math.max(0, input?.categoryWeights?.skills ?? 50),
-        reading: Math.max(0, input?.categoryWeights?.reading ?? 30),
-        games: Math.max(0, input?.categoryWeights?.games ?? 20),
+        skills: Math.max(0, input?.categoryWeights?.skills ?? 60),
+        reading: Math.max(0, input?.categoryWeights?.reading ?? 40),
     },
     focusSkills: Array.isArray(input?.focusSkills)
         ? input.focusSkills
@@ -49,7 +44,6 @@ const sanitizeOffensive = (input?: OffensiveGoalsConfig): OffensiveGoalsConfig =
             }))
             .slice(0, 50)
         : [],
-    dailyGameHoursGoal: Math.max(0, Math.min(24, input?.dailyGameHoursGoal ?? 1)),
 });
 
 const sanitizeConfig = (updates: Partial<ProjectConfig>, base: ProjectConfig): ProjectConfig => {

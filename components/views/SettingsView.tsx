@@ -29,8 +29,6 @@ const MODULE_NAME_MAPPING: Record<string, string> = {
   'p67_reading_store': 'Leitura de Livros',
   'p67_rest_store': 'Descanso / Lazer',
   'p67_prompts_store': 'Prompts IA',
-  'games-storage': 'Jogos / Exercícios',
-  'p67_games_store': 'Jogos / Desafios',
   'p67_review_store': 'Revisão Periódica',
   'p67_water_store': 'Consumo de Água',
   'p67_streak_store': 'Ofensivas (Streaks)',

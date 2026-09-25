@@ -11,21 +11,16 @@ export interface OffensiveGoalsConfig {
   enabledModules: {
     skills: boolean;                  // default: true
     reading: boolean;                 // default: true
-    games: boolean;                   // default: true
   };
 
   // Pesos por categoria (devem somar 100)
   categoryWeights: {
-    skills: number;                   // default: 50
-    reading: number;                  // default: 30
-    games: number;                    // default: 20
+    skills: number;                   // default: 60
+    reading: number;                  // default: 40
   };
 
   // Skills em foco (vazio = considera todas)
   focusSkills: FocusSkill[];         // default: []
-
-  // Meta diária de horas de jogo (para calcular %)
-  dailyGameHoursGoal: number;        // default: 1
 }
 
 export interface SkillResource {
@@ -157,9 +152,6 @@ export interface Skill {
 
   // Anti-Anxiety: Seções desbloqueadas no roadmap
   unlockedSections?: string[];  // IDs das seções (SECTION) desbloqueadas
-
-  // Weekly Agenda: Meta diária configurável (permanente)
-  dailyGoalMinutes?: number;  // Meta diária padrão em minutos
 
   // Roadmap Backup History: Histórico de imports (máx 10)
   roadmapHistory?: RoadmapBackup[];

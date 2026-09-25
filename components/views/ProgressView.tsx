@@ -10,7 +10,6 @@ import { useReadingStore } from '../../stores/readingStore';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useReviewStore } from '../../stores/reviewStore';
-import { useGamesStore } from '../../stores/gamesStore';
 import { useJournalStore } from '../../stores/journalStore';
 import { useSitesStore } from '../../stores/sitesStore';
 import { useLinksStore } from '../../stores/linksStore';
@@ -71,7 +70,6 @@ const ProgressView: React.FC = () => {
     const config = useConfigStore((s) => s.config);
     // Add pomodoro store to fetch tasks
     const pomodoroTasks = usePomodoroStore((s) => s.tasks);
-    const games = useGamesStore((s) => s.games);
     const journalEntries = useJournalStore((s) => s.entries);
     const sites = useSitesStore((s) => s.sites);
     const links = useLinksStore((s) => s.links);
@@ -238,7 +236,6 @@ const ProgressView: React.FC = () => {
                 skills,
                 books,
                 tasks,
-                games,
                 journalEntryCount,
                 sitesUpdatedThisWeek,
                 linksClickedThisWeek,
@@ -631,7 +628,6 @@ const ProgressView: React.FC = () => {
                                     skills,
                                     books,
                                     tasks,
-                                    games,
                                     weeklyAuxMetrics.journalEntryCount,
                                     weeklyAuxMetrics.sitesUpdatedThisWeek,
                                     weeklyAuxMetrics.linksClickedThisWeek,

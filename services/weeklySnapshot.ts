@@ -13,8 +13,6 @@ import {
     Skill,
     Book,
     OrganizeTask,
-    Game,
-    CENTRAL_FOLDER_ID
 } from '../types';
 import {
     parseDate,
@@ -40,19 +38,17 @@ export const JOURNEY_CONFIG = {
 export const SCORING_CONFIG = {
     // Ponderação do score geral
     WEIGHTS: {
-        HABITS: 0.32,
-        SKILLS: 0.24,
-        READING: 0.18,
-        TASKS: 0.08,
-        GAMES: 0.08,
-        LINKS: 0.1,
+        HABITS: 0.35,
+        SKILLS: 0.25,
+        READING: 0.20,
+        TASKS: 0.10,
+        LINKS: 0.10,
     },
     // Metas semanais para 100%
     WEEKLY_TARGETS: {
         SKILL_MINUTES: 420,    // 1h/dia = 7h/semana
         PAGES_READ: 100,
         TASKS_COMPLETED: 7,
-        GAMES_HOURS: 5,        // 5h jogo/semana
         LINKS_CLICKS: 20,      // 20 cliques/revisitas semanais
     },
     // Thresholds de alerta
@@ -165,40 +161,9 @@ export function captureWeeklyMetrics(
     skills: Skill[],
     books: Book[],
     tasks: OrganizeTask[],
-    games: Game[],
     journalEntryCount: number
 ): WeeklyMetrics {
-    const { startDate: weekStart, endDate: weekEnd } = getWeekDateRange(startDate, weekNumber);
-
-    // Filter games for 67 Days folder
-    const centralGames = games.filter(g => g.folderId === CENTRAL_FOLDER_ID);
-
-    // Games: horas jogadas na semana
-    let gamesHoursPlayed = 0;
-    centralGames.forEach(game => {
-        const weekLogs = game.history.filter(log =>
-            log.date >= weekStart && log.date <= weekEnd
-        );
-        gamesHoursPlayed += weekLogs.reduce((sum, log) => sum + log.hoursPlayed, 0);
-    });
-
-    // Games: zerados na semana
-    // Nota: Usamos updatedAt como proxy para data de completion se não houver um campo específico
-    const weekStartTime = parseDate(weekStart).getTime();
-    const weekEndTime = parseDate(weekEnd).getTime();
-
-    const gamesCompleted = centralGames.filter(g =>
-        g.status === 'COMPLETED' &&
-        g.updatedAt >= weekStartTime &&
-        g.updatedAt <= weekEndTime
-    ).length;
-
-    // Games: resenhas feitas na semana
-    const gamesReviewed = centralGames.filter(g =>
-        g.review && !g.reviewPending &&
-        g.updatedAt >= weekStartTime &&
-        g.updatedAt <= weekEndTime
-    ).length;
+    const { startDate: weekStart } = getWeekDateRange(startDate, weekNumber);
 
     // Hábitos: calcular consistência da semana
     let habitsCompleted = 0;
@@ -281,9 +246,9 @@ export function captureWeeklyMetrics(
         skillsProgressed,
         tasksCompleted,
         journalEntries: journalEntryCount,
-        gamesHoursPlayed,
-        gamesCompleted,
-        gamesReviewed,
+        gamesHoursPlayed: 0,
+        gamesCompleted: 0,
+        gamesReviewed: 0,
         sitesUpdated,
         linksClicked
     };
@@ -314,7 +279,7 @@ export function calculateEvolution(
     const habitsChange = current.habitConsistency - previous.habitConsistency;
     const skillsChange = current.skillMinutes - previous.skillMinutes;
     const readingChange = current.booksProgress - previous.booksProgress;
-    const gamesChange = (current.gamesHoursPlayed || 0) - (previous.gamesHoursPlayed || 0);
+    const gamesChange = 0;
     const linksChange = (current.linksClicked || 0) - (previous.linksClicked || 0);
 
     const currentScore = calculateOverallScore(current);
@@ -354,8 +319,6 @@ export function calculateOverallScore(metrics: WeeklyMetrics): number {
     // Tarefas: baseado na meta semanal
     const taskScore = Math.min(100, (metrics.tasksCompleted / WEEKLY_TARGETS.TASKS_COMPLETED) * 100);
 
-    // Games: baseado na meta de horas
-    const gamesScore = Math.min(100, ((metrics.gamesHoursPlayed || 0) / WEEKLY_TARGETS.GAMES_HOURS) * 100);
     const linksScore = Math.min(100, ((metrics.linksClicked || 0) / WEEKLY_TARGETS.LINKS_CLICKS) * 100);
 
     return Math.round(
@@ -363,7 +326,6 @@ export function calculateOverallScore(metrics: WeeklyMetrics): number {
         skillScore * WEIGHTS.SKILLS +
         readingScore * WEIGHTS.READING +
         taskScore * WEIGHTS.TASKS +
-        gamesScore * WEIGHTS.GAMES +
         linksScore * WEIGHTS.LINKS
     );
 }
@@ -380,7 +342,6 @@ export function generateWeeklySnapshot(
     skills: Skill[],
     books: Book[],
     tasks: OrganizeTask[],
-    games: Game[],
     journalEntryCount: number,
     sitesUpdatedThisWeek: number,
     linksClickedThisWeek: number,
@@ -393,7 +354,6 @@ export function generateWeeklySnapshot(
         skills,
         books,
         tasks,
-        games,
         journalEntryCount
     );
 

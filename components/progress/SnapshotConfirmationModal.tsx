@@ -193,11 +193,10 @@ export const SnapshotConfirmationModal: React.FC<SnapshotConfirmationModalProps>
                             <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">Contabilizados</span>
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs">
-                            <span className="px-2 py-1 rounded-lg bg-orange-500/10 text-orange-300">Hábitos 32%</span>
-                            <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300">Skills 24%</span>
-                            <span className="px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-300">Leitura 18%</span>
-                            <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-300">Tarefas 8%</span>
-                            <span className="px-2 py-1 rounded-lg bg-purple-500/10 text-purple-300">Games 8%</span>
+                            <span className="px-2 py-1 rounded-lg bg-orange-500/10 text-orange-300">Hábitos 35%</span>
+                            <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-300">Skills 25%</span>
+                            <span className="px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-300">Leitura 20%</span>
+                            <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-300">Tarefas 10%</span>
                             <span className="px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-300">Sites/Links 10%</span>
                         </div>
 

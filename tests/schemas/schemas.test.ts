@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-    gameSchema,
     skillSchema,
     visualRoadmapSchema,
     backupSchema,
@@ -15,36 +14,38 @@ import {
 describe('safeParse', () => {
     describe('cenário feliz', () => {
         it('retorna success=true com dados válidos', () => {
-            const schema = gameSchema;
+            const schema = skillSchema;
             const validData = {
-                title: 'Zelda',
-                platform: 'Switch',
-                status: 'PLAYING',
+                name: 'TypeScript',
+                level: 'Iniciante',
+                goalHours: 10,
+                theme: 'emerald',
             };
 
             const result = safeParse(schema, validData);
 
             expect(result.success).toBe(true);
             if (result.success === true) {
-                expect(result.data.title).toBe('Zelda');
+                expect(result.data.name).toBe('TypeScript');
             }
         });
     });
 
     describe('cenário de erro', () => {
         it('retorna success=false com mensagem formatada para dados inválidos', () => {
-            const schema = gameSchema;
+            const schema = skillSchema;
             const invalidData = {
-                title: '', // vazio - inválido
-                platform: 'Switch',
-                status: 'INVALID_STATUS', // enum inválido
+                name: '', // vazio - inválido
+                level: 'Iniciante',
+                goalHours: 10,
+                theme: 'emerald',
             };
 
             const result = safeParse(schema, invalidData);
 
             expect(result.success).toBe(false);
             if (result.success === false) {
-                expect(result.error).toContain('O nome do jogo é obrigatório');
+                expect(result.error).toContain('O nome da habilidade é obrigatório');
             }
         });
 
@@ -69,15 +70,16 @@ describe('parseJsonSafe', () => {
     describe('cenário feliz', () => {
         it('parseia JSON válido e retorna dados tipados', () => {
             const jsonString = JSON.stringify({
-                title: 'God of War',
-                platform: 'PS5',
-                status: 'COMPLETED',
+                name: 'React',
+                level: 'Intermediário',
+                goalHours: 20,
+                theme: 'blue',
             });
 
-            const result = parseJsonSafe(gameSchema, jsonString);
+            const result = parseJsonSafe(skillSchema, jsonString);
 
             expect(result).not.toBeNull();
-            expect(result?.title).toBe('God of War');
+            expect(result?.name).toBe('React');
         });
     });
 
@@ -85,127 +87,22 @@ describe('parseJsonSafe', () => {
         it('retorna null para JSON malformado', () => {
             const badJson = '{ invalid json }';
 
-            const result = parseJsonSafe(gameSchema, badJson);
+            const result = parseJsonSafe(skillSchema, badJson);
 
             expect(result).toBeNull();
         });
 
         it('retorna null para JSON válido mas schema inválido', () => {
             const jsonString = JSON.stringify({
-                title: '', // inválido
-                platform: 'PC',
-                status: 'PLAYING',
+                name: '', // inválido
+                level: 'Iniciante',
+                goalHours: 10,
+                theme: 'emerald',
             });
 
-            const result = parseJsonSafe(gameSchema, jsonString);
+            const result = parseJsonSafe(skillSchema, jsonString);
 
             expect(result).toBeNull();
-        });
-    });
-});
-
-// ================================
-// gameSchema Tests
-// ================================
-
-describe('gameSchema', () => {
-    describe('cenário feliz', () => {
-        it('valida game com campos obrigatórios', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Elden Ring',
-                platform: 'PC',
-                status: 'PLAYING',
-            });
-            expect(result.success).toBe(true);
-        });
-
-        it('valida game com todos os campos opcionais', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Hollow Knight',
-                platform: 'Switch',
-                status: 'COMPLETED',
-                coverUrl: 'https://example.com/cover.jpg',
-                totalHoursEstimate: 40,
-                folderId: 'folder-123',
-            });
-            expect(result.success).toBe(true);
-        });
-
-        it('aceita coverUrl vazio como válido', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Celeste',
-                platform: 'PC',
-                status: 'WISHLIST',
-                coverUrl: '',
-            });
-            expect(result.success).toBe(true);
-        });
-
-        it('transforma totalHoursEstimate string para number', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Test',
-                platform: 'PC',
-                status: 'PLAYING',
-                totalHoursEstimate: '50',
-            });
-            expect(result.success).toBe(true);
-            if (result.success) {
-                expect(result.data.totalHoursEstimate).toBe(50);
-            }
-        });
-    });
-
-    describe('cenário de erro', () => {
-        it('rejeita título vazio', () => {
-            const result = safeParse(gameSchema, {
-                title: '',
-                platform: 'PC',
-                status: 'PLAYING',
-            });
-            expect(result.success).toBe(false);
-        });
-
-        it('rejeita título muito longo (>50 chars)', () => {
-            const result = safeParse(gameSchema, {
-                title: 'A'.repeat(51),
-                platform: 'PC',
-                status: 'PLAYING',
-            });
-            expect(result.success).toBe(false);
-        });
-
-        it('rejeita status inválido', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Test',
-                platform: 'PC',
-                status: 'INVALID',
-            });
-            expect(result.success).toBe(false);
-        });
-
-        it('rejeita coverUrl inválida', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Test',
-                platform: 'PC',
-                status: 'PLAYING',
-                coverUrl: 'not-a-url',
-            });
-            expect(result.success).toBe(false);
-        });
-    });
-
-    describe('casos de borda', () => {
-        it('aceita totalHoursEstimate como string vazia (transforma para undefined)', () => {
-            const result = safeParse(gameSchema, {
-                title: 'Test',
-                platform: 'PC',
-                status: 'PLAYING',
-                totalHoursEstimate: '',
-            });
-            expect(result.success).toBe(true);
-            if (result.success) {
-                expect(result.data.totalHoursEstimate).toBeUndefined();
-            }
         });
     });
 });

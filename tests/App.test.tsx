@@ -148,7 +148,6 @@ vi.mock('../stores', () => {
         useJournalStore: createStoreMock({}),
         useNotesStore: createStoreMock({ _hydrateNotesFromSubcollection: mockFn() }),
         useSundayStore: createStoreMock({}),
-        useGamesStore: createStoreMock({}),
         useLinksStore: createStoreMock({}),
         useRestStore: createStoreMock({}),
         usePromptsStore: createStoreMock({}),

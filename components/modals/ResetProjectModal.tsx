@@ -6,7 +6,6 @@ import { useHabitsStore } from '../../stores/habitsStore';
 import { useSkillsStore } from '../../stores/skillsStore';
 import { useReadingStore } from '../../stores/readingStore';
 import { useReviewStore } from '../../stores/reviewStore';
-import { useGamesStore } from '../../stores/gamesStore';
 import { useDecadeStore } from '../../stores/decadeStore';
 import { calculateCurrentDay } from '../../services/weeklySnapshot';
 import { flushPendingWrites } from '../../stores/firestoreSync';
@@ -23,7 +22,6 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
     const { setSkills } = useSkillsStore();
     const { books, folders, setBooks, setFolders } = useReadingStore();
     const { setReviewData } = useReviewStore();
-    const { clearForRestart } = useGamesStore();
     const { decadeData } = useDecadeStore();
 
     // Local State
@@ -119,9 +117,6 @@ export const ResetProjectModal: React.FC<ResetProjectModalProps> = ({ isOpen, on
                     lastSnapshotWeek: 0
                 });
             }
-
-            // Games sempre reinicia no novo ciclo
-            clearForRestart();
 
             // Garante flush das escritas debounced para evitar retorno de estado antigo
             flushPendingWrites();

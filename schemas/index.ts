@@ -1,21 +1,8 @@
 import { z } from 'zod';
-import { GAME_STATUSES } from '../types';
 
 // ================================
-// Game & Skill Form Schemas (existing)
+// Skill Form Schema
 // ================================
-
-export const gameSchema = z.object({
-    title: z.string().min(1, 'O nome do jogo é obrigatório').max(50, 'O nome deve ter no máximo 50 caracteres'),
-    platform: z.string().min(1, 'A plataforma é obrigatória').max(30, 'A plataforma deve ter no máximo 30 caracteres'),
-    status: z.enum(GAME_STATUSES),
-    coverUrl: z.union([z.string().url('URL inválida'), z.literal('')]).optional(),
-    // Allow string (from input), number (from defaultValues), or undefined (not provided)
-    totalHoursEstimate: z.union([z.string(), z.number()]).optional()
-        .transform((val) => val === '' || val === undefined ? undefined : Number(val))
-        .pipe(z.number().min(0, 'As horas devem ser positivas').optional()),
-    folderId: z.string().optional(),
-});
 
 export const skillSchema = z.object({
     name: z.string().min(1, 'O nome da habilidade é obrigatório'),
@@ -125,7 +112,5 @@ export function parseJsonSafe<T>(schema: z.ZodSchema<T>, jsonString: string): T 
 // Type Exports
 // ================================
 
-export type GameFormData = z.infer<typeof gameSchema>;
-export type GameFormInput = z.input<typeof gameSchema>;
 export type SkillFormData = z.infer<typeof skillSchema>;
 export type VisualRoadmapData = z.infer<typeof visualRoadmapSchema>;

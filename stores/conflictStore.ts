@@ -12,7 +12,6 @@ const COLLECTION_LABELS: Record<string, string> = {
     'p67_reading': 'Leituras',
     'p67_skills': 'Habilidades',
     'p67_notes': 'Notas',
-    'p67_games': 'Jogos',
     'p67_journal': 'Diário',
     'p67_project_config': 'Configurações',
     'p67_links': 'Links',
@@ -23,7 +22,6 @@ const COLLECTION_LABELS: Record<string, string> = {
     'p67_streak': 'Streak',
     'p67_work': 'Trabalho',
     'p67_review': 'Revisão',
-    'p67_weekly_agenda': 'Agenda Semanal',
 };
 
 export interface Conflict {

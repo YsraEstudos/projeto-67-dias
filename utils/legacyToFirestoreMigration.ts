@@ -26,7 +26,6 @@ const STORE_KEYS = [
     'p67_reading_store',
     'p67_rest_store',
     'p67_prompts_store',
-    'games-storage',
     'p67_review_store',
     'p67_water_store',
     'p67_streak_store',

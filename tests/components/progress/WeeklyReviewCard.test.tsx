@@ -21,15 +21,11 @@ describe('WeeklyReviewCard', () => {
             skillsProgressed: ['skill-1'],
             tasksCompleted: 10,
             journalEntries: 5,
-            gamesHoursPlayed: 8,
-            gamesCompleted: 1,
-            gamesReviewed: 1,
         },
         evolution: {
             habitsChange: 5,
             skillsChange: 30,
             readingChange: 10,
-            gamesChange: 2,
             overallScore: 82,
             trend: 'UP',
         },
@@ -70,7 +66,6 @@ describe('WeeklyReviewCard', () => {
             expect(screen.getByText('5h')).toBeInTheDocument(); // skillMinutes converted to hours
             expect(screen.getByText('50 págs')).toBeInTheDocument(); // booksProgress
             expect(screen.getByText('10')).toBeInTheDocument(); // tasksCompleted
-            expect(screen.getByText('8h')).toBeInTheDocument(); // gamesHoursPlayed
         });
 
         it('renders overall score', () => {

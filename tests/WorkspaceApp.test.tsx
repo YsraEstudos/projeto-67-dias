@@ -220,10 +220,8 @@ vi.mock('../components/views/SkillsView', () => ({ default: () => <div data-test
 vi.mock('../components/views/SettingsView', () => ({ default: () => <div data-testid="settings-view" /> }));
 vi.mock('../components/views/LinksView', () => ({ default: () => <div data-testid="links-view" /> }));
 vi.mock('../components/views/SundayView', () => ({ default: () => <div data-testid="sunday-view" /> }));
-vi.mock('../components/views/GamesView', () => ({ default: () => <div data-testid="games-view" /> }));
 vi.mock('../components/views/PomodoroView', () => ({ default: () => <div data-testid="pomodoro-view" /> }));
 vi.mock('../components/views/AulasView', () => ({ default: () => <div data-testid="aulas-view" /> }));
-vi.mock('../components/views/DuoAprendizado', () => ({ default: () => <div data-testid="duoaprendizado-view" /> }));
 
 // ---------------------------------------------------------------------------
 // Mock: Floating widgets
@@ -708,10 +706,8 @@ describe('WorkspaceApp', () => {
         { view: ViewState.SKILLS, testId: 'skills-view' },
         { view: ViewState.LINKS, testId: 'links-view' },
         { view: ViewState.SUNDAY, testId: 'sunday-view' },
-        { view: ViewState.GAMES, testId: 'games-view' },
         { view: ViewState.POMODORO, testId: 'pomodoro-view' },
         { view: ViewState.AULAS, testId: 'aulas-view' },
-        { view: ViewState.DUOAPRENDIZADO, testId: 'duoaprendizado-view' },
     ] as const;
 
     it.each(viewTestCases)('renders $testId when activeView is $view', async ({ view, testId }) => {

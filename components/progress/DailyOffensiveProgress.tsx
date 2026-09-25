@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, GraduationCap, Flame, Gamepad2, Target, ChevronDown, X } from 'lucide-react';
-import { useReadingStore, useSkillsStore, useConfigStore, useGamesStore } from '../../stores';
+import { BookOpen, GraduationCap, Flame, Target, ChevronDown, X } from 'lucide-react';
+import { useReadingStore, useSkillsStore, useConfigStore } from '../../stores';
 import { calculateDailyOffensiveAdvanced } from '../../utils/dailyOffensiveUtils';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 import { FocusSkill } from '../../types';
@@ -8,7 +8,6 @@ import { FocusSkill } from '../../types';
 export const DailyOffensiveProgress: React.FC = () => {
     const books = useReadingStore((s) => s.books);
     const skills = useSkillsStore((s) => s.skills);
-    const { games } = useGamesStore();
     const config = useConfigStore((s) => s.config);
     const setConfig = useConfigStore((s) => s.setConfig);
 
@@ -22,11 +21,10 @@ export const DailyOffensiveProgress: React.FC = () => {
         isOffensive,
         readingProgress,
         skillProgress,
-        gamesProgress,
         categoryBreakdown
     } = useMemo(() => {
-        return calculateDailyOffensiveAdvanced(books, skills, games, offensiveConfig);
-    }, [books, skills, games, offensiveConfig]);
+        return calculateDailyOffensiveAdvanced(books, skills, offensiveConfig);
+    }, [books, skills, offensiveConfig]);
 
     // Skills disponíveis para seleção de foco (apenas não-completadas com meta)
     const availableSkills = useMemo(
@@ -244,31 +242,6 @@ export const DailyOffensiveProgress: React.FC = () => {
                                 <div
                                     className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(readingProgress)}`}
                                     style={{ width: `${Math.min(100, readingProgress)}%` }}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Games Bar */}
-                    {categoryBreakdown.games.enabled && offensiveConfig.categoryWeights.games > 0 && (
-                        <div>
-                            <div className="flex justify-between items-center mb-1.5">
-                                <div className="flex items-center gap-2 text-sm text-slate-300">
-                                    <Gamepad2 size={14} className="text-purple-400" />
-                                    <span>Jogos</span>
-                                    <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                                        Peso: {offensiveConfig.categoryWeights.games}%
-                                    </span>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-xs font-mono text-slate-300 mr-2">{gamesProgress}%</span>
-                                    <span className="text-[10px] text-purple-500/70">+{categoryBreakdown.games.contribution}% total</span>
-                                </div>
-                            </div>
-                            <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(gamesProgress)}`}
-                                    style={{ width: `${Math.min(100, gamesProgress)}%` }}
                                 />
                             </div>
                         </div>

@@ -15,10 +15,8 @@ import {
   LogOut,
   Timer,
   CalendarCheck,
-  Gamepad2,
   Trophy,
   BookOpen,
-  Code2
 } from 'lucide-react';
 import { ViewState, DashboardCardProps, type User } from './types';
 import { Card } from './components/Card';
@@ -64,10 +62,8 @@ const SkillsView = React.lazy(() => import('./components/views/SkillsView'));
 const SettingsView = React.lazy(() => import('./components/views/SettingsView'));
 const LinksView = React.lazy(() => import('./components/views/LinksView'));
 const SundayView = React.lazy(() => import('./components/views/SundayView'));
-const GamesView = React.lazy(() => import('./components/views/GamesView'));
 const PomodoroView = React.lazy(() => import('./components/views/PomodoroView'));
 const AulasView = React.lazy(() => import('./components/views/AulasView'));
-const DuoAprendizadoView = React.lazy(() => import('./components/views/DuoAprendizado'));
 
 // --- Floating widgets (lazy loaded) ---
 const TimerWidget = React.lazy(() => import('./components/TimerWidget').then(m => ({ default: m.TimerWidget })));
@@ -163,11 +159,9 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       [ViewState.REST]: 'Descansos',
       [ViewState.TOOLS]: 'Ferramentas',
       [ViewState.SETTINGS]: 'Configurações',
-      [ViewState.GAMES]: 'Jogos',
       [ViewState.CONCURSO]: 'Concurso',
       [ViewState.POMODORO]: 'Pomodoro',
       [ViewState.AULAS]: 'Estante de Aulas',
-      [ViewState.DUOAPRENDIZADO]: 'JS DuoAprendizado',
     };
     return labels[view] || view;
   }, []);
@@ -312,13 +306,6 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         color: 'text-slate-400',
       },
       {
-        id: ViewState.GAMES,
-        title: 'Central de Jogos',
-        subtitle: 'Missões e progresso',
-        icon: Gamepad2,
-        color: 'text-purple-400',
-      },
-      {
         id: ViewState.CONCURSO,
         title: 'Concurso Público',
         subtitle: 'App dedicado',
@@ -340,13 +327,6 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
         icon: BookOpen,
         color: 'text-amber-400',
         stats: aulasStats.progressPercent > 0 ? `${aulasStats.progressPercent}%` : undefined,
-      },
-      {
-        id: ViewState.DUOAPRENDIZADO,
-        title: 'JS DuoAprendizado',
-        subtitle: 'Trilha Gamificada & Teorias',
-        icon: Code2,
-        color: 'text-emerald-400',
       },
     ];
   }, [notificationCount, workCurrentCount, workGoal, readingStats, aulasStats, warmConcurso]);
@@ -381,10 +361,8 @@ const WorkspaceApp: React.FC<WorkspaceAppProps> = ({ user, onLogout }) => {
       case ViewState.SKILLS: content = <SkillsView />; break;
       case ViewState.LINKS: content = <LinksView />; break;
       case ViewState.SUNDAY: content = <SundayView />; break;
-      case ViewState.GAMES: content = <GamesView />; break;
       case ViewState.POMODORO: content = <PomodoroView />; break;
       case ViewState.AULAS: content = <AulasView />; break;
-      case ViewState.DUOAPRENDIZADO: content = <DuoAprendizadoView userId={user?.id} />; break;
       default: content = <div>View not found</div>;
     }
 

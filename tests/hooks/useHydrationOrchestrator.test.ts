@@ -38,7 +38,7 @@ vi.mock('../../stores/firestoreSync', () => ({
 const {
     configStore, habitsStore, workStore, notesStore, sundayStore,
     journalStore, linksStore, skillsStore, readingStore, restStore,
-    promptsStore, gamesStore, reviewStore, waterStore, streakStore,
+    promptsStore, reviewStore, waterStore, streakStore,
     timerStore, siteCategoriesStore, sitesStore, siteFoldersStore,
     sundayTimerStore, goalsStore, competitionStore,
     pomodoroStore, aulasStore, clearAllStoresFn,
@@ -67,7 +67,6 @@ const {
         readingStore: makeStore(),
         restStore: makeStore(),
         promptsStore: makeStore(),
-        gamesStore: makeStore(),
         reviewStore: makeStore(),
         waterStore: makeStore(),
         streakStore: makeStore(),
@@ -96,7 +95,6 @@ vi.mock('../../stores', () => ({
     useReadingStore: readingStore,
     useRestStore: restStore,
     usePromptsStore: promptsStore,
-    useGamesStore: gamesStore,
     useReviewStore: reviewStore,
     useWaterStore: waterStore,
     useStreakStore: streakStore,
@@ -112,7 +110,7 @@ vi.mock('../../stores', () => ({
     clearAllStores: clearAllStoresFn,
 }));
 
-// Convenient list of the 24 document-store keys (matches hook's buildStoreSubscriptions)
+// Convenient list of the 23 document-store keys (matches hook's buildStoreSubscriptions)
 const ALL_STORE_KEYS = [
     'p67_project_config',
     'p67_habits_store',
@@ -125,7 +123,6 @@ const ALL_STORE_KEYS = [
     'p67_reading_store',
     'p67_rest_store',
     'p67_prompts_store',
-    'games-storage',
     'p67_review_store',
     'p67_water_store',
     'p67_streak_store',
@@ -179,7 +176,7 @@ describe('useHydrationOrchestrator', () => {
     });
 
     // -----------------------------------------------------------------------
-    it('returns true after all 24 store subscriptions fire their callbacks', () => {
+    it('returns true after all 23 store subscriptions fire their callbacks', () => {
         const { result } = renderHook(() => useHydrationOrchestrator('user-123'));
 
         expect(result.current).toBe(false);
@@ -198,7 +195,7 @@ describe('useHydrationOrchestrator', () => {
 
         expect(result.current).toBe(false);
 
-        // Fire only a subset of callbacks (not all 24)
+        // Fire only a subset of callbacks (not all 23)
         act(() => {
             documentCallbacks.get('p67_project_config')?.({});
             documentCallbacks.get('p67_habits_store')?.({});
@@ -274,8 +271,8 @@ describe('useHydrationOrchestrator', () => {
     it('calls all unsubscribers on unmount', () => {
         const { unmount } = renderHook(() => useHydrationOrchestrator('user-123'));
 
-        // 24 document subscriptions + 1 quota subscription + 1 subcollection subscription = 26
-        expect(unsubscribeFns.length).toBe(26);
+        // 23 document subscriptions + 1 quota subscription + 1 subcollection subscription = 25
+        expect(unsubscribeFns.length).toBe(25);
 
         unmount();
 

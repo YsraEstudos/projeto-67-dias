@@ -1,4 +1,4 @@
-import { Book, Skill, Game, OffensiveGoalsConfig, FocusSkill } from '../types';
+import { Book, Skill, OffensiveGoalsConfig, FocusSkill } from '../types';
 import { DEFAULT_OFFENSIVE_GOALS } from '../stores/configStore';
 import { getTodayISO } from './dateUtils';
 
@@ -151,84 +151,53 @@ function calculateWeightedFocusSkills(skills: Skill[], focusSkills: FocusSkill[]
 }
 
 /**
- * Calcula % de progresso de jogos do dia atual
- */
-export function calculateGamesProgress(games: Game[], dailyGoalHours: number): number {
-    if (!dailyGoalHours || dailyGoalHours <= 0) return 0;
-
-    const today = getTodayISO();
-    let totalHours = 0;
-
-    // Considera apenas jogos 'PLAYING'
-    const playingGames = games.filter(g => g.status === 'PLAYING');
-
-    playingGames.forEach(game => {
-        game.history?.forEach(log => {
-            if ((log.date.split('T')[0] || log.date) === today) {
-                totalHours += log.hoursPlayed;
-            }
-        });
-    });
-
-    return Math.min(100, Math.round((totalHours / dailyGoalHours) * 100));
-}
-
-/**
  * Calcula ofensiva diária avançada com pesos por categoria
  */
 export function calculateDailyOffensiveAdvanced(
     books: Book[],
     skills: Skill[],
-    games: Game[],
     config: OffensiveGoalsConfig = DEFAULT_OFFENSIVE_GOALS
 ): {
     readingProgress: number;
     skillProgress: number;
-    gamesProgress: number;
     weightedProgress: number;
     isOffensive: boolean;
     targetPercentage: number;
     categoryBreakdown: {
         skills: { progress: number; weight: number; contribution: number; enabled: boolean };
         reading: { progress: number; weight: number; contribution: number; enabled: boolean };
-        games: { progress: number; weight: number; contribution: number; enabled: boolean };
     };
 } {
     // Verificar módulos habilitados (fallback para todos true se não existir)
-    const enabled = config.enabledModules ?? { skills: true, reading: true, games: true };
+    const enabled = config.enabledModules ?? { skills: true, reading: true };
 
     // 1. Calcular progressos individuais (0 se desativado)
     const readingProgress = enabled.reading ? calculateReadingProgress(books) : 0;
     const skillProgress = enabled.skills ? calculateSkillProgress(skills, config.focusSkills) : 0;
-    const gamesProgress = enabled.games ? calculateGamesProgress(games, config.dailyGameHoursGoal) : 0;
 
     // 2. Extrair pesos efetivos (0 se desativado)
     const rawWeights = {
         skills: enabled.skills ? config.categoryWeights.skills : 0,
         reading: enabled.reading ? config.categoryWeights.reading : 0,
-        games: enabled.games ? config.categoryWeights.games : 0,
     };
 
     // 3. Normalizar pesos para soma = 1
-    const totalRaw = rawWeights.skills + rawWeights.reading + rawWeights.games;
+    const totalRaw = rawWeights.skills + rawWeights.reading;
     const wSkills = totalRaw > 0 ? rawWeights.skills / totalRaw : 0;
     const wReading = totalRaw > 0 ? rawWeights.reading / totalRaw : 0;
-    const wGames = totalRaw > 0 ? rawWeights.games / totalRaw : 0;
 
     // 4. Calcular contribuições
     const cSkills = skillProgress * wSkills;
     const cReading = readingProgress * wReading;
-    const cGames = gamesProgress * wGames;
 
     // 5. Progresso final ponderado
     const weightedProgress = totalRaw > 0
-        ? Math.round(cSkills + cReading + cGames)
+        ? Math.round(cSkills + cReading)
         : 0;
 
     return {
         readingProgress,
         skillProgress,
-        gamesProgress,
         weightedProgress,
         isOffensive: weightedProgress >= config.minimumPercentage,
         targetPercentage: config.minimumPercentage,
@@ -244,12 +213,6 @@ export function calculateDailyOffensiveAdvanced(
                 weight: config.categoryWeights.reading,
                 contribution: Math.round(cReading),
                 enabled: enabled.reading
-            },
-            games: {
-                progress: gamesProgress,
-                weight: config.categoryWeights.games,
-                contribution: Math.round(cGames),
-                enabled: enabled.games
             }
         }
     };
@@ -265,7 +228,7 @@ export function calculateDailyOffensive(books: Book[], skills: Skill[]): {
     isOffensive: boolean;
 } {
     // Usa defaults se chamado sem config
-    const result = calculateDailyOffensiveAdvanced(books, skills, []);
+    const result = calculateDailyOffensiveAdvanced(books, skills);
     return {
         readingProgress: result.readingProgress,
         skillProgress: result.skillProgress,

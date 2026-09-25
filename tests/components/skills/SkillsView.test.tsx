@@ -69,25 +69,11 @@ describe('SkillsView Component', () => {
 
     // --- HAPPY PATH TESTS ---
 
-    it('renders the Skill Tree header', () => {
+    it('renders the skills header', () => {
         render(<SkillsView />);
 
-        expect(screen.getByText('Skill Tree')).toBeInTheDocument();
+        expect(screen.getByText('Habilidades')).toBeInTheDocument();
         expect(screen.getByText('Gerencie seu aprendizado e desenvolvimento.')).toBeInTheDocument();
-    });
-
-    it('switches between Skill Tree and Agenda Semanal tabs', async () => {
-        render(<SkillsView />);
-
-        fireEvent.click(screen.getByText('Agenda Semanal'));
-        await waitFor(() => {
-            expect(screen.getByText('Arraste para agendar')).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText('Skill Tree'));
-        await waitFor(() => {
-            expect(screen.getByText('Test Skill')).toBeInTheDocument();
-        });
     });
 
     it('renders initial skill from mock data', () => {
@@ -158,7 +144,7 @@ describe('SkillsView Component', () => {
 
         // Should be back to list
         await waitFor(() => {
-            expect(screen.getByText('Skill Tree')).toBeInTheDocument();
+            expect(screen.getByText('Habilidades')).toBeInTheDocument();
             expect(screen.getByText('Nova Habilidade')).toBeInTheDocument();
         });
     });

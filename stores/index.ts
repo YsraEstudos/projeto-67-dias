@@ -68,14 +68,8 @@ export { useReviewStore } from './reviewStore';
 export { useWaterStore } from './waterStore';
 export type { WaterLog, BottleType } from './waterStore';
 
-// Games Store
-export { useGamesStore } from './gamesStore';
-
 // Streak Store - Daily streak tracking
 export { useStreakStore } from './streakStore';
-
-// Weekly Agenda Store - Weekly skill planning
-export { useWeeklyAgendaStore } from './weeklyAgendaStore';
 
 // Tab Store - Multi-tab navigation
 export { useTabStore } from './tabStore';
@@ -109,12 +103,6 @@ export {
     // Skills selectors
     useSkills,
     useTotalStudyHours,
-    // Games selectors
-    useGames,
-    useGameFolders,
-    useGameFolderActions,
-    useGameActions,
-    useGameReviewActions,
 } from './selectors';
 
 // Import stores for clearAllStores function
@@ -130,14 +118,12 @@ import { useSkillsStore } from './skillsStore';
 import { useReadingStore } from './readingStore';
 import { useRestStore } from './restStore';
 import { usePromptsStore } from './promptsStore';
-import { useGamesStore } from './gamesStore';
 import { useReviewStore } from './reviewStore';
 import { useWaterStore } from './waterStore';
 import { useStreakStore } from './streakStore';
 import { useTimerStore } from './timerStore';
 import { useSiteCategoriesStore } from './siteCategoriesStore';
 import { useSitesStore } from './sitesStore';
-import { useWeeklyAgendaStore } from './weeklyAgendaStore';
 import { useTabStore } from './tabStore';
 import { useSiteFoldersStore } from './siteFoldersStore';
 import { useSundayTimerStore } from './sundayTimerStore';
@@ -164,7 +150,6 @@ export const clearAllStores = () => {
     useReadingStore.getState()._reset();
     useRestStore.getState()._reset();
     usePromptsStore.getState()._reset();
-    useGamesStore.getState()._reset();
     useReviewStore.getState()._reset();
     useWaterStore.getState()._reset();
     useStreakStore.getState()._reset();
@@ -172,7 +157,6 @@ export const clearAllStores = () => {
     useSiteCategoriesStore.getState()._reset();
     useSitesStore.getState()._reset();
     useSiteFoldersStore.getState()._reset();
-    useWeeklyAgendaStore.getState()._reset();
     useSundayTimerStore.getState()._reset();
     useGoalsStore.getState()._reset();
     useCompetitionStore.getState()._reset();

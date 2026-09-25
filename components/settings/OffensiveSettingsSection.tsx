@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { useConfigStore, useSkillsStore } from '../../stores';
-import { Weight, Crosshair, Gamepad2, BookOpen, GraduationCap, Flame, ToggleLeft, Check, Plus } from 'lucide-react';
+import { Weight, Crosshair, BookOpen, GraduationCap, Flame, ToggleLeft, Check, Plus } from 'lucide-react';
 import { DEFAULT_OFFENSIVE_GOALS } from '../../stores/configStore';
 import { FocusSkill, OffensiveGoalsConfig } from '../../types';
 import { FocusSkillsCarousel } from './FocusSkillsCarousel';
@@ -50,35 +50,20 @@ export const OffensiveSettingsSection: React.FC = () => {
     }, [offensiveConfig.focusSkills, updateConfig]);
 
     // Update category weight, keeping the sum at 100%
-    const updateCategoryWeight = (category: 'skills' | 'reading' | 'games', newValue: number) => {
-        const currentWeights = offensiveConfig.categoryWeights;
+    const updateCategoryWeight = (category: 'skills' | 'reading', newValue: number) => {
         const clampedValue = Math.min(100, Math.max(0, newValue));
-        const remaining = 100 - clampedValue;
-
-        const otherKeys = (['skills', 'reading', 'games'] as const).filter(k => k !== category);
-        const otherSum = currentWeights[otherKeys[0]] + currentWeights[otherKeys[1]];
-
-        let newWeights = { ...currentWeights, [category]: clampedValue };
-
-        if (remaining === 0) {
-            newWeights[otherKeys[0]] = 0;
-            newWeights[otherKeys[1]] = 0;
-        } else if (otherSum === 0) {
-            newWeights[otherKeys[0]] = Math.round(remaining / 2);
-            newWeights[otherKeys[1]] = remaining - Math.round(remaining / 2);
-        } else {
-            const ratio0 = currentWeights[otherKeys[0]] / otherSum;
-            const ratio1 = currentWeights[otherKeys[1]] / otherSum;
-            newWeights[otherKeys[0]] = Math.round(remaining * ratio0);
-            newWeights[otherKeys[1]] = remaining - newWeights[otherKeys[0]];
-        }
-
-        updateConfig({ categoryWeights: newWeights });
+        const otherCategory = category === 'skills' ? 'reading' : 'skills';
+        updateConfig({
+            categoryWeights: {
+                skills: category === 'skills' ? clampedValue : 100 - clampedValue,
+                reading: category === 'reading' ? clampedValue : 100 - clampedValue,
+            }
+        });
     };
 
     // Toggle enabled module
-    const toggleModule = (module: 'skills' | 'reading' | 'games') => {
-        const currentModules = offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true };
+    const toggleModule = (module: 'skills' | 'reading') => {
+        const currentModules = offensiveConfig.enabledModules ?? { skills: true, reading: true };
         updateConfig({
             enabledModules: {
                 ...currentModules,
@@ -92,12 +77,11 @@ export const OffensiveSettingsSection: React.FC = () => {
 
     // Computed values
     const weights = offensiveConfig.categoryWeights;
-    const enabledModules = offensiveConfig.enabledModules ?? { skills: true, reading: true, games: true };
+    const enabledModules = offensiveConfig.enabledModules ?? { skills: true, reading: true };
     const focusSkills = offensiveConfig.focusSkills || [];
     const minPercentage = offensiveConfig.minimumPercentage;
-    const gameGoal = offensiveConfig.dailyGameHoursGoal;
 
-    const totalWeight = weights.skills + weights.reading + weights.games;
+    const totalWeight = weights.skills + weights.reading;
     const isWeightValid = totalWeight === 100;
 
     const totalFocusWeight = focusSkills.reduce((acc, s) => acc + s.weight, 0);
@@ -151,7 +135,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                     <p className="text-xs text-slate-500">
                         Desative módulos que você não está utilizando. Eles serão excluídos do cálculo de ofensiva.
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Skills Toggle */}
                         <button
                             type="button"
@@ -189,25 +173,6 @@ export const OffensiveSettingsSection: React.FC = () => {
                                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabledModules.reading ? 'translate-x-5' : 'translate-x-1'}`} />
                             </div>
                         </button>
-
-                        {/* Games Toggle */}
-                        <button
-                            type="button"
-                            onClick={() => toggleModule('games')}
-                            className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 ${enabledModules.games
-                                ? 'bg-purple-500/10 border-purple-500/50 text-purple-400'
-                                : 'bg-slate-900/50 border-slate-700 text-slate-500 opacity-60'
-                                }`}
-                        >
-                            <Gamepad2 size={20} />
-                            <div className="flex-1 text-left">
-                                <div className="font-semibold">Jogos</div>
-                                <div className="text-xs opacity-70">{enabledModules.games ? 'Ativo' : 'Inativo'}</div>
-                            </div>
-                            <div className={`w-10 h-6 rounded-full transition-colors ${enabledModules.games ? 'bg-purple-500' : 'bg-slate-600'} relative`}>
-                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabledModules.games ? 'translate-x-5' : 'translate-x-1'}`} />
-                            </div>
-                        </button>
                     </div>
                 </div>
 
@@ -224,7 +189,7 @@ export const OffensiveSettingsSection: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Skills Weight */}
                         <div className="space-y-2">
                             <div className="flex justify-between text-xs">
@@ -252,20 +217,6 @@ export const OffensiveSettingsSection: React.FC = () => {
                                 className="w-full accent-yellow-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
-
-                        {/* Games Weight */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                                <span className="flex items-center gap-1 text-purple-400"><Gamepad2 size={12} /> Jogos</span>
-                                <span className="font-mono">{weights.games}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0" max="100" value={weights.games}
-                                onChange={(e) => updateCategoryWeight('games', Number(e.target.value))}
-                                className="w-full accent-purple-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                            />
-                        </div>
                     </div>
 
                     {/* Visual Preview */}
@@ -276,35 +227,12 @@ export const OffensiveSettingsSection: React.FC = () => {
                         {weights.reading > 0 && (
                             <div style={{ width: `${weights.reading}%` }} className="bg-yellow-500 transition-all">Leitura</div>
                         )}
-                        {weights.games > 0 && (
-                            <div style={{ width: `${weights.games}%` }} className="bg-purple-500 transition-all">Jogos</div>
-                        )}
                     </div>
                 </div>
 
                 <div className="h-px bg-slate-700/50" />
 
-                {/* 4. Meta de Jogos */}
-                <div className="space-y-4">
-                    <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                        <Gamepad2 size={16} className="text-purple-400" /> Meta Diária de Jogos
-                    </label>
-                    <div className="flex items-center gap-3">
-                        <input
-                            type="number"
-                            step="0.5"
-                            min="0.5"
-                            value={gameGoal}
-                            onChange={(e) => updateConfig({ dailyGameHoursGoal: Number(e.target.value) })}
-                            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 w-24 text-white font-mono focus:border-purple-500 outline-none"
-                        />
-                        <span className="text-sm text-slate-400">horas por dia para atingir 100%</span>
-                    </div>
-                </div>
-
-                <div className="h-px bg-slate-700/50" />
-
-                {/* 5. Skills em Foco */}
+                {/* 4. Skills em Foco */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <label className="text-sm font-bold text-slate-300 flex items-center gap-2">

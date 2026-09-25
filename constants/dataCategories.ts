@@ -111,13 +111,6 @@ export const DATA_CATEGORIES: DataCategory[] = [
         description: 'Sequência diária do desafio.',
         iconName: 'Flame',
         color: 'text-orange-300'
-    },
-    {
-        key: 'games-storage',
-        label: 'Games',
-        description: 'Jogos, pastas e missões.',
-        iconName: 'Briefcase',
-        color: 'text-purple-400'
     }
 ];
 

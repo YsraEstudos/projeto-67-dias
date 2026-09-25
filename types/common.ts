@@ -14,11 +14,9 @@ export enum ViewState {
   REST = 'REST',
   TOOLS = 'TOOLS',
   SETTINGS = 'SETTINGS',
-  GAMES = 'GAMES',
   CONCURSO = 'CONCURSO',
   POMODORO = 'POMODORO',
   AULAS = 'AULAS',
-  DUOAPRENDIZADO = 'DUOAPRENDIZADO',
 }
 
 export type AppTheme = 'default' | 'amoled';

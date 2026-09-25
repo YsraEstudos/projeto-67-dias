@@ -13,10 +13,10 @@ export interface WeeklyMetrics {
   tasksCompleted: number;     // tarefas concluídas
   journalEntries: number;     // entradas de diário
 
-  // Games (apenas pasta 67 Days)
-  gamesHoursPlayed: number;   // horas jogadas na semana
-  gamesCompleted: number;     // jogos zerados na semana
-  gamesReviewed: number;      // resenhas escritas na semana
+  // Legado Games (opcional para retrocompatibilidade com snapshots salvos)
+  gamesHoursPlayed?: number;
+  gamesCompleted?: number;
+  gamesReviewed?: number;
 
   // Sites/Links (Hub de conhecimento)
   sitesUpdated?: number;      // sites alterados na semana

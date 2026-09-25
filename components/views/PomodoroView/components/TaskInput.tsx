@@ -115,13 +115,13 @@ export function TaskInput() {
                 <input
                   type="number"
                   min="1"
-                  max="99"
+                  max="999"
                   value={estimatedPomodoros}
-                  onChange={(e) => setEstimatedPomodoros(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setEstimatedPomodoros(Math.max(1, Math.min(999, parseInt(e.target.value) || 1)))}
                   onBlur={() => {
                     if (estimatedPomodoros <= 5) setShowNumberInput(false);
                   }}
-                  className="w-8 bg-transparent border-none focus:outline-none text-[var(--color-text)] text-sm text-center font-medium"
+                  className="w-12 bg-transparent border-none focus:outline-none text-[var(--color-text)] text-sm text-center font-medium"
                   autoFocus
                 />
                 <button 

@@ -9,7 +9,7 @@ interface ModuleOffensiveBarProps {
 }
 
 /**
- * Barra compacta de ofensiva para exibição contextual em cada módulo (Skills, Reading, Games)
+ * Barra compacta de ofensiva para exibição contextual em cada módulo (Skills, Reading)
  */
 export const ModuleOffensiveBar: React.FC<ModuleOffensiveBarProps> = ({
     progress,
