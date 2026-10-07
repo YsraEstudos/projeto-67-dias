@@ -107,6 +107,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
         }
     };
 
+    // Latest handlers for the global key listener. Without this, Ctrl+S kept the
+    // closure from when `hasChanges` last flipped and saved stale content.
+    const keyHandlersRef = useRef<{ save: () => void; close: () => void }>({ save: () => {}, close: () => {} });
+
     // Handle Escape key to toggle mode or close
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -114,13 +118,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
                 if (viewMode === 'source' && note) {
                     setViewMode('formatted');
                 } else {
-                    handleClose();
+                    keyHandlersRef.current.close();
                 }
             }
             // Ctrl/Cmd + S to save
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 e.preventDefault();
-                handleSave();
+                keyHandlersRef.current.save();
             }
         };
         document.addEventListener('keydown', handleKeyDown);
@@ -343,6 +347,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onClose, a
         onSave(savedNote);
         onClose();
     };
+    keyHandlersRef.current = { save: handleSave, close: handleClose };
 
     const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && tagInput.trim()) {

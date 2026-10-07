@@ -48,3 +48,15 @@ export const parseJournalLine = (line: string) => {
         text: line,
     };
 };
+
+/** Lowercase + strip accents so searches like "reuniao" match "Reunião". */
+export const normalizeJournalSearch = (value: string | undefined | null) =>
+    (value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** Newest first: by entry date (YYYY-MM-DD), then by creation time. Does not mutate. */
+export const sortJournalEntries = <T extends Pick<JournalEntry, 'date' | 'createdAt' | 'updatedAt'>>(entries: T[]): T[] =>
+    [...entries].sort((a, b) => {
+        const byDate = (b.date || '').localeCompare(a.date || '');
+        if (byDate !== 0) return byDate;
+        return (b.createdAt ?? b.updatedAt ?? 0) - (a.createdAt ?? a.updatedAt ?? 0);
+    });

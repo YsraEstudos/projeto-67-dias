@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, Suspense, useCallback, useRef } from 'react';
 import {
     Book, Calendar, Plus, Trash2, CheckSquare2, Square,
-    Smile, Meh, Frown, CloudRain, Zap, Quote, Target, PenLine, CheckCircle2
+    Smile, Meh, Frown, CloudRain, Zap, Quote, Target, PenLine, CheckCircle2, Search
 } from 'lucide-react';
 import { useJournalStore, JournalEntry } from '../../stores/journalStore';
 import { useTabStore } from '../../stores/tabStore';
@@ -13,6 +13,8 @@ import {
     formatJournalDate,
     parseJournalLine,
     toggleChecklistLine,
+    normalizeJournalSearch,
+    sortJournalEntries,
 } from './journal/journalFormatting';
 
 import { Mood, MOOD_CONFIG } from '../../types';
@@ -116,8 +118,11 @@ const MoodSelector: React.FC<{ current: Mood; onSelect: (m: Mood) => void }> = (
                 return (
                     <button
                         key={key}
+                        type="button"
                         onClick={() => onSelect(key)}
                         title={config.label}
+                        aria-label={`Humor: ${config.label}`}
+                        aria-pressed={isSelected}
                         className={`p-2.5 rounded-xl transition-all duration-300 relative group ${isSelected
                             ? `bg-slate-800 ${config.color} ring-2 ring-offset-2 ring-offset-slate-900 ${MOOD_RING_CLASSES[key]} scale-110 shadow-lg`
                             : 'bg-slate-800/50 text-slate-500 hover:bg-slate-800 hover:scale-105 hover:text-slate-300'
@@ -183,22 +188,46 @@ const JournalView: React.FC = () => {
         }
     }, [activeEntry?.id, activeEntry?.content]);
 
+    const handleUpdateEntryRef = useRef<(id: string, updates: Partial<UIJournalEntry>) => void>(() => {});
+
     useEffect(() => {
-        let timeoutId: NodeJS.Timeout;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        let pending: { id: string; content: string } | null = null;
+        const flush = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = undefined;
+            if (pending) {
+                const { id, content } = pending;
+                pending = null;
+                handleUpdateEntryRef.current(id, { content });
+            }
+        };
         debouncedUpdateRef.current = (id: string, content: string) => {
             if (process.env.NODE_ENV === 'test') {
-                handleUpdateEntry(id, { content });
+                handleUpdateEntryRef.current(id, { content });
                 return;
             }
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => {
-                handleUpdateEntry(id, { content });
-            }, 300);
+            // Switching entries mid-debounce: persist the previous entry first
+            if (pending && pending.id !== id) flush();
+            pending = { id, content };
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(flush, 300);
         };
         return () => {
-            clearTimeout(timeoutId);
+            // Flush instead of dropping the last keystrokes when the view unmounts
+            flush();
         };
     }, [storeUpdateEntry]);
+
+    // Sidebar: newest first, optional text search (accent-insensitive)
+    const [entrySearch, setEntrySearch] = useState('');
+    const visibleEntries = useMemo(() => {
+        const term = normalizeJournalSearch(entrySearch.trim());
+        const filtered = term
+            ? entries.filter(e => normalizeJournalSearch(e.content).includes(term))
+            : entries;
+        return sortJournalEntries(filtered);
+    }, [entries, entrySearch]);
 
     // Main tab state (journal vs goals)
     const [activeMainTab, setActiveMainTab] = useState<'journal' | 'goals'>('journal');
@@ -284,6 +313,20 @@ const JournalView: React.FC = () => {
         setDrawingMode({ active: true, entryId: newEntry.id });
     };
 
+    const handleCloseDrawing = () => {
+        const entryId = drawingMode.entryId;
+        setDrawingMode({ active: false, entryId: null });
+        if (!entryId) return;
+        // A drawing entry created but never saved would linger as "Desenho (0 páginas)"
+        const entry = useJournalStore.getState().entries.find(e => e.id === entryId);
+        if (entry && entry.entryType === 'drawing' && (entry.drawingPages?.length ?? 0) === 0) {
+            storeDeleteEntry(entryId);
+            if (selectedId === entryId) setSelectedId(null);
+        } else if (entry) {
+            setSelectedId(entryId);
+        }
+    };
+
     const handleOpenNewEntrySelector = () => {
         setShowTypeSelector(true);
     };
@@ -295,6 +338,7 @@ const JournalView: React.FC = () => {
             trackActivity();
         }
     };
+    handleUpdateEntryRef.current = handleUpdateEntry;
 
     const handleToggleSaved = () => {
         if (!activeEntry) return;
@@ -311,7 +355,9 @@ const JournalView: React.FC = () => {
         if (!activeEntry) return;
 
         const textarea = textareaRef.current;
-        const currentContent = activeEntry.content || '';
+        // Use the editor buffer: the store may lag behind (debounced typing),
+        // and the textarea only renders localContent.
+        const currentContent = localContent;
         const checkboxToken = '- [ ] ';
 
         let nextContent = currentContent;
@@ -331,6 +377,7 @@ const JournalView: React.FC = () => {
             nextContent = `${currentContent}${checkboxToken}`;
         }
 
+        setLocalContent(nextContent);
         handleUpdateEntry(activeEntry.id, { content: nextContent });
 
         window.requestAnimationFrame(() => {
@@ -339,7 +386,7 @@ const JournalView: React.FC = () => {
             el.focus();
             el.setSelectionRange(nextCaret, nextCaret);
         });
-    }, [activeEntry, handleUpdateEntry]);
+    }, [activeEntry, handleUpdateEntry, localContent]);
 
     const handleDeleteEntry = async (id: string) => {
         const entry = entries.find(e => e.id === id);
@@ -402,13 +449,34 @@ const JournalView: React.FC = () => {
                             </button>
                         </div>
 
+                        {entries.length > 0 && (
+                            <div className="p-2 border-b border-slate-700/70">
+                                <div className="relative">
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                    <input
+                                        type="search"
+                                        value={entrySearch}
+                                        onChange={(e) => setEntrySearch(e.target.value)}
+                                        placeholder="Buscar no diário..."
+                                        aria-label="Buscar entradas do diário"
+                                        className="w-full bg-slate-900/60 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin">
                             {entries.length === 0 && (
                                 <div className="text-center text-slate-500 py-10 text-sm px-4">
                                     Seu diário está vazio. Comece a escrever sua jornada hoje.
                                 </div>
                             )}
-                            {entries.map(entry => (
+                            {entries.length > 0 && visibleEntries.length === 0 && (
+                                <div className="text-center text-slate-500 py-10 text-sm px-4">
+                                    Nenhuma entrada encontrada para "{entrySearch.trim()}".
+                                </div>
+                            )}
+                            {visibleEntries.map(entry => (
                                 <button
                                     key={entry.id}
                                     onClick={() => setSelectedId(entry.id)}
@@ -481,6 +549,44 @@ const JournalView: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            {activeEntry.entryType === 'drawing' && (
+                                <div className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl p-6 overflow-y-auto">
+                                    <div className="flex items-center justify-between gap-3 mb-4">
+                                        <p className="text-sm font-semibold text-slate-200">
+                                            {activeEntry.drawingPages?.length || 0} página{(activeEntry.drawingPages?.length || 0) !== 1 ? 's' : ''} de desenho
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDrawingMode({ active: true, entryId: activeEntry.id })}
+                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/35 transition-colors text-sm font-medium"
+                                        >
+                                            <PenLine size={16} />
+                                            Abrir desenho
+                                        </button>
+                                    </div>
+                                    {(activeEntry.drawingPages?.length ?? 0) > 0 && (
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {activeEntry.drawingPages!.map((page, index) => (
+                                                <button
+                                                    key={page.id}
+                                                    type="button"
+                                                    onClick={() => setDrawingMode({ active: true, entryId: activeEntry.id })}
+                                                    className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900 hover:border-emerald-500/40 transition-colors"
+                                                    title={`Abrir página ${index + 1}`}
+                                                >
+                                                    <img
+                                                        src={page.storageUrl}
+                                                        alt={`Página ${index + 1} do desenho`}
+                                                        loading="lazy"
+                                                        className="w-full aspect-[4/3] object-cover"
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {activeEntry.entryType !== 'drawing' && !isSavedEntry && (
                                 <>
@@ -586,7 +692,7 @@ const JournalView: React.FC = () => {
                     <DrawingCanvas
                         entryId={drawingMode.entryId}
                         existingPages={entries.find(e => e.id === drawingMode.entryId)?.drawingPages}
-                        onClose={() => setDrawingMode({ active: false, entryId: null })}
+                        onClose={handleCloseDrawing}
                     />
                 </Suspense>
             )}

@@ -39,6 +39,73 @@ const mergeNotesByRecency = (baseNotes: Note[], incomingNotes: Note[]): Note[] =
     return Array.from(merged.values());
 };
 
+/**
+ * Session-local bookkeeping used to reconcile remote snapshots with local
+ * edits that are still inside the (long) Firestore write debounce window.
+ * - dirtyNoteIds: notes created/changed locally that the server may not have yet.
+ * - deletedNoteIds: notes deleted locally that the server may still contain.
+ */
+const dirtyNoteIds = new Set<string>();
+const deletedNoteIds = new Set<string>();
+
+// Firestore does not preserve map key order, so compare with sorted keys.
+const stableStringify = (value: unknown): string => JSON.stringify(value, (_key, val) =>
+    val && typeof val === 'object' && !Array.isArray(val)
+        ? Object.keys(val).sort().reduce<Record<string, unknown>>((acc, k) => { acc[k] = val[k]; return acc; }, {})
+        : val
+);
+
+const markDirty = (id: string) => {
+    dirtyNoteIds.add(id);
+    deletedNoteIds.delete(id);
+};
+
+/**
+ * Merge a remote notes snapshot into the local list after the store is initialized.
+ * Remote is the source of truth, except for local changes not yet persisted.
+ */
+export const reconcileRemoteNotes = (localNotes: Note[], remoteNotes: Note[]): Note[] => {
+    const localById = new Map(localNotes.map(n => [n.id, n]));
+    const remoteIds = new Set<string>();
+    const result: Note[] = [];
+
+    remoteNotes.forEach((remote) => {
+        remoteIds.add(remote.id);
+        if (deletedNoteIds.has(remote.id)) return; // locally deleted, write pending
+
+        const local = localById.get(remote.id);
+        if (!local) {
+            result.push(remote);
+            return;
+        }
+
+        const remoteIsNewer = (remote.updatedAt ?? 0) > (local.updatedAt ?? 0);
+        if (dirtyNoteIds.has(remote.id) && !remoteIsNewer) {
+            // Keep the pending local version; the server caught up once both match.
+            if (stableStringify(remote) === stableStringify(local)) dirtyNoteIds.delete(remote.id);
+            result.push(local);
+        } else {
+            dirtyNoteIds.delete(remote.id);
+            result.push(remote);
+        }
+    });
+
+    // Local-only notes survive only if they are pending local creations/edits;
+    // otherwise they were deleted on another device.
+    localNotes.forEach((local) => {
+        if (!remoteIds.has(local.id) && dirtyNoteIds.has(local.id)) {
+            result.push(local);
+        }
+    });
+
+    // Tombstones whose note is gone from the server are settled.
+    deletedNoteIds.forEach((id) => {
+        if (!remoteIds.has(id)) deletedNoteIds.delete(id);
+    });
+
+    return deduplicateById(result);
+};
+
 interface NotesState {
     notes: Note[];
     tags: Tag[];
@@ -105,17 +172,20 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     setNotes: (notes) => {
         const nextNotes = deduplicateById(notes);
 
+        nextNotes.forEach(n => markDirty(n.id));
         set((state) => { state.notes = nextNotes; });
         get()._syncToFirestore();
     },
 
     addNote: (note) => {
         console.log('[notesStore] addNote:', note.id, note.title);
+        markDirty(note.id);
         set((state) => { state.notes.push(note); });
         get()._syncToFirestore();
     },
 
     updateNote: (id, updates) => {
+        markDirty(id);
         set((state) => {
             const note = state.notes.find(n => n.id === id);
             if (note) {
@@ -127,6 +197,8 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     deleteNote: (id) => {
+        dirtyNoteIds.delete(id);
+        deletedNoteIds.add(id);
         set((state) => {
             const idx = state.notes.findIndex(n => n.id === id);
             if (idx !== -1) state.notes.splice(idx, 1);
@@ -135,6 +207,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     togglePinNote: (id) => {
+        markDirty(id);
         set((state) => {
             const note = state.notes.find(n => n.id === id);
             if (note) note.isPinned = !note.isPinned;
@@ -143,6 +216,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     pinNoteToTag: (noteId, tagId) => {
+        markDirty(noteId);
         set((state) => {
             const note = state.notes.find(n => n.id === noteId);
             if (!note) return;
@@ -155,6 +229,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     unpinNoteFromTag: (noteId, tagId) => {
+        markDirty(noteId);
         set((state) => {
             const note = state.notes.find(n => n.id === noteId);
             if (!note || !note.pinnedToTags) return;
@@ -165,6 +240,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     setNoteColor: (id, color) => {
+        markDirty(id);
         set((state) => {
             const note = state.notes.find(n => n.id === id);
             if (note) note.color = color;
@@ -173,6 +249,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     addTagToNote: (noteId, tagId) => {
+        markDirty(noteId);
         set((state) => {
             const note = state.notes.find(n => n.id === noteId);
             if (!note) return;
@@ -184,6 +261,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     removeTagFromNote: (noteId, tagId) => {
+        markDirty(noteId);
         set((state) => {
             const note = state.notes.find(n => n.id === noteId);
             if (!note) return;
@@ -224,13 +302,15 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
 
             // Remove tag references from all notes
             for (const note of state.notes) {
+                let touched = false;
                 const tagRefIdx = note.tags.indexOf(id);
-                if (tagRefIdx !== -1) note.tags.splice(tagRefIdx, 1);
+                if (tagRefIdx !== -1) { note.tags.splice(tagRefIdx, 1); touched = true; }
 
                 if (note.pinnedToTags) {
                     const pinnedIdx = note.pinnedToTags.indexOf(id);
-                    if (pinnedIdx !== -1) note.pinnedToTags.splice(pinnedIdx, 1);
+                    if (pinnedIdx !== -1) { note.pinnedToTags.splice(pinnedIdx, 1); touched = true; }
                 }
+                if (touched) markDirty(note.id);
             }
         });
         get()._syncToFirestore();
@@ -260,7 +340,7 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
 
     _hydrateFromFirestore: (data) => {
         const fallback = data || readLocalBackup();
-        const { tags: localTags, _initialized } = get();
+        const { tags: localTags, notes: localNotes, _initialized } = get();
 
         if (!fallback) {
             set((state) => {
@@ -270,8 +350,6 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
             return;
         }
 
-        // Subcollections update themselves via subscribeToSubcollection
-        // So we only merge tags from global store update
         const remoteTags = fallback.tags || [];
 
         if (_initialized) {
@@ -290,15 +368,24 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
                 }
             });
 
+            // Notes live in this same document: apply remote changes from other
+            // devices instead of ignoring them (which also caused the next local
+            // write to overwrite them), while keeping pending local edits.
+            const nextNotes = Array.isArray(fallback.notes)
+                ? reconcileRemoteNotes(localNotes, fallback.notes)
+                : null;
+
             set((state) => {
+                if (nextNotes) state.notes = nextNotes;
                 state.tags = deduplicateById(mergedTags);
                 state.isLoading = false;
             });
         } else {
             set((state) => {
-                // Initialize notes with local backup or initial fallback until subcollection overrides it
-                if (fallback.notes && state.notes.length === 0) {
-                    state.notes = deduplicateById(fallback.notes || []);
+                // Initialize notes from remote/local backup, keeping notes created while
+                // hydration was still pending (previously they blocked remote notes from loading).
+                if (fallback.notes) {
+                    state.notes = mergeNotesByRecency(deduplicateById(fallback.notes), localNotes);
                 }
                 // Preserve tags created while the initial hydration was still pending.
                 state.tags = deduplicateById([...remoteTags, ...state.tags]);
@@ -310,6 +397,8 @@ export const useNotesStore = create<NotesState>()(immer((set, get) => ({
     },
 
     _reset: () => {
+        dirtyNoteIds.clear();
+        deletedNoteIds.clear();
         set((state) => {
             state.notes = [];
             state.tags = [];

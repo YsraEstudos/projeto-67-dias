@@ -51,6 +51,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // PERF: Use ref for current stroke to avoid re-renders during drawing
     const currentStrokeRef = useRef<Point[]>([]);
     const isDrawingRef = useRef(false);
+    const redrawRef = useRef<() => void>(() => {});
 
     // Store actions - extracted once
     const addDrawingPage = useJournalStore(state => state.addDrawingPage);
@@ -90,7 +91,8 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             if (ctx) {
                 ctx.scale(dpr, dpr);
             }
-            redrawCanvas();
+            // Use the latest redraw (current strokes/background), not the mount-time closure
+            redrawRef.current();
         };
 
         updateSize();
@@ -139,25 +141,6 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         }
     }, [existingPages]);
 
-    // PERF: Memoized redraw function (fully synchronous)
-    const redrawCanvas = useCallback(() => {
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (!canvas || !ctx) return;
-
-        const dpr = window.devicePixelRatio || 1;
-
-        // Clear with dark background
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-
-        // Draw background image if loaded
-        if (bgImageRef.current && bgImageLoaded) {
-            ctx.drawImage(bgImageRef.current, 0, 0, canvas.width / dpr, canvas.height / dpr);
-        }
-        drawStrokes(ctx, strokes);
-    }, [strokes, bgImageLoaded, drawStrokes]);
-
     // PERF: Extracted stroke drawing for reuse
     const drawStrokes = useCallback((ctx: CanvasRenderingContext2D, strokeList: Stroke[]) => {
         strokeList.forEach(stroke => {
@@ -189,6 +172,26 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
         ctx.globalCompositeOperation = 'source-over';
     }, []);
+
+    // PERF: Memoized redraw function (fully synchronous)
+    const redrawCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+
+        // Clear with dark background
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+        // Draw background image if loaded
+        if (bgImageRef.current && bgImageLoaded) {
+            ctx.drawImage(bgImageRef.current, 0, 0, canvas.width / dpr, canvas.height / dpr);
+        }
+        drawStrokes(ctx, strokes);
+    }, [strokes, bgImageLoaded, drawStrokes]);
+    redrawRef.current = redrawCanvas;
 
     // PERF: Optimized pointer position calculation
     const getPointerPosition = useCallback((e: React.PointerEvent<HTMLCanvasElement>): Point => {

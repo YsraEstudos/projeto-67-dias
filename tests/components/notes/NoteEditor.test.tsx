@@ -170,6 +170,26 @@ describe('NoteEditor', () => {
     });
 
     describe('Save functionality', () => {
+        it('Ctrl+S saves the latest edits, not the state from the first change', () => {
+            render(
+                <NoteEditor
+                    note={null}
+                    availableTags={mockTags}
+                    {...mockHandlers}
+                />
+            );
+
+            const titleInput = screen.getByPlaceholderText(/Título da nota/i);
+            fireEvent.change(titleInput, { target: { value: 'A' } });
+            fireEvent.change(titleInput, { target: { value: 'AB' } });
+            fireEvent.change(titleInput, { target: { value: 'ABC final' } });
+
+            fireEvent.keyDown(document, { key: 's', ctrlKey: true });
+
+            expect(mockHandlers.onSave).toHaveBeenCalledTimes(1);
+            expect(mockHandlers.onSave.mock.calls[0][0].title).toBe('ABC final');
+        });
+
         it('calls onSave with note data when saving', () => {
             render(
                 <NoteEditor

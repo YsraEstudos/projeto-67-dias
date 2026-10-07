@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Plus, Search, StickyNote, Pin, ChevronRight } from 'lucide-react';
 import { Note, Tag, ViewState } from '../../types';
@@ -12,6 +12,10 @@ import { TagManager } from './TagManager';
 import { generateUUID } from '../../utils/uuid';
 
 type SortOption = 'recent' | 'oldest' | 'alphabetical' | 'color';
+
+/** Lowercase + strip accents so "acao" matches "Ação". */
+export const normalizeSearchText = (value: string | undefined | null): string =>
+    (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 interface NotesTabProps {
     isAuthLoading?: boolean;
@@ -111,7 +115,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [sortBy, setSortBy] = useState<SortOption>('recent');
-    const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+    const [showPinnedOnlyState, setShowPinnedOnly] = useState(false);
 
     // Pagination
     const [visibleCount, setVisibleCount] = useState(12);
@@ -154,6 +158,13 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
         return notes.filter(note => note.isPinned);
     }, [notes]);
 
+    // The "pinned only" toggle disappears when there are no pinned notes, so it
+    // must not stay active (otherwise the list is stuck empty with no way out).
+    const showPinnedOnly = showPinnedOnlyState && pinnedNotes.length > 0;
+    useEffect(() => {
+        if (showPinnedOnlyState && pinnedNotes.length === 0) setShowPinnedOnly(false);
+    }, [showPinnedOnlyState, pinnedNotes.length]);
+
     // Group pinned notes by tag
     const pinnedByTag = useMemo(() => {
         const groups: Record<string, Note[]> = {};
@@ -182,13 +193,13 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
     const filteredNotes = useMemo(() => {
         let filtered = showPinnedOnly ? notes.filter(n => n.isPinned) : notes;
 
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
+        const term = normalizeSearchText(searchTerm.trim());
+        if (term) {
             filtered = filtered.filter(
                 (note) =>
-                    note.title.toLowerCase().includes(term) ||
-                    note.content.toLowerCase().includes(term) ||
-                    note.tags.some((tag) => resolveTagToLabel(tag).toLowerCase().includes(term))
+                    normalizeSearchText(note.title).includes(term) ||
+                    normalizeSearchText(note.content).includes(term) ||
+                    note.tags.some((tag) => normalizeSearchText(resolveTagToLabel(tag)).includes(term))
             );
         }
 
@@ -378,6 +389,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ isAuthLoading = false }) => 
                 {pinnedNotes.length > 0 && (
                     <button
                         onClick={() => setShowPinnedOnly(!showPinnedOnly)}
+                        aria-pressed={showPinnedOnly}
                         className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${showPinnedOnly
                             ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
                             : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'

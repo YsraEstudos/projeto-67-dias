@@ -4,6 +4,8 @@ import {
     formatJournalDate,
     parseJournalLine,
     toggleChecklistLine,
+    normalizeJournalSearch,
+    sortJournalEntries,
 } from './journalFormatting';
 
 describe('journalFormatting', () => {
@@ -36,5 +38,20 @@ describe('journalFormatting', () => {
             checked: true,
             text: 'tarefa',
         });
+    });
+
+    it('normalizes search text ignoring case and accents', () => {
+        expect(normalizeJournalSearch('Reunião ÀS 10h')).toBe('reuniao as 10h');
+        expect(normalizeJournalSearch(undefined)).toBe('');
+    });
+
+    it('sorts entries newest first by date then creation time without mutating', () => {
+        const input = [
+            { id: 'a', date: '2026-01-02', createdAt: 5, updatedAt: 5 },
+            { id: 'b', date: '2026-03-01', createdAt: 1, updatedAt: 1 },
+            { id: 'c', date: '2026-01-02', createdAt: 9, updatedAt: 9 },
+        ];
+        expect(sortJournalEntries(input).map(e => e.id)).toEqual(['b', 'c', 'a']);
+        expect(input.map(e => e.id)).toEqual(['a', 'b', 'c']);
     });
 });
