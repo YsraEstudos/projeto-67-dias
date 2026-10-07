@@ -14,6 +14,7 @@ export const createLogActions = (set: SkillsSet, get: SkillsGet): LogActions => 
         set((state) => {
             const skill = state.skills.find(s => s.id === skillId);
             if (skill) {
+                if (!skill.logs) skill.logs = [];
                 skill.logs.push(log);
                 skill.currentMinutes += log.minutes;
             }
@@ -29,7 +30,8 @@ export const createLogActions = (set: SkillsSet, get: SkillsGet): LogActions => 
             const logIdx = skill.logs.findIndex(l => l.id === logId);
             if (logIdx !== -1) {
                 const log = skill.logs[logIdx];
-                skill.currentMinutes -= log.minutes;
+                // currentMinutes can be edited manually below the logs total; never go negative
+                skill.currentMinutes = Math.max(0, skill.currentMinutes - log.minutes);
                 skill.logs.splice(logIdx, 1);
             }
         });

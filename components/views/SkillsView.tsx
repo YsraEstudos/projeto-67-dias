@@ -168,6 +168,15 @@ const SkillsView: React.FC = () => {
               />
             ))}
 
+            {skills.length > 0 && activeSkills.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-12 border-2 border-dashed border-yellow-500/20 rounded-2xl bg-yellow-500/5 text-center px-4">
+                <GraduationCap size={40} className="text-yellow-500/60 mb-3" />
+                <p className="text-slate-300 font-medium">Todas as suas habilidades foram dominadas! 🏆</p>
+                <p className="text-slate-500 text-sm mt-1">Comece uma nova jornada de aprendizado.</p>
+                <button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-emerald-400 hover:underline">Criar nova habilidade</button>
+              </div>
+            )}
+
             {skills.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
                 <GraduationCap size={48} className="text-slate-700 mb-4" />

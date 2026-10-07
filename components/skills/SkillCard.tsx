@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Play, CheckCircle2, X, BarChart3 } from 'lucide-react';
-import { Skill } from '../../types';
+import { Skill, SkillLog } from '../../types';
 import { THEMES } from './constants';
 import { SkillContextMenu } from './SkillContextMenu';
 import { SessionHistoryModal } from './SessionHistoryModal';
@@ -15,9 +15,28 @@ interface SkillCardProps {
     onViewDailyPlan?: (skill: Skill) => void;
 }
 
+/** Sum of minutes logged on the current local calendar day (log dates are UTC ISO strings). */
+export const getTodayMinutes = (logs: SkillLog[] | undefined, now: Date = new Date()): number => {
+    if (!logs?.length) return 0;
+    return logs.reduce((sum, log) => {
+        const d = new Date(log.date);
+        const isSameLocalDay = d.getFullYear() === now.getFullYear()
+            && d.getMonth() === now.getMonth()
+            && d.getDate() === now.getDate();
+        return isSameLocalDay ? sum + (log.minutes || 0) : sum;
+    }, 0);
+};
+
+const formatTodayMinutes = (minutes: number): string => {
+    if (minutes < 60) return `${minutes}min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}min` : `${h}h`;
+};
+
 export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
     const { skill, onClick, onAddSession, onToggleDistribution, onViewDailyPlan } = props;
-    const { deleteLog } = useSkillsStore();
+    const deleteLog = useSkillsStore(s => s.deleteLog);
     const percentage = Math.min(100, Math.round((skill.currentMinutes / (skill.goalMinutes || 1)) * 100));
     const themeColor = THEMES[skill.colorTheme as keyof typeof THEMES] || THEMES.emerald;
     const textColor = themeColor.split(' ')[0];
@@ -53,12 +72,26 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
     };
 
     const isExponential = skill.distributionType === 'EXPONENTIAL';
+    const todayMinutes = useMemo(() => getTodayMinutes(skill.logs), [skill.logs]);
+
+    // Keyboard activation for the card itself; ignore keys bubbling from inner inputs/buttons
+    const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+        }
+    };
 
     if (props.isCompact) {
         return (
             <>
                 <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Abrir habilidade ${skill.name}`}
                     onClick={onClick}
+                    onKeyDown={handleCardKeyDown}
                     onContextMenu={handleContextMenu}
                     className="group bg-slate-900/50 border border-slate-700/50 hover:border-yellow-500/30 hover:bg-yellow-500/5 rounded-xl p-4 cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden"
                 >
@@ -103,9 +136,13 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
     return (
         <>
             <div
+                role="button"
+                tabIndex={0}
+                aria-label={`Abrir habilidade ${skill.name}`}
                 onClick={onClick}
+                onKeyDown={handleCardKeyDown}
                 onContextMenu={handleContextMenu}
-                className={`group bg-slate-800 border border-slate-700 hover:border-emerald-500/30 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg hover:shadow-emerald-500/10 relative overflow-hidden ${skill.isCompleted ? 'ring-1 ring-yellow-500/30' : ''}`}
+                className={`group bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 border border-slate-700 hover:border-emerald-500/30 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg hover:shadow-emerald-500/10 relative overflow-hidden ${skill.isCompleted ? 'ring-1 ring-yellow-500/30' : ''}`}
             >
                 {/* Animated gradient border glow */}
                 <div className="absolute inset-0 rounded-2xl p-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
@@ -156,6 +193,11 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
                     <div className="text-sm text-slate-500">
                         <span className="text-white font-mono text-lg">{(skill.currentMinutes / 60).toFixed(1)}</span>
                         <span className="text-xs"> / {(skill.goalMinutes / 60).toFixed(0)}h</span>
+                        {todayMinutes > 0 && (
+                            <div className="text-[10px] text-emerald-400/90 font-medium mt-0.5" data-testid="skill-today-minutes">
+                                Hoje: {formatTodayMinutes(todayMinutes)}
+                            </div>
+                        )}
                     </div>
 
                     {isAdding ? (
@@ -169,19 +211,25 @@ export const SkillCard: React.FC<SkillCardProps> = React.memo((props) => {
                                 onChange={e => setSessionMinutes(e.target.value)}
                                 className="w-12 bg-transparent text-white text-sm font-bold text-center outline-none"
                                 autoFocus
-                                onKeyDown={e => e.key === 'Enter' && handleConfirmSession(e)}
+                                aria-label="Minutos da sessão"
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') handleConfirmSession(e);
+                                    if (e.key === 'Escape') { e.stopPropagation(); setIsAdding(false); }
+                                }}
                                 onClick={e => e.stopPropagation()}
                             />
                             <span className="text-[10px] text-slate-500 font-medium mr-1">min</span>
 
                             <button
                                 onClick={handleConfirmSession}
+                                aria-label="Confirmar sessão"
                                 className="p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md transition-colors"
                             >
                                 <CheckCircle2 size={12} />
                             </button>
                             <button
                                 onClick={handleCancel}
+                                aria-label="Cancelar sessão"
                                 className="p-1 hover:bg-slate-800 text-slate-500 hover:text-red-400 rounded-md transition-colors"
                             >
                                 <X size={12} />

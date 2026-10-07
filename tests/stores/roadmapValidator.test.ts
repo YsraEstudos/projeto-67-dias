@@ -27,4 +27,22 @@ describe('roadmapValidator', () => {
 
         expect(result).toBeNull();
     });
+
+    it('preserves completedAt for completed items and drops it for pending or invalid values', () => {
+        const result = normalizeRoadmap([
+            { id: 'a', title: 'A', isCompleted: true, completedAt: 1700000000000, type: 'TASK' },
+            { id: 'b', title: 'B', isCompleted: false, completedAt: 1700000000000, type: 'TASK' },
+            { id: 'c', title: 'C', isCompleted: true, completedAt: 'ontem', type: 'TASK' },
+            {
+                id: 's', title: 'S', isCompleted: false, type: 'SECTION',
+                subTasks: [{ id: 'sub', title: 'Sub', isCompleted: true, completedAt: 1700000000001 }],
+            },
+        ]);
+
+        expect(result?.[0].completedAt).toBe(1700000000000);
+        expect(result?.[1].completedAt).toBeUndefined();
+        expect(result?.[2].completedAt).toBeUndefined();
+        expect(result?.[3].subTasks?.[0].completedAt).toBe(1700000000001);
+    });
 });
+

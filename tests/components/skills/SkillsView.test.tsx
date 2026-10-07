@@ -231,4 +231,13 @@ describe('SkillsView Component', () => {
 
         confirmSpy.mockRestore();
     });
+
+    it('shows a mastered-all message when every skill is completed', () => {
+        useSkillsStore.getState().setSkills([{ ...MOCK_SKILL, isCompleted: true, completedAt: Date.now() }]);
+        render(<SkillsView />);
+
+        expect(screen.getByText(/Todas as suas habilidades foram dominadas/)).toBeInTheDocument();
+        expect(screen.queryByText('Você ainda não está rastreando nenhuma habilidade.')).not.toBeInTheDocument();
+    });
 });
+

@@ -67,6 +67,8 @@ export const MicroAchievementsTab: React.FC<ProgressOverviewProps> = ({ skill, o
     }, [skill.roadmap, generalTarget]);
 
     const saveGeneralTarget = (value: string) => {
+        // Clearing the field while typing must not silently set the target to 0%
+        if (value.trim() === '') return;
         const parsed = Number(value);
         if (!Number.isFinite(parsed)) return;
         onUpdate({ roadmapProgressTarget: Math.max(0, Math.min(100, Math.round(parsed))) });

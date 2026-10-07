@@ -4,7 +4,7 @@
  * Modal showing the history of study sessions for a skill
  * Displays date, time, and duration of each session
  */
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { X, History, Clock, Trash2, Calendar } from 'lucide-react';
 import { Skill, SkillLog } from '../../types';
 
@@ -78,6 +78,15 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
         [skill.logs]
     );
 
+    // Close on Escape
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
     const handleDelete = (logId: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm('Remover esta sessão do histórico?')) {
@@ -105,6 +114,9 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
             onClick={onClose}
         >
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Histórico de sessões de ${skill.name}`}
                 className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md max-h-[80vh] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 flex flex-col"
                 onClick={e => e.stopPropagation()}
             >
@@ -121,6 +133,7 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Fechar histórico"
                         className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white"
                     >
                         <X size={20} />
@@ -168,6 +181,7 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
                                             onClick={(e) => handleDelete(log.id, e)}
                                             className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors md:opacity-0 md:group-hover:opacity-100"
                                             title="Remover sessão"
+                                            aria-label="Remover sessão"
                                         >
                                             <Trash2 size={14} className="text-slate-400 hover:text-red-400" />
                                         </button>

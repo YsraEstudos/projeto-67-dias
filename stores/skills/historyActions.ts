@@ -4,6 +4,7 @@
  */
 import { SkillsSet, SkillsGet, SkillRoadmapItem } from './types';
 import { RoadmapBackup } from '../../types';
+import { generateUUID } from '../../utils/uuid';
 
 const MAX_BACKUPS = 10;
 
@@ -41,7 +42,7 @@ export const createHistoryActions = (set: SkillsSet, get: SkillsGet): HistoryAct
             if (!skill.roadmap || skill.roadmap.length === 0) return;
 
             const backup: RoadmapBackup = {
-                id: crypto.randomUUID(),
+                id: generateUUID(), // crypto.randomUUID is unavailable outside secure contexts (http LAN)
                 createdAt: Date.now(),
                 label,
                 previousRoadmap: JSON.parse(JSON.stringify(skill.roadmap)) // Deep clone

@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { skillSchema, SkillFormData } from '../../schemas';
 import { useConfigStore } from '../../stores/configStore';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
+import { addDaysToDate, formatDateISO } from '../../utils/dateUtils';
 
 interface CreateSkillModalProps {
     onClose: () => void;
@@ -19,9 +20,10 @@ export const CreateSkillModal: React.FC<CreateSkillModalProps> = ({ onClose, onC
 
     // Calculate default deadline: startDate + 67 days
     const defaultDeadline = useMemo(() => {
-        const startDate = new Date(config.startDate);
-        startDate.setDate(startDate.getDate() + 67);
-        return startDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        // Compute in local time: toISOString() is UTC and shifts the date by one day at night (UTC-3)
+        const parsed = new Date(config.startDate);
+        const startDate = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+        return formatDateISO(addDaysToDate(startDate, 67)); // YYYY-MM-DD format
     }, [config.startDate]);
 
     const {

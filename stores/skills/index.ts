@@ -16,3 +16,4 @@ export { createNextDayContentActions, type NextDayContentActions } from './nextD
 export { createDistributionActions, type DistributionActions } from './distributionActions';
 export { createSectionVisibilityActions, type SectionVisibilityActions } from './sectionVisibilityActions';
 export { createHistoryActions, type HistoryActions } from './historyActions';
+export { createGoalActions, type GoalActions } from './goalActions';

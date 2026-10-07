@@ -6,6 +6,7 @@ import { useSkillsStore } from '../../stores/skillsStore';
 import { THEME_VARIANTS, ThemeKey } from './constants';
 import { GoalTypeSelector } from './GoalTypeSelector';
 import { calculateDailyRequirement, calculateDailyPlan } from '../../utils/skillPrediction';
+import { formatDateBR, getTodayISO } from '../../utils/dateUtils';
 
 interface ProgressStatsProps {
     skill: Skill;
@@ -71,14 +72,14 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
     // Get today's plan from daily distribution
     const todayPlan = useMemo(() => {
         if (!dailyPlan || dailyPlan.isExpired || dailyPlan.items.length === 0) return null;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayISO(); // plan dates are local; toISOString() would be UTC
         return dailyPlan.items.find(item => item.date === today) || dailyPlan.items[0];
     }, [dailyPlan]);
 
     // Get next study day when today is excluded (OFF day)
     const nextStudyDay = useMemo(() => {
         if (!dailyPlan || !todayPlan || !todayPlan.isExcluded) return null;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayISO(); // plan dates are local; toISOString() would be UTC
         // Find the next non-excluded day after today
         return dailyPlan.items.find(item => item.date > today && !item.isExcluded) || null;
     }, [dailyPlan, todayPlan]);
@@ -318,7 +319,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                                 </div>
                             </div>
                             <div className="text-right text-xs text-slate-600">
-                                Deadline: {new Date(skill.deadline!).toLocaleDateString('pt-BR')}
+                                Deadline: {formatDateBR(skill.deadline!, 'dd/MM/yyyy')}
                             </div>
                         </div>
                     ) : (
@@ -348,7 +349,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                                 </div>
                             </div>
                             <div className="text-right text-xs text-slate-600">
-                                Deadline: {new Date(skill.deadline!).toLocaleDateString('pt-BR')}
+                                Deadline: {formatDateBR(skill.deadline!, 'dd/MM/yyyy')}
                             </div>
                         </div>
                     )}
@@ -377,7 +378,7 @@ export const ProgressStats: React.FC<ProgressStatsProps> = ({ skill, onAddSessio
                         value={skill.deadline || ''}
                         onChange={(e) => onUpdateDeadline(e.target.value || undefined)}
                         className="w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 outline-none transition-colors"
-                        min={new Date().toISOString().split('T')[0]}
+                        min={getTodayISO()}
                     />
                     {!skill.deadline && (
                         <p className="text-xs text-slate-500 mt-1">

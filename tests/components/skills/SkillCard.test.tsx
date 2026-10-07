@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SkillCard } from '../../../components/skills/SkillCard';
+import { SkillCard, getTodayMinutes } from '../../../components/skills/SkillCard';
 import { Skill } from '../../../types';
 
 // Mock skill data
@@ -218,5 +218,76 @@ describe('SkillCard Component', () => {
         expect(screen.getByText('2.0')).toBeInTheDocument();
         // 600 minutes = 10 hours
         expect(screen.getByText('/ 10h')).toBeInTheDocument();
+    });
+
+    // --- ACCESSIBILITY & TODAY SUMMARY ---
+
+    it('opens the skill with Enter/Space when the card is focused', () => {
+        render(<SkillCard skill={mockSkill} onClick={mockOnClick} onAddSession={mockOnAddSession} />);
+
+        const card = screen.getByRole('button', { name: 'Abrir habilidade Python Básico' });
+        fireEvent.keyDown(card, { key: 'Enter' });
+        fireEvent.keyDown(card, { key: ' ' });
+
+        expect(mockOnClick).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not open the skill when Enter is pressed inside the session input', () => {
+        render(<SkillCard skill={mockSkill} onClick={mockOnClick} onAddSession={mockOnAddSession} />);
+
+        fireEvent.click(screen.getByText('+Sessão'));
+        fireEvent.keyDown(screen.getByRole('spinbutton'), { key: 'Enter' });
+
+        expect(mockOnAddSession).toHaveBeenCalledWith(30);
+        expect(mockOnClick).not.toHaveBeenCalled();
+    });
+
+    it('cancels the session input with Escape', () => {
+        render(<SkillCard skill={mockSkill} onClick={mockOnClick} onAddSession={mockOnAddSession} />);
+
+        fireEvent.click(screen.getByText('+Sessão'));
+        fireEvent.keyDown(screen.getByRole('spinbutton'), { key: 'Escape' });
+
+        expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+        expect(mockOnAddSession).not.toHaveBeenCalled();
+    });
+
+    it('shows minutes studied today and ignores older logs', () => {
+        const now = new Date();
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const skillWithLogs: Skill = {
+            ...mockSkill,
+            logs: [
+                { id: 'a', date: now.toISOString(), minutes: 45 },
+                { id: 'b', date: now.toISOString(), minutes: 30 },
+                { id: 'c', date: yesterday.toISOString(), minutes: 90 },
+            ],
+        };
+        render(<SkillCard skill={skillWithLogs} onClick={mockOnClick} onAddSession={mockOnAddSession} />);
+
+        expect(screen.getByTestId('skill-today-minutes')).toHaveTextContent('Hoje: 1h 15min');
+    });
+
+    it('hides the today summary when nothing was logged today', () => {
+        render(<SkillCard skill={mockSkill} onClick={mockOnClick} onAddSession={mockOnAddSession} />);
+        expect(screen.queryByTestId('skill-today-minutes')).not.toBeInTheDocument();
+    });
+});
+
+describe('getTodayMinutes', () => {
+    it('groups by local calendar day, not by the UTC date prefix', () => {
+        // 23:30 local time on Jan 10 - its UTC ISO string may already be Jan 11
+        const now = new Date(2026, 0, 10, 23, 45);
+        const lateLocal = new Date(2026, 0, 10, 23, 30).toISOString();
+        const nextDay = new Date(2026, 0, 11, 0, 30).toISOString();
+
+        expect(getTodayMinutes([
+            { id: '1', date: lateLocal, minutes: 20 },
+            { id: '2', date: nextDay, minutes: 50 },
+        ], now)).toBe(20);
+    });
+
+    it('returns 0 for missing logs', () => {
+        expect(getTodayMinutes(undefined)).toBe(0);
     });
 });
