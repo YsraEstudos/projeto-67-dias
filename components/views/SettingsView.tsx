@@ -12,6 +12,24 @@ import { PWASettingsSection } from '../settings/PWASettingsSection';
 import { SettingsCategory } from '../settings/SettingsCategory';
 import { getUsageStats, subscribeToQuotaChanges, getDailyLimit } from '../../utils/firestoreQuota';
 import { MAX_IMAGE_SIZE } from '../../utils/imageUtils';
+import { formatDateISO, addDaysToDate } from '../../utils/dateUtils';
+import { calculateCurrentDay, getDaysUntilStart } from '../../services/weeklySnapshot';
+
+const JOURNEY_TOTAL_DAYS = 67;
+
+/** YYYY-MM-DD local da data de início (split('T') usaria a data UTC e erraria em fusos positivos). */
+const toLocalDateInputValue = (iso?: string): string => {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : formatDateISO(date);
+};
+
+/** Último dia da jornada: Dia 1 = início, Dia 67 = início + 66 dias. */
+const getJourneyEndDate = (iso?: string): Date | null => {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : addDaysToDate(date, JOURNEY_TOTAL_DAYS - 1);
+};
 
 const DataManagementModal = React.lazy(() => import('../modals/DataManagementModal').then(m => ({ default: m.DataManagementModal })));
 const ResetProjectModal = React.lazy(() => import('../modals/ResetProjectModal'));
@@ -75,6 +93,23 @@ const SettingsView: React.FC = () => {
     });
     return unsubscribe;
   }, []);
+
+  // Esc fecha os modais locais (confirmação de início e detalhes de cota)
+  useEffect(() => {
+    if (!showStartConfirmation && !isDetailsModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setShowStartConfirmation(false);
+      setIsDetailsModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showStartConfirmation, isDetailsModalOpen]);
+
+  const journeyEndDate = getJourneyEndDate(config.startDate);
+  const journeyDay = config.startDate ? calculateCurrentDay(config.startDate) : 0;
+  const daysUntilStart = config.startDate ? getDaysUntilStart(config.startDate) : 0;
+  const journeyPercent = Math.min(100, Math.round((journeyDay / JOURNEY_TOTAL_DAYS) * 100));
 
   const handleStartProject = () => {
     setConfig({ isProjectStarted: true });
@@ -185,7 +220,8 @@ const SettingsView: React.FC = () => {
                   ) : (
                     <input
                       type="date"
-                      value={config.startDate ? config.startDate.split('T')[0] : ''}
+                      aria-label="Data de início"
+                      value={toLocalDateInputValue(config.startDate)}
                       onChange={(e) => {
                         if (e.target.value) {
                           const newDate = new Date(e.target.value + 'T00:00:00');
@@ -205,13 +241,46 @@ const SettingsView: React.FC = () => {
                 <div className="flex-1 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
                   <label className="block text-sm font-medium text-slate-300 mb-2">Data de Término</label>
                   <div className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300">
-                    {config.startDate
-                      ? new Date(new Date(config.startDate).getTime() + 67 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
-                      : '-'}
+                    {journeyEndDate ? journeyEndDate.toLocaleDateString('pt-BR') : '-'}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Calculado automaticamente (67 dias)</p>
+                  <p className="text-xs text-slate-500 mt-1">Calculado automaticamente (Dia 67)</p>
                 </div>
               </div>
+
+              {/* Progresso da jornada */}
+              {config.startDate && (
+                <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/50" data-testid="journey-progress">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-slate-300 font-medium">
+                      {journeyDay > 0
+                        ? `Dia ${journeyDay} de ${JOURNEY_TOTAL_DAYS}`
+                        : daysUntilStart === 0
+                          ? 'Começa hoje!'
+                          : `Começa em ${daysUntilStart} dia${daysUntilStart !== 1 ? 's' : ''}`}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {journeyDay >= JOURNEY_TOTAL_DAYS
+                        ? 'Jornada concluída 🎉'
+                        : journeyDay > 0
+                          ? `Faltam ${JOURNEY_TOTAL_DAYS - journeyDay} dia${JOURNEY_TOTAL_DAYS - journeyDay !== 1 ? 's' : ''}`
+                          : ''}
+                    </span>
+                  </div>
+                  <div
+                    className="w-full h-2 bg-slate-700 rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-label="Progresso da jornada de 67 dias"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={journeyPercent}
+                  >
+                    <div
+                      className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500"
+                      style={{ width: `${journeyPercent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Start Project Button or Status */}
@@ -465,13 +534,13 @@ const SettingsView: React.FC = () => {
 
       {/* Start Project Confirmation Modal */}
       {showStartConfirmation && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="start-project-title">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-purple-500/20 rounded-full">
                 <Flame size={24} className="text-purple-400" />
               </div>
-              <h3 className="text-xl font-bold text-white">Iniciar Projeto?</h3>
+              <h3 id="start-project-title" className="text-xl font-bold text-white">Iniciar Projeto?</h3>
             </div>
 
             <p className="text-slate-300 text-sm mb-4">
@@ -508,7 +577,7 @@ const SettingsView: React.FC = () => {
 
       {/* Firestore Usage Details Modal */}
       {isDetailsModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="quota-details-title">
           <div className="bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 max-w-xl w-full animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
@@ -517,12 +586,13 @@ const SettingsView: React.FC = () => {
                   <HardDrive size={22} className="text-cyan-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">Detalhamento de Requisições</h3>
+                  <h3 id="quota-details-title" className="text-xl font-bold text-white">Detalhamento de Requisições</h3>
                   <p className="text-xs text-slate-400">Operações acumuladas por módulo hoje</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsDetailsModalOpen(false)}
+                aria-label="Fechar"
                 className="text-slate-400 hover:text-white transition-colors p-1.5 hover:bg-slate-800 rounded-lg"
               >
                 <X size={20} />

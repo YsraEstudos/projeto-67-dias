@@ -222,6 +222,9 @@ const ProgressView: React.FC = () => {
 
     // --- AUTO SNAPSHOT DETECTION ---
     useEffect(() => {
+        // Antes do início da jornada calculateCurrentWeek() retorna 1: sem esta guarda
+        // um snapshot vazio da semana 1 seria auto-confirmado e a semana real nunca seria capturada.
+        if (!hasStarted) return;
         if (shouldGenerateSnapshot(reviewData.lastSnapshotWeek, config.startDate)) {
             const previousSnapshot = reviewData.snapshots.length > 0
                 ? reviewData.snapshots[reviewData.snapshots.length - 1]
@@ -255,6 +258,7 @@ const ProgressView: React.FC = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
+        hasStarted,
         currentWeek,
         reviewData.lastSnapshotWeek,
         config.startDate,
@@ -376,10 +380,12 @@ const ProgressView: React.FC = () => {
             </React.Suspense>
 
             {/* TABS */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Seções de progresso">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
                         onClick={() => !tab.disabled && setActiveTab(tab.id)}
                         disabled={tab.disabled}
                         className={`
@@ -494,6 +500,15 @@ const ProgressView: React.FC = () => {
                         <div 
                             className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg hover:border-emerald-500/30 transition-all group cursor-pointer"
                             onClick={() => setShowSkillChart(true)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Abrir gráfico de horas por habilidade"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setShowSkillChart(true);
+                                }
+                            }}
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
@@ -508,6 +523,15 @@ const ProgressView: React.FC = () => {
                         <div 
                             className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg hover:border-blue-500/30 transition-all group cursor-pointer"
                             onClick={() => setShowPomodoroChart(true)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Abrir gráfico de pomodoros"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setShowPomodoroChart(true);
+                                }
+                            }}
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
@@ -613,7 +637,7 @@ const ProgressView: React.FC = () => {
                     </React.Suspense>
 
                     {/* Manual Snapshot Trigger for Testing */}
-                    {!pendingSnapshot && currentWeek > reviewData.lastSnapshotWeek && (
+                    {hasStarted && !pendingSnapshot && currentWeek > reviewData.lastSnapshotWeek && (
                         <button
                             onClick={() => {
                                 const previousSnapshot = reviewData.snapshots.length > 0
@@ -667,7 +691,11 @@ const ProgressView: React.FC = () => {
                 </div>
             )}
 
-            {activeTab === 'decade' && <DecadeModeView />}
+            {activeTab === 'decade' && (
+                <React.Suspense fallback={<TabLoading />}>
+                    <DecadeModeView />
+                </React.Suspense>
+            )}
 
             {activeTab === 'final' && (
                 <div>

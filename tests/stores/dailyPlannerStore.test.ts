@@ -97,3 +97,19 @@ describe('dailyPlannerStore', () => {
         expect(writeToFirestore).toHaveBeenCalledWith('p67_daily_planner_store', expect.any(Object));
     });
 });
+
+describe('dailyPlannerStore hydration', () => {
+    it('clears a stale isLoading flag persisted by an interrupted request', () => {
+        useDailyPlannerStore.getState()._reset();
+        const session = {
+            ...useDailyPlannerStore.getState().ensureSession('2026-04-07'),
+            isLoading: true,
+        };
+        useDailyPlannerStore.getState()._hydrateFromFirestore({
+            preferences: useDailyPlannerStore.getState().preferences,
+            sessionsByDate: { '2026-04-07': session },
+        });
+
+        expect(useDailyPlannerStore.getState().sessionsByDate['2026-04-07'].isLoading).toBe(false);
+    });
+});

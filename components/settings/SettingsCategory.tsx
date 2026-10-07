@@ -13,6 +13,7 @@ interface SettingsCategoryProps {
 }
 
 export const SettingsCategory: React.FC<SettingsCategoryProps> = memo(({
+    id,
     title,
     description,
     icon,
@@ -21,11 +22,15 @@ export const SettingsCategory: React.FC<SettingsCategoryProps> = memo(({
     onToggle,
     children
 }) => {
+    const contentId = `settings-category-${id}`;
     return (
         <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
             {/* Header - Clickable Macro Level */}
             <button
+                type="button"
                 onClick={onToggle}
+                aria-expanded={isExpanded}
+                aria-controls={contentId}
                 className="w-full p-4 sm:p-6 flex items-center gap-3 sm:gap-4 hover:bg-slate-750 transition-colors text-left group"
             >
                 <div className={`p-2 sm:p-3 rounded-xl ${iconBgColor}`}>
@@ -48,6 +53,10 @@ export const SettingsCategory: React.FC<SettingsCategoryProps> = memo(({
 
             {/* Content - Micro Level (Expandable) */}
             <div
+                id={contentId}
+                // Conteúdo recolhido fica fora da ordem de tabulação e da árvore de acessibilidade
+                inert={!isExpanded}
+                aria-hidden={!isExpanded}
                 className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                     }`}
             >

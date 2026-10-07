@@ -22,21 +22,24 @@ export const DEFAULT_OFFENSIVE_GOALS: OffensiveGoalsConfig = {
     focusSkills: [],
 };
 
+const finiteOr = (value: unknown, fallback: number): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
 const sanitizeOffensive = (input?: OffensiveGoalsConfig): OffensiveGoalsConfig => ({
-    minimumPercentage: Math.min(100, Math.max(0, input?.minimumPercentage ?? 50)),
+    minimumPercentage: Math.min(100, Math.max(0, finiteOr(input?.minimumPercentage, 50))),
     enabledModules: {
         skills: !!input?.enabledModules?.skills,
         reading: !!input?.enabledModules?.reading,
     },
     categoryWeights: {
-        skills: Math.max(0, input?.categoryWeights?.skills ?? 60),
-        reading: Math.max(0, input?.categoryWeights?.reading ?? 40),
+        skills: Math.max(0, finiteOr(input?.categoryWeights?.skills, 60)),
+        reading: Math.max(0, finiteOr(input?.categoryWeights?.reading, 40)),
     },
     focusSkills: Array.isArray(input?.focusSkills)
         ? input.focusSkills
             .filter((item): item is { skillId: string; weight: number } =>
                 typeof item === 'object' && item !== null &&
-                typeof item.skillId === 'string' && typeof item.weight === 'number'
+                typeof item.skillId === 'string' && Number.isFinite(item.weight)
             )
             .map((item) => ({
                 skillId: String(item.skillId).slice(0, 120),
@@ -57,7 +60,7 @@ const sanitizeConfig = (updates: Partial<ProjectConfig>, base: ProjectConfig): P
         userName: (updates.userName ?? base.userName).trim().slice(0, 120),
         isGuest: updates.isGuest ?? base.isGuest,
         isProjectStarted: updates.isProjectStarted ?? base.isProjectStarted,
-        restartCount: Math.max(0, updates.restartCount ?? base.restartCount),
+        restartCount: Math.max(0, finiteOr(updates.restartCount, finiteOr(base.restartCount, 0))),
         offensiveGoals: sanitizeOffensive(updates.offensiveGoals ?? base.offensiveGoals),
         theme,
         lastSundayResetDate: updates.lastSundayResetDate ?? base.lastSundayResetDate,

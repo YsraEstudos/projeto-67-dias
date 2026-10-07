@@ -76,6 +76,9 @@ const mergeHydratedSession = (
       ...freshSession.dayInputs,
       ...session.dayInputs,
     },
+    // Estado transitório: uma requisição interrompida (reload/fechamento) não pode
+    // deixar a sessão presa em "carregando" após reidratar.
+    isLoading: false,
     messages: Array.isArray(session.messages) ? session.messages : [],
     completedBlockIds: Array.isArray(session.completedBlockIds) ? session.completedBlockIds : [],
     latestPlan: session.latestPlan

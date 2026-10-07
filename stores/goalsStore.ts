@@ -58,7 +58,7 @@ export const useGoalsStore = create<GoalsState>()((set, get) => ({
     },
 
     addGoal: (goal) => {
-        set((state) => ({ goals: [...state.goals, goal] }));
+        set((state) => ({ goals: deduplicateById([...state.goals, goal]) }));
         get()._syncToFirestore();
     },
 
@@ -85,7 +85,10 @@ export const useGoalsStore = create<GoalsState>()((set, get) => ({
                 return {
                     ...g,
                     status,
-                    achievedAt: status === 'ACHIEVED' ? Date.now() : undefined,
+                    // Preserva a data original se a meta já estava concluída
+                    achievedAt: status === 'ACHIEVED'
+                        ? (g.status === 'ACHIEVED' && g.achievedAt ? g.achievedAt : Date.now())
+                        : undefined,
                     updatedAt: Date.now()
                 };
             })

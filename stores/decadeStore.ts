@@ -13,7 +13,7 @@ const STORE_KEY = 'p67_decade_store';
 const DEFAULT_DECADE_PROGRESS: DecadeProgress = {
     currentCycle: 1,
     cycleHistory: [],
-    decadeStartDate: new Date().toISOString(),
+    decadeStartDate: '', // Definido em initializeDecade (apenas uma vez)
     isDecadeComplete: false,
     pendingCycleGoal: ''
 };
@@ -52,7 +52,8 @@ export const useDecadeStore = create<DecadeState>()(immer((set, get) => ({
 
     initializeDecade: () => {
         set(state => {
-            if (state.decadeData.currentCycle > 1) return state; // Já iniciado
+            // Já iniciado: nunca sobrescrever a data persistida a cada visita
+            if (state.decadeData.currentCycle > 1 || state.decadeData.decadeStartDate) return state;
             return {
                 decadeData: {
                     ...state.decadeData,
@@ -67,7 +68,7 @@ export const useDecadeStore = create<DecadeState>()(immer((set, get) => ({
         set(state => ({
             decadeData: {
                 ...state.decadeData,
-                pendingCycleGoal: goal
+                pendingCycleGoal: goal.trim()
             }
         }));
         // Debounce write could be handled by firestoreSync hook, but direct write here is fine for occasional updates
@@ -75,6 +76,8 @@ export const useDecadeStore = create<DecadeState>()(immer((set, get) => ({
     },
 
     completeCycle: (reviewData, goalAchieved, cycleStartDate) => {
+        // Década já concluída: evita snapshots duplicados do ciclo 55
+        if (get().decadeData.isDecadeComplete) return;
         set(state => {
             const currentCycleNum = state.decadeData.currentCycle;
             const goal = state.decadeData.pendingCycleGoal || '';

@@ -3,6 +3,7 @@ import {
     LayoutList, CheckSquare, Clock, Bell, Archive,
     ChevronDown, ChevronUp, Tag, CheckCircle2
 } from 'lucide-react';
+import { parseISO, startOfDay } from 'date-fns';
 import { OrganizeTask } from '../../types';
 
 interface TasksProgressSectionProps {
@@ -36,22 +37,26 @@ const getCategoryColor = (category: string) => {
     return colors[Math.abs(hash) % colors.length];
 };
 
+// Parse due date in local time (YYYY-MM-DD → local midnight; full ISO kept as-is)
+const parseDueDate = (dateStr: string): Date | null => {
+    const date = parseISO(dateStr);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
 // Format date
 const formatDate = (dateStr?: string) => {
     if (!dateStr) return null;
-    const date = new Date(dateStr);
-    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-    const adjustedDate = new Date(date.getTime() + userTimezoneOffset);
-    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(adjustedDate);
+    const date = parseDueDate(dateStr);
+    if (!date) return null;
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date);
 };
 
-// Check if date is overdue
-const isOverdue = (dateStr?: string): boolean => {
+// Check if date is overdue (a task due today is NOT overdue)
+const isOverdue = (dateStr?: string, now: Date = new Date()): boolean => {
     if (!dateStr) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const date = new Date(dateStr);
-    return date < today;
+    const date = parseDueDate(dateStr);
+    if (!date) return false;
+    return startOfDay(date) < startOfDay(now);
 };
 
 export const TasksProgressSection: React.FC<TasksProgressSectionProps> = ({ tasks }) => {

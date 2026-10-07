@@ -107,9 +107,14 @@ export const DecadeModeView: React.FC = memo(() => {
                         </p>
 
                         <div className="mt-8 flex flex-wrap gap-4">
-                            {completionStatus.ready ? (
+                            {decadeData.isDecadeComplete ? (
+                                <div className="px-4 py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/30 flex items-center gap-3 text-emerald-400 text-sm font-medium">
+                                    <Trophy size={16} />
+                                    <span>Década concluída! Todos os {DECADE_CONFIG.TOTAL_CYCLES} ciclos foram finalizados.</span>
+                                </div>
+                            ) : completionStatus.ready ? (
                                 <button
-                                    onClick={() => setIsCompleteModalOpen(true)}
+                                    onClick={openCompleteModal}
                                     className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all hover:scale-105 animate-pulse"
                                 >
                                     <Trophy size={20} />
@@ -168,7 +173,7 @@ export const DecadeModeView: React.FC = memo(() => {
                             <h3 className="font-bold text-white text-lg">Objetivo do Ciclo Atual</h3>
                         </div>
                         <button
-                            onClick={() => setIsGoalModalOpen(true)}
+                            onClick={openGoalModal}
                             className="text-xs text-slate-400 hover:text-white underline underline-offset-4 transition-colors"
                         >
                             {decadeData.pendingCycleGoal ? 'Editar Objetivo' : 'Definir Objetivo'}
@@ -181,7 +186,15 @@ export const DecadeModeView: React.FC = memo(() => {
                         </p>
                     ) : (
                         <div
-                            onClick={() => setIsGoalModalOpen(true)}
+                            role="button"
+                            tabIndex={0}
+                            onClick={openGoalModal}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setIsGoalModalOpen(true);
+                                }
+                            }}
                             className="border-2 border-dashed border-slate-700 rounded-xl p-8 flex flex-col items-center justify-center text-slate-500 hover:border-amber-500/50 hover:text-amber-500/80 hover:bg-slate-800/50 cursor-pointer transition-all gap-3 relative z-10"
                         >
                             <Target size={32} />
@@ -234,7 +247,7 @@ export const DecadeModeView: React.FC = memo(() => {
             {/* --- MODALS --- */}
             <CycleGoalModal
                 isOpen={isGoalModalOpen}
-                onClose={() => setIsGoalModalOpen(false)}
+                onClose={closeGoalModal}
                 initialGoal={decadeData.pendingCycleGoal || ''}
                 onSave={handleSaveGoal}
                 cycleNumber={decadeData.currentCycle}
@@ -242,7 +255,7 @@ export const DecadeModeView: React.FC = memo(() => {
 
             <CompleteCycleModal
                 isOpen={isCompleteModalOpen}
-                onClose={() => setIsCompleteModalOpen(false)}
+                onClose={closeCompleteModal}
                 cycleNumber={decadeData.currentCycle}
                 cycleGoal={decadeData.pendingCycleGoal || ''}
                 onConfirm={handleCompleteCycle}

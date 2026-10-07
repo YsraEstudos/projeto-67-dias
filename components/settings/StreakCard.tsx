@@ -2,6 +2,7 @@ import React from 'react';
 import { Flame, Snowflake, Trophy, Calendar, TrendingUp, Shield } from 'lucide-react';
 import { useStreakStore } from '../../stores';
 import { useShallow } from 'zustand/react/shallow';
+import { parseISO } from 'date-fns';
 
 export const StreakCard: React.FC = () => {
     // Consolidated selector to reduce subscription overhead
@@ -35,7 +36,11 @@ export const StreakCard: React.FC = () => {
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleDateString('pt-BR', {
+        // Datas YYYY-MM-DD devem ser interpretadas no fuso local (new Date() usaria UTC
+        // e mostraria o dia anterior em fusos negativos, como o do Brasil).
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? parseISO(dateStr) : new Date(dateStr);
+        if (Number.isNaN(date.getTime())) return '-';
+        return date.toLocaleDateString('pt-BR', {
             day: 'numeric',
             month: 'short',
         });

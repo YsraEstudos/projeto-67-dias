@@ -53,7 +53,10 @@ export const FocusSkillsCarousel: React.FC<FocusSkillsCarouselProps> = React.mem
 
     if (selectedSkills.length === 0) return null;
 
-    const currentItem = selectedSkills[currentIndex];
+    // Ao remover uma skill do foco, o índice pode ficar fora do intervalo durante
+    // o render (o efeito de reset só roda depois) — limitar evita crash.
+    const safeIndex = currentIndex < selectedSkills.length ? currentIndex : 0;
+    const currentItem = selectedSkills[safeIndex];
 
     const goToNext = () => {
         setCurrentIndex(prev => (prev + 1) % selectedSkills.length);

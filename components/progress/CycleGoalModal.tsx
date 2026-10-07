@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Target, Save, X } from 'lucide-react';
 import { DECADE_CONFIG } from '../../services/decadeCycle';
 
@@ -21,10 +21,37 @@ export const CycleGoalModal: React.FC<CycleGoalModalProps> = ({
     const minLength = DECADE_CONFIG.MIN_GOAL_LENGTH || 20;
     const isValid = goal.trim().length >= minLength;
 
+    // O modal fica montado mesmo fechado: ressincroniza o texto a cada abertura
+    // (evita mostrar rascunho descartado ou o objetivo de um ciclo anterior).
+    useEffect(() => {
+        if (isOpen) setGoal(initialGoal);
+    }, [isOpen, initialGoal]);
+
+    const handleSave = () => {
+        if (!isValid) return;
+        onSave(goal.trim());
+        onClose();
+    };
+
+    // Atalhos: Esc fecha, Ctrl/Cmd+Enter salva
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cycle-goal-modal-title"
+        >
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
@@ -33,12 +60,13 @@ export const CycleGoalModal: React.FC<CycleGoalModalProps> = ({
                             <Target size={24} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white">Objetivo do Ciclo {cycleNumber}</h2>
+                            <h2 id="cycle-goal-modal-title" className="text-xl font-bold text-white">Objetivo do Ciclo {cycleNumber}</h2>
                             <p className="text-xs text-slate-400">Defina sua meta principal para estes 67 dias</p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Fechar"
                         className="text-slate-500 hover:text-white transition-colors"
                     >
                         <X size={20} />
@@ -47,21 +75,29 @@ export const CycleGoalModal: React.FC<CycleGoalModalProps> = ({
 
                 {/* Body */}
                 <div className="p-6">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label htmlFor="cycle-goal-textarea" className="block text-sm font-medium text-slate-300 mb-2">
                         Onde você quer chegar ao final deste ciclo?
                     </label>
                     <textarea
+                        id="cycle-goal-textarea"
+                        autoFocus
                         value={goal}
                         onChange={(e) => setGoal(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                e.preventDefault();
+                                handleSave();
+                            }
+                        }}
                         placeholder="Ex: Quero finalizar meu portfólio, ler 3 livros técnicos e manter constância na academia..."
                         className="w-full h-40 bg-slate-800 border border-slate-700 rounded-xl p-4 text-slate-200 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none resize-none transition-all"
                     />
 
                     <div className="flex justify-between items-center mt-2">
                         <span className={`text-xs ${isValid ? 'text-green-500' : 'text-slate-500'}`}>
-                            {goal.length} / {minLength} caracteres mínimos
+                            {goal.trim().length} / {minLength} caracteres mínimos
                         </span>
-                        {!isValid && goal.length > 0 && (
+                        {!isValid && goal.trim().length > 0 && (
                             <span className="text-xs text-red-400">
                                 Escreva um pouco mais para definir bem seu objetivo.
                             </span>
@@ -85,12 +121,8 @@ export const CycleGoalModal: React.FC<CycleGoalModalProps> = ({
                         Cancelar
                     </button>
                     <button
-                        onClick={() => {
-                            if (isValid) {
-                                onSave(goal);
-                                onClose();
-                            }
-                        }}
+                        onClick={handleSave}
+                        title="Ctrl+Enter para salvar"
                         disabled={!isValid}
                         className={`
                             px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all

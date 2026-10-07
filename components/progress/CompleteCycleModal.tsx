@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trophy, AlertTriangle, ArrowRight, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 
 interface CompleteCycleModalProps {
@@ -18,10 +18,30 @@ export const CompleteCycleModal: React.FC<CompleteCycleModalProps> = ({
 }) => {
     const [goalAchieved, setGoalAchieved] = useState<'YES' | 'PARTIAL' | 'NO' | null>(null);
 
+    // O modal permanece montado: limpa a auto-avaliação a cada abertura para não
+    // herdar a resposta do ciclo anterior.
+    useEffect(() => {
+        if (isOpen) setGoalAchieved(null);
+    }, [isOpen, cycleNumber]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Finalizar Ciclo ${cycleNumber}`}
+        >
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-500"></div>
 
@@ -46,6 +66,7 @@ export const CompleteCycleModal: React.FC<CompleteCycleModalProps> = ({
                         <div className="grid grid-cols-3 gap-4">
                             <button
                                 onClick={() => setGoalAchieved('YES')}
+                                aria-pressed={goalAchieved === 'YES'}
                                 className={`
                                     p-4 rounded-xl border flex flex-col items-center gap-3 transition-all
                                     ${goalAchieved === 'YES'
@@ -60,6 +81,7 @@ export const CompleteCycleModal: React.FC<CompleteCycleModalProps> = ({
 
                             <button
                                 onClick={() => setGoalAchieved('PARTIAL')}
+                                aria-pressed={goalAchieved === 'PARTIAL'}
                                 className={`
                                     p-4 rounded-xl border flex flex-col items-center gap-3 transition-all
                                     ${goalAchieved === 'PARTIAL'
@@ -74,6 +96,7 @@ export const CompleteCycleModal: React.FC<CompleteCycleModalProps> = ({
 
                             <button
                                 onClick={() => setGoalAchieved('NO')}
+                                aria-pressed={goalAchieved === 'NO'}
                                 className={`
                                     p-4 rounded-xl border flex flex-col items-center gap-3 transition-all
                                     ${goalAchieved === 'NO'
