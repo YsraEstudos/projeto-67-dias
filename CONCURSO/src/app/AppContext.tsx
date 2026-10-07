@@ -517,6 +517,10 @@ export const appReducer = (state: AppState, action: Action): AppState => {
       const selectedDate = action.selectedDate ?? planStartDate;
       return markChanged({
         ...freshState,
+        // User-created resources are not plan history: keep them across a plan reset.
+        theoreticalContents: state.theoreticalContents,
+        correctionLinks: state.correctionLinks,
+        projects: state.projects,
         selectedDate,
         planSettings: {
           ...freshState.planSettings,

@@ -4,6 +4,7 @@ import {
   buildCleanPlanContentItems,
   buildPendingStudyDecisions,
   findNextFailurePlanDate,
+  getOlderPendingCutoffDate,
   splitPendingStudyDecisions,
 } from '../app/cleanConcursoModule';
 import { buildDayPlans } from '../app/schedule';
@@ -248,5 +249,34 @@ describe('clean concurso module', () => {
     expect(itilEvent?.rescheduledFromDate).toBe('2026-08-20');
     expect(segQuestoesEvent).toBeUndefined();
     expect(todayEvents.length).toBe(2);
+  });
+
+  it('mostra a falha mais recente no selo de reposicao quando o bloco falhou mais de uma vez', () => {
+    const blockId = 'w1-thu-ti-itil-servico-valor';
+    const reschedules = [
+      { id: 'f-1', failedAt: '2026-08-20', blockId, createdAt: '2026-09-16T15:00:00.000Z' },
+      { id: 'f-2', failedAt: '2026-09-16', blockId, createdAt: '2026-09-17T15:00:00.000Z' },
+    ];
+    const plans = buildDayPlans('2026-08-20', reschedules, 0, '2026-09-20');
+    const events = buildCleanCalendarEvents(plans, {}, TOPICS, {}, '2026-08-20', {}, reschedules);
+    const studyEvent = events.find((event) => event.kind === 'study' && event.blockId === blockId);
+
+    expect(studyEvent).toBeDefined();
+    expect(studyEvent?.rescheduledFromDate).toBe('2026-09-16');
+  });
+
+  it('limpar anteriores descarta apenas pendencias antigas e mantem as dos ultimos 7 dias', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const today = '2026-09-16';
+    const goals = { portugues: 30, rlm: 30, legislacao: 30, especificos: 30 };
+    const before = buildPendingStudyDecisions(plans, {}, {}, today, goals);
+    const { recent, older } = splitPendingStudyDecisions(before);
+    expect(recent.length).toBeGreaterThan(0);
+    expect(older.length).toBeGreaterThan(0);
+
+    const after = buildPendingStudyDecisions(plans, {}, {}, today, goals, [], getOlderPendingCutoffDate(today));
+    const split = splitPendingStudyDecisions(after);
+    expect(split.older).toHaveLength(0);
+    expect(split.recent.map((item) => item.id)).toEqual(recent.map((item) => item.id));
   });
 });

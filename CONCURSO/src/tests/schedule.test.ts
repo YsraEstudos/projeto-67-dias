@@ -333,5 +333,44 @@ describe('buildDayPlans', () => {
       expect(plan.manualBlocks?.length ?? 0).toBeLessThanOrEqual(2);
     }
   });
-});
 
+  it('mantem a reposicao estavel nos dias seguintes em vez de deslizar para o novo hoje', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const failures = [
+      {
+        id: 'fail-itil-past',
+        failedAt: '2026-08-20',
+        blockId: 'w1-thu-ti-itil-servico-valor',
+        createdAt: '2026-09-16T15:00:00.000Z',
+      },
+    ];
+    const findBlockDate = (today: string): string | undefined =>
+      applyManualBlockReschedules(plans, failures, today).find((plan) =>
+        (plan.manualBlocks ?? []).some((block) => block.id === 'w1-thu-ti-itil-servico-valor'),
+      )?.date;
+
+    const dateOnFailureDay = findBlockDate('2026-09-16');
+    expect(dateOnFailureDay).toBe('2026-09-16');
+    // Dias depois, o bloco continua na data da reposicao (preservando o progresso registrado nela)
+    expect(findBlockDate('2026-09-18')).toBe(dateOnFailureDay);
+    expect(findBlockDate('2026-10-07')).toBe(dateOnFailureDay);
+  });
+
+  it('encadeia falhas repetidas da mesma reposicao em dias diferentes', () => {
+    const plans = buildDayPlans('2026-08-20');
+    const blockId = 'w1-thu-ti-itil-servico-valor';
+    const failures = [
+      { id: 'f-1', failedAt: '2026-08-20', blockId, createdAt: '2026-09-16T15:00:00.000Z' },
+      { id: 'f-2', failedAt: '2026-09-16', blockId, createdAt: '2026-09-17T15:00:00.000Z' },
+    ];
+
+    const rescheduled = applyManualBlockReschedules(plans, failures, '2026-09-20');
+    const datesWithBlock = rescheduled
+      .filter((plan) => (plan.manualBlocks ?? []).some((block) => block.id === blockId))
+      .map((plan) => plan.date);
+
+    expect(datesWithBlock).toHaveLength(1);
+    expect(datesWithBlock[0] >= '2026-09-17').toBe(true);
+    expect(datesWithBlock[0] < '2026-09-20').toBe(true);
+  });
+});

@@ -480,4 +480,42 @@ describe('snapshot storage', () => {
     expect(updated.planSettings.lastResetDate).toBe('2026-09-16');
     expect(updated.meta.changeToken).toBeGreaterThan(state.meta.changeToken);
   });
+
+  it('preserva conteudos teoricos, projetos e links de correcao ao reiniciar o plano', () => {
+    const state = createInitialState('2026-08-20');
+    const project = {
+      id: 'project-1',
+      name: 'Projeto',
+      status: 'em_andamento',
+      technologyKeys: [],
+      tags: [],
+      requirements: [],
+      createdAt: '2026-09-01T10:00:00.000Z',
+      updatedAt: '2026-09-01T10:00:00.000Z',
+    } as unknown as (typeof state.projects)[number];
+    const correctionLink = {
+      id: 'link-1',
+      topicId: 'top-1',
+      questionUrl: 'https://example.com/q',
+      correctionUrl: 'https://example.com/c',
+      hasAnkiCard: false,
+      status: 'pendente',
+      note: '',
+      createdAt: '2026-09-01T10:00:00.000Z',
+    } as unknown as (typeof state.correctionLinks)[number];
+    const content = { id: 'content-1', topicId: 'top-1' } as unknown as (typeof state.theoreticalContents)[number];
+    const withResources = {
+      ...state,
+      projects: [project],
+      correctionLinks: [correctionLink],
+      theoreticalContents: [content],
+    };
+
+    const resetState = appReducer(withResources, { type: 'reset-plan', resetDate: '2026-09-16' });
+
+    expect(resetState.projects).toEqual([project]);
+    expect(resetState.correctionLinks).toEqual([correctionLink]);
+    expect(resetState.theoreticalContents).toEqual([content]);
+    expect(resetState.calendarEventProgress).toEqual({});
+  });
 });

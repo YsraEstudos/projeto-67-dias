@@ -37,6 +37,7 @@ import {
   buildReviewSchedule,
   getManualBlockSubjectLabel,
   inferManualBlockSubject,
+  getOlderPendingCutoffDate,
   splitPendingStudyDecisions,
 } from '../app/cleanConcursoModule';
 import { exportFullPlanAsMarkdown, exportFullPlanAsPdf } from '../app/planExport';
@@ -714,8 +715,25 @@ export const CleanConcursoPage = () => {
     setIsResetModalOpen(false);
   };
 
+  useEffect(() => {
+    if (!isResetModalOpen) return undefined;
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setIsResetModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isResetModalOpen]);
+
   const handleClearOlderPendingDecisions = (): void => {
-    setLastResetDate(today);
+    // Discard only the older items; the recent (last 7 days) pending decisions stay visible.
+    const cutoffDate = getOlderPendingCutoffDate(today);
+    const currentResetDate = state.planSettings.lastResetDate;
+    if (currentResetDate && currentResetDate >= cutoffDate) return;
+    const confirmed = window.confirm(
+      `Descartar ${olderPendingDecisions.length} pendência(s) de semanas anteriores? As pendências dos últimos 7 dias continuarão visíveis.`,
+    );
+    if (!confirmed) return;
+    setLastResetDate(cutoffDate);
   };
 
   const renderRestDayPlanner = (date: string, note: string) => (
@@ -961,7 +979,7 @@ export const CleanConcursoPage = () => {
                       type="button"
                       className="clean-older-pending-btn is-clear"
                       onClick={handleClearOlderPendingDecisions}
-                      title="Descartar pendências de semanas anteriores para focar nos estudos a partir de hoje"
+                      title="Descartar pendências de semanas anteriores (as dos últimos 7 dias continuam visíveis)"
                     >
                       <Trash2 size={14} />
                       Limpar anteriores
@@ -1958,14 +1976,21 @@ export const CleanConcursoPage = () => {
 
       {isResetModalOpen && (
         <div className="clean-modal-overlay" onClick={() => setIsResetModalOpen(false)}>
-          <div className="clean-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+          <div
+            className="clean-modal-content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clean-reset-plan-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '500px' }}
+          >
             <div className="clean-modal-header">
               <div>
                 <span className="clean-kicker" style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                   <RotateCcw size={14} />
                   Zona de perigo
                 </span>
-                <h2>Reiniciar plano do concurso</h2>
+                <h2 id="clean-reset-plan-title">Reiniciar plano do concurso</h2>
               </div>
               <button
                 type="button"
@@ -1984,7 +2009,7 @@ export const CleanConcursoPage = () => {
                 <li>Todo o histórico de matérias concluídas e falhas anteriores será zerado.</li>
                 <li>Nenhuma matéria atrasada ou pendência será gerada para os dias anteriores.</li>
                 <li>O cronograma e a data selecionada voltarão para o primeiro dia ({formatIsoDateCompactPtBr(planStartDate)}).</li>
-                <li>Suas preferências de descanso e metas diárias de questões serão preservadas.</li>
+                <li>Suas preferências de descanso, metas diárias de questões, conteúdos teóricos, projetos e links de correção serão preservados.</li>
               </ul>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
                 <button

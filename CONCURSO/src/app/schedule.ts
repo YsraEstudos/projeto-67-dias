@@ -5,7 +5,7 @@ import {
   SUBJECT_ORDER,
   WORK_ACTIVITY_ROTATION,
 } from './constants';
-import { enumerateDateRange, getWeekday, monthKeyOf } from './dateUtils';
+import { enumerateDateRange, getLocalTodayIsoDate, getWeekday, monthKeyOf } from './dateUtils';
 import type {
   DayPlan,
   DayTargets,
@@ -475,6 +475,22 @@ const insertManualBlockWithDisplacement = (
   }
 };
 
+const resolveRescheduleAnchorDate = (
+  reschedule: ManualBlockReschedule,
+  today?: string,
+): string | undefined => {
+  const createdAtTime = Date.parse(reschedule.createdAt);
+  if (!Number.isFinite(createdAtTime)) {
+    return today;
+  }
+
+  const createdDate = getLocalTodayIsoDate(new Date(createdAtTime));
+  if (!today) {
+    return createdDate;
+  }
+  return createdDate < today ? createdDate : today;
+};
+
 export const applyManualBlockReschedules = (
   dayPlans: DayPlan[],
   manualBlockReschedules: ManualBlockReschedule[] = [],
@@ -501,8 +517,12 @@ export const applyManualBlockReschedules = (
     }
 
     const targetBlock = sourceBlocks[blockIndex];
-    const todayIndex = today ? plans.findIndex((plan) => plan.date === today) : -1;
-    const startIndex = today && todayIndex >= 0 && sourcePlan.date < today
+    // Anchor each reschedule to the day it was recorded (capped by `today`), so a block that
+    // was already moved to a past date does not keep sliding forward every day and lose its
+    // completion record.
+    const anchorDate = resolveRescheduleAnchorDate(reschedule, today);
+    const todayIndex = anchorDate ? plans.findIndex((plan) => plan.date === anchorDate) : -1;
+    const startIndex = anchorDate && todayIndex >= 0 && sourcePlan.date < anchorDate
       ? Math.max(sourceIndex, todayIndex - 1)
       : sourceIndex;
     const nextManualIndex = findNextCompatibleManualPlanIndex(plans, startIndex, targetBlock);

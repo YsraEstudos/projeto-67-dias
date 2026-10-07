@@ -268,6 +268,12 @@ export const findNextFailurePlanDate = (
   return null;
 };
 
+/**
+ * Cutoff used by "Limpar anteriores": discards only the pending items flagged as older
+ * (more than 7 days ago) and keeps the recent ones visible.
+ */
+export const getOlderPendingCutoffDate = (today: string): string => addDays(today, -7);
+
 export const buildPendingStudyDecisions = (
   plans: DayPlan[],
   calendarEventProgress: AppState['calendarEventProgress'],
@@ -280,7 +286,7 @@ export const buildPendingStudyDecisions = (
   const failedBlockKeys = new Set(
     manualBlockReschedules.map((item) => `${item.failedAt}-${item.blockId}`),
   );
-  const sevenDaysAgo = addDays(today, -7);
+  const sevenDaysAgo = getOlderPendingCutoffDate(today);
   const cutoffDate = lastResetDate && lastResetDate <= today ? lastResetDate : undefined;
 
   return plans
@@ -388,8 +394,13 @@ export const buildCleanCalendarEvents = (
       (plan?.manualBlocks ?? []).filter(isStudyPlanBlock).forEach((block) => {
         const eventId = `${date}-${block.id}`;
         const topicIds = getBlockTopicIds(block);
-        const matchingReschedule = manualBlockReschedules.find(
-          (item) => item.blockId === block.id && item.failedAt !== date,
+        // Use the most recent failure before this date (a block can fail more than once).
+        const matchingReschedule = manualBlockReschedules.reduce<ManualBlockReschedule | null>(
+          (latest, item) =>
+            item.blockId === block.id && item.failedAt < date && (!latest || item.failedAt > latest.failedAt)
+              ? item
+              : latest,
+          null,
         );
         events.push({
           id: eventId,
