@@ -9,13 +9,27 @@ import {
   SmartReviewSession,
   SmartReviewSummary,
 } from "../../../types";
+import { formatDateISO } from "../../../utils/dateUtils";
 
 export const SMART_REVIEW_MIN = 1;
 export const SMART_REVIEW_MAX = 30;
 export const SECONDARY_SUBMATTER = "Secundárias / conteúdo futuro";
 
 const DAY_MS = 86_400_000;
-const dateOnly = (timestamp?: string) => timestamp?.slice(0, 10) || "";
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Returns the user's local calendar day (YYYY-MM-DD) for an ISO timestamp or Date.
+ * Slicing the UTC ISO string would move evening attempts (e.g. after 21h in UTC-3)
+ * to the next day. Plain date-only strings are already local days and pass through.
+ */
+export const toLocalDayKey = (value?: string | Date): string => {
+  if (!value) return "";
+  if (typeof value === "string" && DATE_ONLY_PATTERN.test(value)) return value;
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return typeof value === "string" ? value.slice(0, 10) : "";
+  return formatDateISO(date);
+};
 
 const stableHash = (value: string): number => {
   let hash = 0;
@@ -117,7 +131,7 @@ export const buildSmartReviewPool = (books: AulaBook[], now = new Date()): Smart
       return Array.from(metadata.entries()).map(([questionNumber, submatterSet]) => {
         const attempts = chapter.questionAttempts?.[String(questionNumber)]?.history || [];
         const difficult = (chapter.difficultQuestions || []).includes(questionNumber);
-        const reviewOverdue = Boolean(chapter.nextReviewDate && chapter.nextReviewDate <= dateOnly(now.toISOString()));
+        const reviewOverdue = Boolean(chapter.nextReviewDate && chapter.nextReviewDate <= toLocalDayKey(now));
         const { priority, reasons } = scoreCandidate(attempts, difficult, reviewOverdue, now);
         return {
           id: `${book.id}:${chapter.id}:${questionNumber}`,
@@ -182,8 +196,8 @@ export const selectSmartReviewQuestions = (
 ): SmartReviewQuestion[] => {
   const limit = Math.max(SMART_REVIEW_MIN, Math.min(SMART_REVIEW_MAX, Math.round(requestedCount)));
   const pool = buildSmartReviewPool(books, now);
-  const today = dateOnly(now.toISOString());
-  const notAnsweredToday = pool.filter((item) => dateOnly(item.previousAttemptAt) !== today);
+  const today = toLocalDayKey(now);
+  const notAnsweredToday = pool.filter((item) => toLocalDayKey(item.previousAttemptAt) !== today);
   const source = notAnsweredToday.length >= limit ? notAnsweredToday : pool;
   const selected: SmartReviewQuestion[] = [];
   const recoveryQuota = Math.round(limit * 0.6);

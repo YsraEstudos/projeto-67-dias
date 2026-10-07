@@ -33,7 +33,22 @@ import CollectionSelector from "./components/CollectionSelector";
 
 interface BookshelfProps {
   onSelectBook: (bookId: string) => void;
+  /** Opens a lesson directly; falls back to the book details when not provided. */
+  onSelectChapter?: (bookId: string, chapterId: string) => void;
 }
+
+/** Makes a clickable card reachable and activatable from the keyboard (Enter/Space). */
+const keyboardActivationProps = (onActivate: () => void) => ({
+  role: "button" as const,
+  tabIndex: 0,
+  onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onActivate();
+    }
+  },
+});
 
 export type BookshelfSearchResults = {
   chapters: { book: AulaBook; chapter: AulaChapter }[];
@@ -347,7 +362,7 @@ const SortableBookCard = React.memo(function SortableBookCard({
   );
 }, (prevProps, nextProps) => prevProps.book === nextProps.book && prevProps.isSortingDisabled === nextProps.isSortingDisabled);
 
-export default function Bookshelf({ onSelectBook }: BookshelfProps) {
+export default function Bookshelf({ onSelectBook, onSelectChapter }: BookshelfProps) {
   const {
     folders,
     books,
@@ -591,6 +606,22 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
   const hasMoreBooks = visibleBooks.length < currentBooks.length;
   const isLargeLibraryView = currentBooks.length > LARGE_LIBRARY_THRESHOLD;
 
+  const openChapter = (bookId: string, chapterId: string) => {
+    if (onSelectChapter) {
+      onSelectChapter(bookId, chapterId);
+    } else {
+      onSelectBook(bookId);
+    }
+  };
+
+  // Entries pointing to books/lessons that no longer exist (deleted here or on another
+  // device) would open an empty "não encontrado" screen.
+  const resumeItems = (recentlyStudied || []).flatMap((item) => {
+    const book = books.find((b) => b.id === item.bookId);
+    const chapter = book?.chapters.find((c) => c.id === item.chapterId);
+    return book && chapter ? [{ item, book, chapter }] : [];
+  });
+
   const resetRenderedBookLimit = () => {
     setRenderedBookLimit(INITIAL_RENDERED_BOOKS);
   };
@@ -811,29 +842,29 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
       </section>
 
       {/* Continuar Estudando Carrossel */}
-      {recentlyStudied && recentlyStudied.length > 0 && (
+      {resumeItems.length > 0 && (
         <section className="mb-10 bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-xl p-5 shadow-lg animate-in fade-in duration-300">
           <h2 className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest mb-4 flex items-center gap-2">
             <span>Continuar Estudando</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {recentlyStudied.map((item) => {
-              const book = books.find(b => b.id === item.bookId);
-              const chapter = book?.chapters.find(c => c.id === item.chapterId);
-              
+            {resumeItems.map(({ item, book, chapter }) => {
               return (
                 <div
                   key={`${item.bookId}-${item.chapterId}`}
-                  onClick={() => onSelectBook(item.bookId)}
-                  className="bg-slate-950/50 border border-slate-850 hover:border-[#D4AF37]/55 rounded-lg p-3.5 cursor-pointer hover:scale-[1.02] hover:bg-slate-950 transition-all flex flex-col justify-between h-32 group"
+                  onClick={() => openChapter(item.bookId, item.chapterId)}
+                  {...keyboardActivationProps(() => openChapter(item.bookId, item.chapterId))}
+                  aria-label={`Continuar ${chapter.title} em ${book.title}`}
+                  data-testid="resume-chapter-card"
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] bg-slate-950/50 border border-slate-850 hover:border-[#D4AF37]/55 rounded-lg p-3.5 cursor-pointer hover:scale-[1.02] hover:bg-slate-950 transition-all flex flex-col justify-between h-32 group"
                 >
                   <div className="min-w-0">
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block truncate">
-                      {item.bookTitle}
+                      {book.title}
                     </span>
                     <h3 className="text-xs font-semibold text-slate-200 mt-1 line-clamp-2 group-hover:text-[#D4AF37] transition-colors leading-snug">
-                      {item.chapterTitle}
+                      {chapter.title}
                     </h3>
                   </div>
                   
@@ -1130,9 +1161,13 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                             key={chapter.id}
                             onClick={() => {
                               setGlobalSearchOpen(false);
-                              onSelectBook(book.id);
+                              openChapter(book.id, chapter.id);
                             }}
-                            className="bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
+                            {...keyboardActivationProps(() => {
+                              setGlobalSearchOpen(false);
+                              openChapter(book.id, chapter.id);
+                            })}
+                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
                           >
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[9px] font-bold text-slate-500 uppercase">{book.title}</span>
@@ -1162,9 +1197,13 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                             key={comment.id}
                             onClick={() => {
                               setGlobalSearchOpen(false);
-                              onSelectBook(book.id);
+                              openChapter(book.id, chapter.id);
                             }}
-                            className="bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
+                            {...keyboardActivationProps(() => {
+                              setGlobalSearchOpen(false);
+                              openChapter(book.id, chapter.id);
+                            })}
+                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
                           >
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[9px] font-bold text-slate-500 uppercase">
@@ -1196,9 +1235,13 @@ export default function Bookshelf({ onSelectBook }: BookshelfProps) {
                             key={`${chapter.id}-q-${questionNumber}`}
                             onClick={() => {
                               setGlobalSearchOpen(false);
-                              onSelectBook(book.id);
+                              openChapter(book.id, chapter.id);
                             }}
-                            className="bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
+                            {...keyboardActivationProps(() => {
+                              setGlobalSearchOpen(false);
+                              openChapter(book.id, chapter.id);
+                            })}
+                            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] bg-slate-950/40 border border-slate-850 hover:border-slate-700 p-3 rounded-lg cursor-pointer transition-colors"
                           >
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[9px] font-bold text-slate-500 uppercase">

@@ -6,15 +6,18 @@ import { immer } from 'zustand/middleware/immer';
 import {
     AulaBook,
     AulaChapter,
+    AulaChapterComment,
     AulaFolder,
     AulaCollection,
     RecentlyStudiedItem,
     SmartReviewAnswer,
     SmartReviewSession,
+    QuestionStats,
 } from '../types';
 import { writeToFirestore, getCurrentUserId, writeItemToSubcollection, deleteItemFromSubcollection } from './firestoreSync';
 import { readNamespacedStorage, writeNamespacedStorage } from '../utils/storageUtils';
 import { generateUUID } from '../utils/uuid';
+import { formatDateISO } from '../utils/dateUtils';
 
 const STORE_KEY = 'p67_aulas_config';
 const BOOKS_SUBCOLLECTION_KEY = 'p67_aulas_books';
@@ -101,30 +104,34 @@ const mergeQuestionAttempts = (
     return result;
 };
 
+// A chapter without its own timestamp is as fresh as the book that carries it, so each
+// side falls back to its *own* book timestamp (not the merged max, which would turn every
+// legacy chapter into a tie and always keep the local copy).
 const mergeChapters = (
     baseChapters: AulaChapter[] = [],
     incomingChapters: AulaChapter[] = [],
-    defaultBookTimestamp = 0
+    baseBookTimestamp = 0,
+    incomingBookTimestamp = baseBookTimestamp
 ): AulaChapter[] => {
     const chaptersMap = new Map<string, AulaChapter>();
 
     baseChapters.forEach(ch => {
         const normalized = {
             ...ch,
-            updatedAt: getEntityTimestamp(ch, defaultBookTimestamp),
+            updatedAt: getEntityTimestamp(ch, baseBookTimestamp),
         };
         chaptersMap.set(ch.id, normalized);
     });
 
     incomingChapters.forEach(incCh => {
-        const incTs = getEntityTimestamp(incCh, defaultBookTimestamp);
+        const incTs = getEntityTimestamp(incCh, incomingBookTimestamp);
         const incNormalized = { ...incCh, updatedAt: incTs };
         const existing = chaptersMap.get(incCh.id);
 
         if (!existing) {
             chaptersMap.set(incCh.id, incNormalized);
         } else {
-            const existingTs = getEntityTimestamp(existing, defaultBookTimestamp);
+            const existingTs = getEntityTimestamp(existing);
 
             if (isEntityDeleted(existing) && !isEntityDeleted(incNormalized)) {
                 if (incTs > (existing.deletedAt ?? 0)) {
@@ -195,7 +202,7 @@ export const mergeBooksByRecency = (baseBooks: AulaBook[] = [], incomingBooks: A
             } else {
                 const primaryBook = incTs > existingTs ? incNormalized : existing;
                 const bookTs = Math.max(existingTs, incTs);
-                const mergedChapters = mergeChapters(existing.chapters, incBook.chapters, bookTs);
+                const mergedChapters = mergeChapters(existing.chapters, incBook.chapters, existingTs, incTs);
 
                 bookMap.set(incBook.id, {
                     ...primaryBook,
@@ -231,7 +238,26 @@ const syncBookToSubcollectionDebounced = (book?: AulaBook) => {
 };
 
 const deleteBookFromSubcollection = (bookId: string) => {
+    // A debounced write still pending for this book would recreate the deleted document.
+    const pendingTimer = pendingBookSyncTimers.get(bookId);
+    if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        pendingBookSyncTimers.delete(bookId);
+    }
     void deleteItemFromSubcollection(BOOKS_SUBCOLLECTION_KEY, bookId);
+};
+
+/**
+ * Stamps local edits so mergeBooksByRecency can tell them apart from remote snapshots.
+ * Without these timestamps every side resolves to 0 and remote changes coming from
+ * another device are always discarded in favour of the local copy.
+ */
+const touchBook = (book: AulaBook, chapters: AulaChapter[] = []) => {
+    const now = Date.now();
+    book.updatedAt = now;
+    chapters.forEach(ch => {
+        ch.updatedAt = now;
+    });
 };
 
 const writeRootStateDebounced = (
@@ -414,6 +440,17 @@ const writeLocalBackupDebounced = (data: {
     }, LOCAL_BACKUP_DEBOUNCE_MS);
 };
 
+const pruneDeletedBookReferences = (
+    state: { collections: AulaCollection[]; recentlyStudied: RecentlyStudiedItem[] },
+    deletedBookIds: Set<string>
+) => {
+    if (deletedBookIds.size === 0) return;
+    state.collections.forEach(col => {
+        col.bookIds = col.bookIds.filter(id => !deletedBookIds.has(id));
+    });
+    state.recentlyStudied = state.recentlyStudied.filter(item => !deletedBookIds.has(item.bookId));
+};
+
 const DEFAULT_FOLDERS: AulaFolder[] = [
     { id: 'f-1', name: 'Estudo Ativo', position: 0 },
     { id: 'f-2', name: 'Lista de Desejos', position: 1 },
@@ -477,6 +514,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
 
             state.folders = state.folders.filter(f => !foldersToDelete.includes(f.id));
             state.books = state.books.filter(b => !foldersToDelete.includes(b.folderId));
+            pruneDeletedBookReferences(state, new Set(booksToDelete));
         });
 
         // Trigger deletes in subcollection
@@ -529,6 +567,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
                 targetDate: null,
                 position: booksInFolder.length,
                 chapters: [],
+                updatedAt: Date.now(),
             };
             state.books.push(newBook);
         });
@@ -544,6 +583,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             const book = state.books.find(b => b.id === bookId);
             if (book) {
                 Object.assign(book, updates);
+                touchBook(book);
             }
         });
 
@@ -556,10 +596,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
     deleteBook: (bookId) => {
         set((state) => {
             state.books = state.books.filter(b => b.id !== bookId);
-            // Also remove references from collections
-            state.collections.forEach(col => {
-                col.bookIds = col.bookIds.filter(id => id !== bookId);
-            });
+            pruneDeletedBookReferences(state, new Set([bookId]));
         });
 
         deleteBookFromSubcollection(bookId);
@@ -574,7 +611,8 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             const [moved] = folderBooks.splice(oldIndex, 1);
             folderBooks.splice(newIndex, 0, moved);
 
-            const reorderedFolderBooks = folderBooks.map((b, idx) => ({ ...b, position: idx }));
+            const now = Date.now();
+            const reorderedFolderBooks = folderBooks.map((b, idx) => ({ ...b, position: idx, updatedAt: now }));
             state.books = [...otherBooks, ...reorderedFolderBooks];
         });
 
@@ -616,6 +654,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             });
 
             book.chapters = [...book.chapters, ...newChapters];
+            touchBook(book, newChapters);
         });
 
         const updated = get().books.find(b => b.id === bookId);
@@ -632,6 +671,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             const ch = book.chapters.find(c => c.id === chapterId);
             if (ch) {
                 Object.assign(ch, updates);
+                touchBook(book, [ch]);
             }
         });
 
@@ -657,6 +697,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             book.chapters.forEach((ch, idx) => {
                 ch.position = idx;
             });
+            touchBook(book, book.chapters);
         });
 
         const updated = get().books.find(b => b.id === bookId);
@@ -693,6 +734,8 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             targetBook.chapters.forEach((ch, idx) => {
                 ch.position = idx;
             });
+            touchBook(sourceBook, sourceBook.chapters);
+            touchBook(targetBook, targetBook.chapters);
         });
 
         const updatedSource = get().books.find(b => b.id === sourceBookId);
@@ -741,14 +784,16 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         const days = daysMap[confidence];
         const nextDate = new Date();
         nextDate.setDate(nextDate.getDate() + days);
-        const nextReviewDate = nextDate.toISOString().split('T')[0];
+        // Local calendar day: toISOString() would shift late-evening reviews (e.g. UTC-3) to the next day.
+        const nextReviewDate = formatDateISO(nextDate);
 
         set((state) => {
             const book = state.books.find(b => b.id === bookId);
             const ch = book?.chapters.find(c => c.id === chapterId);
-            if (ch) {
+            if (book && ch) {
                 ch.confidence = confidence;
                 ch.nextReviewDate = nextReviewDate;
+                touchBook(book, [ch]);
             }
         });
 
@@ -763,8 +808,9 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
         set((state) => {
             const book = state.books.find(b => b.id === bookId);
             const ch = book?.chapters.find(c => c.id === chapterId);
-            if (ch) {
+            if (book && ch) {
                 ch.studyTimeSeconds = (ch.studyTimeSeconds || 0) + seconds;
+                touchBook(book, [ch]);
             }
         });
 
@@ -870,6 +916,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
             chapter.incorrectQuestions = nextIncorrect;
             chapter.completedPrincipalQuestions = [...nextCorrect, ...nextIncorrect].sort((a, b) => a - b);
             chapter.questionAttempts = nextAttempts;
+            touchBook(book, [chapter]);
         });
 
         const updated = get().books.find((b) => b.id === bookId);
@@ -925,6 +972,7 @@ export const useAulasStore = create<AulasState>()(immer((set, get) => ({
                 chapter.correctQuestions = correctQuestions.sort((a, b) => a - b);
                 chapter.incorrectQuestions = incorrectQuestions.sort((a, b) => a - b);
                 chapter.completedPrincipalQuestions = [...chapter.correctQuestions, ...chapter.incorrectQuestions].sort((a, b) => a - b);
+                touchBook(book, [chapter]);
             });
 
             const completedSession: SmartReviewSession = {

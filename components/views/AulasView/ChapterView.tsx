@@ -232,16 +232,30 @@ export default function ChapterView({ bookId, chapterId, onBack }: ChapterViewPr
     }
     studySecondsRef.current = 0;
 
+    const flushStudyTime = () => {
+      const seconds = studySecondsRef.current;
+      if (seconds > 5 && bookId && chapterId) {
+        studySecondsRef.current = 0;
+        updateChapterStudyTime(bookId, chapterId, seconds);
+      }
+    };
+
+    // Only count time while the lesson is actually visible, and persist the accumulated
+    // time when the tab is hidden: closing the tab/app never runs the effect cleanup.
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       studySecondsRef.current += 1;
     }, 1000);
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushStudyTime();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       clearInterval(timer);
-      const seconds = studySecondsRef.current;
-      if (seconds > 5 && bookId && chapterId) {
-        updateChapterStudyTime(bookId, chapterId, seconds);
-      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flushStudyTime();
     };
   }, [bookId, chapterId, addRecentlyStudied, updateChapterStudyTime]);
 

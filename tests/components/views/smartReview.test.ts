@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AulaBook, SmartReviewAnswer } from "../../../types";
 import {
   buildSmartReviewPool,
   buildSmartReviewSummary,
   SECONDARY_SUBMATTER,
   selectSmartReviewQuestions,
+  toLocalDayKey,
 } from "../../../components/views/AulasView/smartReview";
 
 const now = new Date("2026-06-23T12:00:00.000Z");
@@ -98,5 +99,43 @@ describe("smart review engine", () => {
     expect(summary.regressed).toBe(1);
     expect(summary.baseline).toBe(2);
     expect(summary.submatters.some((row) => row.label === SECONDARY_SUBMATTER)).toBe(true);
+  });
+
+  describe("local calendar days (UTC-3)", () => {
+    let originalTz: string | undefined;
+    beforeEach(() => {
+      originalTz = process.env.TZ;
+      process.env.TZ = "America/Sao_Paulo";
+    });
+    afterEach(() => {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    });
+
+    it("maps late-evening timestamps to the local day and keeps date-only strings", () => {
+      expect(toLocalDayKey("2026-06-24T01:30:00.000Z")).toBe("2026-06-23");
+      expect(toLocalDayKey("2026-06-20")).toBe("2026-06-20");
+      expect(toLocalDayKey(undefined)).toBe("");
+    });
+
+    it("treats an attempt made this local evening as answered today", () => {
+      // 22:00 in Sao Paulo on 2026-06-23 (already 2026-06-24 in UTC).
+      const evening = new Date("2026-06-24T01:00:00.000Z");
+      const book = makeBook();
+      book.chapters[0].questionAttempts!["2"] = {
+        total: 1,
+        correct: 0,
+        incorrect: 1,
+        history: [{ timestamp: "2026-06-23T13:00:00.000Z", status: "incorrect" }],
+      };
+      const selected = selectSmartReviewQuestions([book], 1, evening);
+      expect(selected[0].questionNumber).not.toBe(2);
+    });
+
+    it("does not flag a review as overdue before the local due day arrives", () => {
+      // 22:00 local on 2026-06-19; review is due on 2026-06-20.
+      const pool = buildSmartReviewPool([makeBook()], new Date("2026-06-20T01:00:00.000Z"));
+      expect(pool.every((item) => !item.reviewOverdue)).toBe(true);
+    });
   });
 });

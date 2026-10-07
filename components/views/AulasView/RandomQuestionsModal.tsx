@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { useAulasStore } from "../../../stores/aulasStore";
 import { AulaBook, SmartReviewAnswer, SmartReviewQuestion, SmartReviewSession } from "../../../types";
 import { generateUUID } from "../../../utils/uuid";
-import { buildSmartReviewPool, buildSmartReviewSummary, selectSmartReviewQuestions, SMART_REVIEW_MAX } from "./smartReview";
+import { buildSmartReviewPool, buildSmartReviewSummary, selectSmartReviewQuestions, SMART_REVIEW_MAX, toLocalDayKey } from "./smartReview";
 import { motion, AnimatePresence } from "motion/react";
 
 interface Props {
@@ -115,7 +115,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
   const [activeTab, setActiveTab] = React.useState<"todo" | "solved" | "forecast">("todo");
 
   const solvedToday = React.useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = toLocalDayKey(new Date());
     const solved: Array<SmartReviewQuestion & { latestAttempt: { status: "correct" | "incorrect"; timestamp: string } }> = [];
 
     books.forEach((book) => {
@@ -126,7 +126,7 @@ export default function RandomQuestionsModal({ books, onClose, onSetQuestionStat
           const history = stats.history || [];
           if (history.length > 0) {
             const latest = history[0];
-            if (latest.timestamp.startsWith(todayStr)) {
+            if (toLocalDayKey(latest.timestamp) === todayStr) {
               const difficult = (chapter.difficultQuestions || []).includes(qNumber);
               const reviewOverdue = Boolean(chapter.nextReviewDate && chapter.nextReviewDate <= todayStr);
               

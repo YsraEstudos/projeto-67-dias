@@ -342,4 +342,94 @@ describe('aulasStore', () => {
         const chTie = mergedBook.chapters.find(c => c.id === 'ch-tie')!;
         expect(chTie.title).toBe('Tie Chapter Local');
     });
+
+    describe('cross-device sync timestamps', () => {
+        const legacyBook = (content: string, extra: Record<string, unknown> = {}) => ({
+            id: 'book-sync',
+            folderId: 'f-1',
+            title: 'Livro',
+            coverImage: null,
+            targetDate: null,
+            position: 0,
+            chapters: [{ id: 'ch-sync', title: 'Aula', content, attachments: {}, position: 0 }],
+            ...extra,
+        });
+
+        it('applies a newer remote edit over an untouched legacy local copy', () => {
+            // Both sides lack chapter timestamps; only the remote book carries a newer updatedAt.
+            useAulasStore.getState()._hydrateBooksFromSubcollection([legacyBook('Antigo')]);
+            useAulasStore.getState()._hydrateBooksFromSubcollection([legacyBook('Editado em outro aparelho', { updatedAt: 2000 })]);
+
+            expect(useAulasStore.getState().books[0].chapters[0].content).toBe('Editado em outro aparelho');
+        });
+
+        it('stamps local edits so a stale remote echo does not overwrite them', () => {
+            vi.useFakeTimers();
+            vi.setSystemTime(new Date('2026-10-07T12:00:00.000Z'));
+            useAulasStore.getState()._hydrateBooksFromSubcollection([legacyBook('Antigo', { updatedAt: 1000 })]);
+
+            useAulasStore.getState().updateChapter('book-sync', 'ch-sync', { content: 'Edição local' });
+            const local = useAulasStore.getState().books[0];
+            expect(local.updatedAt).toBe(Date.now());
+            expect(local.chapters[0].updatedAt).toBe(Date.now());
+
+            useAulasStore.getState()._hydrateBooksFromSubcollection([legacyBook('Antigo', { updatedAt: 1000 })]);
+            expect(useAulasStore.getState().books[0].chapters[0].content).toBe('Edição local');
+
+            // A later remote edit of the same chapter still wins.
+            const remote = legacyBook('Mais recente', { updatedAt: Date.now() + 5000 });
+            remote.chapters[0] = { ...remote.chapters[0], updatedAt: Date.now() + 5000 } as typeof remote.chapters[0];
+            useAulasStore.getState()._hydrateBooksFromSubcollection([remote]);
+            expect(useAulasStore.getState().books[0].chapters[0].content).toBe('Mais recente');
+        });
+    });
+
+    describe('deleting books', () => {
+        const seedBookWithChapter = () => {
+            const store = useAulasStore.getState();
+            store.addFolder('Pasta');
+            const folder = useAulasStore.getState().folders.find(f => f.name === 'Pasta')!;
+            store.addBook(folder.id, 'Livro');
+            const book = useAulasStore.getState().books.find(b => b.title === 'Livro')!;
+            store.addChaptersJson(book.id, [{ title: 'Aula 1' }]);
+            const chapter = useAulasStore.getState().books.find(b => b.id === book.id)!.chapters[0];
+            store.addCollection('Coleção');
+            const collection = useAulasStore.getState().collections[0];
+            store.updateCollectionBooks(collection.id, [book.id]);
+            store.addRecentlyStudied(book.id, chapter.id);
+            return { folder, book, chapter, collection };
+        };
+
+        it('cancels a pending debounced write so the deleted book is not recreated', () => {
+            vi.useFakeTimers();
+            const { book, chapter } = seedBookWithChapter();
+            useAulasStore.getState().updateChapter(book.id, chapter.id, { content: 'Rascunho' });
+            writeItemToSubcollectionMock.mockClear();
+
+            useAulasStore.getState().deleteBook(book.id);
+            vi.advanceTimersByTime(2000);
+
+            expect(writeItemToSubcollectionMock).not.toHaveBeenCalled();
+            expect(deleteItemFromSubcollectionMock).toHaveBeenCalledWith('p67_aulas_books', book.id);
+        });
+
+        it('removes the deleted book from collections and "Continuar Estudando"', () => {
+            const { book, collection } = seedBookWithChapter();
+            useAulasStore.getState().deleteBook(book.id);
+
+            const state = useAulasStore.getState();
+            expect(state.recentlyStudied).toEqual([]);
+            expect(state.collections.find(c => c.id === collection.id)!.bookIds).toEqual([]);
+        });
+
+        it('prunes collections and recent items when a whole folder is deleted', () => {
+            const { folder, collection } = seedBookWithChapter();
+            useAulasStore.getState().deleteFolder(folder.id);
+
+            const state = useAulasStore.getState();
+            expect(state.books).toEqual([]);
+            expect(state.recentlyStudied).toEqual([]);
+            expect(state.collections.find(c => c.id === collection.id)!.bookIds).toEqual([]);
+        });
+    });
 });

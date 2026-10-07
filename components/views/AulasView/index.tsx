@@ -32,7 +32,7 @@ const AulasView: React.FC = () => {
 
   switch (nav.view) {
     case "bookshelf":
-      return <Bookshelf onSelectBook={handleSelectBook} />;
+      return <Bookshelf onSelectBook={handleSelectBook} onSelectChapter={handleSelectChapter} />;
     
     case "book-details":
       if (!nav.bookId) {
