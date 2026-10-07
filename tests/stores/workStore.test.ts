@@ -83,4 +83,56 @@ describe('workStore', () => {
         expect(useWorkStore.getState().currentCount).toBe(0);
         expect(useWorkStore.getState().lastActiveDate).toBe('2026-04-21');
     });
+
+    it('resets yesterday counters before applying a daily goal override', () => {
+        useWorkStore.setState({
+            currentCount: 41,
+            preBreakCount: 4,
+            lastActiveDate: '2026-04-20',
+            _initialized: true,
+        } as any);
+
+        useWorkStore.getState().setDailyGoalOverride(80);
+
+        const state = useWorkStore.getState();
+        expect(state.dailyGoalOverride).toBe(80);
+        expect(state.currentCount).toBe(0);
+        expect(state.preBreakCount).toBe(0);
+        expect(state.lastActiveDate).toBe('2026-04-21');
+    });
+
+    it('sanitizes invalid counts coming from number inputs', () => {
+        const store = useWorkStore.getState();
+        store.setCurrentCount(-5);
+        expect(useWorkStore.getState().currentCount).toBe(0);
+        store.setCurrentCount(Number.NaN);
+        expect(useWorkStore.getState().currentCount).toBe(0);
+        store.setCurrentCount(12.6);
+        expect(useWorkStore.getState().currentCount).toBe(13);
+        store.setPreBreakCount(-3);
+        expect(useWorkStore.getState().preBreakCount).toBe(0);
+        store.setDailyGoalOverride(Number.NaN);
+        expect(useWorkStore.getState().dailyGoalOverride).toBeNull();
+    });
+
+    it('sanitizes weekly goal and keeps work days when input is invalid', () => {
+        const store = useWorkStore.getState();
+        store.setWeeklyWorkDays('2026-W17', 5);
+        store.setWeeklyGoal('2026-W17', -10);
+        expect(useWorkStore.getState().getWeeklyGoal('2026-W17')).toBe(0);
+        store.setWeeklyWorkDays('2026-W17', Number.NaN);
+        expect(useWorkStore.getState().getWeeklyWorkDays('2026-W17')).toBe(5);
+    });
+
+    it('reads the current week goal from the operational week (Monday before 06:00 is still last week)', () => {
+        useWorkStore.getState().setWeeklyGoal('2026-W17', 500);
+        useWorkStore.getState().setWeeklyGoal('2026-W18', 900);
+
+        // Segunda, 27/04/2026 às 05:00 -> dia operacional é domingo 26/04 (W17)
+        vi.setSystemTime(new Date(2026, 3, 27, 5, 0, 0));
+        expect(useWorkStore.getState().getCurrentWeekGoal()).toBe(500);
+
+        vi.setSystemTime(new Date(2026, 3, 27, 7, 0, 0));
+        expect(useWorkStore.getState().getCurrentWeekGoal()).toBe(900);
+    });
 });

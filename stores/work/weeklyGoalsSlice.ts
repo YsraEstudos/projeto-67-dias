@@ -7,11 +7,15 @@
  */
 import { StateCreator } from 'zustand';
 import type { WeeklyGoalEntry } from '../../components/views/work/types';
-import { getISOWeekKey, getPreviousWeekKey } from '../../components/views/work/utils/weekUtils';
+import { getOperationalWeekKey, getPreviousWeekKey } from '../../components/views/work/utils/weekUtils';
 
 export const DEFAULT_WEEKLY_GOAL = 300; // Meta padrão semanal
 export const DEFAULT_WEEKLY_WORK_DAYS = 7;
 const MAX_WEEKS_LOOKBACK = 52; // Máximo de semanas para buscar herança
+
+// Inputs numéricos podem entregar NaN/negativos/decimais (campo vazio, "-5").
+const sanitizeNonNegativeInt = (value: number): number =>
+    Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 
 export interface WeeklyGoalsSlice {
     weeklyGoals: Record<string, WeeklyGoalEntry>; // Chave: week key (ex: "2024-W52")
@@ -41,7 +45,7 @@ export const createWeeklyGoalsSlice: StateCreator<
                 ...state.weeklyGoals,
                 [weekKey]: {
                     weekKey,
-                    goal,
+                    goal: sanitizeNonNegativeInt(goal),
                     workDays: currentEntry?.workDays,
                     createdAt: currentEntry?.createdAt || now,
                     updatedAt: now,
@@ -59,7 +63,7 @@ export const createWeeklyGoalsSlice: StateCreator<
                 [weekKey]: {
                     weekKey,
                     goal: currentEntry?.goal ?? get().getWeeklyGoal(weekKey),
-                    workDays: Math.max(1, Math.min(7, Math.round(workDays))),
+                    workDays: Number.isFinite(workDays) ? Math.max(1, Math.min(7, Math.round(workDays))) : (currentEntry?.workDays ?? get().getWeeklyWorkDays(weekKey)),
                     createdAt: currentEntry?.createdAt || now,
                     updatedAt: now,
                 },
@@ -68,7 +72,7 @@ export const createWeeklyGoalsSlice: StateCreator<
     },
 
     getWeeklyGoal: (weekKey?: string) => {
-        const key = weekKey || getISOWeekKey();
+        const key = weekKey || getOperationalWeekKey();
         const { weeklyGoals } = get();
 
         // 1. Tentar meta da semana solicitada
@@ -93,7 +97,7 @@ export const createWeeklyGoalsSlice: StateCreator<
     },
 
     getWeeklyWorkDays: (weekKey?: string) => {
-        const key = weekKey || getISOWeekKey();
+        const key = weekKey || getOperationalWeekKey();
         const { weeklyGoals } = get();
 
         if (weeklyGoals[key]?.workDays) {
@@ -115,11 +119,11 @@ export const createWeeklyGoalsSlice: StateCreator<
     },
 
     getCurrentWeekGoal: () => {
-        return get().getWeeklyGoal(getISOWeekKey());
+        return get().getWeeklyGoal(getOperationalWeekKey());
     },
 
     getCurrentWeekWorkDays: () => {
-        return get().getWeeklyWorkDays(getISOWeekKey());
+        return get().getWeeklyWorkDays(getOperationalWeekKey());
     },
 });
 

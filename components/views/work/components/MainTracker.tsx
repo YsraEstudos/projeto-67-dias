@@ -11,10 +11,17 @@ interface MainTrackerProps {
     onGoalUpdate: (newGoal: number) => void;
     status: WorkStatus;
     minutesRemaining: number;
+    /** Meta diária foi ajustada manualmente (sobrepõe a derivada da meta semanal) */
+    isGoalOverridden?: boolean;
+    /** Volta a usar a meta diária calculada a partir da meta semanal */
+    onGoalReset?: () => void;
+    /** Total estimado ao fim do expediente mantendo o ritmo atual */
+    projectedCount?: number | null;
 }
 
 export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
-    currentCount, goal, progressPercent, onUpdate, onGoalUpdate, status, minutesRemaining
+    currentCount, goal, progressPercent, onUpdate, onGoalUpdate, status, minutesRemaining,
+    isGoalOverridden = false, onGoalReset, projectedCount = null
 }) => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Tracker */}
@@ -44,19 +51,31 @@ export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
                             min={1}
                             aria-label="Meta de itens do dia"
                         />
+                        {isGoalOverridden && onGoalReset && (
+                            <button
+                                type="button"
+                                onClick={onGoalReset}
+                                className="ml-1 text-[10px] px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-white hover:border-orange-500 transition-colors uppercase tracking-wider font-semibold"
+                                title="Voltar à meta calculada pela meta semanal"
+                            >
+                                Auto
+                            </button>
+                        )}
                     </div>
 
                     {/* Quick Add Controls */}
                     <div className="flex flex-wrap gap-2 sm:gap-3">
-                        <button onClick={() => onUpdate(Math.max(0, currentCount - 1))} className="p-3 sm:p-4 rounded-xl bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:bg-slate-600 touch-manipulation"><ArrowDown size={24} /></button>
+                        <button onClick={() => onUpdate(Math.max(0, currentCount - 1))} aria-label="Diminuir 1" className="p-3 sm:p-4 rounded-xl bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:bg-slate-600 touch-manipulation"><ArrowDown size={24} /></button>
                         <input
                             type="number"
                             value={currentCount}
                             onChange={(e) => onUpdate(Number(e.target.value))}
+                            min={0}
+                            aria-label="Itens concluídos hoje"
                             className="bg-slate-900 border border-slate-700 rounded-xl w-20 sm:w-24 text-center text-lg sm:text-xl font-bold focus:border-orange-500 focus:outline-none py-3"
                         />
-                        <button onClick={() => onUpdate(currentCount + 1)} className="p-3 sm:p-4 rounded-xl bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:bg-slate-600 touch-manipulation"><ArrowUp size={24} /></button>
-                        <button onClick={() => onUpdate(currentCount + 10)} className="px-4 py-3 rounded-xl bg-orange-600/20 text-orange-500 hover:bg-orange-600 hover:text-white transition-all font-bold text-sm active:bg-orange-700 touch-manipulation">+10</button>
+                        <button onClick={() => onUpdate(currentCount + 1)} aria-label="Aumentar 1" className="p-3 sm:p-4 rounded-xl bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:bg-slate-600 touch-manipulation"><ArrowUp size={24} /></button>
+                        <button onClick={() => onUpdate(currentCount + 10)} aria-label="Adicionar 10" className="px-4 py-3 rounded-xl bg-orange-600/20 text-orange-500 hover:bg-orange-600 hover:text-white transition-all font-bold text-sm active:bg-orange-700 touch-manipulation">+10</button>
                     </div>
                 </div>
 
@@ -98,6 +117,14 @@ export const MainTracker: React.FC<MainTrackerProps> = React.memo(({
                     <p className="text-xs text-slate-500 max-w-[200px]">
                         Descontando intervalo de 1 hora se ainda não realizado.
                     </p>
+                    {projectedCount !== null && (
+                        <p
+                            data-testid="work-projection"
+                            className={`mt-3 text-xs font-medium ${projectedCount >= goal ? 'text-green-400' : 'text-amber-400'}`}
+                        >
+                            No ritmo atual: ~{projectedCount} / {goal} ao fim do dia
+                        </p>
+                    )}
                 </>
             )}
         </div>

@@ -19,6 +19,36 @@ const DEFAULT_TIMER: GlobalTimerState = {
     label: undefined
 };
 
+/**
+ * Tempo a exibir (ms) para o estado global do timer.
+ *
+ * Contrato compartilhado com o TimerTool (principal produtor do estado):
+ * - TIMER RUNNING: tempo restante = endTime - now
+ * - TIMER PAUSED: `accumulated` guarda o tempo RESTANTE
+ * - STOPWATCH: `accumulated` guarda o tempo decorrido antes do último start
+ */
+export function getTimerDisplayMs(timer: GlobalTimerState, now: number = Date.now()): number {
+    const runningElapsed = timer.status === 'RUNNING' && timer.startTime ? now - timer.startTime : 0;
+
+    if (timer.mode === 'STOPWATCH') {
+        if (timer.status === 'IDLE') return 0;
+        return Math.max(0, timer.accumulated + runningElapsed);
+    }
+
+    switch (timer.status) {
+        case 'IDLE':
+            return timer.totalDuration * 1000;
+        case 'FINISHED':
+            return 0;
+        case 'PAUSED':
+            return Math.max(0, timer.accumulated);
+        case 'RUNNING':
+            if (timer.endTime) return Math.max(0, timer.endTime - now);
+            // Estado legado sem endTime: deriva do início
+            return Math.max(0, timer.totalDuration * 1000 - runningElapsed);
+    }
+}
+
 interface TimerStoreState {
     timer: GlobalTimerState;
     isLoading: boolean;
@@ -85,15 +115,18 @@ export const useTimerStore = create<TimerStoreState>()((set, get) => ({
 
     pause: () => {
         const { timer } = get();
-        if (timer.status !== 'RUNNING' || !timer.startTime) return;
+        if (timer.status !== 'RUNNING') return;
 
-        const elapsed = Date.now() - timer.startTime;
+        const now = Date.now();
+        // TIMER guarda o restante em `accumulated` (mesmo contrato do TimerTool);
+        // antes guardava o decorrido e a retomada ignorava o endTime antigo.
+        const accumulated = getTimerDisplayMs(timer, now);
         set({
             timer: {
                 ...timer,
                 status: 'PAUSED',
-                accumulated: timer.accumulated + elapsed,
-                startTime: null
+                accumulated,
+                startTime: null,
             }
         });
         get()._syncToFirestore();
@@ -103,20 +136,26 @@ export const useTimerStore = create<TimerStoreState>()((set, get) => ({
         const { timer } = get();
         if (timer.status !== 'PAUSED') return;
 
+        const now = Date.now();
         set({
             timer: {
                 ...timer,
                 status: 'RUNNING',
-                startTime: Date.now()
+                startTime: now,
+                endTime: timer.mode === 'TIMER' ? now + timer.accumulated : timer.endTime,
             }
         });
         get()._syncToFirestore();
     },
 
     stop: () => {
-        set((state) => ({
-            timer: { ...state.timer, status: 'FINISHED' }
-        }));
+        const { timer } = get();
+        const now = Date.now();
+        // Congela o tempo do cronômetro; sem isso o decorrido final se perdia.
+        const accumulated = timer.mode === 'STOPWATCH' ? getTimerDisplayMs(timer, now) : 0;
+        set({
+            timer: { ...timer, status: 'FINISHED', accumulated, startTime: null }
+        });
         get()._syncToFirestore();
     },
 

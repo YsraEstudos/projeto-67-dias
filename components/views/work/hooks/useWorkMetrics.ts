@@ -4,6 +4,8 @@ import { BREAK_DURATION_MINUTES } from '../constants';
 import { getMinutesFromMidnight } from '../utils';
 import { useWorkStore } from '../../../../stores';
 
+const MIN_MINUTES_FOR_PROJECTION = 15;
+
 /**
  * Handles the business logic for calculating work statistics, pace, and status.
  * Optimized to minimize re-renders by using minute-based updates.
@@ -27,6 +29,10 @@ export const useWorkMetrics = ({
             setNowMinutes(now.getHours() * 60 + now.getMinutes());
             ensureCurrentDay();
         };
+
+        // Sincroniza já na montagem: ao reabrir a view após a virada do dia
+        // operacional, o contador de ontem não deve aparecer por até 1 minuto.
+        updateNow();
 
         // Only update every 60 seconds
         const interval = setInterval(() => {
@@ -99,6 +105,19 @@ export const useWorkMetrics = ({
             }
         }
 
+        // Minutos efetivamente trabalhados até agora (sem contar o intervalo)
+        const clampedNow = Math.min(Math.max(currentMins, startMins), endMins);
+        const breakElapsed = hasBreak
+            ? Math.min(breakDuration, Math.max(0, clampedNow - breakStartMins))
+            : 0;
+        const elapsedWorkMinutes = Math.max(0, clampedNow - startMins - breakElapsed);
+
+        // Projeção de fechamento no ritmo atual; exige um mínimo de amostra
+        // para não extrapolar números absurdos nos primeiros minutos.
+        const projectedCount = elapsedWorkMinutes >= MIN_MINUTES_FOR_PROJECTION
+            ? Math.round((currentCount / elapsedWorkMinutes) * totalWorkDuration)
+            : null;
+
         // Progress
         const progressPercent = Math.min(100, Math.round((currentCount / (goal || 1)) * 100));
 
@@ -129,7 +148,9 @@ export const useWorkMetrics = ({
             requiredPacePerHour,
             intervalPace,
             itemsRemaining,
-            hasBreak
+            hasBreak,
+            elapsedWorkMinutes,
+            projectedCount
         };
     }, [goal, startTime, endTime, breakTime, currentCount, preBreakCount, nowMinutes, paceMode]);
 };

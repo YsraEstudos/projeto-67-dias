@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useWorkStore } from '../../stores';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -67,6 +67,7 @@ const WorkView: React.FC = () => {
   const setEndTime = useWorkStore((s) => s.setEndTime);
   const setBreakTime = useWorkStore((s) => s.setBreakTime);
   const setPaceMode = useWorkStore((s) => s.setPaceMode);
+  const resetDailyGoalOverride = useCallback(() => setDailyGoalOverride(null), [setDailyGoalOverride]);
 
   // Calculate daily quota from weekly goal to fix pacing bugs and UI progress tracking
   const weeklyDailyGoal = useMemo(
@@ -111,6 +112,9 @@ const WorkView: React.FC = () => {
         onGoalUpdate={setDailyGoalOverride}
         status={stats.status}
         minutesRemaining={stats.minutesRemaining}
+        isGoalOverridden={dailyGoalOverride !== null}
+        onGoalReset={resetDailyGoalOverride}
+        projectedCount={stats.status === 'FINISHED' ? null : stats.projectedCount}
       />
 
       {/* ANALYSIS GRID */}

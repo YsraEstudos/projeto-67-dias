@@ -10,21 +10,23 @@
  */
 import { useMemo, useCallback } from 'react';
 import { useWorkStore } from '../../../../stores';
-import { getISOWeekKey, formatWeekLabel } from '../utils/weekUtils';
+import { getOperationalWeekKey, formatWeekLabel } from '../utils/weekUtils';
 
 export function useWeeklyGoal() {
     const weeklyGoals = useWorkStore((s) => s.weeklyGoals);
-    const getCurrentWeekGoal = useWorkStore((s) => s.getCurrentWeekGoal);
-    const getCurrentWeekWorkDays = useWorkStore((s) => s.getCurrentWeekWorkDays);
+    const getWeeklyGoal = useWorkStore((s) => s.getWeeklyGoal);
+    const getWeeklyWorkDays = useWorkStore((s) => s.getWeeklyWorkDays);
     const setWeeklyGoal = useWorkStore((s) => s.setWeeklyGoal);
     const setWeeklyWorkDays = useWorkStore((s) => s.setWeeklyWorkDays);
 
-    // Memoizar week key (só muda se o dia mudar para outra semana)
-    const currentWeekKey = useMemo(() => getISOWeekKey(), []);
+    // Recalculado a cada render (barato): com memo vazio a chave ficava presa na
+    // semana da montagem e a edição gravava na semana errada após a virada.
+    // A WorkView re-renderiza a cada minuto via useWorkMetrics.
+    const currentWeekKey = getOperationalWeekKey();
 
-    // Meta atual (com herança)
-    const currentGoal = getCurrentWeekGoal();
-    const currentWorkDays = getCurrentWeekWorkDays();
+    // Meta atual (com herança) lida da mesma chave usada na escrita
+    const currentGoal = getWeeklyGoal(currentWeekKey);
+    const currentWorkDays = getWeeklyWorkDays(currentWeekKey);
 
     // Label amigável
     const weekLabel = useMemo(() => formatWeekLabel(currentWeekKey), [currentWeekKey]);

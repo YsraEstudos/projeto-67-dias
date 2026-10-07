@@ -92,4 +92,49 @@ describe('TimerWidget Component', () => {
 
         expect(handleClick).toHaveBeenCalled();
     });
+
+    it('counts down from endTime and finishes the timer when it reaches zero', () => {
+        act(() => {
+            useTimerStore.getState().setTimer({
+                mode: 'TIMER',
+                status: 'RUNNING',
+                startTime: null,
+                endTime: Date.now() + 3000,
+                totalDuration: 1500,
+                label: 'Pomodoro',
+            });
+        });
+
+        render(<TimerWidget onClick={() => { }} />);
+        const fab = screen.getByRole('button', { name: /Pomodoro: em andamento \(00:03\)/ });
+        expect(fab).toHaveAttribute('aria-expanded', 'false');
+
+        act(() => {
+            vi.advanceTimersByTime(1000);
+        });
+        expect(screen.getByRole('button', { name: /\(00:02\)/ })).toBeInTheDocument();
+
+        act(() => {
+            vi.advanceTimersByTime(3000);
+        });
+        expect(useTimerStore.getState().timer.status).toBe('FINISHED');
+        expect(screen.queryByTestId('timer-widget')).not.toBeInTheDocument();
+    });
+
+    it('shows the remaining time stored in accumulated while paused', () => {
+        act(() => {
+            useTimerStore.getState().setTimer({
+                mode: 'TIMER',
+                status: 'PAUSED',
+                startTime: null,
+                endTime: null,
+                accumulated: 65_000,
+                totalDuration: 1500,
+                label: 'Pomodoro',
+            });
+        });
+
+        render(<TimerWidget onClick={() => { }} />);
+        expect(screen.getByRole('button', { name: /Pomodoro: pausado \(01:05\)/ })).toBeInTheDocument();
+    });
 });

@@ -51,6 +51,8 @@ export const AnalysisGrid: React.FC<AnalysisGridProps> = React.memo(({
                             type="number"
                             value={preBreakCount}
                             onChange={(e) => setPreBreakCount(Number(e.target.value))}
+                            min={0}
+                            aria-label="Itens feitos antes do intervalo"
                             placeholder="0"
                             className="bg-slate-800 border border-slate-600 rounded w-20 text-right px-2 py-1 text-sm text-white focus:border-amber-500 focus:outline-none"
                         />
@@ -84,12 +86,14 @@ export const AnalysisGrid: React.FC<AnalysisGridProps> = React.memo(({
                 <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
                     <button
                         onClick={() => setPaceMode('10m')}
+                        aria-pressed={paceMode === '10m'}
                         className={`px-3 py-1 text-xs rounded-md transition-colors ${paceMode === '10m' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         10min
                     </button>
                     <button
                         onClick={() => setPaceMode('25m')}
+                        aria-pressed={paceMode === '25m'}
                         className={`px-3 py-1 text-xs rounded-md transition-colors ${paceMode === '25m' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         25min

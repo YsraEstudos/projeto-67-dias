@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Timer } from 'lucide-react';
 import { useTimerStore } from '../stores';
-import { DEFAULT_POMODORO_SECONDS } from '../stores/timerStore';
+import { DEFAULT_POMODORO_SECONDS, getTimerDisplayMs } from '../stores/timerStore';
+
+const pad2 = (n: number) => n.toString().padStart(2, '0');
+
+// Mesmo alarme do TimerTool; o widget só aparece quando a ferramenta está fechada.
+const FINISH_BEEP_URL = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg';
+const playFinishBeep = () => {
+    try {
+        const playback = new Audio(FINISH_BEEP_URL).play();
+        playback?.catch?.(() => { });
+    } catch {
+        // Autoplay bloqueado ou ambiente sem áudio: o fim do timer segue valendo.
+    }
+};
+
+const formatWidgetTime = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
+};
 
 interface TimerWidgetProps {
     onClick: () => void;
@@ -21,32 +42,28 @@ export const TimerWidget: React.FC<TimerWidgetProps> = React.memo(({ onClick }) 
             setTimer({ totalDuration: DEFAULT_POMODORO_SECONDS, label: 'Pomodoro' });
         }
 
+        if (timer.status === 'IDLE' || timer.status === 'FINISHED') return;
+
         const update = () => {
-            if (timer.status === 'IDLE' || timer.status === 'FINISHED') return;
+            const ms = getTimerDisplayMs(timer);
+            setDisplay(formatWidgetTime(ms));
 
-            const now = Date.now();
-            let ms = 0;
-            const elapsed = (timer.status === 'RUNNING' && timer.startTime ? now - timer.startTime : 0) + timer.accumulated;
-
-            if (timer.mode === 'TIMER') {
-                ms = Math.max(0, timer.totalDuration * 1000 - elapsed);
-            } else {
-                ms = elapsed;
-            }
-
-            const totalSec = Math.floor(ms / 1000);
-            const h = Math.floor(totalSec / 3600);
-            const m = Math.floor((totalSec % 3600) / 60);
-            const s = totalSec % 60;
-            
-            if (h > 0) {
-                setDisplay(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-            } else {
-                setDisplay(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            // Contagem regressiva zerada: encerra o timer mesmo com o TimerTool
+            // fechado, senão o widget ficava preso em "00:00" indefinidamente.
+            if (timer.mode === 'TIMER' && timer.status === 'RUNNING' && ms === 0) {
+                let didFinish = false;
+                setTimer((prev) => {
+                    if (prev.status !== 'RUNNING' || prev.mode !== 'TIMER' || getTimerDisplayMs(prev) !== 0) return prev;
+                    didFinish = true;
+                    return { ...prev, status: 'FINISHED', accumulated: 0 };
+                });
+                if (didFinish) playFinishBeep();
             }
         };
 
         update();
+        // Pausado não muda: dispensa o intervalo de 1s.
+        if (timer.status !== 'RUNNING') return;
         const interval = setInterval(update, 1000);
         return () => clearInterval(interval);
     }, [timer, setTimer]);
@@ -90,6 +107,9 @@ export const TimerWidget: React.FC<TimerWidgetProps> = React.memo(({ onClick }) 
 
             {/* Main FAB button */}
             <button
+                type="button"
+                aria-label={`${timer.label || (timer.mode === 'TIMER' ? 'Temporizador' : 'Cronômetro')}: ${isRunning ? 'em andamento' : 'pausado'}${display ? ` (${display})` : ''}`}
+                aria-expanded={expanded}
                 className={`
                     relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 hover:scale-110
                     ${isRunning

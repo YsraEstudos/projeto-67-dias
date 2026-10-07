@@ -2,6 +2,7 @@
  * Utilitários para cálculo de ISO Week (semana inicia segunda-feira)
  * ISO 8601: semana 01 é a que contém a primeira quinta-feira do ano
  */
+import { getOperationalDateISO, parseDate } from '../../../../utils/dateUtils';
 
 /**
  * Retorna a ISO week key no formato "YYYY-Wxx"
@@ -15,9 +16,20 @@ export function getISOWeekKey(date: Date = new Date()): string {
     d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
 
     const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNumber = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    // Math.round: a diferença em ms entre datas locais pode ganhar/perder 1h em
+    // fusos com horário de verão, o que faria o ceil pular para a semana seguinte.
+    const dayOfYear = Math.round((d.getTime() - yearStart.getTime()) / 86400000);
+    const weekNumber = Math.ceil((dayOfYear + 1) / 7);
 
     return `${d.getFullYear()}-W${weekNumber.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Week key do dia operacional atual (00:00-05:59 ainda conta como o turno do dia
+ * anterior), mantendo a meta semanal alinhada ao reset diário do contador.
+ */
+export function getOperationalWeekKey(now: Date = new Date()): string {
+    return getISOWeekKey(parseDate(getOperationalDateISO(now)));
 }
 
 /**

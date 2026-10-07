@@ -16,6 +16,10 @@ function getTodayDate(): string {
     return getOperationalDateISO(new Date());
 }
 
+// Inputs numéricos podem entregar NaN/negativos/decimais (campo vazio, "-5").
+const sanitizeCount = (value: number): number =>
+    Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+
 export interface TrackingSlice {
     // Daily work tracking
     currentCount: number;
@@ -86,16 +90,21 @@ export const createTrackingSlice: StateCreator<
     // Work tracking (with date check)
     setCurrentCount: (count) => {
         get()._checkAndResetForNewDay();
-        set(() => ({ currentCount: count, lastActiveDate: getTodayDate() }));
+        set(() => ({ currentCount: sanitizeCount(count), lastActiveDate: getTodayDate() }));
     },
     setGoal: (goal) => set(() => ({ goal })),
-    setDailyGoalOverride: (goal) => set(() => ({
-        dailyGoalOverride: goal === null ? null : Math.max(1, Math.round(goal)),
-        lastActiveDate: getTodayDate(),
-    })),
+    setDailyGoalOverride: (goal) => {
+        // Sem a checagem, o override marcava o dia como "hoje" e preservava a
+        // contagem de ontem, que deixava de ser zerada.
+        get()._checkAndResetForNewDay();
+        set(() => ({
+            dailyGoalOverride: goal === null || !Number.isFinite(goal) ? null : Math.max(1, Math.round(goal)),
+            lastActiveDate: getTodayDate(),
+        }));
+    },
     setPreBreakCount: (count) => {
         get()._checkAndResetForNewDay();
-        set(() => ({ preBreakCount: count, lastActiveDate: getTodayDate() }));
+        set(() => ({ preBreakCount: sanitizeCount(count), lastActiveDate: getTodayDate() }));
     },
     incrementCount: () => {
         get()._checkAndResetForNewDay();
