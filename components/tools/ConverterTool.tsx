@@ -83,6 +83,8 @@ export const ConverterTool: React.FC = () => {
                         type="number"
                         value={converterInput}
                         onChange={(e) => setConverterInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleConvert(); }}
+                        aria-label="Valor a converter"
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                         placeholder="0.00"
                     />

@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
    ArrowLeft,
+   Check,
+   Copy,
    ExternalLink,
    Edit2,
    FileText,
@@ -13,6 +15,7 @@ import {
    X,
 } from 'lucide-react';
 import { MarkdownRenderer } from '../notes/MarkdownRenderer';
+import { normalizeExternalUrl } from '../links/urlNormalization';
 
 interface SavedConversation {
    id: string;
@@ -43,7 +46,7 @@ const createConversation = (draft: ConversationDraft): SavedConversation => {
    return {
       id: timestamp.toString(),
       title: draft.title.trim() || 'Nova conversa',
-      sourceUrl: draft.sourceUrl.trim(),
+      sourceUrl: normalizeExternalUrl(draft.sourceUrl),
       markdown: draft.markdown.trim(),
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -80,9 +83,40 @@ const isSavedConversation = (value: unknown): value is SavedConversation => {
    );
 };
 
-const persistConversations = (conversations: SavedConversation[]): void => {
-   if (typeof window === 'undefined') return;
-   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+const persistConversations = (conversations: SavedConversation[]): boolean => {
+   if (typeof window === 'undefined') return false;
+   try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+      return true;
+   } catch (error) {
+      // Quota exceeded / storage blocked: keep the in-memory state instead of crashing the tab
+      console.error('[ConversasTab] Falha ao salvar conversas no armazenamento local:', error);
+      return false;
+   }
+};
+
+const copyText = async (text: string): Promise<boolean> => {
+   try {
+      if (navigator.clipboard?.writeText) {
+         await navigator.clipboard.writeText(text);
+         return true;
+      }
+   } catch {
+      // fall back below
+   }
+   try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return ok;
+   } catch {
+      return false;
+   }
 };
 
 const formatDate = (timestamp: number): string =>
@@ -98,6 +132,21 @@ const ConversasTab: React.FC = () => {
    const [viewingConversationId, setViewingConversationId] = useState<string | null>(null);
    const [draft, setDraft] = useState<ConversationDraft>(createEmptyDraft);
    const [searchQuery, setSearchQuery] = useState('');
+   const [storageError, setStorageError] = useState(false);
+   const [copied, setCopied] = useState(false);
+   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+   useEffect(() => () => {
+      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+   }, []);
+
+   const handleCopyMarkdown = async (markdown: string): Promise<void> => {
+      const ok = await copyText(markdown);
+      if (!ok) return;
+      setCopied(true);
+      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+      copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+   };
 
    const sortedConversations = useMemo(
       () => [...conversations].sort((left, right) => right.updatedAt - left.updatedAt),
@@ -169,7 +218,7 @@ const ConversasTab: React.FC = () => {
                     ? {
                          ...conversation,
                          title: draft.title.trim() || 'Conversa sem titulo',
-                         sourceUrl: draft.sourceUrl.trim(),
+                         sourceUrl: normalizeExternalUrl(draft.sourceUrl),
                          markdown: trimmedMarkdown,
                          updatedAt: Date.now(),
                       }
@@ -178,7 +227,7 @@ const ConversasTab: React.FC = () => {
             : [createConversation(draft), ...conversations];
 
       setConversations(nextConversations);
-      persistConversations(nextConversations);
+      setStorageError(!persistConversations(nextConversations));
       closeEditor();
    };
 
@@ -187,7 +236,7 @@ const ConversasTab: React.FC = () => {
 
       const nextConversations = conversations.filter(conversation => conversation.id !== conversationId);
       setConversations(nextConversations);
-      persistConversations(nextConversations);
+      setStorageError(!persistConversations(nextConversations));
       setViewingConversationId(null);
       closeEditor();
    };
@@ -214,7 +263,16 @@ const ConversasTab: React.FC = () => {
                      </div>
                      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end">
                         <button
+                           onClick={() => handleCopyMarkdown(viewingConversation.markdown)}
+                           className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors flex items-center gap-2 text-sm font-medium"
+                           title="Copiar Markdown"
+                        >
+                           {copied ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
+                           {copied ? 'Copiado!' : 'Copiar Markdown'}
+                        </button>
+                        <button
                            onClick={() => deleteConversation(viewingConversation.id)}
+                           aria-label="Excluir conversa"
                            className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl transition-colors"
                            title="Excluir conversa"
                         >
@@ -229,9 +287,9 @@ const ConversasTab: React.FC = () => {
                      </div>
                   </div>
 
-                  {viewingConversation.sourceUrl && (
+                  {normalizeExternalUrl(viewingConversation.sourceUrl) && (
                      <a
-                        href={viewingConversation.sourceUrl}
+                        href={normalizeExternalUrl(viewingConversation.sourceUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full min-w-0 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-emerald-300 hover:text-emerald-200 flex items-center gap-2 transition-colors"
@@ -267,6 +325,7 @@ const ConversasTab: React.FC = () => {
                      {selectedConversation && (
                         <button
                            onClick={() => deleteConversation(selectedConversation.id)}
+                           aria-label="Excluir conversa"
                            className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 rounded-xl transition-colors"
                            title="Excluir conversa"
                         >
@@ -340,9 +399,9 @@ const ConversasTab: React.FC = () => {
                            <h4 className="font-bold text-slate-100 truncate">
                               {draft.title.trim() || 'Previa da conversa'}
                            </h4>
-                           {draft.sourceUrl.trim() && (
+                           {normalizeExternalUrl(draft.sourceUrl) && (
                               <a
-                                 href={draft.sourceUrl.trim()}
+                                 href={normalizeExternalUrl(draft.sourceUrl)}
                                  target="_blank"
                                  rel="noopener noreferrer"
                                  className="text-xs text-emerald-300 hover:text-emerald-200 flex items-center gap-1 mt-1 truncate"
@@ -388,6 +447,12 @@ const ConversasTab: React.FC = () => {
             </button>
          </div>
 
+         {storageError && (
+            <p role="alert" className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
+               Não foi possível salvar no armazenamento do navegador (espaço cheio ou bloqueado). As alterações podem se perder ao recarregar.
+            </p>
+         )}
+
          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
             <input
@@ -426,6 +491,16 @@ const ConversasTab: React.FC = () => {
                   <article
                      key={conversation.id}
                      onClick={() => openConversationViewer(conversation)}
+                     onKeyDown={(event: React.KeyboardEvent<HTMLElement>) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                           event.preventDefault();
+                           openConversationViewer(conversation);
+                        }
+                     }}
+                     role="button"
+                     tabIndex={0}
+                     aria-label={`Abrir conversa ${conversation.title}`}
                      className="bg-slate-800/40 border border-slate-700 hover:border-emerald-500/50 p-4 rounded-2xl cursor-pointer transition-all flex flex-col gap-3 group min-w-0"
                   >
                      <div className="flex items-start justify-between gap-3">
@@ -441,9 +516,9 @@ const ConversasTab: React.FC = () => {
                            </div>
                         </div>
                      </div>
-                     {conversation.sourceUrl && (
+                     {normalizeExternalUrl(conversation.sourceUrl) && (
                         <a
-                           href={conversation.sourceUrl}
+                           href={normalizeExternalUrl(conversation.sourceUrl)}
                            onClick={(event: React.MouseEvent<HTMLAnchorElement>) => event.stopPropagation()}
                            target="_blank"
                            rel="noopener noreferrer"

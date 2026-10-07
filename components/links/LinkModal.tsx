@@ -4,6 +4,7 @@ import { LinkItem, Prompt, PromptCategory, SiteCategory, SiteFolder, Site } from
 import MultiPromptSelector from './MultiPromptSelector';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
+import { normalizeExternalUrl } from './urlNormalization';
 
 interface LinkModalProps {
     link: LinkItem | null;
@@ -60,6 +61,10 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
         }
     };
 
+    // A link needs a title, a safe URL and a parent site (otherwise it would be invisible)
+    const isUrlValid = normalizeExternalUrl(formData.url) !== '';
+    const canSave = formData.title.trim() !== '' && isUrlValid && formData.siteId !== '';
+
     // Get linked prompts data for display
     const linkedPrompts = formData.promptIds
         .map(id => prompts.find(p => p.id === id))
@@ -82,8 +87,9 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
 
                     <div className="p-6 space-y-4">
                         <div>
-                            <label className="block text-xs text-slate-500 uppercase font-bold mb-1">Título do Site</label>
+                            <label htmlFor="link-modal-title" className="block text-xs text-slate-500 uppercase font-bold mb-1">Título do Site</label>
                             <input
+                                id="link-modal-title"
                                 autoFocus
                                 value={formData.title}
                                 onChange={e => setFormData({ ...formData, title: e.target.value })}
@@ -92,9 +98,10 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-slate-500 uppercase font-bold mb-1">URL (Endereço)</label>
+                            <label htmlFor="link-modal-url" className="block text-xs text-slate-500 uppercase font-bold mb-1">URL (Endereço)</label>
                             <div className="relative">
                                 <input
+                                    id="link-modal-url"
                                     value={formData.url}
                                     onChange={e => setFormData({ ...formData, url: e.target.value })}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 pl-10 text-white focus:border-indigo-500 outline-none font-mono text-sm"
@@ -102,10 +109,14 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                                 />
                                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                             </div>
+                            {formData.url.trim() !== '' && !isUrlValid && (
+                                <p className="text-xs text-red-400 mt-1" role="alert">URL inválida ou não permitida.</p>
+                            )}
                         </div>
                         <div>
-                            <label className="block text-xs text-slate-500 uppercase font-bold mb-2">Site</label>
+                            <label htmlFor="link-modal-site" className="block text-xs text-slate-500 uppercase font-bold mb-2">Site</label>
                             <select
+                                id="link-modal-site"
                                 value={formData.siteId}
                                 onChange={(e) => setFormData({ ...formData, siteId: e.target.value, folderId: null })}
                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none"
@@ -114,6 +125,9 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                                     <option key={site.id} value={site.id}>{site.name}</option>
                                 ))}
                             </select>
+                            {sites.length === 0 && (
+                                <p className="text-xs text-amber-400 mt-1">Crie um site antes de adicionar links.</p>
+                            )}
                         </div>
                         {siteFolders.length > 0 && (
                             <div>
@@ -175,7 +189,7 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                     <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex gap-3">
                         <button onClick={handleClose} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-medium">Cancelar</button>
                         <button
-                            disabled={!formData.title || !formData.url}
+                            disabled={!canSave}
                             onClick={() => onSave(formData)}
                             className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold transition-colors shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
                         >
@@ -204,7 +218,7 @@ const LinkModal: React.FC<LinkModalProps> = ({ link, prompts, promptCategories, 
                 isOpen={showUnsavedModal}
                 onSave={() => {
                     setShowUnsavedModal(false);
-                    onSave(formData);
+                    if (canSave) onSave(formData);
                 }}
                 onDiscard={() => {
                     setShowUnsavedModal(false);

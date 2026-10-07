@@ -24,7 +24,8 @@ export const TimerTool: React.FC = () => {
             const now = Date.now();
 
             if (timerState.status === 'IDLE') {
-                if (timerState.mode === 'TIMER') setDisplayTime(timerState.totalDuration);
+                // totalDuration is stored in SECONDS (see timerStore); display works in ms
+                if (timerState.mode === 'TIMER') setDisplayTime(timerState.totalDuration * 1000);
                 else setDisplayTime(0);
                 return;
             }
@@ -44,8 +45,15 @@ export const TimerTool: React.FC = () => {
                     const remaining = Math.max(0, timerState.endTime - now);
                     setDisplayTime(remaining);
                     if (remaining === 0) {
-                        setTimerState(prev => ({ ...prev, status: 'FINISHED' }));
-                        new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(() => { });
+                        // Guard: the global TimerWidget may already have finished this timer
+                        const current = useTimerStore.getState().timer;
+                        if (current.status !== 'RUNNING' || current.mode !== 'TIMER') return;
+                        setTimerState(prev => ({ ...prev, status: 'FINISHED', accumulated: 0 }));
+                        try {
+                            new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(() => { });
+                        } catch {
+                            // Audio unavailable (e.g. test env) — timer still finishes
+                        }
                     }
                 } else if (timerState.mode === 'STOPWATCH' && timerState.startTime) {
                     const elapsed = now - timerState.startTime + timerState.accumulated;
@@ -75,7 +83,7 @@ export const TimerTool: React.FC = () => {
                 setTimerState(prev => ({
                     ...prev,
                     status: 'RUNNING',
-                    endTime: now + prev.totalDuration,
+                    endTime: now + prev.totalDuration * 1000, // totalDuration is in seconds
                     accumulated: 0
                 }));
             } else {
@@ -185,7 +193,7 @@ export const TimerTool: React.FC = () => {
                         mode={timerState.mode}
                         status={timerState.status}
                         displayTime={displayTime}
-                        totalDuration={timerState.totalDuration}
+                        totalDuration={timerState.totalDuration * 1000}
                     />
 
                     <div className="z-10 flex flex-col items-center">

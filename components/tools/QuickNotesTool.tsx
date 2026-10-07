@@ -9,6 +9,15 @@ interface QuickNote {
 }
 
 const STORAGE_KEY = 'p67_quicknotes';
+const DRAFT_STORAGE_KEY = 'p67_quicknotes_draft';
+
+const loadDraft = (): string => {
+    try {
+        return localStorage.getItem(DRAFT_STORAGE_KEY) ?? '';
+    } catch {
+        return '';
+    }
+};
 
 const generateId = (): string => {
     try {
@@ -51,7 +60,7 @@ const formatDate = (ts: number): string =>
 
 export const QuickNotesTool: React.FC = () => {
     const [notes, setNotes] = useState<QuickNote[]>(loadNotes);
-    const [draft, setDraft] = useState('');
+    const [draft, setDraft] = useState<string>(loadDraft);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [search, setSearch] = useState('');
 
@@ -63,6 +72,17 @@ export const QuickNotesTool: React.FC = () => {
             // storage unavailable or full — ignore
         }
     }, [notes]);
+
+    // Persist the unsaved new-note draft so leaving the tool doesn't lose it
+    useEffect(() => {
+        if (editingId) return; // edits of existing notes are not drafts
+        try {
+            if (draft) localStorage.setItem(DRAFT_STORAGE_KEY, draft);
+            else localStorage.removeItem(DRAFT_STORAGE_KEY);
+        } catch {
+            // storage unavailable — ignore
+        }
+    }, [draft, editingId]);
 
     const handleSave = () => {
         const content = draft.trim();
@@ -117,11 +137,18 @@ export const QuickNotesTool: React.FC = () => {
             {/* Editor */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center gap-2 text-slate-400 mb-3 text-xs uppercase font-bold">
-                    <StickyNote size={14} /> Nova nota
+                    <StickyNote size={14} /> {editingId ? 'Editando nota' : 'Nova nota'}
                 </div>
                 <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            handleSave();
+                        }
+                    }}
+                    aria-label={editingId ? 'Editar nota' : 'Nova nota'}
                     rows={4}
                     className="w-full bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-white placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
                     placeholder="Escreva sua nota rápida..."
@@ -139,7 +166,7 @@ export const QuickNotesTool: React.FC = () => {
                         disabled={!draft.trim()}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95 text-sm font-medium disabled:opacity-50 disabled:pointer-events-none"
                     >
-                        <Save size={16} /> Salvar
+                        <Save size={16} /> Salvar <kbd className="hidden sm:inline text-[10px] opacity-70 font-mono">Ctrl+Enter</kbd>
                     </button>
                     {editingId && (
                         <button
@@ -159,7 +186,7 @@ export const QuickNotesTool: React.FC = () => {
                         <span className="text-sm text-slate-400">
                             {filteredNotes.length} {filteredNotes.length === 1 ? 'nota' : 'notas'}
                         </span>
-                        {notes.length >= 3 && (
+                        {(notes.length >= 3 || search) && (
                             <div className="relative">
                                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                                 <input
@@ -167,6 +194,7 @@ export const QuickNotesTool: React.FC = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="w-48 bg-slate-800/60 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                                     placeholder="Buscar notas..."
+                                    aria-label="Buscar notas"
                                 />
                             </div>
                         )}

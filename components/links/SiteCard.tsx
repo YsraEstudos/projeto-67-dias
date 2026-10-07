@@ -101,6 +101,8 @@ const SiteCard: React.FC<SiteCardProps> = ({
                     {hasMultipleLinks && (
                         <button
                             onClick={() => setIsExpanded(!isExpanded)}
+                            aria-label={isExpanded ? 'Recolher links' : 'Expandir links'}
+                            aria-expanded={isExpanded}
                             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                         >
                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -109,6 +111,9 @@ const SiteCard: React.FC<SiteCardProps> = ({
                     <div className="relative">
                         <button
                             onClick={() => setMenuOpen(!menuOpen)}
+                            aria-label={`Opções do site ${site.name}`}
+                            aria-haspopup="menu"
+                            aria-expanded={menuOpen}
                             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                         >
                             <MoreVertical size={16} />
@@ -176,6 +181,13 @@ const SiteCard: React.FC<SiteCardProps> = ({
                                     ${index === links.length - 1 ? 'rounded-b-2xl' : ''}
                                 `}
                                 onClick={() => onClickLink(link)}
+                                onKeyDown={(e) => {
+                                    if (e.target !== e.currentTarget) return;
+                                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClickLink(link); }
+                                }}
+                                role="link"
+                                tabIndex={0}
+                                title={link.url}
                             >
                                 <span className="text-sm text-slate-400 flex-1 truncate">
                                     {link.title}
@@ -189,15 +201,17 @@ const SiteCard: React.FC<SiteCardProps> = ({
                                 )}
 
                                 {/* Link actions */}
-                                <div className="flex items-center gap-1 opacity-0 group-hover/link:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-1 md:opacity-0 md:group-hover/link:opacity-100 md:group-focus-within/link:opacity-100 transition-opacity">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onEditLink(link); }}
+                                        aria-label={`Editar link ${link.title}`}
                                         className="p-1 text-slate-400 hover:text-white hover:bg-slate-600 rounded transition-colors"
                                     >
                                         <Edit2 size={12} />
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onDeleteLink(link.id); }}
+                                        aria-label={`Excluir link ${link.title}`}
                                         className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-600 rounded transition-colors"
                                     >
                                         <Trash2 size={12} />

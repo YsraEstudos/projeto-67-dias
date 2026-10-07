@@ -114,7 +114,8 @@ export const useSitesStore = create<SitesState>()((set, get) => ({
     },
 
     _hydrateFromFirestore: (data) => {
-        if (data?.sites && data.sites.length > 0) {
+        // An empty array from Firestore is valid state (e.g. all sites deleted on another device)
+        if (data && Array.isArray(data.sites)) {
             set({
                 sites: deduplicateById(data.sites),
                 isLoading: false,

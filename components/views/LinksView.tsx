@@ -5,9 +5,11 @@ import {
 import SiteCard from '../links/SiteCard';
 import { LinkItem, SiteCategory, Site } from '../../types';
 import { useLinks, useLinkActions } from '../../stores/linksStore';
-import { usePromptsStore, useSiteCategories, useIsSiteCategoriesLoading, useSiteCategoryActions, useSites, useSiteActions, useSiteFolders } from '../../stores';
+import { usePromptsStore, useSiteCategories, useIsSiteCategoriesLoading, useSiteCategoryActions, useSites, useSiteActions, useSiteFolders, useSiteFolderActions } from '../../stores';
 import { PromptPreviewModal } from '../skills/PromptPreviewModal';
 import { siteIcons } from '../links/constants';
+import { normalizeExternalUrl, getUrlHostname } from '../links/urlNormalization';
+import { siteMatchesQuery, groupLinksBySite } from '../links/siteSearch';
 
 // Lazy load Components
 const PromptsTab = React.lazy(() => import('../prompts/PromptsTab'));
@@ -16,19 +18,15 @@ const SiteModal = React.lazy(() => import('../links/SiteModal'));
 const SiteCategoryModal = React.lazy(() => import('../links/SiteCategoryModal'));
 const ConversasTab = React.lazy(() => import('../conversas/ConversasTab'));
 
-const formatUrl = (url: string) => {
-   if (!url) return '';
-   if (!/^https?:\/\//i.test(url)) {
-      return `https://${url}`;
-   }
-   return url;
-};
+const formatUrl = (url: string) => normalizeExternalUrl(url);
+
+const EMPTY_LINKS: LinkItem[] = [];
 
 const LinksView: React.FC = () => {
    // --- STATE ---
    // Zustand stores (Atomic Selectors)
    const links = useLinks();
-   const { addLink, updateLink, deleteLink: removeLink, incrementClickCount, reorderLinks } = useLinkActions();
+   const { addLink, updateLink, deleteLink: removeLink, incrementClickCount, setLinks } = useLinkActions();
    const { prompts, categories: promptCategories } = usePromptsStore();
 
    const siteCategories = useSiteCategories();
@@ -36,8 +34,9 @@ const LinksView: React.FC = () => {
    const { addCategory: addSiteCategory, updateCategory: updateSiteCategory, deleteCategory: deleteSiteCategory, getCategoryPath } = useSiteCategoryActions();
 
    const sites = useSites();
-   const { addSite, updateSite, deleteSite, reorderSites } = useSiteActions();
+   const { addSite, updateSite, deleteSite, reorderSites, setSites } = useSiteActions();
    const folders = useSiteFolders();
+   const { setFolders } = useSiteFolderActions();
 
    const [activeMainTab, setActiveMainTab] = useState<'links' | 'prompts' | 'conversas'>('links');
    const [activeTab, setActiveTab] = useState('personal');
@@ -69,7 +68,7 @@ const LinksView: React.FC = () => {
    // Links Handlers
    const handleSaveLink = useCallback((data: Partial<LinkItem>) => {
       if (editingLink) {
-         updateLink(editingLink.id, data);
+         updateLink(editingLink.id, data.url !== undefined ? { ...data, url: formatUrl(data.url) } : data);
       } else {
          // If in 'all' view, use the first category (Personal/Meus Sites) as default if no site selected
          const targetCategory = activeTab === 'all' ? (siteCategories[0]?.id || 'personal') : activeTab;
@@ -77,19 +76,21 @@ const LinksView: React.FC = () => {
          // If siteId is provided in data (selected in modal), use it.
          // Otherwise, if we started adding from a site card (linkDefaultSiteId), use that.
 
+         const targetSiteId = data.siteId || linkDefaultSiteId || '';
          const newLink: LinkItem = {
             id: Date.now().toString(),
-            title: data.title || 'Novo Link',
-            url: formatUrl(data.url || ''),
             categoryId: targetCategory, // Legacy support
-            siteId: data.siteId || linkDefaultSiteId || '',
-            folderId: data.folderId || null,
-            clickCount: 0,
-            order: data.siteId
-               ? links.filter(l => l.siteId === data.siteId).length // Add to end of site
-               : links.filter(l => !l.siteId && l.categoryId === targetCategory).length, // Add to end of category orphans
+            folderId: null,
             promptIds: [],
-            ...data
+            ...data,
+            // Normalized fields must win over raw modal data
+            title: data.title?.trim() || 'Novo Link',
+            url: formatUrl(data.url || ''),
+            siteId: targetSiteId,
+            clickCount: 0,
+            order: targetSiteId
+               ? links.filter(l => l.siteId === targetSiteId).length // Add to end of site
+               : links.filter(l => !l.siteId && l.categoryId === targetCategory).length, // Add to end of category orphans
          } as LinkItem;
          addLink(newLink);
       }
@@ -105,8 +106,10 @@ const LinksView: React.FC = () => {
    }, [removeLink]);
 
    const handleClickLink = useCallback((link: LinkItem) => {
+      const url = formatUrl(link.url);
+      if (!url) return;
       incrementClickCount(link.id);
-      window.open(link.url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
    }, [incrementClickCount]);
 
    const handleEditLink = useCallback((link: LinkItem) => {
@@ -139,17 +142,19 @@ const LinksView: React.FC = () => {
 
       // Add any new links created within the site modal
       if (newLinks && newLinks.length > 0) {
+         // Append after the links the site already has
+         const existingCount = links.filter(l => l.siteId === siteId).length;
          newLinks.forEach((linkData, index) => {
             const newLink: LinkItem = {
+               promptIds: [],
+               ...linkData,
                id: Date.now().toString() + index, // Ensure unique IDs
                title: linkData.title || 'Novo Link',
                url: formatUrl(linkData.url || ''),
                siteId: siteId!,
                categoryId: siteData.categoryId || activeTab,
                clickCount: 0,
-               order: index, // Start orders from 0 for these new links
-               promptIds: [],
-               ...linkData
+               order: existingCount + index,
             } as LinkItem;
             addLink(newLink);
          });
@@ -157,18 +162,33 @@ const LinksView: React.FC = () => {
 
       setIsSiteModalOpen(false);
       setEditingSite(null);
-   }, [editingSite, activeTab, sites, addSite, updateSite, addLink]);
+   }, [editingSite, activeTab, sites, links, addSite, updateSite, addLink]);
 
    const handleDeleteSite = useCallback((siteId: string) => {
-      if (confirm("Tem certeza que deseja excluir este site? Todos os links dentro dele serão movidos para 'Sem Site'.")) {
+      const site = sites.find(s => s.id === siteId);
+      const siteLinkCount = links.filter(l => l.siteId === siteId).length;
+      const linksWarning = siteLinkCount > 0
+         ? ` ${siteLinkCount === 1 ? 'O link dentro dele também será excluído.' : `Os ${siteLinkCount} links dentro dele também serão excluídos.`}`
+         : '';
+      if (confirm(`Excluir o site "${site?.name ?? ''}"?${linksWarning}`)) {
          deleteSite(siteId);
-         // NOTE: Ideally we should update links to remove siteId, but for now they will become orphans
-         // which is handled by the store or UI automatically if they just have empty siteId key?
-         // Actually, if we delete the site, the links still reference it. 
-         // Implementation detail: we should probably update links here, but for now user can delete them manually
-         // or they will just disappear from site view and appear in generic list if we filter right.
+         // Remove links and folders that belonged to the site; otherwise they become invisible orphans
+         if (siteLinkCount > 0) setLinks(links.filter(l => l.siteId !== siteId));
+         if (folders.some(f => f.siteId === siteId)) setFolders(folders.filter(f => f.siteId !== siteId));
       }
-   }, [deleteSite]);
+   }, [sites, links, folders, deleteSite, setLinks, setFolders]);
+
+   const handleDeleteSiteCategory = useCallback((category: SiteCategory) => {
+      const fallbackCategoryId = category.parentId ?? (siteCategories.find(c => c.isDefault)?.id || 'personal');
+      const fallbackName = siteCategories.find(c => c.id === fallbackCategoryId)?.name ?? 'Meus Sites';
+      if (!confirm(`Excluir categoria "${category.name}"? Os sites e subcategorias dela serão movidos para "${fallbackName}".`)) return;
+      if (sites.some(s => s.categoryId === category.id)) {
+         setSites(sites.map(s => s.categoryId === category.id ? { ...s, categoryId: fallbackCategoryId, updatedAt: Date.now() } : s));
+      }
+      deleteSiteCategory(category.id);
+      if (activeTab === category.id) setActiveTab(fallbackCategoryId);
+      setCategoryMenuOpen(null);
+   }, [siteCategories, sites, setSites, deleteSiteCategory, activeTab]);
 
    const handleEditSite = useCallback((site: Site) => {
       setEditingSite(site);
@@ -234,12 +254,8 @@ const LinksView: React.FC = () => {
 
    // Helpers
    const getFavicon = useCallback((url: string) => {
-      try {
-         const domain = new URL(url).hostname;
-         return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-      } catch {
-         return '';
-      }
+      const domain = getUrlHostname(url);
+      return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : '';
    }, []);
 
    const getPromptById = (promptId: string) => prompts.find(p => p.id === promptId);
@@ -263,26 +279,16 @@ const LinksView: React.FC = () => {
 
    // --- FILTERING & DATA PREP ---
 
-   // 1. Filter Sites
+   // Links grouped by site (stable arrays keep SiteCard memoization effective)
+   const linksBySite = useMemo(() => groupLinksBySite(links), [links]);
+
+   // 1. Filter Sites (search matches site name/description and its links' titles/URLs)
    const filteredSites = useMemo(() => {
-      if (activeTab === 'all') {
-         return sites
-            .filter(s =>
-               searchQuery
-                  ? s.name.toLowerCase().includes(searchQuery.toLowerCase())
-                  : true
-            )
-            .sort((a, b) => a.order - b.order);
-      }
       return sites
-         .filter(s => s.categoryId === activeTab)
-         .filter(s =>
-            searchQuery
-               ? s.name.toLowerCase().includes(searchQuery.toLowerCase())
-               : true
-         )
+         .filter(s => activeTab === 'all' || s.categoryId === activeTab)
+         .filter(s => siteMatchesQuery(s, linksBySite.get(s.id) ?? EMPTY_LINKS, searchQuery))
          .sort((a, b) => a.order - b.order);
-   }, [sites, activeTab, searchQuery]);
+   }, [sites, activeTab, searchQuery, linksBySite]);
 
 
 
@@ -293,11 +299,7 @@ const LinksView: React.FC = () => {
    const rootCategories = siteCategories.filter(c => c.parentId === null);
 
    // Simple helper to get links for a site (for SiteCard)
-   const getLinksForSite = (siteId: string) => {
-      return links
-         .filter(l => l.siteId === siteId)
-         .sort((a, b) => a.order - b.order);
-   };
+   const getLinksForSite = (siteId: string) => linksBySite.get(siteId) ?? EMPTY_LINKS;
 
    // Loading State
    if (isSiteCategoriesLoading) {
@@ -472,7 +474,7 @@ const LinksView: React.FC = () => {
                                     <Edit2 size={14} /> Editar
                                  </button>
                                  <button
-                                    onClick={() => { if (confirm(`Excluir categoria "${cat.name}"?`)) { deleteSiteCategory(cat.id); setCategoryMenuOpen(null); } }}
+                                    onClick={() => handleDeleteSiteCategory(cat)}
                                     className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2"
                                  >
                                     <Trash2 size={14} /> Excluir
@@ -553,7 +555,7 @@ const LinksView: React.FC = () => {
                   {filteredSites.length === 0 && (
                      <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/20 text-slate-500">
                         <Globe size={48} className="mb-4 opacity-50" />
-                        <p>Nenhum site encontrado nesta categoria.</p>
+                        <p>{searchQuery.trim() ? `Nenhum site ou link encontrado para "${searchQuery.trim()}".` : 'Nenhum site encontrado nesta categoria.'}</p>
                         <button
                            onClick={() => { setEditingSite(null); setIsSiteModalOpen(true); }}
                            className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"

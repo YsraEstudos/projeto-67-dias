@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ArrowRightLeft, RefreshCw } from 'lucide-react';
 
 import { CURRENCIES, FALLBACK_RATES } from './constants';
@@ -9,6 +9,10 @@ const useCurrencyRates = (fromCur: string, toCur: string, amount: string) => {
     const [lastUpdate, setLastUpdate] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
     const [usingFallback, setUsingFallback] = useState(false);
+    // Incremented per request so a slow, older response can't overwrite a newer result
+    const requestIdRef = useRef(0);
+
+    useEffect(() => () => { requestIdRef.current++; }, []); // ignore in-flight responses after unmount
 
     const calculateWithFallback = useCallback((amountVal: number, from: string, to: string) => {
         const fromRate = FALLBACK_RATES[from] || 0;
@@ -24,8 +28,12 @@ const useCurrencyRates = (fromCur: string, toCur: string, amount: string) => {
     }, []);
 
     const fetchRates = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
+        const isStale = () => requestId !== requestIdRef.current;
+
         if (!amount || isNaN(parseFloat(amount))) {
             setResult(null);
+            setLoading(false);
             return;
         }
 
@@ -33,22 +41,21 @@ const useCurrencyRates = (fromCur: string, toCur: string, amount: string) => {
         setError(null);
         setUsingFallback(false);
 
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+        try {
             const response = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL', {
                 signal: controller.signal,
                 headers: { 'Accept': 'application/json' }
             });
-
-            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 throw new Error(`Erro HTTP: ${response.status}`);
             }
 
             const data = await response.json();
+            if (isStale()) return;
 
             const getBRLValue = (code: string): number => {
                 if (code === 'BRL') return 1;
@@ -72,6 +79,7 @@ const useCurrencyRates = (fromCur: string, toCur: string, amount: string) => {
                 throw new Error('Taxa não encontrada na resposta');
             }
         } catch (err) {
+            if (isStale()) return;
             console.warn('API indisponível, usando taxas de fallback:', err);
             const val = parseFloat(amount);
             const fallbackResult = calculateWithFallback(val, fromCur, toCur);
@@ -86,7 +94,8 @@ const useCurrencyRates = (fromCur: string, toCur: string, amount: string) => {
                 setResult(null);
             }
         } finally {
-            setLoading(false);
+            clearTimeout(timeoutId);
+            if (!isStale()) setLoading(false);
         }
     }, [fromCur, toCur, amount, calculateWithFallback]);
 
@@ -94,6 +103,12 @@ const useCurrencyRates = (fromCur: string, toCur: string, amount: string) => {
         const timeoutId = setTimeout(() => {
             if (amount && parseFloat(amount) > 0) {
                 fetchRates();
+            } else {
+                // Invalidate in-flight requests and clear the stale result for empty/zero amounts
+                requestIdRef.current++;
+                setResult(null);
+                setError(null);
+                setLoading(false);
             }
         }, 300);
 
@@ -141,7 +156,7 @@ export const CurrencyConverterTool: React.FC = () => {
                             </select>
                         </div>
 
-                        <button onClick={handleSwapCurrencies} className="p-2.5 mb-[2px] rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                        <button onClick={handleSwapCurrencies} aria-label="Inverter moedas" title="Inverter moedas" className="p-2.5 mb-[2px] rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
                             <ArrowRightLeft size={18} />
                         </button>
 
@@ -167,11 +182,11 @@ export const CurrencyConverterTool: React.FC = () => {
                             <div className="text-xl font-bold text-red-400">{error}</div>
                         ) : (
                             <>
-                                <div className="text-4xl font-bold text-white tracking-tight">{result} <span className="text-lg text-indigo-300">{toCur}</span></div>
+                                <div className="text-4xl font-bold text-white tracking-tight">{result ?? '—'} <span className="text-lg text-indigo-300">{toCur}</span></div>
                                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500">
                                     {usingFallback && <span className="text-amber-500 font-bold px-2 py-0.5 rounded-full bg-amber-500/10">Estimado</span>}
                                     <span>Atualizado: {lastUpdate}</span>
-                                    <button onClick={fetchRates} className="p-1 hover:text-white hover:bg-slate-800 rounded">
+                                    <button onClick={fetchRates} aria-label="Atualizar cotação" title="Atualizar cotação" className="p-1 hover:text-white hover:bg-slate-800 rounded">
                                         <RefreshCw size={12} />
                                     </button>
                                 </div>

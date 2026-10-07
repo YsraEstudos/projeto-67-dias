@@ -124,7 +124,8 @@ export const useSiteFoldersStore = create<SiteFoldersState>()((set, get) => ({
     },
 
     _hydrateFromFirestore: (data) => {
-        if (data?.folders && data.folders.length > 0) {
+        // An empty array from Firestore is valid state (e.g. all folders deleted on another device)
+        if (data && Array.isArray(data.folders)) {
             set({
                 folders: deduplicateById(data.folders),
                 isLoading: false,

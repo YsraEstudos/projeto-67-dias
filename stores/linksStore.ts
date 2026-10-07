@@ -77,7 +77,7 @@ export const useLinksStore = create<LinksState>()((set, get) => ({
     incrementClickCount: (id) => {
         set((state) => ({
             links: state.links.map(l =>
-                l.id === id ? { ...l, clickCount: l.clickCount + 1, lastClicked: Date.now() } : l
+                l.id === id ? { ...l, clickCount: (l.clickCount || 0) + 1, lastClicked: Date.now() } : l
             )
         }));
         get()._syncToFirestore();

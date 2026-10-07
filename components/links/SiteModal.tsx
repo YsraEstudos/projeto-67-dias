@@ -3,6 +3,7 @@ import { X, Globe, Plus, Trash2, GripVertical, ExternalLink, Sparkles } from 'lu
 import { Site, SiteCategory, LinkItem, Prompt, PromptCategory } from '../../types';
 import { siteIcons, siteColorClasses } from './constants';
 import MultiPromptSelector from './MultiPromptSelector';
+import { normalizeExternalUrl, getUrlHostname } from './urlNormalization';
 
 interface SiteModalProps {
     site: Site | null; // null = new site
@@ -82,7 +83,7 @@ const SiteModal: React.FC<SiteModalProps> = ({
     // Add a new link input
     const addLinkInput = () => {
         setNewLinks([...newLinks, {
-            id: `new_${Date.now()}`,
+            id: `new_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             title: '',
             url: ''
         }]);
@@ -104,12 +105,10 @@ const SiteModal: React.FC<SiteModalProps> = ({
     const handleUrlBlur = (id: string, url: string) => {
         const link = newLinks.find(l => l.id === id);
         if (link && !link.title && url) {
-            try {
-                const hostname = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
+            const hostname = getUrlHostname(url);
+            if (hostname) {
                 const title = hostname.replace(/^www\./, '').split('.')[0];
                 updateLinkInput(id, 'title', title.charAt(0).toUpperCase() + title.slice(1));
-            } catch {
-                // Invalid URL, ignore
             }
         }
     };
@@ -138,10 +137,10 @@ const SiteModal: React.FC<SiteModalProps> = ({
 
         // Filter valid new links
         const validNewLinks = newLinks
-            .filter(l => l.url.trim())
+            .filter(l => normalizeExternalUrl(l.url) !== '')
             .map(l => ({
                 title: l.title.trim() || 'Link sem título',
-                url: l.url.trim().startsWith('http') ? l.url.trim() : `https://${l.url.trim()}`,
+                url: normalizeExternalUrl(l.url),
                 siteId: siteData.id,
                 order: 0,
                 clickCount: 0,

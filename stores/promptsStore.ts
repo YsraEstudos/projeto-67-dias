@@ -86,7 +86,7 @@ export const usePromptsStore = create<PromptsState>()((set, get) => ({
     incrementCopyCount: (id) => {
         set((state) => ({
             prompts: state.prompts.map(p =>
-                p.id === id ? { ...p, copyCount: p.copyCount + 1 } : p
+                p.id === id ? { ...p, copyCount: (p.copyCount || 0) + 1 } : p
             )
         }));
         get()._syncToFirestore();

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, Suspense, useCallback } from 'react';
+import React, { useState, useMemo, Suspense, useCallback, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   DndContext,
@@ -63,6 +63,19 @@ const PromptsTab: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | 'all' | 'favorites'>('all');
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear the "copied" feedback timer on unmount
+  useEffect(() => () => {
+    if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+  }, []);
+
+  // Restart the feedback timer so a previous copy can't clear a newer one early
+  const markCopied = (id: string) => {
+    setCopiedId(id);
+    if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+    copiedTimeoutRef.current = setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -160,9 +173,8 @@ const PromptsTab: React.FC = () => {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      setCopiedId(prompt.id);
+      markCopied(prompt.id);
       incrementCopyCount(prompt.id);
-      setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
       // Try fallback on error
@@ -177,9 +189,8 @@ const PromptsTab: React.FC = () => {
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        setCopiedId(prompt.id);
+        markCopied(prompt.id);
         incrementCopyCount(prompt.id);
-        setTimeout(() => setCopiedId(null), 2000);
       } catch (fallbackErr) {
         console.error('Fallback copy also failed:', fallbackErr);
       }
@@ -364,7 +375,7 @@ const PromptsTab: React.FC = () => {
                 <Sparkles size={48} className="text-slate-600 mb-4" />
                 <p className="text-slate-500">Nenhum prompt encontrado.</p>
                 <button
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => { setEditingPrompt(null); setIsModalOpen(true); }}
                   className="mt-3 text-purple-400 hover:underline text-sm"
                 >
                   Criar primeiro prompt
@@ -472,6 +483,7 @@ const PromptsTab: React.FC = () => {
           <PromptModal
             prompt={editingPrompt}
             categories={categories}
+            defaultCategoryId={selectedCategory !== 'all' && selectedCategory !== 'favorites' ? selectedCategory : undefined}
             onClose={() => { setIsModalOpen(false); setEditingPrompt(null); }}
             onSave={handleSave}
           />

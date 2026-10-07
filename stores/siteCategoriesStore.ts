@@ -88,7 +88,13 @@ export const useSiteCategoriesStore = create<SiteCategoriesState>()((set, get) =
             console.warn('Cannot delete default category');
             return;
         }
-        set((state) => ({ categories: state.categories.filter(c => c.id !== id) }));
+        // Re-parent direct children to the deleted category's parent so they don't become unreachable orphans
+        const newParentId = category?.parentId ?? null;
+        set((state) => ({
+            categories: state.categories
+                .filter(c => c.id !== id)
+                .map(c => c.parentId === id ? { ...c, parentId: newParentId } : c)
+        }));
         get()._syncToFirestore();
     },
 

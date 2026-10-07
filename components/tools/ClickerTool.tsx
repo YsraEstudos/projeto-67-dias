@@ -7,19 +7,21 @@ export const ClickerTool: React.FC = () => {
     return (
         <div className="max-w-sm mx-auto animate-in zoom-in-95 duration-300">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl">
-                <div className="text-8xl font-black text-white mb-8 tracking-tighter tabular-nums text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
+                <div aria-live="polite" className="text-8xl font-black text-white mb-8 tracking-tighter tabular-nums text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
                     {count}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <button
                         onClick={() => setCount(prev => Math.max(0, prev - 1))}
+                        aria-label="Diminuir contador"
                         className="h-20 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-all active:scale-95"
                     >
                         <Minus size={32} />
                     </button>
                     <button
                         onClick={() => setCount(prev => prev + 1)}
+                        aria-label="Aumentar contador"
                         className="h-20 rounded-2xl bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 flex items-center justify-center text-white transition-all active:scale-95"
                     >
                         <Plus size={32} />

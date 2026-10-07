@@ -109,6 +109,8 @@ export const FocusMixer: React.FC = () => {
                                 {/* Icon Wrapper */}
                                 <button
                                     onClick={() => toggleSound(sound.id)}
+                                    aria-label={`${isPlaying ? 'Pausar' : 'Tocar'} ${sound.label}`}
+                                    aria-pressed={!!isPlaying}
                                     className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${isPlaying ? 'bg-white text-slate-900 scale-110 shadow-xl' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
                                 >
                                     <sound.icon size={28} className={isPlaying ? 'animate-pulse' : ''} />
@@ -121,7 +123,7 @@ export const FocusMixer: React.FC = () => {
 
                                 {/* Volume Slider */}
                                 <div className="w-full flex items-center gap-2 mt-2">
-                                    <button onClick={() => toggleSound(sound.id)} className="text-xs text-slate-500 hover:text-white">
+                                    <button onClick={() => toggleSound(sound.id)} aria-label={`${isPlaying ? 'Silenciar' : 'Ativar'} ${sound.label}`} className="text-xs text-slate-500 hover:text-white">
                                         {volume === 0 || !isPlaying ? <VolumeX size={14} /> : <Volume2 size={14} />}
                                     </button>
                                     <input
@@ -130,6 +132,7 @@ export const FocusMixer: React.FC = () => {
                                         max="1"
                                         step="0.01"
                                         value={volume}
+                                        aria-label={`Volume de ${sound.label}`}
                                         onChange={(e) => handleVolumeChange(sound.id, parseFloat(e.target.value))}
                                         className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                                     />

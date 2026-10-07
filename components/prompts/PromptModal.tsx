@@ -10,15 +10,25 @@ import { htmlToMarkdown, wrapSelection, insertLink, autoPair, insertAtCursor } f
 interface PromptModalProps {
     prompt: Prompt | null;
     categories: PromptCategory[];
+    /** Category pre-selected for new prompts (e.g. the category filter currently open). */
+    defaultCategoryId?: string;
     onClose: () => void;
     onSave: (data: Partial<Prompt>) => void;
 }
 
-const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, onSave }) => {
+const resolveInitialCategory = (prompt: Prompt | null, categories: PromptCategory[], defaultCategoryId?: string): string => {
+    if (prompt?.category) return prompt.category;
+    if (defaultCategoryId && categories.some(c => c.id === defaultCategoryId)) return defaultCategoryId;
+    if (categories.some(c => c.id === 'geral')) return 'geral';
+    return categories[0]?.id || 'geral';
+};
+
+const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, defaultCategoryId, onClose, onSave }) => {
+    const [initialCategory] = useState(() => resolveInitialCategory(prompt, categories, defaultCategoryId));
     const [formData, setFormData] = useState({
         title: prompt?.title || '',
         content: prompt?.content || '',
-        category: prompt?.category || 'geral',
+        category: initialCategory,
         images: prompt?.images || [] as PromptImage[],
     });
 
@@ -49,7 +59,7 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
     const initialValues = useMemo(() => ({
         title: prompt?.title || '',
         content: prompt?.content || '',
-        category: prompt?.category || 'geral',
+        category: initialCategory,
         images: prompt?.images || [],
     }), []);
 
@@ -291,6 +301,7 @@ const PromptModal: React.FC<PromptModalProps> = ({ prompt, categories, onClose, 
                                             key={cat.id}
                                             type="button"
                                             onClick={() => setFormData({ ...formData, category: cat.id })}
+                                            aria-pressed={formData.category === cat.id}
                                             className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${formData.category === cat.id
                                                 ? `${colors.bg} ${colors.text} border-2 ${colors.border}`
                                                 : 'bg-slate-900 text-slate-400 border border-slate-700 hover:border-slate-600'
