@@ -1,6 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Play, Pause, StopCircle, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Play, Pause, RotateCcw } from 'lucide-react';
 import { useSundayTimerStore, getTimeRemaining } from '../../stores/sundayTimerStore';
+
+const formatTime = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
 
 /**
  * SundayTimer - Timer de sessão para o módulo Ajeitar Rápido.
@@ -14,13 +22,15 @@ export const SundayTimer: React.FC = () => {
     const resume = useSundayTimerStore((state) => state.resume);
     const reset = useSundayTimerStore((state) => state.reset);
 
-    const [display, setDisplay] = useState('02:30:00');
+    const [display, setDisplay] = useState(() => formatTime(getTimeRemaining(timer)));
 
-    // Update display every second when running
+    // Update display every second when running; auto-finish when time runs out
     useEffect(() => {
         const update = () => {
-            const remaining = getTimeRemaining(timer);
-            setDisplay(formatTime(remaining));
+            setDisplay(formatTime(getTimeRemaining(timer)));
+            if (timer.status === 'RUNNING') {
+                useSundayTimerStore.getState().finishIfExpired();
+            }
         };
 
         update();
@@ -30,25 +40,6 @@ export const SundayTimer: React.FC = () => {
             return () => clearInterval(interval);
         }
     }, [timer]);
-
-    // Auto-finish when time runs out
-    useEffect(() => {
-        if (timer.status === 'RUNNING') {
-            const remaining = getTimeRemaining(timer);
-            if (remaining <= 0) {
-                // TODO: Play notification sound
-                useSundayTimerStore.getState().stop();
-            }
-        }
-    }, [timer.status, display]);
-
-    const formatTime = useCallback((ms: number): string => {
-        const totalSec = Math.floor(ms / 1000);
-        const h = Math.floor(totalSec / 3600);
-        const m = Math.floor((totalSec % 3600) / 60);
-        const s = totalSec % 60;
-        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }, []);
 
     const handleToggle = useCallback(() => {
         if (timer.status === 'IDLE' || timer.status === 'FINISHED') {
@@ -62,6 +53,7 @@ export const SundayTimer: React.FC = () => {
 
     const isActive = timer.status === 'RUNNING' || timer.status === 'PAUSED';
     const isRunning = timer.status === 'RUNNING';
+    const isFinished = timer.status === 'FINISHED';
 
     return (
         <div className="flex flex-col items-center">
@@ -74,15 +66,16 @@ export const SundayTimer: React.FC = () => {
             <div className="flex gap-3">
                 <button
                     onClick={handleToggle}
+                    aria-label={isRunning ? 'Pausar sessão' : timer.status === 'PAUSED' ? 'Retomar sessão' : 'Iniciar sessão'}
                     className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors ${isRunning
                         ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                         : 'bg-pink-600 hover:bg-pink-500 text-white'
                         }`}
                 >
                     {isRunning ? <Pause size={16} /> : <Play size={16} />}
-                    {isRunning ? 'Pausar' : timer.status === 'PAUSED' ? 'Retomar' : 'Iniciar Sessão'}
+                    {isRunning ? 'Pausar' : timer.status === 'PAUSED' ? 'Retomar' : isFinished ? 'Nova Sessão' : 'Iniciar Sessão'}
                 </button>
-                {isActive && (
+                {(isActive || isFinished) && (
                     <button
                         onClick={reset}
                         className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-colors"
@@ -93,7 +86,11 @@ export const SundayTimer: React.FC = () => {
                     </button>
                 )}
             </div>
-
+            {isFinished && (
+                <p className="mt-2 text-xs font-semibold text-emerald-400" role="status">
+                    Sessão concluída! Bom trabalho.
+                </p>
+            )}
         </div>
     );
 };

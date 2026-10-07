@@ -247,13 +247,16 @@ export const useRestStore = create<RestState>()(immer((set, get) => ({
             const thirtyDaysAgo = addDaysToDate(new Date(), -30);
             const thresholdDate = formatDateISO(thirtyDaysAgo);
             activities = activities.filter(a => {
-                if (a.type !== 'ONCE') return true;
-                return (a.specificDate || '') >= thresholdDate;
+                // ONCE activities without a date are kept (never silently delete undated data)
+                if (a.type !== 'ONCE' || !a.specificDate) return true;
+                return a.specificDate >= thresholdDate;
             });
+            const existingIds = new Set(activities.map(a => a.id));
 
             set((state) => {
                 state.activities = activities;
-                state.nextTwoHoursIds = [...new Set(data.nextTwoHoursIds || [])];
+                // Drop focus slots pointing to activities that no longer exist
+                state.nextTwoHoursIds = [...new Set(data.nextTwoHoursIds || [])].filter(id => existingIds.has(id));
                 state.isLoading = false;
                 state._initialized = true;
             });

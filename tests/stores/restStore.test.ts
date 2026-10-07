@@ -90,4 +90,29 @@ describe('restStore', () => {
         expect(activityAfter.completedSets).toBe(1);
         expect(activityAfter.isCompleted).toBe(false);
     });
+
+    it('keeps undated ONCE activities on hydrate and drops expired dated ones', () => {
+        useRestStore.getState()._hydrateFromFirestore({
+            activities: [
+                { id: 'undated', title: 'Sem data', isCompleted: false, type: 'ONCE', order: 0 },
+                { id: 'old', title: 'Antiga', isCompleted: false, type: 'ONCE', specificDate: '2000-01-01', order: 1 },
+            ],
+            nextTwoHoursIds: [],
+        });
+
+        const ids = useRestStore.getState().activities.map(a => a.id);
+        expect(ids).toEqual(['undated']);
+    });
+
+    it('drops nextTwoHoursIds that point to missing activities on hydrate', () => {
+        useRestStore.getState()._hydrateFromFirestore({
+            activities: [
+                { id: 'a', title: 'A', isCompleted: false, type: 'DAILY', order: 0 },
+                { id: 'old', title: 'Antiga', isCompleted: false, type: 'ONCE', specificDate: '2000-01-01', order: 1 },
+            ],
+            nextTwoHoursIds: ['a', 'ghost', 'old', 'a'],
+        });
+
+        expect(useRestStore.getState().nextTwoHoursIds).toEqual(['a']);
+    });
 });

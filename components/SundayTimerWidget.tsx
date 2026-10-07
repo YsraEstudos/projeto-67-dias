@@ -53,6 +53,10 @@ export const SundayTimerWidget: React.FC<SundayTimerWidgetProps> = React.memo(({
         const update = () => {
             const remaining = getTimeRemaining(timer);
             setDisplay(formatTime(remaining));
+            // The widget is visible outside the Sunday view, so it must finish the session itself
+            if (timer.status === 'RUNNING' && remaining <= 0) {
+                useSundayTimerStore.getState().finishIfExpired();
+            }
         };
 
         update();
@@ -168,19 +172,22 @@ export const SundayTimerWidget: React.FC<SundayTimerWidgetProps> = React.memo(({
             )}
 
             {/* Main FAB button */}
-            <div className="relative">
+            <div className="relative group">
                 {/* Drag handle */}
                 <button
                     className="absolute -left-2 top-1/2 -translate-y-1/2 p-1.5 bg-slate-800/90 rounded-lg text-slate-400 hover:text-white cursor-grab active:cursor-grabbing md:opacity-0 md:group-hover:opacity-100 hover:opacity-100 transition-opacity z-10"
                     onMouseDown={handleDragStart}
                     onTouchStart={handleDragStart}
                     title="Arrastar para mover"
+                    aria-label="Arrastar para mover"
                 >
                     <GripVertical size={14} />
                 </button>
 
                 <button
                     onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+                    aria-label={`Timer Ajeitar Rápido: ${display}`}
+                    aria-expanded={expanded}
                     className={`
                         relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 hover:scale-110 group
                         ${isRunning

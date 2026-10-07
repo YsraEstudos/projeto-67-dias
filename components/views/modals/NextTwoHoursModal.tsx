@@ -1,7 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Clock, X, Plus, ArrowRight } from 'lucide-react';
 import { useRestStore } from '../../../stores';
 import { RestActivity } from '../../../types';
+import { formatDateISO, parseDate } from '../../../utils/dateUtils';
+
+/** Completion state of an activity on a given date (DAILY/WEEKLY use per-date history). */
+const isCompletedOn = (activity: RestActivity, dateStr: string): boolean => (
+    activity.type === 'ONCE'
+        ? activity.isCompleted
+        : activity.history?.[dateStr] ?? activity.isCompleted
+);
 
 interface NextTwoHoursModalProps {
     activities: RestActivity[];
@@ -13,7 +21,8 @@ interface NextTwoHoursModalProps {
 
 const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selectedDate, onClose, onSave, initialIds }) => {
     // Use Zustand store directly
-    const { addActivity, updateActivity } = useRestStore();
+    const addActivity = useRestStore(state => state.addActivity);
+    const updateActivity = useRestStore(state => state.updateActivity);
     const [slots, setSlots] = useState<(string | null)[]>([
         initialIds[0] || null,
         initialIds[1] || null,
@@ -24,7 +33,16 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
     const [tab, setTab] = useState<'TODAY' | 'FUTURE' | 'NEW'>('TODAY');
     const [newActivityTitle, setNewActivityTitle] = useState('');
 
-    const todayStr = selectedDate.toISOString().split('T')[0];
+    // Local date (toISOString() would shift to UTC and pick the wrong day at night)
+    const todayStr = formatDateISO(selectedDate);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
 
     // Filter available activities for selection
     const availableToday = useMemo(() => {
@@ -35,9 +53,9 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
                 (a.type === 'ONCE' && a.specificDate === todayStr);
             // Must not be already selected in another slot
             const isSelected = slots.includes(a.id);
-            return isToday && !isSelected && !a.isCompleted;
+            return isToday && !isSelected && !isCompletedOn(a, todayStr);
         });
-    }, [activities, selectedDate, slots]);
+    }, [activities, selectedDate, slots, todayStr]);
 
     const availableFuture = useMemo(() => {
         return activities.filter(a => {
@@ -47,9 +65,9 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
                 (a.type === 'ONCE' && a.specificDate === todayStr);
 
             // Simple future check (not exhaustive, just "not today")
-            return !isToday && !a.isCompleted;
+            return !isToday && !isCompletedOn(a, todayStr);
         });
-    }, [activities, selectedDate]);
+    }, [activities, selectedDate, todayStr]);
 
     const handleSelectActivity = (activity: RestActivity, isFuture: boolean) => {
         if (activeSlot === null) return;
@@ -66,7 +84,14 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
                     type: 'ONCE',
                     specificDate: todayStr,
                     daysOfWeek: undefined,
-                    order: activities.length
+                    order: activities.length,
+                    // The clone starts fresh: don't inherit the weekly activity's completion state
+                    isCompleted: false,
+                    completedAt: undefined,
+                    completedSets: activity.series?.length ? 0 : undefined,
+                    series: activity.series?.map(s => ({ ...s, isCompleted: false, completedAt: undefined })),
+                    history: undefined,
+                    seriesHistory: undefined,
                 };
                 addActivity(newActivity);
                 finalId = newActivity.id;
@@ -88,7 +113,7 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
 
         const newActivity: RestActivity = {
             id: Date.now().toString(),
-            title: newActivityTitle,
+            title: newActivityTitle.trim(),
             isCompleted: false,
             type: 'ONCE',
             specificDate: todayStr,
@@ -113,14 +138,14 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Planejar Próximas 2 Horas" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-slate-900 w-full max-w-2xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
                     <h3 className="font-bold text-white text-lg flex items-center gap-2">
                         <Clock className="text-cyan-500" /> Planejar Próximas 2 Horas
                     </h3>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
+                    <button onClick={onClose} aria-label="Fechar" className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
                         <X size={20} />
                     </button>
                 </div>
@@ -150,6 +175,7 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
                                             <span className="text-slate-200 font-medium text-sm line-clamp-2">{activity.title}</span>
                                             <button
                                                 onClick={(e) => handleRemoveSlot(index, e)}
+                                                aria-label={`Remover ${activity.title} do slot ${index + 1}`}
                                                 className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 transition-colors"
                                             >
                                                 <X size={16} />
@@ -221,7 +247,7 @@ const NextTwoHoursModal: React.FC<NextTwoHoursModalProps> = ({ activities, selec
                                                     <div>
                                                         <div className="text-slate-300 text-sm">{act.title}</div>
                                                         <div className="text-xs text-slate-500 mt-0.5">
-                                                            {act.type === 'WEEKLY' ? 'Semanal' : act.specificDate ? new Date(act.specificDate).toLocaleDateString('pt-BR') : 'Futuro'}
+                                                            {act.type === 'WEEKLY' ? 'Semanal' : act.specificDate ? parseDate(act.specificDate).toLocaleDateString('pt-BR') : 'Futuro'}
                                                         </div>
                                                     </div>
                                                     <ArrowRight size={16} className="text-slate-600 group-hover:text-cyan-400" />

@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import RestView from '../../../components/views/RestView';
 import { useRestStore } from '../../../stores';
+import { formatDateISO } from '../../../utils/dateUtils';
 
 
 // Mock useStorage
@@ -143,5 +144,73 @@ describe('RestView - Next 2 Hours Mode', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Série 1' }));
 
         expect(screen.getByText('Séries: 1/3')).toBeInTheDocument();
+    });
+});
+
+describe('RestView - date navigation and progress', () => {
+    beforeEach(() => {
+        const store = useRestStore.getState();
+        store.setActivities([]);
+        store.setNextTwoHoursIds([]);
+    });
+
+    it('shows day progress and a "Voltar para hoje" shortcut after navigating', () => {
+        const today = formatDateISO(new Date());
+        useRestStore.getState().setActivities([
+            { id: 'a', title: 'A', type: 'DAILY', isCompleted: false, order: 0, history: { [today]: true } },
+            { id: 'b', title: 'B', type: 'DAILY', isCompleted: false, order: 1 },
+        ]);
+        render(<RestView />);
+
+        expect(screen.getByTestId('rest-day-progress')).toHaveTextContent('1/2 concluídos');
+        expect(screen.queryByText('Voltar para hoje')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Próximo dia' }));
+        expect(screen.getByTestId('rest-day-progress')).toHaveTextContent('0/2 concluídos');
+
+        fireEvent.click(screen.getByText('Voltar para hoje'));
+        expect(screen.getByTestId('rest-day-progress')).toHaveTextContent('1/2 concluídos');
+        expect(screen.queryByText('Voltar para hoje')).not.toBeInTheDocument();
+    });
+
+    it('hides activities already completed on the selected date from the 2h planner', async () => {
+        const today = formatDateISO(new Date());
+        useRestStore.getState().setActivities([
+            { id: 'done', title: 'Feita hoje', type: 'DAILY', isCompleted: false, order: 0, history: { [today]: true } },
+            { id: 'todo', title: 'Pendente hoje', type: 'DAILY', isCompleted: false, order: 1 },
+        ]);
+        render(<RestView />);
+
+        fireEvent.click(screen.getByRole('button', { name: /Planejar Próximas 2h/i }));
+        await waitFor(() => expect(screen.getAllByText('Selecionar Atividade').length).toBeGreaterThan(0));
+        fireEvent.click(screen.getAllByText('Selecionar Atividade')[0]);
+
+        // Each title appears once in the main list; the pending one also appears in the picker
+        expect(screen.getAllByText('Feita hoje')).toHaveLength(1);
+        expect(screen.getAllByText('Pendente hoje')).toHaveLength(2);
+    });
+
+    it('resets completion state when advancing a weekly activity to today', async () => {
+        const today = new Date();
+        const otherDay = (today.getDay() + 1) % 7;
+        useRestStore.getState().setActivities([
+            {
+                id: 'weekly', title: 'Semanal X', type: 'WEEKLY', daysOfWeek: [otherDay], isCompleted: false, order: 0,
+                history: { '2000-01-01': true },
+            },
+        ]);
+        render(<RestView />);
+
+        fireEvent.click(screen.getByRole('button', { name: /Planejar Próximas 2h/i }));
+        await waitFor(() => expect(screen.getAllByText('Selecionar Atividade').length).toBeGreaterThan(0));
+        fireEvent.click(screen.getAllByText('Selecionar Atividade')[0]);
+        fireEvent.click(screen.getByText('Adiantar (Futuro)'));
+        fireEvent.click(screen.getByText('Semanal X'));
+
+        const clone = useRestStore.getState().activities.find(a => a.id !== 'weekly');
+        expect(clone?.type).toBe('ONCE');
+        expect(clone?.specificDate).toBe(formatDateISO(today));
+        expect(clone?.history).toBeUndefined();
+        expect(clone?.isCompleted).toBe(false);
     });
 });

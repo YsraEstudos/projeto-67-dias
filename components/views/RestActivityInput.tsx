@@ -29,7 +29,7 @@ const RestActivityInput: React.FC<RestActivityInputProps> = ({ selectedDate, onA
         const dateString = formatDateISO(selectedDate);
 
         onAdd({
-            title,
+            title: title.trim(),
             type,
             specificDate: type === 'ONCE' ? dateString : undefined,
             daysOfWeek: type === 'WEEKLY' ? selectedWeekDays : undefined,

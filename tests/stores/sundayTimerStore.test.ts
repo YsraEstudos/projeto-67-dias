@@ -4,7 +4,7 @@
  * Tests verify that timer state syncs properly across devices with reduced debounce
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useSundayTimerStore } from '../../stores/sundayTimerStore';
+import { useSundayTimerStore, getTimeRemaining } from '../../stores/sundayTimerStore';
 import { writeToFirestore, REALTIME_DEBOUNCE_MS } from '../../stores/firestoreSync';
 
 // Mock the firestoreSync module
@@ -180,5 +180,51 @@ describe('SundayTimerStore - Cross-Device Sync', () => {
 
         // Verify sync was blocked by _initialized check
         expect(writeToFirestore).not.toHaveBeenCalled();
+    });
+});
+
+describe('SundayTimerStore - finishIfExpired', () => {
+    const base = {
+        pausedAt: null,
+        accumulated: 0,
+        totalDuration: 60_000,
+        widgetPosition: 'bottom-right' as const,
+    };
+
+    beforeEach(() => {
+        useSundayTimerStore.getState()._reset();
+        vi.clearAllMocks();
+    });
+
+    it('finishes a running timer whose time has run out', () => {
+        useSundayTimerStore.getState()._hydrateFromFirestore({
+            timer: { ...base, status: 'RUNNING', startTime: Date.now() - 61_000 },
+        });
+
+        expect(useSundayTimerStore.getState().finishIfExpired()).toBe(true);
+        const { timer } = useSundayTimerStore.getState();
+        expect(timer.status).toBe('FINISHED');
+        expect(timer.startTime).toBeNull();
+        expect(getTimeRemaining(timer)).toBe(0);
+        expect(writeToFirestore).toHaveBeenCalled();
+
+        // Idempotent
+        expect(useSundayTimerStore.getState().finishIfExpired()).toBe(false);
+    });
+
+    it('does nothing while time remains or when not running', () => {
+        useSundayTimerStore.getState()._hydrateFromFirestore({
+            timer: { ...base, status: 'RUNNING', startTime: Date.now() - 1_000 },
+        });
+        expect(useSundayTimerStore.getState().finishIfExpired()).toBe(false);
+        expect(useSundayTimerStore.getState().timer.status).toBe('RUNNING');
+
+        useSundayTimerStore.getState().pause();
+        expect(useSundayTimerStore.getState().finishIfExpired()).toBe(false);
+        expect(useSundayTimerStore.getState().timer.status).toBe('PAUSED');
+    });
+
+    it('never returns a negative remaining time for a paused timer', () => {
+        expect(getTimeRemaining({ ...base, status: 'PAUSED', startTime: null, accumulated: 120_000 })).toBe(0);
     });
 });

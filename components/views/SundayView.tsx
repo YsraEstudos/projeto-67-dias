@@ -35,7 +35,8 @@ const SundayView: React.FC = () => {
         deleteTask: storeDeleteTask,
         addSubTask: storeAddSubTask,
         toggleSubTaskComplete,
-        deleteSubTask
+        deleteSubTask,
+        startNewWeek
     } = useSundayStore(useShallow((state) => ({
         tasks: state.tasks,
         addTask: state.addTask,
@@ -45,7 +46,8 @@ const SundayView: React.FC = () => {
         deleteTask: state.deleteTask,
         addSubTask: state.addSubTask,
         toggleSubTaskComplete: state.toggleSubTaskComplete,
-        deleteSubTask: state.deleteSubTask
+        deleteSubTask: state.deleteSubTask,
+        startNewWeek: state.startNewWeek
     })));
     const [showArchived, setShowArchived] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -65,7 +67,7 @@ const SundayView: React.FC = () => {
         if (!newTaskTitle.trim()) return;
         const newTask: SundayTask = {
             id: Date.now().toString(),
-            title: newTaskTitle,
+            title: newTaskTitle.trim(),
             subTasks: [],
             isArchived: false,
             createdAt: Date.now()
@@ -95,7 +97,9 @@ const SundayView: React.FC = () => {
     }, [storeDeleteTask]);
 
     const handleAddSubTask = useCallback((taskId: string, title: string) => {
-        storeAddSubTask(taskId, { id: Date.now().toString(), title, isCompleted: false });
+        const trimmed = title.trim();
+        if (!trimmed) return;
+        storeAddSubTask(taskId, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title: trimmed, isCompleted: false });
     }, [storeAddSubTask]);
 
     const handleToggleSubTask = useCallback((taskId: string, subTaskId: string) => {
@@ -106,6 +110,16 @@ const SundayView: React.FC = () => {
         if (!confirm('Remover esta sub-tarefa?')) return;
         deleteSubTask(taskId, subTaskId);
     }, [deleteSubTask]);
+
+    const hasProgressToReset = useMemo(
+        () => tasks.some(t => t.isArchived || t.subTasks.some(s => s.isCompleted)),
+        [tasks]
+    );
+
+    const handleStartNewWeek = useCallback(() => {
+        if (!confirm('Começar nova semana? Tarefas arquivadas voltam para a lista e todas as subtarefas são desmarcadas.')) return;
+        startNewWeek();
+    }, [startNewWeek]);
 
 
     // --- RENDER ---
@@ -182,6 +196,17 @@ const SundayView: React.FC = () => {
                             <Plus size={24} />
                         </button>
                     </div>
+
+                    {hasProgressToReset && (
+                        <div className="flex justify-end -mt-4 mb-4">
+                            <button
+                                onClick={handleStartNewWeek}
+                                className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-pink-400 transition-colors"
+                            >
+                                <RotateCcw size={14} /> Nova semana
+                            </button>
+                        </div>
+                    )}
 
                     {/* ACTIVE TASKS */}
                     <div className="space-y-4">
@@ -260,11 +285,17 @@ const SundayTaskCard: React.FC<SundayTaskCardProps> = React.memo(({ task, onArch
     const [editTitle, setEditTitle] = useState(task.title);
 
     const handleSaveTitle = useCallback(() => {
-        if (editTitle.trim() && editTitle !== task.title) {
+        if (editTitle.trim() && editTitle.trim() !== task.title) {
             onUpdateTitle(task.id, editTitle);
         }
         setIsEditingTitle(false);
     }, [editTitle, task.title, task.id, onUpdateTitle]);
+
+    const startEditingTitle = useCallback(() => {
+        // Start from the current title (it may have changed via sync since mount)
+        setEditTitle(task.title);
+        setIsEditingTitle(true);
+    }, [task.title]);
 
     const handleCancelEdit = useCallback(() => {
         setEditTitle(task.title);
@@ -314,13 +345,13 @@ const SundayTaskCard: React.FC<SundayTaskCardProps> = React.memo(({ task, onArch
                     ) : (
                         <div className="flex items-center gap-2">
                             <h3 
-                                onDoubleClick={() => setIsEditingTitle(true)}
+                                onDoubleClick={startEditingTitle}
                                 className="text-lg font-medium text-slate-200 cursor-text"
                             >
                                 {task.title}
                             </h3>
                             <button 
-                                onClick={() => setIsEditingTitle(true)}
+                                onClick={startEditingTitle}
                                 className="opacity-0 group-hover/title:opacity-100 p-1.5 text-slate-500 hover:text-pink-400 hover:bg-slate-700 rounded-md transition-all focus:opacity-100"
                                 aria-label="Editar título"
                             >

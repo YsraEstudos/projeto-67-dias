@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import RestView from '../../../components/views/RestView';
 import { RestActivity } from '../../../types';
 import { useRestStore } from '../../../stores';
+import { formatDateISO } from '../../../utils/dateUtils';
 
 const mockActivities: RestActivity[] = [
     { id: '1', title: 'Activity 1', isCompleted: false, type: 'DAILY', order: 0, notes: 'Old Note' },
@@ -102,5 +103,77 @@ describe('RestView - Edit Feature', () => {
         expect(updatedActivity?.series).toHaveLength(3);
         expect(updatedActivity?.series?.[0].label).toBe('Série Principal');
         expect(updatedActivity?.totalSets).toBe(3);
+    });
+
+    it('does not leak the selected day completion into the base activity when editing', async () => {
+        const today = formatDateISO(new Date());
+        useRestStore.getState().setActivities([
+            {
+                id: 'daily-1', title: 'Respirar', isCompleted: false, type: 'DAILY', order: 0,
+                history: { [today]: true },
+            },
+        ]);
+
+        render(<RestView />);
+        fireEvent.click(screen.getAllByTitle('Editar')[0]);
+        await waitFor(() => expect(screen.getByText('Editar Atividade')).toBeInTheDocument());
+
+        fireEvent.change(screen.getByPlaceholderText('Ex: Alongamento...'), { target: { value: 'Respirar fundo' } });
+        fireEvent.click(screen.getByText('Salvar Alterações'));
+
+        const updated = useRestStore.getState().activities.find(a => a.id === 'daily-1');
+        expect(updated?.title).toBe('Respirar fundo');
+        expect(updated?.isCompleted).toBe(false);
+        expect(updated?.history?.[today]).toBe(true);
+    });
+
+    it('assigns the selected date when converting a recurring activity to ONCE', async () => {
+        render(<RestView />);
+        fireEvent.click(screen.getAllByTitle('Editar')[0]);
+        await waitFor(() => expect(screen.getByText('Editar Atividade')).toBeInTheDocument());
+
+        fireEvent.click(screen.getByText('HOJE/ÚNICO'));
+        fireEvent.click(screen.getByText('Salvar Alterações'));
+
+        const updated = useRestStore.getState().activities.find(a => a.id === '1');
+        expect(updated?.type).toBe('ONCE');
+        expect(updated?.specificDate).toBe(formatDateISO(new Date()));
+        // Still visible in today's list
+        expect(screen.getByText('Activity 1')).toBeInTheDocument();
+    });
+
+    it('keeps a link in edit mode while typing', async () => {
+        useRestStore.getState().setActivities([
+            {
+                id: 'link-1', title: 'Com link', isCompleted: false, type: 'DAILY', order: 0,
+                links: [{ id: 'l1', label: 'Vídeo', url: 'https://example.com' }],
+            },
+        ]);
+
+        render(<RestView />);
+        fireEvent.click(screen.getAllByTitle('Editar')[0]);
+        await waitFor(() => expect(screen.getByText('Editar Atividade')).toBeInTheDocument());
+
+        // Link edit button lives inside the modal (after the item edit button)
+        const editButtons = screen.getAllByTitle('Editar');
+        fireEvent.click(editButtons[editButtons.length - 1]);
+
+        const labelInput = screen.getByPlaceholderText('Rótulo do link');
+        fireEvent.change(labelInput, { target: { value: 'V' } });
+        fireEvent.change(screen.getByPlaceholderText('Rótulo do link'), { target: { value: 'Vídeo novo' } });
+        fireEvent.click(screen.getByText('Concluir'));
+        fireEvent.click(screen.getByText('Salvar Alterações'));
+
+        const updated = useRestStore.getState().activities.find(a => a.id === 'link-1');
+        expect(updated?.links?.[0].label).toBe('Vídeo novo');
+    });
+
+    it('closes the edit modal with Escape when there are no changes', async () => {
+        render(<RestView />);
+        fireEvent.click(screen.getAllByTitle('Editar')[0]);
+        await waitFor(() => expect(screen.getByText('Editar Atividade')).toBeInTheDocument());
+
+        fireEvent.keyDown(window, { key: 'Escape' });
+        await waitFor(() => expect(screen.queryByText('Editar Atividade')).not.toBeInTheDocument());
     });
 });

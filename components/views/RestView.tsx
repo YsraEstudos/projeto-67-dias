@@ -105,7 +105,10 @@ const RestView: React.FC = () => {
     }, [removeActivity]);
 
     const handleEditActivity = useCallback((activity: RestActivity) => {
-        setEditingActivity(activity);
+        // The list renders a date-projected copy (completion injected from history).
+        // Edit the raw stored activity so saving doesn't leak that day's state into the base fields.
+        const rawActivity = useRestStore.getState().activities.find(a => a.id === activity.id);
+        setEditingActivity(rawActivity ?? activity);
     }, []);
 
     const handleUpdateActivity = useCallback((updatedActivity: RestActivity) => {
@@ -168,12 +171,16 @@ const RestView: React.FC = () => {
         });
     }, []);
 
+    const goToToday = useCallback(() => setSelectedDate(new Date()), []);
+    const isViewingToday = formatDateISO(selectedDate) === formatDateISO(new Date());
+    const completedCount = filteredActivities.filter(a => a.isCompleted).length;
+
     return (
         <div className="h-full flex flex-col max-w-4xl mx-auto animate-in fade-in duration-500 pb-24 relative">
 
             {/* HEADER: Date Selector */}
             <div className="flex items-center justify-between mb-6 bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
-                <button onClick={() => changeDay(-1)} className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
+                <button onClick={() => changeDay(-1)} aria-label="Dia anterior" className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
                     <ChevronLeft size={24} />
                 </button>
 
@@ -189,9 +196,24 @@ const RestView: React.FC = () => {
                             {selectedDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
                         </span>
                     </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs">
+                        {filteredActivities.length > 0 && (
+                            <span className="text-slate-400" data-testid="rest-day-progress">
+                                {completedCount}/{filteredActivities.length} concluídos
+                            </span>
+                        )}
+                        {!isViewingToday && (
+                            <button
+                                onClick={goToToday}
+                                className="text-cyan-400 hover:text-cyan-300 font-semibold underline-offset-2 hover:underline"
+                            >
+                                Voltar para hoje
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <button onClick={() => changeDay(1)} className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
+                <button onClick={() => changeDay(1)} aria-label="Próximo dia" className="p-3 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
                     <ChevronRight size={24} />
                 </button>
             </div>
@@ -224,6 +246,7 @@ const RestView: React.FC = () => {
                                 </span>
                                 <button
                                     onClick={() => toggleComplete(activity.id)}
+                                    aria-label={activity.isCompleted ? `Desmarcar ${activity.title}` : `Concluir ${activity.title}`}
                                     className={`transition-colors ${activity.isCompleted ? 'text-cyan-500' : 'text-slate-600 hover:text-cyan-400'}`}
                                 >
                                     {activity.isCompleted ? <CheckCircle2 size={20} /> : <Circle size={20} />}
@@ -269,7 +292,7 @@ const RestView: React.FC = () => {
                 {filteredActivities.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/20">
                         <Calendar size={48} className="text-slate-700 mb-4" />
-                        <div className="text-slate-500 font-medium">Nenhum descanso planejado para hoje.</div>
+                        <div className="text-slate-500 font-medium">Nenhum descanso planejado para {isViewingToday ? 'hoje' : 'este dia'}.</div>
                         <div className="text-sm text-slate-600 mt-1">Use o botão acima para adicionar descansos.</div>
                     </div>
                 ) : (
@@ -294,6 +317,7 @@ const RestView: React.FC = () => {
                 {editingActivity && (
                     <EditRestActivityModal
                         activity={editingActivity}
+                        fallbackDate={formatDateISO(selectedDate)}
                         onClose={() => setEditingActivity(null)}
                         onSave={handleUpdateActivity}
                     />

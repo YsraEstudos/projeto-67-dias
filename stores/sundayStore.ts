@@ -28,6 +28,8 @@ interface SundayState {
     deleteTask: (id: string) => void;
     archiveTask: (id: string) => void;
     restoreTask: (id: string) => void;
+    /** Starts a new week: restores archived tasks and unchecks every subtask. */
+    startNewWeek: () => void;
 
     // SubTask Actions
     addSubTask: (taskId: string, subTask: SundaySubTask) => void;
@@ -79,6 +81,17 @@ export const useSundayStore = create<SundayState>()((set, get) => ({
     restoreTask: (id) => {
         set((state) => ({
             tasks: state.tasks.map(t => t.id === id ? { ...t, isArchived: false } : t)
+        }));
+        get()._syncToFirestore();
+    },
+
+    startNewWeek: () => {
+        set((state) => ({
+            tasks: state.tasks.map(t => ({
+                ...t,
+                isArchived: false,
+                subTasks: t.subTasks.map(s => (s.isCompleted ? { ...s, isCompleted: false } : s))
+            }))
         }));
         get()._syncToFirestore();
     },

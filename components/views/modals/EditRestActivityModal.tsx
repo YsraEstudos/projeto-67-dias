@@ -1,17 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Pencil, X, Link as LinkIcon, ExternalLink, Trash2, Plus } from 'lucide-react';
 import { RestActivity, RestActivityLink, RestActivitySeries } from '../../../types';
 import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../../shared/UnsavedChangesModal';
 import { createRestSeries, normalizeRestActivity } from '../../../utils/restActivityUtils';
+import { formatDateISO } from '../../../utils/dateUtils';
 
 interface EditRestActivityModalProps {
     activity: RestActivity;
+    /** Date (YYYY-MM-DD) used when converting a recurring activity to ONCE. Defaults to today. */
+    fallbackDate?: string;
     onClose: () => void;
     onSave: (updated: RestActivity) => void;
 }
 
-const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity, onClose, onSave }) => {
+const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity, fallbackDate, onClose, onSave }) => {
     const normalizedActivity = useMemo(() => normalizeRestActivity(activity), [activity]);
     const initialSeries = useMemo(
         () => normalizedActivity.series || createRestSeries(Math.max(1, normalizedActivity.totalSets || 3)),
@@ -76,9 +79,16 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
         setNewLinkUrl('');
     };
 
+    // Updates a link while typing; edit mode stays open until "Concluir".
     const handleUpdateLink = (id: string, label: string, url: string) => {
         setLinks(prev => prev.map(link =>
-            link.id === id ? { ...link, label: label || url, url } : link
+            link.id === id ? { ...link, label, url } : link
+        ));
+    };
+
+    const handleFinishLinkEdit = () => {
+        setLinks(prev => prev.map(link =>
+            link.id === editingLinkId ? { ...link, label: link.label.trim() || link.url } : link
         ));
         setEditingLinkId(null);
     };
@@ -98,13 +108,17 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
         const nextSeries = hasSets ? createRestSeries(seriesDrafts.length, seriesDrafts) : undefined;
         const completedSeriesCount = nextSeries?.filter((series) => series.isCompleted).length || 0;
 
+        const finalLinks = links.map(link => ({ ...link, label: link.label.trim() || link.url }));
+
         const updated: RestActivity = {
             ...normalizedActivity,
-            title,
+            title: title.trim(),
             notes: notes.trim() || undefined,
             type,
             daysOfWeek: type === 'WEEKLY' ? daysOfWeek : undefined,
-            specificDate: type === 'ONCE' ? normalizedActivity.specificDate : undefined,
+            specificDate: type === 'ONCE'
+                ? normalizedActivity.specificDate || fallbackDate || formatDateISO(new Date())
+                : undefined,
             series: nextSeries,
             totalSets: hasSets ? nextSeries?.length : undefined,
             completedSets: hasSets ? completedSeriesCount : undefined,
@@ -112,15 +126,24 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                 ? completedSeriesCount === (nextSeries?.length || 0)
                 : normalizedActivity.isCompleted,
             completedAt: hasSets ? undefined : normalizedActivity.completedAt,
-            links: links.length > 0 ? links : undefined
+            links: finalLinks.length > 0 ? finalLinks : undefined
         };
 
         onSave(updated);
     };
 
+    // Close with Escape (respecting the unsaved-changes guard)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !showUnsavedModal) handleClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    });
+
     return (
         <>
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div role="dialog" aria-modal="true" aria-label="Editar Atividade" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
                 {/* Clickable backdrop */}
                 <div className="absolute inset-0" onClick={handleClose} aria-hidden="true" />
                 <div className="relative bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
@@ -128,7 +151,7 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                         <h3 className="font-bold text-white text-lg flex items-center gap-2">
                             <Pencil size={18} className="text-cyan-500" /> Editar Atividade
                         </h3>
-                        <button onClick={handleClose} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
+                        <button onClick={handleClose} aria-label="Fechar" className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors">
                             <X size={20} />
                         </button>
                     </div>
@@ -237,7 +260,7 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                                             <button
                                                 key={day}
                                                 onClick={() => setDaysOfWeek(prev =>
-                                                    isSelected ? prev.filter(d => d !== day) : [...prev, day]
+                                                    isSelected ? prev.filter(d => d !== day) : [...prev, day].sort((l, r) => l - r)
                                                 )}
                                                 className={`aspect-square rounded-md text-xs font-bold transition-all ${isSelected
                                                     ? 'bg-purple-600 text-white'
@@ -299,7 +322,7 @@ const EditRestActivityModal: React.FC<EditRestActivityModalProps> = ({ activity,
                                                         placeholder="URL"
                                                     />
                                                     <button
-                                                        onClick={() => setEditingLinkId(null)}
+                                                        onClick={handleFinishLinkEdit}
                                                         className="self-end text-xs text-cyan-400 hover:text-cyan-300"
                                                     >
                                                         Concluir

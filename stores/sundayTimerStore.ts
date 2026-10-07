@@ -31,6 +31,8 @@ interface SundayTimerStoreState {
     resume: () => void;
     stop: () => void;
     reset: () => void;
+    /** Marks a RUNNING timer as FINISHED once its time is up. Idempotent; returns true if it finished now. */
+    finishIfExpired: () => boolean;
 
     // Widget Position
     setPosition: (position: WidgetPosition) => void;
@@ -99,6 +101,23 @@ export const useSundayTimerStore = create<SundayTimerStoreState>()((set, get) =>
         get()._syncToFirestore();
     },
 
+    finishIfExpired: () => {
+        const { timer } = get();
+        if (timer.status !== 'RUNNING' || getTimeRemaining(timer) > 0) return false;
+
+        set({
+            timer: {
+                ...timer,
+                status: 'FINISHED',
+                startTime: null,
+                pausedAt: null,
+                accumulated: timer.totalDuration
+            }
+        });
+        get()._syncToFirestore();
+        return true;
+    },
+
     reset: () => {
         set({ timer: DEFAULT_TIMER });
         get()._syncToFirestore();
@@ -145,7 +164,7 @@ export const getTimeRemaining = (timer: SundayTimerState): number => {
     if (timer.status === 'FINISHED') return 0;
 
     if (timer.status === 'PAUSED') {
-        return timer.totalDuration - timer.accumulated;
+        return Math.max(0, timer.totalDuration - timer.accumulated);
     }
 
     // RUNNING
