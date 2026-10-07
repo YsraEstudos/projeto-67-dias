@@ -137,6 +137,13 @@ export const BookInspectionOverlay: React.FC<BookInspectionOverlayProps> = ({
   const handleProgressChange = (nextCurrent: number) => {
     const boundedCurrent = Math.max(0, draft.total > 0 ? Math.min(draft.total, nextCurrent) : nextCurrent);
     updateDraft('current', boundedCurrent);
+    // Mirror the store's auto-completion in the draft; otherwise a later "Salvar"
+    // would overwrite the COMPLETED status with the stale draft status.
+    if (draft.total > 0 && boundedCurrent >= draft.total) {
+      updateDraft('status', 'COMPLETED');
+    } else if (draft.status === 'COMPLETED' && draft.total > 0 && boundedCurrent < draft.current) {
+      updateDraft('status', 'READING');
+    }
     onUpdateProgress(book.id, boundedCurrent);
   };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, Plus, Minus, BookOpen } from 'lucide-react';
 import { Book as IBook } from '../../../types';
+import { getUnitsReadOnDate } from '../readingStats';
 
 interface QuickLogBottomSheetProps {
   isOpen: boolean;
@@ -29,8 +30,8 @@ const QuickLogItem: React.FC<{
     let newVal = parseInt(inputValue, 10);
     if (isNaN(newVal)) newVal = book.current;
     
-    // Clamp between 0 and total
-    newVal = Math.max(0, Math.min(book.total, newVal));
+    // Clamp between 0 and total (total=0 means "not configured": no upper bound)
+    newVal = Math.max(0, book.total > 0 ? Math.min(book.total, newVal) : newVal);
     setInputValue(newVal.toString());
 
     if (newVal !== book.current) {
@@ -44,7 +45,7 @@ const QuickLogItem: React.FC<{
     }
   };
 
-  const isCompleted = book.current >= book.total;
+  const isCompleted = book.total > 0 && book.current >= book.total;
 
   return (
     <div className="relative overflow-hidden flex items-center justify-between gap-3 p-3 bg-slate-800/80 rounded-xl border border-slate-700/50 mb-3 last:mb-0">
@@ -62,10 +63,10 @@ const QuickLogItem: React.FC<{
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-sm text-slate-200 truncate">{book.title}</h4>
           <p className="text-xs text-slate-500">
-            <span className="font-medium text-indigo-400">{book.current}</span> / {book.total} {book.unit === 'PAGES' ? 'págs' : 'caps'}
+            <span className="font-medium text-indigo-400">{book.current}</span> / {book.total > 0 ? book.total : '—'} {book.unit === 'PAGES' ? 'págs' : book.unit === 'HOURS' ? 'h' : 'caps'}
           </p>
-          {book.perDay > 0 && (
-             <p className="text-[10px] text-slate-600 mt-0.5">Meta: {book.perDay} / dia</p>
+          {(book.dailyGoal ?? 0) > 0 && (
+             <p className="text-[10px] text-slate-600 mt-0.5">Meta: {book.dailyGoal} / dia</p>
           )}
         </div>
       </div>
@@ -74,6 +75,7 @@ const QuickLogItem: React.FC<{
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={() => onUpdateProgress(book.id, -1)}
+          aria-label={`Diminuir progresso de ${book.title}`}
           disabled={book.current <= 0}
           className="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-50 transition-colors"
         >
@@ -89,11 +91,13 @@ const QuickLogItem: React.FC<{
           onChange={(e) => setInputValue(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
+          aria-label={`Progresso atual de ${book.title}`}
           className="w-14 h-10 text-center bg-slate-900 border border-slate-700 text-white rounded-lg font-bold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
 
         <button
           onClick={() => onUpdateProgress(book.id, 1)}
+          aria-label={`Aumentar progresso de ${book.title}`}
           disabled={isCompleted}
           className="w-10 h-10 flex items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-400 disabled:opacity-50 transition-colors"
         >
@@ -104,7 +108,7 @@ const QuickLogItem: React.FC<{
       {/* Background progress indicator */}
       <div 
           className="absolute bottom-0 left-0 h-0.5 bg-indigo-500/30 rounded-full transition-all duration-500"
-          style={{ width: `${Math.round((book.current / (book.total || 1)) * 100)}%` }}
+          style={{ width: `${book.total > 0 ? Math.min(100, Math.round((book.current / book.total) * 100)) : 0}%` }}
       />
     </div>
   );
@@ -155,6 +159,7 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
 
   // Only show books currently being read
   const readingBooks = books.filter(b => b.status === 'READING');
+  const unitsReadToday = getUnitsReadOnDate(books);
 
   // Block body scroll when open
   useEffect(() => {
@@ -165,6 +170,16 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
+
+  // Close with Escape (keyboard / screen-reader users)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -179,6 +194,9 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
       {/* Bottom Sheet */}
       <div 
         ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Registro rápido de leitura"
         className="bottom-sheet animate-sheet-up flex flex-col max-h-[85vh]"
       >
         
@@ -199,8 +217,15 @@ const QuickLogBottomSheet: React.FC<QuickLogBottomSheetProps> = ({
             <BookOpen size={20} className="text-indigo-400" />
             Registro Rápido
           </h2>
+          <span
+            data-testid="quick-log-today"
+            className="ml-auto mr-2 rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-300"
+          >
+            Hoje: <span className="font-bold text-indigo-400">{unitsReadToday}</span>
+          </span>
           <button 
             onClick={onClose}
+            aria-label="Fechar registro rápido"
             className="p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/50"
           >
             <ChevronDown size={20} />

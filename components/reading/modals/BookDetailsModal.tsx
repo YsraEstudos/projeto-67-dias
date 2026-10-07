@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Book as IBook } from '../../../types';
 import { X, Book, BookOpen, Calendar, Star, StickyNote, Edit2, ChevronDown } from 'lucide-react';
 import ProgressBar from '../ProgressBar';
+import { daysDiff, getTodayISO } from '../../../utils/dateUtils';
 
 interface BookDetailsModalProps {
     book: IBook;
@@ -107,7 +108,8 @@ const BookDetailsModal: React.FC<BookDetailsModalProps> = ({ book, onClose, onEd
 
     // Days remaining calculation
     const daysRemaining = book.deadline
-        ? Math.max(0, Math.ceil((new Date(book.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        // Calendar-day difference in local time (new Date('YYYY-MM-DD') would parse as UTC midnight)
+        ? Math.max(0, daysDiff(getTodayISO(), book.deadline))
         : null;
 
     const pagesRemaining = book.total - book.current;

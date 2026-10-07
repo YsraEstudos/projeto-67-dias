@@ -130,4 +130,48 @@ describe('readingStore', () => {
         expect(useReadingStore.getState().shelfLevels.some((level) => level.id === 'shelf-level-2')).toBe(false);
         expect(useReadingStore.getState().books[0].shelfLevelId).toBe('shelf-level-1');
     });
+    it('reverts COMPLETED to READING when progress is rolled back below the total', () => {
+        useReadingStore.getState().updateProgress('book-1', 144);
+        useReadingStore.getState().updateProgress('book-1', 100);
+
+        const book = useReadingStore.getState().books[0];
+        expect(book.status).toBe('READING');
+        expect(book.current).toBe(100);
+    });
+
+    it('ignores non-finite and clamps negative progress values', () => {
+        useReadingStore.getState().updateProgress('book-1', 10);
+        useReadingStore.getState().updateProgress('book-1', Number.NaN);
+        expect(useReadingStore.getState().books[0].current).toBe(10);
+
+        useReadingStore.getState().updateProgress('book-1', -5);
+        expect(useReadingStore.getState().books[0].current).toBe(0);
+    });
+
+    it('addReadingLog does not clamp progress to zero when total is not configured', () => {
+        useReadingStore.getState().setBooks([{ ...createBook(), total: 0 }]);
+        useReadingStore.getState().addReadingLog('book-1', 12);
+
+        const book = useReadingStore.getState().books[0];
+        expect(book.current).toBe(12);
+        expect(book.status).toBe('READING');
+        expect(book.logs?.[0]?.pagesRead).toBe(12);
+    });
+
+    it('addReadingLog auto-completes and ignores non-positive amounts', () => {
+        useReadingStore.getState().addReadingLog('book-1', 0);
+        expect(useReadingStore.getState().books[0].logs).toHaveLength(0);
+
+        useReadingStore.getState().addReadingLog('book-1', 500);
+        const book = useReadingStore.getState().books[0];
+        expect(book.current).toBe(144);
+        expect(book.status).toBe('COMPLETED');
+    });
+
+    it('setExcludedDays sorts numerically without mutating a frozen input', () => {
+        const days = Object.freeze([6, 0, 3]) as unknown as number[];
+        expect(() => useReadingStore.getState().setExcludedDays('book-1', days)).not.toThrow();
+        expect(useReadingStore.getState().books[0].excludedDays).toEqual([0, 3, 6]);
+        expect(days).toEqual([6, 0, 3]);
+    });
 });

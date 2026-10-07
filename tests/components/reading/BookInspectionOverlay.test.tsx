@@ -51,3 +51,29 @@ describe('BookInspectionOverlay', () => {
     }));
   });
 });
+
+describe('BookInspectionOverlay auto-completion', () => {
+  it('keeps COMPLETED status in the draft when quick buttons finish the book', () => {
+    const onSaveBook = vi.fn();
+    const onUpdateProgress = vi.fn();
+
+    render(
+      <BookInspectionOverlay
+        book={{ ...book, current: 140 }}
+        isOpen
+        onClose={vi.fn()}
+        onSaveBook={onSaveBook}
+        onUpdateProgress={onUpdateProgress}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar 5 páginas' }));
+    expect(onUpdateProgress).toHaveBeenCalledWith('book-1', 144);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar detalhes' }));
+    expect(onSaveBook).toHaveBeenCalledWith('book-1', expect.objectContaining({
+      current: 144,
+      status: 'COMPLETED',
+    }));
+  });
+});

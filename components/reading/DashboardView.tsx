@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Book as IBook } from '../../types';
 import DraggableBookCard from './DraggableBookCard';
-import { BookOpen, Library, PauseCircle, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Library, PauseCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 // Row configuration - defined once, never recreated
 const COLUMNS = [
@@ -10,6 +10,8 @@ const COLUMNS = [
     { title: "Para Ler", status: 'TO_READ' as const, Icon: Library, color: "text-sky-400" },
     { title: "Pausados", status: 'PAUSED' as const, Icon: PauseCircle, color: "text-orange-400" },
     { title: "Concluídos", status: 'COMPLETED' as const, Icon: CheckCircle2, color: "text-green-400" },
+    // Only rendered when non-empty, so abandoned books don't silently vanish in 2D mode.
+    { title: "Abandonados", status: 'ABANDONED' as const, Icon: XCircle, color: "text-rose-400", hideWhenEmpty: true },
 ] as const;
 
 const DroppableColumn: React.FC<{
@@ -98,14 +100,15 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({ books, viewMod
             'ABANDONED': [],
         };
         for (const book of books) {
-            map[book.status].push(book);
+            // Guard against legacy/unknown statuses from persisted data (would crash on push)
+            (map[book.status] ?? map.TO_READ).push(book);
         }
         return map;
     }, [books]);
 
     return (
         <div className="grid grid-cols-1 gap-4 sm:gap-5">
-            {COLUMNS.map(({ title, status, Icon, color }) => (
+            {COLUMNS.filter((column) => !('hideWhenEmpty' in column) || booksByStatus[column.status].length > 0).map(({ title, status, Icon, color }) => (
                 <DroppableColumn
                     key={status}
                     title={title}

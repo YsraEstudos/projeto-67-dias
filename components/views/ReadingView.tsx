@@ -2,7 +2,7 @@ import React, { useState, Suspense, useCallback, useMemo, useEffect } from 'reac
 import { useReadingStore } from '../../stores/readingStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Book as IBook, Folder as IFolder } from '../../types';
-import { Loader2, Plus, LayoutGrid, Zap } from 'lucide-react';
+import { Loader2, Zap } from 'lucide-react';
 
 // Shelf Editorial UI Components
 import EditorialHeader, { ReadingCategoryFilter } from '../reading/shelf/EditorialHeader';
@@ -13,6 +13,7 @@ import ShelfLevelRail from '../reading/shelf/ShelfLevelRail';
 import { MINT_BOOK_MANIFEST } from '../reading/shelf/mintManifest';
 import { buildShelfLayout, countBooksByShelfLevel } from '../../utils/readingShelfLayout';
 import { getBookDimensions } from '../../utils/bookDimensions';
+import { calculateReadingStreak, clampProgress } from '../reading/readingStats';
 
 // Shared & Library View fallback
 import LibraryView from '../reading/LibraryView';
@@ -30,47 +31,6 @@ const getReadingActions = () => useReadingStore.getState();
 
 interface ReadingViewProps {
   onExit?: () => void;
-}
-
-/**
- * Calculates consecutive active reading streak days from book logs
- */
-function calculateReadingStreak(books: IBook[]): number {
-  const dates = new Set<string>();
-  books.forEach((b) => {
-    b.logs?.forEach((l) => {
-      if (l.pagesRead > 0 && l.date) {
-        dates.add(l.date);
-      }
-    });
-  });
-
-  if (dates.size === 0) return 0;
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-  const todayLogged = dates.has(todayStr);
-  const yesterdayLogged = dates.has(yesterdayStr);
-
-  if (!todayLogged && !yesterdayLogged) return 0;
-
-  let streak = 0;
-  let checkDate = new Date(todayLogged ? todayStr : yesterdayStr);
-
-  while (true) {
-    const dStr = checkDate.toISOString().split('T')[0];
-    if (dates.has(dStr)) {
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-
-  return streak;
 }
 
 export function calculateBookDimensions(pages: number) {
@@ -208,12 +168,34 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
     [updateProgress]
   );
 
+  const handleRelativeProgress = useCallback(
+    (id: string, delta: number) => {
+      const book = useReadingStore.getState().books.find((candidate) => candidate.id === id);
+      if (book) updateProgress(id, clampProgress(book, delta));
+    },
+    [updateProgress]
+  );
+
+  // Edits that change `current` must go through updateProgress so the daily
+  // log (streak/history) and auto-completion stay consistent.
+  const handleSaveEditedBook = useCallback(
+    (bookId: string, updates: Partial<IBook>) => {
+      const existing = useReadingStore.getState().books.find((candidate) => candidate.id === bookId);
+      const { current, ...rest } = updates;
+      updateBook(bookId, rest);
+      if (existing && typeof current === 'number' && current !== existing.current) {
+        updateProgress(bookId, current);
+      }
+    },
+    [updateBook, updateProgress]
+  );
+
   const handlePrevBook = useCallback(() => {
     setSelectedIndex((prev) => Math.max(0, prev - 1));
   }, []);
 
   const handleNextBook = useCallback(() => {
-    setSelectedIndex((prev) => Math.min(filteredBooks.length - 1, prev + 1));
+    setSelectedIndex((prev) => Math.max(0, Math.min(filteredBooks.length - 1, prev + 1)));
   }, [filteredBooks.length]);
 
   const handleToggleInspection = useCallback(() => {
@@ -327,7 +309,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
               book={currentBook}
               isOpen={isInspecting}
               onClose={() => setIsInspecting(false)}
-              onSaveBook={(bookId, updates) => updateBook(bookId, updates)}
+              onSaveBook={handleSaveEditedBook}
               onUpdateProgress={handleUpdateProgress}
             />
           </div>
@@ -337,10 +319,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
             <DashboardView
               books={filteredBooks}
               viewMode="grid"
-              onUpdateProgress={(id, delta) => {
-                const b = books.find((x) => x.id === id);
-                if (b) updateProgress(id, Math.max(0, Math.min(b.total, b.current + delta)));
-              }}
+              onUpdateProgress={handleRelativeProgress}
               onUpdateStatus={setBookStatus}
               onEdit={setEditingBook}
               onDelete={removeBook}
@@ -349,6 +328,17 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
               onPlan={setPlanningBook}
             />
           </div>
+        )}
+        {/* Quick log entry point (mobile) — the sheet itself is mobile-only */}
+        {!isInspecting && !isQuickLogOpen && (
+          <button
+            type="button"
+            onClick={() => setIsQuickLogOpen(true)}
+            aria-label="Abrir registro rápido de leitura"
+            className="fixed bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+5rem))] right-4 z-30 flex h-12 w-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-[#D4AF37]/50 bg-[#3A2317] text-[#F3D274] shadow-lg transition active:scale-95 hover:bg-[#4A2D1E] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 md:hidden"
+          >
+            <Zap className="h-5 w-5" />
+          </button>
         )}
       </main>
 
@@ -382,7 +372,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
             book={editingBook}
             onClose={() => setEditingBook(null)}
             onSave={(b) => {
-              updateBook(b.id, b);
+              handleSaveEditedBook(b.id, b);
               setEditingBook(null);
             }}
           />
@@ -409,10 +399,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({ onExit }) => {
             isOpen={isQuickLogOpen}
             onClose={() => setIsQuickLogOpen(false)}
             books={books}
-            onUpdateProgress={(id, delta) => {
-              const b = books.find((x) => x.id === id);
-              if (b) updateProgress(id, Math.max(0, Math.min(b.total, b.current + delta)));
-            }}
+            onUpdateProgress={handleRelativeProgress}
             onSetProgress={(id, absVal) => updateProgress(id, absVal)}
           />
         )}

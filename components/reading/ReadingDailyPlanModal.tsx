@@ -3,6 +3,7 @@ import { X, Calendar, BarChart3, Clock, CheckCircle2, AlertTriangle } from 'luci
 import { Book } from '../../types';
 import { calculateReadingDailyPlan, ReadingDailyPlanItem } from '../../utils/readingPrediction';
 import { useReadingStore } from '../../stores/readingStore';
+import { getTodayISO } from '../../utils/dateUtils';
 
 interface ReadingDailyPlanModalProps {
     book: Book;
@@ -106,7 +107,7 @@ const ReadingDailyPlanModal: React.FC<ReadingDailyPlanModalProps> = ({ book: ini
                             value={localDeadline}
                             onChange={(e) => handleDeadlineChange(e.target.value)}
                             className="mt-4 bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white"
-                            min={new Date().toISOString().split('T')[0]}
+                            min={getTodayISO()}
                         />
                     </div>
                 </div>
@@ -133,7 +134,7 @@ const ReadingDailyPlanModal: React.FC<ReadingDailyPlanModalProps> = ({ book: ini
                         value={localDeadline}
                         onChange={(e) => handleDeadlineChange(e.target.value)}
                         className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white"
-                        min={new Date().toISOString().split('T')[0]}
+                        min={getTodayISO()}
                     />
                 </div>
             </div>
@@ -190,7 +191,7 @@ const ReadingDailyPlanModal: React.FC<ReadingDailyPlanModalProps> = ({ book: ini
                                 value={localDeadline}
                                 onChange={(e) => handleDeadlineChange(e.target.value)}
                                 className="bg-transparent text-sm text-white py-2 outline-none"
-                                min={new Date().toISOString().split('T')[0]}
+                                min={getTodayISO()}
                             />
                         </div>
                     </div>

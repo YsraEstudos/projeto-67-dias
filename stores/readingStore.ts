@@ -25,6 +25,51 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     });
 };
 
+/** Coerces a progress value to a finite, non-negative number. */
+const sanitizeProgress = (value: number, fallback: number): number => {
+    if (!Number.isFinite(value)) return fallback;
+    return Math.max(0, value);
+};
+
+/**
+ * Applies a new absolute progress to a (draft) book, keeping today's log in sync
+ * with the delta and keeping the completion status consistent with progress.
+ */
+const applyProgress = (book: Book, current: number): void => {
+    const delta = current - book.current;
+    const today = getTodayISO();
+
+    if (!book.logs) book.logs = [];
+
+    if (delta !== 0) {
+        const existingLog = book.logs.find(log => log.date === today);
+
+        if (existingLog) {
+            existingLog.pagesRead = Math.max(0, existingLog.pagesRead + delta);
+        } else if (delta > 0) {
+            book.logs.push({
+                id: generateUUID(),
+                date: today,
+                pagesRead: delta,
+                bookId: book.id
+            });
+        }
+    }
+
+    book.current = current;
+    // Only auto-complete when total is explicitly > 0.
+    // If total=0 (not configured), we DON'T auto-complete — the book
+    // would incorrectly be set to COMPLETED on the very first progress update,
+    // removing it from XP calculations entirely.
+    if (book.total > 0 && current >= book.total) {
+        book.status = 'COMPLETED';
+    } else if (book.status === 'COMPLETED' && book.total > 0 && delta < 0) {
+        // Progress rolled back below the total (e.g. accidental completion):
+        // the book is being read again, not finished.
+        book.status = 'READING';
+    }
+};
+
 interface ReadingState {
     books: Book[];
     folders: Folder[];
@@ -167,34 +212,7 @@ export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
     updateProgress: (id, current) => {
         set((state) => {
             const book = state.books.find(b => b.id === id);
-            if (book) {
-                const delta = current - book.current;
-                const today = getTodayISO();
-
-                if (!book.logs) book.logs = [];
-
-                if (delta !== 0) {
-                    const existingLog = book.logs.find(log => log.date === today);
-
-                    if (existingLog) {
-                        existingLog.pagesRead = Math.max(0, existingLog.pagesRead + delta);
-                    } else if (delta > 0) {
-                        book.logs.push({
-                            id: generateUUID(),
-                            date: today,
-                            pagesRead: delta,
-                            bookId: id
-                        });
-                    }
-                }
-
-                book.current = current;
-                // Only auto-complete when total is explicitly > 0.
-                // If total=0 (not configured), we DON'T auto-complete — the book
-                // would incorrectly be set to COMPLETED on the very first progress update,
-                // removing it from XP calculations entirely.
-                if (book.total > 0 && current >= book.total) book.status = 'COMPLETED';
-            }
+            if (book) applyProgress(book, sanitizeProgress(current, book.current));
         });
         get()._syncToFirestore();
     },
@@ -232,25 +250,15 @@ export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
     },
 
     addReadingLog: (id, pagesRead) => {
+        if (!Number.isFinite(pagesRead) || pagesRead <= 0) return;
         set((state) => {
             const book = state.books.find(b => b.id === id);
             if (!book) return;
-
-            const today = getTodayISO();
-            if (!book.logs) book.logs = [];
-
-            const existingLog = book.logs.find(l => l.date === today);
-            if (existingLog) {
-                existingLog.pagesRead += pagesRead;
-            } else {
-                book.logs.push({
-                    id: generateUUID(),
-                    date: today,
-                    pagesRead,
-                    bookId: id
-                });
-            }
-            book.current = Math.min(book.total, book.current + pagesRead);
+            // total=0 means "not configured": don't clamp progress down to zero.
+            const target = book.total > 0
+                ? Math.min(book.total, book.current + pagesRead)
+                : book.current + pagesRead;
+            applyProgress(book, target);
         });
         get()._syncToFirestore();
     },
@@ -283,7 +291,7 @@ export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
                 book.excludedDays.splice(idx, 1);
             } else {
                 book.excludedDays.push(dayOfWeek);
-                book.excludedDays.sort();
+                book.excludedDays.sort((a, b) => a - b);
             }
         });
         get()._syncToFirestore();
@@ -292,7 +300,8 @@ export const useReadingStore = create<ReadingState>()(immer((set, get) => ({
     setExcludedDays: (id, days) => {
         set((state) => {
             const book = state.books.find(b => b.id === id);
-            if (book) book.excludedDays = days.sort();
+            // Copy before sorting: the caller's array may be frozen (immer state) or reused.
+            if (book) book.excludedDays = [...days].sort((a, b) => a - b);
         });
         get()._syncToFirestore();
     },
