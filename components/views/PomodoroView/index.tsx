@@ -15,7 +15,17 @@ import { useStore } from './store/useStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertOctagon, Copy, Check } from 'lucide-react';
 import { getLocalISODate } from './lib/pomodoroStats';
+import { useTimerDocumentTitle } from './hooks/useTimerDocumentTitle';
 import type { Task, PomodoroTimerState } from './store/types';
+
+// createdAt is a UTC ISO string; compare by the *local* calendar day, otherwise a quick task created
+// late in the evening (e.g. after 21:00 in UTC-3) looks like "tomorrow" and is deleted immediately.
+const isCreatedBeforeToday = (createdAt: string | undefined, todayStr: string): boolean => {
+  if (!createdAt) return false;
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return false;
+  return getLocalISODate(created) < todayStr;
+};
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -37,6 +47,7 @@ export default function App() {
   const isBreakMode = timerMode === 'shortBreak' || timerMode === 'longBreak';
 
   const alertStep = timerState.alertStep;
+  useTimerDocumentTitle();
 
   const handleResetAlert = () => {
     const nextState: PomodoroTimerState = {
@@ -56,7 +67,7 @@ export default function App() {
       const todayStr = getLocalISODate();
 
       const expiredDailyTaskIds = tasks
-        .filter((task) => task.isDailyQuickTask && task.createdAt?.split('T')[0] !== todayStr)
+        .filter((task) => task.isDailyQuickTask && isCreatedBeforeToday(task.createdAt, todayStr))
         .map((task) => task.id);
 
       if (expiredDailyTaskIds.length > 0) {
@@ -166,8 +177,8 @@ function PixPenaltyOverlay({ onClose }: { onClose: () => void }) {
   const pixKey = 'projeto67dias@multa.com.br';
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(pixKey);
-    setCopied(copied => !copied);
+    navigator.clipboard?.writeText(pixKey).catch(() => undefined);
+    setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 

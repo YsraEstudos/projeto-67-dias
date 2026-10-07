@@ -197,7 +197,7 @@ export const usePomodoroStore = create<PomodoroStoreState>()((set, get) => {
 
         const isCompleting = !task.completed;
         const now = new Date();
-        const today = now.toISOString().split('T')[0];
+        const today = getTodayISODate();
 
         const updatedTasks = state.tasks.map((item) => {
           if (item.id !== id) return item;

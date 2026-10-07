@@ -37,6 +37,7 @@ export const TimerControls = React.memo(function TimerControls({
           isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
         )}
         title="Reiniciar"
+        aria-label="Reiniciar"
       >
         <Square className={isFullscreen ? "w-5 h-5 sm:w-6 sm:h-6" : "w-4 h-4"} />
       </button>
@@ -47,6 +48,9 @@ export const TimerControls = React.memo(function TimerControls({
           mainButtonClass,
           isAlertCountdown && "opacity-45 cursor-not-allowed hover:scale-100"
         )}
+        title={isActive ? 'Pausar (Espaço)' : 'Iniciar (Espaço)'}
+        aria-label={isActive ? 'Pausar' : 'Iniciar'}
+        aria-keyshortcuts="Space"
       >
         {isActive ? (
           <Pause className={isFullscreen ? "w-8 h-8 sm:w-10 sm:h-10" : "w-6 h-6"} />
@@ -62,6 +66,7 @@ export const TimerControls = React.memo(function TimerControls({
           isAlertCountdown && "opacity-45 cursor-not-allowed hover:bg-transparent"
         )}
         title="Pular fase"
+        aria-label="Pular fase"
       >
         <SkipForward className={isFullscreen ? "w-5 h-5 sm:w-6 sm:h-6" : "w-4 h-4"} />
       </button>

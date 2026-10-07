@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
 import { Popover } from './ui/Popover';
 import { useSkillsStore } from '../../../../stores/skillsStore';
+import { getLocalISODate } from '../lib/pomodoroStats';
 
 export function TaskInput() {
   const { currentFilter, addTask, projects } = useStore();
@@ -262,7 +263,7 @@ export function TaskInput() {
             <div className="px-3 py-2 mt-1">
               <input 
                 type="date" 
-                min={new Date().toISOString().split('T')[0]}
+                min={getLocalISODate()}
                 className="w-full bg-[var(--color-surface)] text-[var(--color-text)] text-sm rounded-md px-2 py-1.5 border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-primary)]"
                 onChange={(e) => {
                   if (e.target.value) {

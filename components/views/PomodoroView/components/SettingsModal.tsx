@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { X, Clock, Bell, Palette, Database, Download, Upload, Trash2, Volume2, type LucideIcon } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
+import { getLocalISODate } from '../lib/pomodoroStats';
 import type { Settings } from '../store/types';
 
 interface SelectOption {
@@ -190,7 +191,7 @@ export function SettingsModal() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pomodoro-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `pomodoro-backup-${getLocalISODate()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

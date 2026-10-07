@@ -19,3 +19,12 @@ export function getTaskTodayPomodoros(task: Task, today = getLocalISODate()): nu
 
   return Math.max(0, task.completedPomodoros);
 }
+
+/** Counts focus sessions whose end falls on the given local calendar day (YYYY-MM-DD). */
+export function countPomodorosOnDate(records: PomodoroRecord[], day = getLocalISODate()): number {
+  return records.reduce((count, record) => {
+    const end = new Date(record.endTime);
+    if (Number.isNaN(end.getTime())) return count;
+    return count + (getLocalISODate(end) === day ? 1 : 0);
+  }, 0);
+}

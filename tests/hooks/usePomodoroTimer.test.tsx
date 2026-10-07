@@ -260,6 +260,86 @@ describe('usePomodoroTimer', () => {
     expect(result.current.isActive).toBe(false);
   });
 
+  it('keeps the paused remaining time when the hook remounts (e.g. page reload)', () => {
+    usePomodoroStore.getState().setTimerState({
+      mode: 'pomodoro',
+      status: 'PAUSED',
+      timeLeft: 600,
+      endTime: null,
+      sessionCount: 0,
+      sessionStartTime: null,
+      alertStep: null,
+    });
+
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    expect(result.current.timeLeft).toBe(600);
+    expect(usePomodoroStore.getState().timerState.timeLeft).toBe(600);
+    expect(usePomodoroStore.getState().timerState.status).toBe('PAUSED');
+  });
+
+  it('keeps a paused session when settings change, but refreshes an idle timer', () => {
+    usePomodoroStore.getState().setTimerState({
+      mode: 'pomodoro',
+      status: 'PAUSED',
+      timeLeft: 600,
+      endTime: null,
+      sessionCount: 0,
+      sessionStartTime: null,
+      alertStep: null,
+    });
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    act(() => {
+      usePomodoroStore.getState().updateSettings({ pomodoroLength: 50 });
+    });
+    expect(usePomodoroStore.getState().timerState.timeLeft).toBe(600);
+
+    act(() => {
+      result.current.resetTimer();
+    });
+    expect(result.current.timeLeft).toBe(50 * 60);
+
+    act(() => {
+      usePomodoroStore.getState().updateSettings({ pomodoroLength: 30 });
+    });
+    expect(result.current.timeLeft).toBe(30 * 60);
+    expect(usePomodoroStore.getState().timerState.timeLeft).toBe(30 * 60);
+  });
+
+  it('records the original session start time across pause and resume', () => {
+    const startedAt = Date.now();
+    const { result } = renderHook(() => usePomodoroTimer());
+
+    act(() => {
+      result.current.toggleTimer();
+    });
+    act(() => {
+      vi.advanceTimersByTime(5 * 60 * 1000);
+    });
+    act(() => {
+      result.current.toggleTimer();
+    });
+    expect(usePomodoroStore.getState().timerState.status).toBe('PAUSED');
+    expect(usePomodoroStore.getState().timerState.sessionStartTime).toBe(startedAt);
+
+    act(() => {
+      vi.advanceTimersByTime(10 * 60 * 1000);
+    });
+    act(() => {
+      result.current.toggleTimer();
+    });
+    expect(usePomodoroStore.getState().timerState.sessionStartTime).toBe(startedAt);
+
+    act(() => {
+      vi.advanceTimersByTime(20 * 60 * 1000);
+    });
+
+    const records = usePomodoroStore.getState().records;
+    expect(records).toHaveLength(1);
+    expect(records[0].startTime).toBe(new Date(startedAt).toISOString());
+  });
+
   describe('Alerta mode', () => {
     it('initializes alert mode in countdown step with 60 seconds', () => {
       const { result } = renderHook(() => usePomodoroTimer());
@@ -306,6 +386,27 @@ describe('usePomodoroTimer', () => {
       const { result } = renderHook(() => usePomodoroTimer());
 
       expect(result.current.timeLeft).toBe(300);
+    });
+
+    it('reports breathing progress against its 300 second duration', () => {
+      usePomodoroStore.getState().setTimerState({
+        mode: 'alert',
+        status: 'RUNNING',
+        timeLeft: 300,
+        endTime: Date.now() + 300 * 1000,
+        sessionCount: 0,
+        sessionStartTime: Date.now(),
+        alertStep: 'breathing',
+      });
+
+      const { result } = renderHook(() => usePomodoroTimer());
+      expect(result.current.progress).toBe(0);
+
+      act(() => {
+        vi.advanceTimersByTime(150 * 1000);
+      });
+
+      expect(result.current.progress).toBe(50);
     });
 
     it('transitions back to pomodoro idle when breathing step runs out', () => {

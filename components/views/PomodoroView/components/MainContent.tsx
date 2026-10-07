@@ -36,6 +36,7 @@ import { SkillFocusSelector } from './SkillFocusSelector';
 import { useFilteredTasks } from '../hooks/useFilteredTasks';
 import { usePomodoroTimer, TimerMode } from '../hooks/usePomodoroTimer';
 import { useActiveTask } from '../hooks/useActiveTask';
+import { useTimerKeyboardShortcut } from '../hooks/useTimerKeyboardShortcut';
 import { useRestStore } from '../../../../stores';
 import { resolveBreakSelectionLabel } from '../lib/breakOptions';
 import { getLocalISODate } from '../lib/pomodoroStats';
@@ -68,7 +69,8 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
 
   const activeTask = useActiveTask();
   const restActivities = useRestStore((state) => state.activities);
-  const todayStr = useMemo(() => getLocalISODate(), []);
+  // Recomputed every render so subtasks checked after midnight get the new day (not a stale memo)
+  const todayStr = getLocalISODate();
 
   const timerState = useStore(useShallow((state) => state.timerState));
   const setTimerState = useStore((state) => state.setTimerState);
@@ -90,6 +92,8 @@ export function MainContent({ onToggleSidebar }: MainContentProps) {
   const alertStep = timerState.alertStep;
   const isAlertCountdown = mode === 'alert' && alertStep === 'countdown';
   const isBreakMode = mode === 'shortBreak' || mode === 'longBreak';
+  const isAnyOverlayOpen = useStore((state) => state.isSettingsOpen || state.isReportOpen || state.selectedTaskId !== null);
+  useTimerKeyboardShortcut(toggleTimer, !isAnyOverlayOpen && mode !== 'alert');
 
   const modes = useMemo<{ id: TimerMode; label: string; icon: React.ElementType }[]>(() => [
     { id: 'pomodoro', label: 'Foco', icon: Brain },

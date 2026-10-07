@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import type { Task } from '../store/types';
+import { getLocalISODate } from '../lib/pomodoroStats';
 
 /**
  * Shared date-matching info needed by both filter and count logic.
@@ -73,7 +74,7 @@ export function useFilteredTasks() {
 
   const todayDay = today.getDay();
   const tomorrowDay = tomorrow.getDay();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = getLocalISODate(today);
 
   const result = useMemo(() => {
     // ---- Filter active tasks ----

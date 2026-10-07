@@ -1,5 +1,6 @@
 import { RestActivity } from '../../../../types';
 import { BreakSelection } from '../store/types';
+import { getLocalISODate } from './pomodoroStats';
 
 export interface QuickBreakOption {
   id: string;
@@ -60,7 +61,7 @@ export const QUICK_BREAK_OPTIONS: QuickBreakOption[] = [
 ];
 
 const isRestActivityForDate = (activity: RestActivity, selectedDate: Date): boolean => {
-  const dateString = selectedDate.toISOString().split('T')[0];
+  const dateString = getLocalISODate(selectedDate);
   const dayOfWeek = selectedDate.getDay();
 
   if (activity.type === 'DAILY') return true;

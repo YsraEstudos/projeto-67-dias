@@ -8,6 +8,8 @@ import { useSkillsStore } from '../../../../stores/skillsStore';
 
 export type TimerMode = PomodoroTimerMode;
 
+const BREATHING_DURATION_SECONDS = 300;
+
 export function usePomodoroTimer() {
   const settings = useStore((state) => state.settings);
   const activeTaskId = useStore((state) => state.activeTaskId);
@@ -43,16 +45,18 @@ export function usePomodoroTimer() {
     sessionCount: number,
     timeLeft?: number,
     startedAt: number = Date.now(),
-    overrides?: Partial<Pick<PomodoroTimerState, 'alertStep'>>,
+    overrides?: Partial<Pick<PomodoroTimerState, 'alertStep' | 'sessionStartTime'>>,
   ): PomodoroTimerState => {
     const resolvedTimeLeft = timeLeft ?? getDuration(mode);
+    const preservedStartTime = overrides?.sessionStartTime ?? null;
     return {
       mode,
       status,
       timeLeft: resolvedTimeLeft,
       endTime: status === 'RUNNING' ? startedAt + resolvedTimeLeft * 1000 : null,
       sessionCount,
-      sessionStartTime: status === 'RUNNING' ? Date.now() : null,
+      // Keep the original start across pause/resume so records reflect when the session really began
+      sessionStartTime: status === 'RUNNING' ? (preservedStartTime ?? Date.now()) : (status === 'PAUSED' ? preservedStartTime : null),
       alertStep: overrides?.alertStep ?? (mode === 'alert' ? alertStepRef.current : null),
     };
   }, [getDuration]);
@@ -113,10 +117,12 @@ export function usePomodoroTimer() {
   useEffect(() => {
     // Alert mode duration is managed explicitly by alertStep, not by settings
     if (timerState.mode === 'alert') return;
-    if (timerState.status === 'RUNNING') return;
+    // Only an untouched (IDLE) timer follows the configured length. A PAUSED session keeps its
+    // remaining time — otherwise every mount/hydration of this hook would wipe the paused progress.
+    if (timerState.status !== 'IDLE') return;
 
     const refreshedTimeLeft = getDuration(timerState.mode);
-    if (timerState.timeLeft === refreshedTimeLeft && timerState.status === 'IDLE') {
+    if (timerState.timeLeft === refreshedTimeLeft) {
       setTimeLeft(refreshedTimeLeft);
       return;
     }
@@ -334,7 +340,9 @@ export function usePomodoroTimer() {
   const toggleTimer = useCallback(() => {
     if (timerState.status === 'RUNNING') {
       const remaining = getRemainingTime();
-      const nextState = createTimerState(timerState.mode, 'PAUSED', timerState.sessionCount, remaining);
+      const nextState = createTimerState(timerState.mode, 'PAUSED', timerState.sessionCount, remaining, undefined, {
+        sessionStartTime: timerState.sessionStartTime,
+      });
       setPersistedTimerState(nextState);
       setTimeLeft(remaining);
       return;
@@ -345,6 +353,8 @@ export function usePomodoroTimer() {
       'RUNNING',
       timerState.sessionCount,
       timerState.timeLeft || getDuration(timerState.mode),
+      undefined,
+      { sessionStartTime: timerState.status === 'PAUSED' ? timerState.sessionStartTime : null },
     );
     setPersistedTimerState(nextState);
     setTimeLeft(nextState.timeLeft);
@@ -355,6 +365,7 @@ export function usePomodoroTimer() {
     setPersistedTimerState,
     timerState.mode,
     timerState.sessionCount,
+    timerState.sessionStartTime,
     timerState.status,
     timerState.timeLeft,
   ]);
@@ -392,7 +403,13 @@ export function usePomodoroTimer() {
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
-  const progress = Math.min(100, Math.max(0, ((getDuration(timerState.mode) - timeLeft) / getDuration(timerState.mode)) * 100));
+  // The breathing step of the alert flow lasts 300s, unlike the 60s countdown
+  const phaseDuration = timerState.mode === 'alert' && timerState.alertStep === 'breathing'
+    ? BREATHING_DURATION_SECONDS
+    : getDuration(timerState.mode);
+  const progress = phaseDuration > 0
+    ? Math.min(100, Math.max(0, ((phaseDuration - timeLeft) / phaseDuration) * 100))
+    : 0;
 
   return {
     isActive: timerState.status === 'RUNNING',

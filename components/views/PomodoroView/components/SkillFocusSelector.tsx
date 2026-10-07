@@ -13,6 +13,7 @@ import { useSkillsStore } from '../../../../stores/skillsStore';
 import { useStore } from '../store/useStore';
 import { usePomodoroTimer } from '../hooks/usePomodoroTimer';
 import { useActiveTask } from '../hooks/useActiveTask';
+import { getLocalISODate } from '../lib/pomodoroStats';
 import type { SkillRoadmapItem } from '../../../../types';
 
 export interface SkillFocusSelectorProps {
@@ -415,7 +416,7 @@ export const SkillFocusSelector = React.memo(function SkillFocusSelector({
                           e.stopPropagation();
                           addLog(skill.id, {
                             id: crypto.randomUUID(),
-                            date: new Date().toISOString().split('T')[0],
+                            date: getLocalISODate(),
                             minutes: 30,
                           });
                         }}

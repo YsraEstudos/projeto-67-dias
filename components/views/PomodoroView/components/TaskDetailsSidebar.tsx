@@ -8,7 +8,7 @@ import { useSkillsStore } from '../../../../stores/skillsStore';
 import { useStore, Task, Subtask } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
-import { countHistoricalPomodoros } from '../lib/pomodoroStats';
+import { countHistoricalPomodoros, getLocalISODate } from '../lib/pomodoroStats';
 import { useShallow } from 'zustand/react/shallow';
 
 export function TaskDetailsSidebar() {
@@ -20,7 +20,7 @@ export function TaskDetailsSidebar() {
   const deleteTask = useStore((state) => state.deleteTask);
   const projects = useStore(useShallow((state) => state.projects));
   const task = tasks.find(t => t.id === selectedTaskId);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalISODate();
   const activeSkills = useSkillsStore((state) => state.skills).filter(s => !s.isCompleted);
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -272,8 +272,8 @@ export function TaskDetailsSidebar() {
               <span className="text-[var(--color-text)]">{task.dueDate ? format(new Date(task.dueDate), 'MMM d, yyyy') : 'Someday'}</span>
               <input 
                 type="date"
-                min={new Date().toISOString().split('T')[0]}
-                value={task.dueDate ? task.dueDate.split('T')[0] : ''}
+                min={todayStr}
+                value={task.dueDate ? getLocalISODate(new Date(task.dueDate)) : ''}
                 onChange={(e) => {
                   if (e.target.value) {
                     const date = new Date(e.target.value);
