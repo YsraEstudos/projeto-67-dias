@@ -34,7 +34,7 @@ describe('useHabitsManager hook', () => {
                 frequency: 'DAILY',
                 goalType: 'BOOLEAN',
                 archived: false,
-                createdAt: '2026-01-01',
+                createdAt: Date.parse('2026-01-01'),
                 history: {},
                 subHabits: [
                     { id: 'sub-a', title: 'Respiração' }
@@ -57,5 +57,39 @@ describe('useHabitsManager hook', () => {
         const dateKey = result.current.dateKey;
         expect(updatedHabit.history[dateKey].completed).toBe(true);
         expect(updatedHabit.history[dateKey].subHabitsCompleted).toEqual(['sub-a']);
+    });
+
+    it('re-evaluates MIN_TIME completion when a negative correction drops below target', () => {
+        useHabitsStore.setState({
+            habits: [{
+                id: 'h-min', title: 'Ler', category: 'Mente', frequency: 'DAILY', goalType: 'MIN_TIME',
+                targetValue: 30, archived: false, createdAt: 0, history: {}, subHabits: [],
+            }],
+            _initialized: true,
+        });
+
+        const { result } = renderHook(() => useHabitsManager());
+        act(() => { result.current.handleLogValue('h-min', 30); });
+        let log = useHabitsStore.getState().habits[0].history[result.current.dateKey];
+        expect(log.completed).toBe(true);
+
+        act(() => { result.current.handleLogValue('h-min', -15); });
+        log = useHabitsStore.getState().habits[0].history[result.current.dateKey];
+        expect(log.value).toBe(15);
+        expect(log.completed).toBe(false);
+
+        // Totals never go negative
+        act(() => { result.current.handleLogValue('h-min', -100); });
+        log = useHabitsStore.getState().habits[0].history[result.current.dateKey];
+        expect(log.value).toBe(0);
+    });
+
+    it('goToToday returns the date navigator to the current day', () => {
+        const { result } = renderHook(() => useHabitsManager());
+        const todayKey = result.current.dateKey;
+        act(() => { result.current.changeDay(-3); });
+        expect(result.current.dateKey).not.toBe(todayKey);
+        act(() => { result.current.goToToday(); });
+        expect(result.current.dateKey).toBe(todayKey);
     });
 });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ShieldAlert, Ban, Target, ListChecks, Plus, Save } from 'lucide-react';
 import { Habit, HabitConsequence, ProgressivePlan } from '../../types';
+import { buildSubHabits } from './subHabitUtils';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { UnsavedChangesModal } from '../shared/UnsavedChangesModal';
 import ConsequenceEditor from './ConsequenceEditor';
@@ -113,7 +114,7 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, allHabits = 
             targetValue: goalType !== 'BOOLEAN' ? targetValue : undefined,
             // Campos Antigos
             isNegative: goalType === 'BOOLEAN' ? isNegative : undefined,
-            subHabits: subHabits.map((t, i) => ({ id: `sh_${Date.now()}_${i}`, title: t })),
+            subHabits: buildSubHabits(subHabits, habit?.subHabits),
             history: habit?.history || {},
             createdAt: habit?.createdAt || Date.now(),
             archived: habit?.archived || false,
@@ -142,7 +143,7 @@ const HabitModal: React.FC<HabitModalProps> = ({ categories, habit, allHabits = 
                 <div className="relative bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
                     <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
                         <h3 className="font-bold text-white">{habit ? 'Editar Hábito' : 'Novo Hábito'}</h3>
-                        <button onClick={handleClose}><X className="text-slate-400 hover:text-white" size={20} /></button>
+                        <button onClick={handleClose} aria-label="Fechar"><X className="text-slate-400 hover:text-white" size={20} /></button>
                     </div>
 
                     <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-thin">

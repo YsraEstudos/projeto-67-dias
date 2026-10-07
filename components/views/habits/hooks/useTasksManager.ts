@@ -3,6 +3,7 @@ import { OrganizeTask } from '../../../../types';
 import { useTasks, useHabits, useTaskActions } from '../../../../stores/selectors';
 import { useDebounce } from '../../../../hooks/useDebounce';
 import { useStreakTracking } from '../../../../hooks/useStreakTracking';
+import { formatDateISO, addDaysToDate } from '../../../../utils/dateUtils';
 
 export const useTasksManager = () => {
     // Global State
@@ -107,7 +108,8 @@ export const useTasksManager = () => {
 
     const handleAIGeneratedTasks = useCallback((newTasks: { title: string, category: string, daysFromNow?: number }[]) => {
         newTasks.forEach((t, idx) => {
-            const dueDate = t.daysFromNow ? new Date(new Date().setDate(new Date().getDate() + t.daysFromNow)).toISOString().split('T')[0] : undefined;
+            // Local calendar date (toISOString would shift to UTC and can land on the wrong day)
+            const dueDate = t.daysFromNow ? formatDateISO(addDaysToDate(new Date(), t.daysFromNow)) : undefined;
             const task: OrganizeTask = {
                 id: (Date.now() + idx).toString(),
                 title: t.title,

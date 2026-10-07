@@ -4,6 +4,7 @@ import { CheckSquare, RotateCcw, Clock, Bell, Tag, Trash2 } from 'lucide-react';
 import { OrganizeTask } from '../../types';
 import { formatters } from '../../utils/formatters';
 import { getCategoryColor } from '../../utils/styling';
+import { isTaskOverdue } from './taskDateUtils';
 
 interface TaskItemProps {
     task: OrganizeTask;
@@ -36,12 +37,14 @@ export const TaskItem = memo(({
                     onClick={() => restoreTask(task.id)}
                     className="text-slate-600 hover:text-indigo-400 transition-colors"
                     title="Restaurar"
+                    aria-label={`Restaurar ${task.title}`}
                 >
                     <RotateCcw size={24} />
                 </button>
             ) : (
                 <button
                     onClick={() => toggleCompleteTask(task.id)}
+                    aria-label={task.isCompleted ? `Reabrir ${task.title}` : `Concluir ${task.title}`}
                     className={`transition-colors ${task.isCompleted ? 'text-indigo-500' : 'text-slate-600 hover:text-indigo-400'}`}
                 >
                     {task.isCompleted ? <CheckSquare size={24} /> : <div className="w-6 h-6 rounded border-2 border-current" />}
@@ -55,7 +58,8 @@ export const TaskItem = memo(({
                         {task.title}
                     </span>
                     {task.dueDate && !task.isCompleted && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${new Date(task.dueDate) < new Date() ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${isTaskOverdue(task.dueDate) ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}`}
+                            title={isTaskOverdue(task.dueDate) ? 'Tarefa atrasada' : 'Data limite'}>
                             <Clock size={10} />
                             {formatDate(task.dueDate)}
                         </span>
@@ -81,6 +85,8 @@ export const TaskItem = memo(({
                     <button
                         onClick={() => onEdit(task)}
                         className="p-2 hover:bg-slate-700 rounded text-slate-500 hover:text-white transition-colors"
+                        title="Editar tarefa"
+                        aria-label={`Editar ${task.title}`}
                     >
                         <Tag size={16} />
                     </button>
@@ -88,6 +94,8 @@ export const TaskItem = memo(({
                 <button
                     onClick={() => deleteTask(task.id)}
                     className="p-2 hover:bg-red-900/20 rounded text-slate-500 hover:text-red-400 transition-colors"
+                    title="Excluir tarefa"
+                    aria-label={`Excluir ${task.title}`}
                 >
                     <Trash2 size={16} />
                 </button>

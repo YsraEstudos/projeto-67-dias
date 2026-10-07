@@ -31,6 +31,10 @@ export const useHabitsManager = () => {
         setSelectedDate(newDate);
     }, [selectedDate]);
 
+    const goToToday = useCallback(() => {
+        setSelectedDate(new Date());
+    }, []);
+
     const handleEditHabit = useCallback((habit: Habit) => {
         setEditingHabit(habit);
         setIsHabitModalOpen(true);
@@ -67,12 +71,14 @@ export const useHabitsManager = () => {
         if (!habit) return;
 
         const currentLog = habit.history[dateKey] || { completed: false, subHabitsCompleted: [], value: 0 };
-        const newValue = (currentLog.value || 0) + value;
+        // Negative entries are corrections; never let the total go below zero
+        const newValue = Math.max(0, (currentLog.value || 0) + value);
 
         let isCompleted = currentLog.completed;
         if (habit.targetValue) {
-            if (habit.goalType === 'MIN_TIME' && habit.frequency === 'DAILY' && newValue >= habit.targetValue) {
-                isCompleted = true;
+            if (habit.goalType === 'MIN_TIME' && habit.frequency === 'DAILY') {
+                // Re-evaluate both ways so a correction below the target un-completes it
+                isCompleted = newValue >= habit.targetValue;
             } else if (habit.goalType === 'MAX_TIME' && habit.frequency === 'DAILY') {
                 // MAX_TIME: completed when value is at or below the limit
                 isCompleted = newValue <= habit.targetValue;
@@ -84,6 +90,7 @@ export const useHabitsManager = () => {
                 ...habit.history,
                 [dateKey]: {
                     ...currentLog,
+                    subHabitsCompleted: currentLog.subHabitsCompleted || [],
                     value: newValue,
                     completed: isCompleted
                 }
@@ -100,6 +107,7 @@ export const useHabitsManager = () => {
         setEditingHabit,
         setIsHabitModalOpen,
         changeDay,
+        goToToday,
         handleEditHabit,
         deleteHabit,
         handleSaveHabit,

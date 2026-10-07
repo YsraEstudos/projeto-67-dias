@@ -53,6 +53,12 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, categories, onClose, onSave
 
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
+    const canSave = formData.title.trim().length > 0;
+    const handleSave = () => {
+        if (!canSave) return;
+        onSave({ ...formData, title: formData.title.trim(), category: formData.category.trim() || 'Geral' });
+    };
+
     // Intercept close to check for unsaved changes
     const handleClose = () => {
         if (hasChanges) {
@@ -70,7 +76,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, categories, onClose, onSave
                 <div className="relative bg-slate-800 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
                     <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
                         <h3 className="font-bold text-white">{task ? 'Editar Tarefa' : 'Nova Tarefa'}</h3>
-                        <button onClick={handleClose}><X className="text-slate-400 hover:text-white" size={20} /></button>
+                        <button onClick={handleClose} aria-label="Fechar"><X className="text-slate-400 hover:text-white" size={20} /></button>
                     </div>
 
                     <div className="p-6 space-y-4">
@@ -80,6 +86,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, categories, onClose, onSave
                                 autoFocus
                                 value={formData.title}
                                 onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+                                aria-label="Título da tarefa"
                                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
                                 placeholder="Ex: Limpar a garagem"
                             />
@@ -135,7 +143,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, categories, onClose, onSave
 
                     <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex gap-3">
                         <button onClick={handleClose} className="flex-1 py-3 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-medium">Cancelar</button>
-                        <button onClick={() => onSave(formData)} className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2">
+                        <button onClick={handleSave} disabled={!canSave} className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             <Save size={18} /> Salvar
                         </button>
                     </div>
@@ -147,7 +155,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ task, categories, onClose, onSave
                 isOpen={showUnsavedModal}
                 onSave={() => {
                     setShowUnsavedModal(false);
-                    onSave(formData);
+                    handleSave(); // no-op (keeps modal open) when the title is empty
                 }}
                 onDiscard={() => {
                     setShowUnsavedModal(false);

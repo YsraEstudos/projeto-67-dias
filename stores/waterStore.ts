@@ -24,6 +24,27 @@ const MIN_BOTTLE_AMOUNT = 50;
 const MAX_BOTTLE_AMOUNT = 5000;
 const MAX_BOTTLES = 12;
 
+const DEFAULT_GOAL = 2500;
+export const MIN_DAILY_GOAL = 250;
+export const MAX_DAILY_GOAL = 10000;
+
+/** Clamp a daily goal to a sane range; invalid values fall back to the default. */
+export const sanitizeGoal = (goal: unknown): number => {
+    const n = Number(goal);
+    if (!Number.isFinite(n) || n <= 0) return DEFAULT_GOAL;
+    return Math.round(Math.min(MAX_DAILY_GOAL, Math.max(MIN_DAILY_GOAL, n)));
+};
+
+/**
+ * Re-derive `today`/`currentAmount` from the real calendar day so the counter
+ * resets after midnight even if the app stayed open (stale `today`).
+ */
+const rollDay = (state: { today: string; currentAmount: number; history: Record<string, WaterLog> }) => {
+    const today = getTodayISO();
+    if (today === state.today) return { today, currentAmount: state.currentAmount };
+    return { today, currentAmount: state.history[today]?.amount || 0 };
+};
+
 const DEFAULT_BOTTLES: BottleType[] = [
     { id: 'copo', label: 'Copo', amount: 200, icon: '🥛', color: '#60a5fa' },
     { id: 'garrafa-pequena', label: 'Garrafa Pequena', amount: 300, icon: '🧴', color: '#34d399' },
@@ -62,18 +83,21 @@ interface WaterState {
 export const useWaterStore = create<WaterState>()((set, get) => ({
     today: getTodayISO(),
     currentAmount: 0,
-    dailyGoal: 2500,
+    dailyGoal: DEFAULT_GOAL,
     history: {},
     bottles: DEFAULT_BOTTLES,
     isLoading: true,
     _initialized: false,
 
     addWater: (amount, date) => {
+        if (!Number.isFinite(amount) || amount <= 0) return;
         set((state) => {
+            const day = rollDay(state);
             const currentLog = state.history[date] || { amount: 0, goal: state.dailyGoal };
             const newAmount = currentLog.amount + amount;
             return {
-                currentAmount: date === state.today ? newAmount : state.currentAmount,
+                today: day.today,
+                currentAmount: date === day.today ? newAmount : day.currentAmount,
                 history: { ...state.history, [date]: { ...currentLog, amount: newAmount } }
             };
         });
@@ -81,32 +105,41 @@ export const useWaterStore = create<WaterState>()((set, get) => ({
     },
 
     removeWater: (amount, date) => {
+        if (!Number.isFinite(amount) || amount <= 0) return;
         set((state) => {
+            const day = rollDay(state);
             const currentLog = state.history[date] || { amount: 0, goal: state.dailyGoal };
             const newAmount = Math.max(0, currentLog.amount - amount);
             return {
-                currentAmount: date === state.today ? newAmount : state.currentAmount,
+                today: day.today,
+                currentAmount: date === day.today ? newAmount : day.currentAmount,
                 history: { ...state.history, [date]: { ...currentLog, amount: newAmount } }
             };
         });
         get()._syncToFirestore();
     },
 
-    setGoal: (goal) => {
-        set((state) => ({
-            dailyGoal: goal,
-            history: {
-                ...state.history,
-                [state.today]: { ...(state.history[state.today] || { amount: 0 }), goal }
-            }
-        }));
+    setGoal: (rawGoal) => {
+        const goal = sanitizeGoal(rawGoal);
+        set((state) => {
+            const day = rollDay(state);
+            return {
+                ...day,
+                dailyGoal: goal,
+                history: {
+                    ...state.history,
+                    [day.today]: { ...(state.history[day.today] || { amount: 0 }), goal }
+                }
+            };
+        });
         get()._syncToFirestore();
     },
 
     checkDate: (date) => {
         set((state) => {
             if (date !== state.today) {
-                return { today: date };
+                // Day changed: the counter must reflect the new day's log, not yesterday's
+                return { today: date, currentAmount: state.history[date]?.amount || 0 };
             }
             return {};
         });
@@ -178,7 +211,7 @@ export const useWaterStore = create<WaterState>()((set, get) => ({
             const today = getTodayISO();
             const currentLog = data.history?.[today];
             set({
-                dailyGoal: data.dailyGoal || 2500,
+                dailyGoal: sanitizeGoal(data.dailyGoal),
                 history: data.history || {},
                 today,
                 bottles: data.bottles || DEFAULT_BOTTLES,
@@ -195,7 +228,7 @@ export const useWaterStore = create<WaterState>()((set, get) => ({
         set({
             today: getTodayISO(),
             currentAmount: 0,
-            dailyGoal: 2500,
+            dailyGoal: DEFAULT_GOAL,
             history: {},
             bottles: DEFAULT_BOTTLES,
             isLoading: true,

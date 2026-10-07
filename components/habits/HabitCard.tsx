@@ -25,9 +25,15 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
     onDelete
 }) => {
     const dateKey = useMemo(() => formatDateISO(selectedDate), [selectedDate]);
-    const log = useMemo(() => habit.history[dateKey] || { completed: false, subHabitsCompleted: [], value: 0 }, [habit.history, dateKey]);
+    const log = useMemo(() => {
+        const raw = habit.history?.[dateKey];
+        if (!raw) return { completed: false, subHabitsCompleted: [] as string[], value: 0 };
+        // Legacy/partial logs may lack subHabitsCompleted
+        return { ...raw, subHabitsCompleted: raw.subHabitsCompleted || [] };
+    }, [habit.history, dateKey]);
 
-    const hasSubHabits = habit.subHabits.length > 0;
+    const subHabits = habit.subHabits || [];
+    const hasSubHabits = subHabits.length > 0;
     const isFullyCompleted = log.completed;
     const isNegativeHabit = habit.isNegative;
     const isTimeHabit = habit.goalType === 'MAX_TIME' || habit.goalType === 'MIN_TIME';
@@ -67,8 +73,9 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                 for (let i = 0; i < 7; i++) {
                     const d = new Date(startOfWeek);
                     d.setDate(startOfWeek.getDate() + i);
-                    const k = d.toISOString().split('T')[0];
-                    current += habit.history[k]?.value || 0;
+                    // Local date key (toISOString uses UTC and shifts the week at night)
+                    const k = formatDateISO(d);
+                    current += habit.history?.[k]?.value || 0;
                 }
             } else {
                 // Daily Total
@@ -172,6 +179,10 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                             <button
                                 onClick={() => onToggle(habit.id)}
                                 className={`rounded-full p-1 transition-all mt-1 ${colors.button}`}
+                                aria-pressed={isFullyCompleted}
+                                aria-label={isNegativeHabit
+                                    ? (isFullyCompleted ? `Desmarcar falha em ${habit.title}` : `Marcar falha em ${habit.title}`)
+                                    : (isFullyCompleted ? `Desmarcar ${habit.title}` : `Concluir ${habit.title}`)}
                             >
                                 {isNegativeHabit ? (
                                     isFullyCompleted ? <XCircle size={28} /> : <div className="w-7 h-7 rounded-full border-2 border-current" />
@@ -290,6 +301,7 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                                     </button>
                                     <input
                                         type="number"
+                                        aria-label={`Registrar minutos em ${habit.title} (Enter para salvar, negativo para corrigir)`}
                                         placeholder="min"
                                         className="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-indigo-500"
                                         onKeyDown={(e) => {
@@ -339,12 +351,21 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                             <div className="text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
                                 <ListChecks size={12} /> {isNegativeHabit ? 'Gatilhos a evitar:' : 'Passos para completar:'}
                             </div>
-                            {habit.subHabits.map(sub => {
+                            {subHabits.map(sub => {
                                 const isSubDone = log.subHabitsCompleted.includes(sub.id);
                                 return (
                                     <div
                                         key={sub.id}
+                                        role="checkbox"
+                                        aria-checked={isSubDone}
+                                        tabIndex={0}
                                         onClick={() => onToggle(habit.id, sub.id)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                onToggle(habit.id, sub.id);
+                                            }
+                                        }}
                                         className={`flex items-center gap-2 cursor-pointer group ${isSubDone ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
                                     >
                                         <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isNegativeHabit
@@ -404,10 +425,11 @@ const HabitCard: React.FC<HabitCardProps> = memo(({
                         onClick={() => onEdit(habit)}
                         className="text-slate-600 hover:text-indigo-400 p-2 rounded-lg hover:bg-slate-900 transition-colors"
                         title="Editar"
+                        aria-label={`Editar ${habit.title}`}
                     >
                         <Pencil size={18} />
                     </button>
-                    <button onClick={() => onDelete(habit.id)} className="text-slate-600 hover:text-red-400 p-2 rounded-lg hover:bg-slate-900 transition-colors">
+                    <button onClick={() => onDelete(habit.id)} title="Excluir" aria-label={`Excluir ${habit.title}`} className="text-slate-600 hover:text-red-400 p-2 rounded-lg hover:bg-slate-900 transition-colors">
                         <Trash2 size={18} />
                     </button>
                 </div>

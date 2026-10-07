@@ -58,6 +58,20 @@ const deduplicateById = <T extends { id: string }>(items: T[]): T[] => {
     });
 };
 
+/**
+ * Returns the log for `date`, creating it (and normalizing legacy/partial data
+ * such as a missing `history` map or `subHabitsCompleted` array) when needed.
+ */
+const ensureLog = (habit: Habit, date: string): HabitLog => {
+    if (!habit.history) habit.history = {};
+    if (!habit.history[date]) {
+        habit.history[date] = { completed: false, subHabitsCompleted: [] };
+    }
+    const log = habit.history[date];
+    if (!Array.isArray(log.subHabitsCompleted)) log.subHabitsCompleted = [];
+    return log;
+};
+
 export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
     habits: [],
     tasks: [],
@@ -104,10 +118,8 @@ export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
             const habit = state.habits.find(h => h.id === habitId);
             if (!habit) return;
 
-            if (!habit.history[date]) {
-                habit.history[date] = { completed: false, subHabitsCompleted: [] };
-            }
-            const log = habit.history[date];
+            const log = ensureLog(habit, date);
+            const subHabits = habit.subHabits || [];
 
             if (subHabitId) {
                 // Toggle sub-habit
@@ -118,13 +130,13 @@ export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
                     log.subHabitsCompleted.push(subHabitId);
                 }
                 // Check if all sub-habits are completed
-                log.completed = habit.subHabits.length > 0 &&
-                    habit.subHabits.every(s => log.subHabitsCompleted.includes(s.id));
+                log.completed = subHabits.length > 0 &&
+                    subHabits.every(s => log.subHabitsCompleted.includes(s.id));
             } else {
                 // Toggle main habit
                 log.completed = !log.completed;
-                if (habit.subHabits && habit.subHabits.length > 0) {
-                    log.subHabitsCompleted = log.completed ? habit.subHabits.map(s => s.id) : [];
+                if (subHabits.length > 0) {
+                    log.subHabitsCompleted = log.completed ? subHabits.map(s => s.id) : [];
                 }
             }
         });
@@ -136,10 +148,7 @@ export const useHabitsStore = create<HabitsState>()(immer((set, get) => ({
             const habit = state.habits.find(h => h.id === habitId);
             if (!habit) return;
 
-            if (!habit.history[date]) {
-                habit.history[date] = { completed: false, subHabitsCompleted: [] };
-            }
-            const log = habit.history[date];
+            const log = ensureLog(habit, date);
             log.value = value;
 
             // Determine if completed based on goal type

@@ -27,7 +27,7 @@ describe('habitsStore atomic mutations', () => {
                 frequency: 'DAILY',
                 goalType: 'BOOLEAN',
                 archived: false,
-                createdAt: '2026-01-01',
+                createdAt: Date.parse('2026-01-01'),
                 history: {},
                 subHabits: [
                     { id: 'sub-1', title: 'Flexões' },
@@ -60,7 +60,7 @@ describe('habitsStore atomic mutations', () => {
                 frequency: 'DAILY',
                 goalType: 'BOOLEAN',
                 archived: false,
-                createdAt: '2026-01-01',
+                createdAt: Date.parse('2026-01-01'),
                 history: {},
                 subHabits: [
                     { id: 'sub-1', title: 'Ler 10 pgs' },
@@ -83,5 +83,32 @@ describe('habitsStore atomic mutations', () => {
         expect(log.subHabitsCompleted).toEqual(['sub-1', 'sub-2']);
 
         expect(writeToFirestoreMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not crash on legacy habits missing history/subHabits/subHabitsCompleted', () => {
+        useHabitsStore.setState({
+            habits: [
+                // legacy: no history map, no subHabits array
+                { id: 'legacy-1', title: 'Antigo', category: 'Saúde', archived: false, createdAt: 0 } as any,
+                // partial log without subHabitsCompleted
+                {
+                    id: 'legacy-2', title: 'Parcial', category: 'Saúde', archived: false, createdAt: 0,
+                    subHabits: [{ id: 's1', title: 'Passo' }],
+                    history: { '2026-07-27': { completed: false } },
+                } as any,
+            ],
+            _initialized: true,
+        });
+
+        expect(() => useHabitsStore.getState().toggleHabitCompletion('legacy-1', '2026-07-27')).not.toThrow();
+        expect(useHabitsStore.getState().habits[0].history['2026-07-27'].completed).toBe(true);
+
+        expect(() => useHabitsStore.getState().toggleHabitCompletion('legacy-2', '2026-07-27', 's1')).not.toThrow();
+        const log = useHabitsStore.getState().habits[1].history['2026-07-27'];
+        expect(log.subHabitsCompleted).toEqual(['s1']);
+        expect(log.completed).toBe(true);
+
+        expect(() => useHabitsStore.getState().logHabitValue('legacy-1', '2026-07-28', 10)).not.toThrow();
+        expect(useHabitsStore.getState().habits[0].history['2026-07-28'].value).toBe(10);
     });
 });

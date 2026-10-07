@@ -6,20 +6,15 @@ import { useStreakTracking } from '../hooks/useStreakTracking';
 import { useTimerStore } from '../stores';
 import { formatters } from '../utils/formatters';
 import { getCategoryColor } from '../utils/styling';
+import { getTodayISO } from '../utils/dateUtils';
+import { getDaysUntil } from './habits/taskDateUtils';
 
 const TaskModal = React.lazy(() => import('./habits/TaskModal'));
 
-// Helper to get days difference between due date and today at local midnight
-const getDaysRemaining = (dueDateStr: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+// Days between today (local) and a YYYY-MM-DD date; negative = past
+const getDaysRemaining = (dueDateStr: string, today: string) => getDaysUntil(dueDateStr, today) ?? Number.NaN;
 
-    const [year, month, day] = dueDateStr.split('-').map(Number);
-    const due = new Date(year, month - 1, day, 0, 0, 0, 0);
-
-    const diffTime = due.getTime() - today.getTime();
-    return Math.round(diffTime / (1000 * 60 * 60 * 24));
-};
+const isUpcoming = (days: number) => days === 0 || days === 1 || days === 3;
 
 const formatDate = (dateStr?: string) => {
     if (!dateStr) return null;
@@ -30,6 +25,7 @@ const formatDate = (dateStr?: string) => {
 };
 
 const getDaysRemainingLabel = (days: number) => {
+    if (days < 0) return Math.abs(days) === 1 ? 'Atrasada há 1 dia' : `Atrasada há ${Math.abs(days)} dias`;
     if (days === 0) return 'Hoje';
     if (days === 1) return 'Amanhã';
     if (days === 3) return 'Em 3 dias';
@@ -37,6 +33,7 @@ const getDaysRemainingLabel = (days: number) => {
 };
 
 const getBadgeColor = (days: number) => {
+    if (days < 0) return 'bg-red-600/30 text-red-300 border border-red-500/50';
     if (days === 0) return 'bg-red-500/20 text-red-400 border border-red-500/30';
     if (days === 1) return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
     if (days === 3) return 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
@@ -57,7 +54,20 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
     const popoverRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
 
-    // Filter tasks due or reminding in 0, 1, or 3 days
+    // Track the calendar day so badges/filters refresh after midnight when the tab regains focus
+    const [today, setToday] = useState(getTodayISO);
+    useEffect(() => {
+        const refresh = () => setToday(getTodayISO());
+        const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+            window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, []);
+
+    // Filter tasks overdue, or due/reminding in 0, 1, or 3 days
     const expiringTasks = useMemo(() => {
         return tasks
             .filter(t => {
@@ -65,12 +75,12 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                 
                 let isMatching = false;
                 if (t.dueDate) {
-                    const days = getDaysRemaining(t.dueDate);
-                    if (days === 0 || days === 1 || days === 3) isMatching = true;
+                    const days = getDaysRemaining(t.dueDate, today);
+                    if (days < 0 || isUpcoming(days)) isMatching = true;
                 }
                 if (t.reminderDate) {
-                    const days = getDaysRemaining(t.reminderDate);
-                    if (days === 0 || days === 1 || days === 3) isMatching = true;
+                    const days = getDaysRemaining(t.reminderDate, today);
+                    if (isUpcoming(days)) isMatching = true;
                 }
                 return isMatching;
             })
@@ -79,7 +89,12 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                 const bDate = b.dueDate || b.reminderDate || '';
                 return aDate.localeCompare(bDate);
             });
-    }, [tasks]);
+    }, [tasks, today]);
+
+    const overdueCount = useMemo(
+        () => expiringTasks.filter(t => t.dueDate && getDaysRemaining(t.dueDate, today) < 0).length,
+        [expiringTasks, today]
+    );
 
     // Categories list for TaskModal
     const categories = useMemo(() => {
@@ -100,11 +115,20 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
             }
         };
 
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsOpen(false);
+                buttonRef.current?.focus();
+            }
+        };
+
         if (isOpen) {
             document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('keydown', handleKeyDown);
         }
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
         };
     }, [isOpen]);
 
@@ -150,6 +174,9 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                 {isOpen && (
                     <div
                         ref={popoverRef}
+                        id="task-notification-popover"
+                        role="dialog"
+                        aria-label="Tarefas a vencer"
                         className="glass-strong p-4 rounded-2xl shadow-2xl animate-scale-in mb-2 w-96 max-w-[calc(100vw-2rem)] flex flex-col gap-3"
                     >
                         <div className="flex justify-between items-center pb-2 border-b border-slate-700/50">
@@ -159,9 +186,15 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                                 </span>
                                 <h3 className="font-bold text-white text-sm">Tarefas a Vencer</h3>
+                                {overdueCount > 0 && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-600/30 text-red-300 border border-red-500/50">
+                                        {overdueCount} atrasada{overdueCount > 1 ? 's' : ''}
+                                    </span>
+                                )}
                             </div>
                             <button
                                 onClick={() => setIsOpen(false)}
+                                aria-label="Fechar"
                                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
                             >
                                 <X size={16} />
@@ -180,6 +213,8 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                         <button
                                             onClick={() => handleToggleComplete(task.id)}
                                             className="transition-colors text-slate-600 hover:text-indigo-400 mt-0.5"
+                                            aria-label={`Concluir ${task.title}`}
+                                            title="Concluir tarefa"
                                         >
                                             <div className="w-6 h-6 rounded border-2 border-current flex items-center justify-center">
                                                 {task.isCompleted && <CheckSquare size={20} className="text-indigo-500" />}
@@ -193,7 +228,7 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                                     {task.title}
                                                 </span>
                                                 {task.dueDate && (() => {
-                                                    const days = getDaysRemaining(task.dueDate);
+                                                    const days = getDaysRemaining(task.dueDate, today);
                                                     const label = getDaysRemainingLabel(days);
                                                     const dateFormatted = formatDate(task.dueDate);
                                                     return (
@@ -204,8 +239,8 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                                     );
                                                 })()}
                                                 {task.reminderDate && (() => {
-                                                    const days = getDaysRemaining(task.reminderDate);
-                                                    const isExpiring = days === 0 || days === 1 || days === 3;
+                                                    const days = getDaysRemaining(task.reminderDate, today);
+                                                    const isExpiring = isUpcoming(days);
                                                     const dateFormatted = formatDate(task.reminderDate);
                                                     if (isExpiring) {
                                                         const label = getDaysRemainingLabel(days);
@@ -238,6 +273,7 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                                 onClick={() => handleEditTask(task)}
                                                 className="p-1.5 hover:bg-slate-700 rounded text-slate-500 hover:text-white transition-colors"
                                                 title="Editar tarefa"
+                                                aria-label={`Editar ${task.title}`}
                                             >
                                                 <Tag size={14} />
                                             </button>
@@ -245,6 +281,7 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                                                 onClick={() => handleDeleteTask(task.id)}
                                                 className="p-1.5 hover:bg-red-900/20 rounded text-slate-500 hover:text-red-400 transition-colors"
                                                 title="Excluir tarefa"
+                                                aria-label={`Excluir ${task.title}`}
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -268,6 +305,9 @@ export const TaskNotificationWidget: React.FC = React.memo(() => {
                         }
                     `}
                     title="Tarefas a vencer"
+                    aria-label={`Tarefas a vencer: ${expiringTasks.length}${overdueCount > 0 ? ` (${overdueCount} atrasada${overdueCount > 1 ? 's' : ''})` : ''}`}
+                    aria-expanded={isOpen}
+                    aria-controls="task-notification-popover"
                 >
                     {/* Ring animation */}
                     <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping pointer-events-none" style={{ animationDuration: '2.5s' }} />

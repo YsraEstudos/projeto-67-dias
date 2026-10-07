@@ -2,6 +2,7 @@ import React, { useEffect, useState, memo, Suspense } from 'react';
 import { useWaterData, useWaterActions } from '../../stores/selectors';
 import { Minus, Droplets, Settings } from 'lucide-react';
 import { getTodayISO } from '../../utils/dateUtils';
+import { MIN_DAILY_GOAL, MAX_DAILY_GOAL } from '../../stores/waterStore';
 
 const BottleManagerModal = React.lazy(() => import('./BottleManagerModal').then(module => ({ default: module.BottleManagerModal })));
 
@@ -11,12 +12,22 @@ export const WaterTracker: React.FC = memo(() => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Ensure we are tracking for the correct day on mount
+    // Ensure we are tracking for the correct day on mount and whenever the
+    // tab regains focus (e.g. app left open overnight)
     useEffect(() => {
-        checkDate(getTodayISO());
+        const sync = () => checkDate(getTodayISO());
+        sync();
+        const onVisibility = () => { if (document.visibilityState === 'visible') sync(); };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('focus', sync);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('focus', sync);
+        };
     }, [checkDate]);
 
-    const percentage = Math.min(100, Math.max(0, (currentAmount / dailyGoal) * 100));
+    const percentage = dailyGoal > 0 ? Math.min(100, Math.max(0, (currentAmount / dailyGoal) * 100)) : 0;
+    const remaining = Math.max(0, dailyGoal - currentAmount);
     const today = getTodayISO();
 
     // Get smallest bottle amount for correction
@@ -82,13 +93,17 @@ export const WaterTracker: React.FC = memo(() => {
                                 Hidratação
                             </h3>
                             <div className="flex items-center gap-2">
-                                <div className="text-sm text-cyan-200 font-medium">
+                                <div className="text-sm text-cyan-200 font-medium text-right" aria-live="polite">
                                     {percentage.toFixed(0)}% da meta
+                                    <div className="text-[10px] text-cyan-300/70 font-normal">
+                                        {remaining > 0 ? `Faltam ${remaining}ml` : 'Meta batida! 🎉'}
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => setIsModalOpen(true)}
                                     className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors"
                                     title="Gerenciar garrafas"
+                                    aria-label="Gerenciar garrafas"
                                 >
                                     <Settings size={16} />
                                 </button>
@@ -105,6 +120,7 @@ export const WaterTracker: React.FC = memo(() => {
                                 <button
                                     key={bottle.id}
                                     onClick={() => addWater(bottle.amount, today)}
+                                    aria-label={`Adicionar ${bottle.amount}ml (${bottle.label})`}
                                     className="bottle-btn flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:scale-105 transition-all text-white group"
                                     style={{
                                         '--bottle-color': bottle.color || '#22d3ee',
@@ -125,15 +141,17 @@ export const WaterTracker: React.FC = memo(() => {
                         <div className="flex items-center justify-end gap-2 flex-wrap">
                             <button
                                 onClick={() => removeWater(smallestBottle?.amount || 200, today)}
-                                className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-slate-800"
+                                disabled={currentAmount <= 0}
+                                className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none"
                             >
                                 <Minus size={12} /> Corrigir (-{smallestBottle?.amount || 200}ml)
                             </button>
                             <button
                                 onClick={() => {
-                                    const newGoal = prompt('Nova meta diária (ml):', dailyGoal.toString());
-                                    if (newGoal && !isNaN(Number(newGoal))) {
-                                        setGoal(Number(newGoal));
+                                    const newGoal = prompt(`Nova meta diária (ml, entre ${MIN_DAILY_GOAL} e ${MAX_DAILY_GOAL}):`, dailyGoal.toString());
+                                    const parsed = Number(newGoal?.replace(',', '.'));
+                                    if (newGoal && Number.isFinite(parsed) && parsed > 0) {
+                                        setGoal(parsed);
                                     }
                                 }}
                                 className="text-xs text-slate-500 hover:text-cyan-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-slate-800"

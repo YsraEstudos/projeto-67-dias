@@ -58,6 +58,7 @@ export const useStreakStore = create<StreakState>()(immer((set, get) => ({
         set((s) => {
             let newStreak = s.currentStreak;
             let newFreezeUsed = s.freezeDaysUsed;
+            let freezeConsumed = 0;
             let newStreakStart = s.streakStartDate;
 
             if (s.lastActiveDate) {
@@ -69,6 +70,7 @@ export const useStreakStore = create<StreakState>()(immer((set, get) => ({
                     const freezeNeeded = daysSince - 1;
                     if (s.freezeDaysUsed + freezeNeeded <= 3) {
                         newFreezeUsed += freezeNeeded;
+                        freezeConsumed = freezeNeeded;
                         newStreak += 1;
                     } else {
                         newStreak = 1;
@@ -90,6 +92,7 @@ export const useStreakStore = create<StreakState>()(immer((set, get) => ({
             s.lastActiveDate = today;
             s.freezeDaysUsed = newFreezeUsed;
             s.freezeDaysAvailable = 3 - newFreezeUsed;
+            s.totalFreezeUsed = (s.totalFreezeUsed || 0) + freezeConsumed;
             s.totalActiveDays = s.totalActiveDays + 1;
             s.activeDates.push(today);
             s.streakStartDate = newStreakStart;

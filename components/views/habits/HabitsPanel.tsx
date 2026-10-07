@@ -22,6 +22,7 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
         habits,
         selectedDate,
         changeDay,
+        goToToday,
         handleToggleHabitCompletion,
         handleLogValue,
         handleEditHabit,
@@ -65,7 +66,7 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
 
             {/* Date Navigator */}
             <div className="flex items-center justify-between bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
-                <button onClick={() => changeDay(-1)} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+                <button onClick={() => changeDay(-1)} aria-label="Dia anterior" title="Dia anterior" className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
                     <ChevronLeft size={24} />
                 </button>
 
@@ -74,11 +75,19 @@ export const HabitsPanel: React.FC<HabitsPanelProps> = ({ manager, categories })
                     <div className="flex items-center gap-2 text-xl font-bold text-white">
                         <Calendar size={20} className="text-slate-400" />
                         {selectedDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}
-                        {selectedDate.toDateString() === new Date().toDateString() && <span className="text-xs bg-slate-700 px-2 py-0.5 rounded-full text-slate-300">Hoje</span>}
+                        {isToday && <span className="text-xs bg-slate-700 px-2 py-0.5 rounded-full text-slate-300">Hoje</span>}
                     </div>
+                    {!isToday && (
+                        <button
+                            onClick={goToToday}
+                            className="mt-1 text-xs text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
+                        >
+                            Voltar para hoje
+                        </button>
+                    )}
                 </div>
 
-                <button onClick={() => changeDay(1)} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+                <button onClick={() => changeDay(1)} aria-label="Próximo dia" title="Próximo dia" className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
                     <ChevronRight size={24} />
                 </button>
             </div>

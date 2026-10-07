@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Calendar, TrendingUp, Flame } from 'lucide-react';
 import { ProgressivePlan } from '../../types';
 import { generateFullSchedule } from '../../utils/habitProgressiveCalc';
+import { getTodayISO } from '../../utils/dateUtils';
 
 interface ProgressivePlanSetupProps {
     plan: ProgressivePlan | undefined;
@@ -14,7 +15,7 @@ const ProgressivePlanSetup: React.FC<ProgressivePlanSetupProps> = ({ plan, onCha
     const isEnabled = !!plan;
 
     const defaultPlan: ProgressivePlan = {
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: getTodayISO(), // local date (toISOString is UTC and can be tomorrow at night)
         targetMinutes: 30,
         daysPerWeek: 3,
         scheduledDays: [1, 3, 5], // Seg, Qua, Sex
