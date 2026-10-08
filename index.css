@@ -66,14 +66,14 @@
 }
 
 /* AMOLED Theme - Override gradient backgrounds (Cards, etc) */
-.theme-amoled .bg-gradient-to-br:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-r:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-b:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-t:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-l:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-tr:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-bl:not(button):not(.force-color),
-.theme-amoled .bg-gradient-to-tl:not(button):not(.force-color) {
+.theme-amoled .bg-gradient-to-br:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-r:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-b:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-t:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-l:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-tr:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-bl:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]),
+.theme-amoled .bg-gradient-to-tl:not(button):not(.force-color):not(.badge-gold):not([data-force-color="true"]) {
     --tw-gradient-from: #0a0a0a !important;
     --tw-gradient-to: #000000 !important;
     --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
@@ -141,8 +141,8 @@
 }
 
 /* AMOLED Theme - Additional common patterns */
-.theme-amoled [class*="bg-slate-9"],
-.theme-amoled [class*="bg-slate-8"] {
+.theme-amoled [class*="bg-slate-9"]:not(.force-color),
+.theme-amoled [class*="bg-slate-8"]:not(.force-color) {
     background-color: #050505 !important;
 }
 
@@ -189,6 +189,18 @@
 .theme-amoled .pointer-events-none.bg-blue-500,
 .theme-amoled .pointer-events-none.bg-purple-500 {
     background-color: inherit !important;
+}
+
+/* AMOLED Theme - Keep accent badges and force-color highlights intact */
+.theme-amoled .force-color,
+.theme-amoled .badge-gold {
+    color: inherit;
+}
+
+.badge-gold {
+    background: linear-gradient(135deg, #FDE047 0%, #EAB308 50%, #CA8A04 100%) !important;
+    color: #020617 !important;
+    box-shadow: 0 4px 16px 0 rgba(234, 179, 8, 0.35);
 }
 
 /* ===============================================

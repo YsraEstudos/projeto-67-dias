@@ -819,8 +819,8 @@ export default function Bookshelf({ onSelectBook, onSelectChapter }: BookshelfPr
       {/* Banner de Destaque para Revisão Inteligente */}
       <section className="mb-8 bg-gradient-to-r from-slate-900/60 via-[#D4AF37]/5 to-slate-900/60 backdrop-blur-md border border-[#D4AF37]/20 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-[#D4AF37]/45 transition-all duration-300">
         <div className="flex items-center gap-4 text-center md:text-left">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5D76E] to-[#E8C840] text-white flex items-center justify-center shadow-lg shadow-[#E8C840]/20 shrink-0">
-            <BrainCircuit className="w-6 h-6 animate-pulse" />
+          <div className="w-12 h-12 rounded-2xl force-color badge-gold text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/25 shrink-0 ring-2 ring-amber-400/40">
+            <BrainCircuit className="w-6 h-6 animate-pulse text-slate-950" />
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 justify-center md:justify-start">
