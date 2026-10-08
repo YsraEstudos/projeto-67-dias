@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   Clock,
   Flame,
+  Folder,
+  FolderOpen,
   History,
   Play,
   RotateCcw,
@@ -23,10 +25,11 @@ import {
   Layers,
   Zap,
   Award,
+  Filter,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAulasStore } from "../../../stores/aulasStore";
-import { AulaBook, SmartReviewAnswer, SmartReviewQuestion, SmartReviewSession } from "../../../types";
+import { AulaBook, AulaFolder, SmartReviewAnswer, SmartReviewQuestion, SmartReviewSession } from "../../../types";
 import { generateUUID } from "../../../utils/uuid";
 import { buildSmartReviewPool, buildSmartReviewSummary, selectSmartReviewQuestions, SMART_REVIEW_MAX } from "./smartReview";
 import { motion, AnimatePresence } from "motion/react";
@@ -35,6 +38,8 @@ interface Props {
   books: AulaBook[];
   onClose: () => void;
   onSetQuestionStatus?: (question: any, status: "correct" | "incorrect" | "pending") => void;
+  initialFolderId?: string;
+  folders?: AulaFolder[];
 }
 
 type Screen = "setup" | "session" | "report" | "history";
@@ -66,6 +71,21 @@ type SubjectQuestionGroup = {
 };
 
 const SECONDARY_SUBMATTER = "Secundárias / conteúdo futuro";
+
+const getFolderAndSubfolderIds = (folderId: string, allFolders: AulaFolder[]): Set<string> => {
+  const ids = new Set<string>([folderId]);
+  let added = true;
+  while (added) {
+    added = false;
+    allFolders.forEach((f) => {
+      if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) {
+        ids.add(f.id);
+        added = true;
+      }
+    });
+  }
+  return ids;
+};
 
 const groupQuestionsBySubject = (questions: SmartReviewQuestion[]): SubjectQuestionGroup[] => {
   const groups = new Map<string, SubjectQuestionGroup & { submatterMap: Map<string, Set<number>> }>();
@@ -113,8 +133,9 @@ const groupQuestionsBySubject = (questions: SmartReviewQuestion[]): SubjectQuest
     .sort((a, b) => b.total - a.total || a.subject.localeCompare(b.subject));
 };
 
-export default function RandomQuestionsModal({ books, onClose }: Props) {
+export default function RandomQuestionsModal({ books, onClose, initialFolderId, folders: foldersProp }: Props) {
   const {
+    folders: storeFolders,
     reviewSessions,
     activeReviewSession,
     saveActiveReviewSession,
@@ -124,6 +145,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
     recordQuestionAttemptDirectly,
   } = useAulasStore(
     useShallow((state) => ({
+      folders: state.folders,
       reviewSessions: state.reviewSessions,
       activeReviewSession: state.activeReviewSession,
       saveActiveReviewSession: state.saveActiveReviewSession,
@@ -134,12 +156,48 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
     }))
   );
 
-  const pool = React.useMemo(() => buildSmartReviewPool(books), [books]);
+  const effectiveFolders = React.useMemo(() => {
+    return foldersProp && foldersProp.length > 0 ? foldersProp : storeFolders || [];
+  }, [foldersProp, storeFolders]);
+
+  // Estado para escolher a pasta da revisão ('all' ou folderId)
+  const [selectedFolderId, setSelectedFolderId] = React.useState<string>(initialFolderId || "all");
+
+  // Livros filtrados pela pasta selecionada (inclui subpastas recursivamente)
+  const filteredBooks = React.useMemo(() => {
+    if (selectedFolderId === "all") return books;
+    const folderIds = getFolderAndSubfolderIds(selectedFolderId, effectiveFolders);
+    return books.filter((b) => folderIds.has(b.folderId));
+  }, [books, selectedFolderId, effectiveFolders]);
+
+  // Contagem de questões disponíveis em cada pasta
+  const folderCounts = React.useMemo(() => {
+    const map = new Map<string, number>();
+    effectiveFolders.forEach((folder) => {
+      const subIds = getFolderAndSubfolderIds(folder.id, effectiveFolders);
+      const fBooks = books.filter((b) => subIds.has(b.folderId));
+      const fPool = buildSmartReviewPool(fBooks);
+      map.set(folder.id, fPool.length);
+    });
+    return map;
+  }, [books, effectiveFolders]);
+
+  const allPool = React.useMemo(() => buildSmartReviewPool(books), [books]);
+  const pool = React.useMemo(() => buildSmartReviewPool(filteredBooks), [filteredBooks]);
+
   const maxAvailable = Math.max(1, Math.min(SMART_REVIEW_MAX, pool.length));
   const [count, setCount] = React.useState(Math.min(15, maxAvailable));
   const [screen, setScreen] = React.useState<Screen>(activeReviewSession ? "session" : "setup");
   const [report, setReport] = React.useState<SmartReviewSession | null>(null);
-  const preview = React.useMemo(() => selectSmartReviewQuestions(books, count), [books, count]);
+
+  // Ajusta o count quando o pool da pasta mudar
+  React.useEffect(() => {
+    if (pool.length > 0) {
+      setCount((prev) => Math.min(Math.max(1, prev), maxAvailable));
+    }
+  }, [pool.length, maxAvailable]);
+
+  const preview = React.useMemo(() => selectSmartReviewQuestions(filteredBooks, count), [filteredBooks, count]);
 
   const [activeTab, setActiveTab] = React.useState<"todo" | "solved" | "forecast">("todo");
 
@@ -147,7 +205,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const solved: Array<SmartReviewQuestion & { latestAttempt: { status: "correct" | "incorrect"; timestamp: string } }> = [];
 
-    books.forEach((book) => {
+    filteredBooks.forEach((book) => {
       (book.chapters || []).forEach((chapter) => {
         const attempts = chapter.questionAttempts || {};
         Object.entries(attempts).forEach(([qNumberStr, stats]) => {
@@ -209,10 +267,10 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
     });
 
     return solved.sort((a, b) => new Date(b.latestAttempt.timestamp).getTime() - new Date(a.latestAttempt.timestamp).getTime());
-  }, [books]);
+  }, [filteredBooks]);
 
   const start = () => {
-    const questions = selectSmartReviewQuestions(books, count);
+    const questions = selectSmartReviewQuestions(filteredBooks, count);
     if (!questions.length) return;
     const now = new Date().toISOString();
     saveActiveReviewSession({
@@ -256,20 +314,28 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
     [setReviewAnswer]
   );
 
-  // Quick volume selection presets
+  // Presets rápidos de volume
   const quickVolumePresets = React.useMemo(() => {
+    if (pool.length === 0) return [1];
     const presets = [5, 10, 15, 20, 25, maxAvailable];
     return Array.from(new Set(presets.filter((p) => p > 0 && p <= maxAvailable)));
-  }, [maxAvailable]);
+  }, [maxAvailable, pool.length]);
+
+  // Nome da pasta selecionada
+  const selectedFolderName = React.useMemo(() => {
+    if (selectedFolderId === "all") return "Todas as Pastas";
+    const f = effectiveFolders.find((folder) => folder.id === selectedFolderId);
+    return f ? f.name : "Pasta Selecionada";
+  }, [selectedFolderId, effectiveFolders]);
 
   const setup = (
     <div className="grid lg:grid-cols-3 gap-6 h-full min-h-0 items-stretch">
-      {/* Coluna Esquerda: Configurações & Métricas (1/3) */}
+      {/* Coluna Esquerda: Configurações, Pasta & Métricas (1/3) */}
       <section className="lg:col-span-1 bg-slate-950/60 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 md:p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden">
         {/* Glow decorativo sutil de fundo */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="space-y-6 relative z-10">
+        <div className="space-y-5 relative z-10">
           {/* Header do Card com o Badge Dourado de Destaque */}
           <div className="flex justify-between items-center gap-4 pb-4 border-b border-slate-800/80">
             <div>
@@ -281,7 +347,9 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
               </div>
               <h3 className="text-lg text-slate-100 font-bold mt-1">Plano Diário</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Distribuição personalizada baseada em retenção e curva de esquecimento.
+                {selectedFolderId === "all"
+                  ? "Cobring todas as pastas cadastradas."
+                  : `Filtrando por: ${selectedFolderName}`}
               </p>
             </div>
 
@@ -306,8 +374,75 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
             </div>
           </div>
 
+          {/* SELETOR DE PASTA DE ESTUDO */}
+          <div className="space-y-2 bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5">
+            <div className="flex justify-between items-center">
+              <label htmlFor="folder-selector" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <FolderOpen className="w-3.5 h-3.5 text-[#D4AF37]" />
+                Pasta de Revisão
+              </label>
+              <span className="text-[10px] text-[#D4AF37] font-bold px-2 py-0.5 bg-[#D4AF37]/10 rounded-md border border-[#D4AF37]/20">
+                {pool.length} disponíveis
+              </span>
+            </div>
+
+            {/* Dropdown Select Customizado */}
+            <select
+              id="folder-selector"
+              value={selectedFolderId}
+              onChange={(e) => setSelectedFolderId(e.target.value)}
+              className="w-full bg-slate-900/90 border border-slate-700/80 hover:border-amber-500/40 text-slate-100 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer transition-all shadow-inner"
+            >
+              <option value="all">
+                📁 Todas as Pastas ({allPool.length} questões)
+              </option>
+              {effectiveFolders.map((folder) => {
+                const countInFolder = folderCounts.get(folder.id) || 0;
+                const isSub = Boolean(folder.parentId);
+                return (
+                  <option key={folder.id} value={folder.id}>
+                    {isSub ? "   ↳ " : "📂 "}{folder.name} ({countInFolder} questões)
+                  </option>
+                );
+              })}
+            </select>
+
+            {/* Pills Rápidos de Pasta (Carrossel Horizontal) */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              <button
+                type="button"
+                onClick={() => setSelectedFolderId("all")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border ${
+                  selectedFolderId === "all"
+                    ? "border-[#D4AF37] bg-[#D4AF37]/20 text-[#D4AF37] shadow-sm"
+                    : "border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                }`}
+              >
+                Todas ({allPool.length})
+              </button>
+              {effectiveFolders.map((folder) => {
+                const isSelected = selectedFolderId === folder.id;
+                const c = folderCounts.get(folder.id) || 0;
+                return (
+                  <button
+                    key={folder.id}
+                    type="button"
+                    onClick={() => setSelectedFolderId(folder.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border ${
+                      isSelected
+                        ? "border-[#D4AF37] bg-[#D4AF37]/20 text-[#D4AF37] shadow-sm"
+                        : "border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                    }`}
+                  >
+                    {folder.name} ({c})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Controle de Volume com Slider & Atalhos Rápidos */}
-          <div className="space-y-3 bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5">
+          <div className="space-y-2.5 bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5">
             <div className="flex justify-between items-center">
               <label htmlFor="question-volume-slider" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5 text-[#D4AF37]" />
@@ -325,11 +460,12 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
               min={1}
               max={maxAvailable}
               value={count}
+              disabled={pool.length === 0}
               onChange={(event) => setCount(Number(event.target.value))}
             />
 
             {/* Botões Rápidos de Volume */}
-            <div className="flex gap-1.5 pt-1">
+            <div className="flex gap-1.5 pt-0.5">
               {quickVolumePresets.map((val) => {
                 const isSelected = count === val;
                 const isMax = val === maxAvailable;
@@ -337,8 +473,9 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                   <button
                     key={val}
                     type="button"
+                    disabled={pool.length === 0}
                     onClick={() => setCount(val)}
-                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
                       isSelected
                         ? "border-[#D4AF37] bg-[#D4AF37]/20 text-[#D4AF37] shadow-sm"
                         : "border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:border-slate-700"
@@ -353,12 +490,12 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
 
           {/* Cards da Carga de Hoje */}
           <div>
-            <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center justify-between mb-2">
               <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 Composição do Lote
               </h4>
-              <span className="text-[10px] text-slate-500 font-medium">
-                {pool.length} no banco
+              <span className="text-[10px] text-slate-400 font-medium">
+                {pool.length} no banco desta pasta
               </span>
             </div>
 
@@ -391,7 +528,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
               ].map(({ label, value, icon: Icon, badgeStyle }) => (
                 <div
                   key={label}
-                  className={`border rounded-xl p-3 flex flex-col justify-between transition-all hover:brightness-110 ${badgeStyle}`}
+                  className={`border rounded-xl p-2.5 flex flex-col justify-between transition-all hover:brightness-110 ${badgeStyle}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] uppercase tracking-wider font-bold opacity-80">
@@ -399,20 +536,20 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                     </span>
                     <Icon className="w-3.5 h-3.5 opacity-70" />
                   </div>
-                  <strong className="text-xl font-black mt-1.5 block">
+                  <strong className="text-lg font-black mt-1 block">
                     {value}
                   </strong>
                 </div>
               ))}
 
-              <div className="col-span-2 border border-amber-500/20 bg-amber-500/5 rounded-xl p-3 flex justify-between items-center text-slate-300">
+              <div className="col-span-2 border border-amber-500/20 bg-amber-500/5 rounded-xl p-2.5 flex justify-between items-center text-slate-300">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#D4AF37]" />
+                  <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
                   <span className="text-[9px] uppercase tracking-wider font-bold text-slate-300">
                     Revisões Vencidas
                   </span>
                 </div>
-                <strong className="text-sm font-black text-[#D4AF37] px-2 py-0.5 bg-[#D4AF37]/15 rounded-md border border-[#D4AF37]/25">
+                <strong className="text-xs font-black text-[#D4AF37] px-2 py-0.5 bg-[#D4AF37]/15 rounded-md border border-[#D4AF37]/25">
                   {preview.filter((q) => q.reviewOverdue).length}
                 </strong>
               </div>
@@ -420,11 +557,11 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
           </div>
 
           {/* Botões de Ação */}
-          <div className="pt-4 border-t border-slate-850 space-y-3">
+          <div className="pt-3 border-t border-slate-800 space-y-2.5">
             {activeReviewSession ? (
               <button
                 onClick={() => setScreen("session")}
-                className="w-full force-color badge-gold text-slate-950 font-black rounded-xl py-3.5 text-xs uppercase tracking-wider flex justify-center items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full force-color badge-gold text-slate-950 font-black rounded-xl py-3 text-xs uppercase tracking-wider flex justify-center items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
                 style={{
                   background: "linear-gradient(135deg, #FDE047 0%, #EAB308 50%, #CA8A04 100%)",
                   color: "#020617",
@@ -436,7 +573,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
               <button
                 onClick={start}
                 disabled={!preview.length}
-                className="w-full force-color badge-gold text-slate-950 font-black rounded-xl py-3.5 text-xs uppercase tracking-wider flex justify-center items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full force-color badge-gold text-slate-950 font-black rounded-xl py-3 text-xs uppercase tracking-wider flex justify-center items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 style={{
                   background: preview.length
                     ? "linear-gradient(135deg, #FDE047 0%, #EAB308 50%, #CA8A04 100%)"
@@ -448,7 +585,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
               </button>
             )}
             <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-              Você pode resolver as questões diretamente pelo painel interativo à direita ou entrar no modo cronometrado.
+              Você pode resolver as questões diretamente pelo painel à direita ou entrar no modo cronometrado.
             </p>
           </div>
         </div>
@@ -521,9 +658,27 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                       <CheckCircle2 className="w-8 h-8" />
                     </div>
                     <div>
-                      <p className="text-base font-bold text-slate-200">Tudo em dia!</p>
+                      <p className="text-base font-bold text-slate-200">
+                        {pool.length === 0
+                          ? `Nenhuma questão pendente para revisão em "${selectedFolderName}".`
+                          : "Tudo em dia!"}
+                      </p>
                       <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                        Você revisou todas as questões programadas para hoje. Ótimo trabalho de retenção!
+                        {pool.length === 0 ? (
+                          <span>
+                            Experimente selecionar outra pasta ou clique em{" "}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFolderId("all")}
+                              className="text-[#D4AF37] underline font-bold hover:text-amber-300"
+                            >
+                              Todas as Pastas
+                            </button>{" "}
+                            para ver a carga global de hoje.
+                          </span>
+                        ) : (
+                          "Você revisou todas as questões programadas para hoje nesta pasta. Ótimo trabalho!"
+                        )}
                       </p>
                     </div>
                   </div>
@@ -627,7 +782,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                       <Clock className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-base font-bold text-slate-300">Nenhuma questão resolvida hoje</p>
+                      <p className="text-base font-bold text-slate-300">Nenhuma questão resolvida hoje nesta pasta</p>
                       <p className="text-xs text-slate-500 mt-1">
                         As questões respondidas hoje aparecerão listadas aqui com horário e opção de desfazer.
                       </p>
@@ -719,7 +874,7 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
                 className="space-y-3"
               >
                 {previewGroups.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-16">Nenhuma matéria prevista para hoje.</p>
+                  <p className="text-sm text-slate-400 text-center py-16">Nenhuma matéria prevista nesta pasta para hoje.</p>
                 ) : (
                   previewGroups.map((group) => (
                     <div key={group.key} className="border border-slate-800 bg-slate-900/40 rounded-2xl p-4 md:p-5 shadow-sm">
@@ -1192,8 +1347,8 @@ export default function RandomQuestionsModal({ books, onClose }: Props) {
           <footer className="shrink-0 border-t border-slate-800 bg-slate-950/80 px-5 py-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between pb-safe">
             <p className="text-xs text-slate-400">
               {preview.length
-                ? `${preview.length} questões selecionadas prontas para revisar hoje.`
-                : "Cadastre questões nas aulas para iniciar uma revisão adaptativa."}
+                ? `${preview.length} questões selecionadas em "${selectedFolderName}" prontas para revisar hoje.`
+                : `Nenhuma questão pendente para revisão hoje em "${selectedFolderName}".`}
             </p>
             <div className="flex gap-2">
               {activeReviewSession ? (

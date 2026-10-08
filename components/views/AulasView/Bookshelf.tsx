@@ -1315,6 +1315,7 @@ export default function Bookshelf({ onSelectBook, onSelectChapter }: BookshelfPr
           books={books}
           onClose={() => setRandomQuestionsOpen(false)}
           onSetQuestionStatus={setRandomQuestionStatus}
+          initialFolderId={isFolderView ? currentView.id : undefined}
         />
       )}
 
